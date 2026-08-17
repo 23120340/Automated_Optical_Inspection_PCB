@@ -68,7 +68,7 @@ class AOIPipeline:
         return load_image(source)
 
     def preprocess(self, image: np.ndarray) -> PreprocessResult:
-        """Step 1: resize and enhance an image."""
+        """Step 1: optionally undistort, then resize and enhance an image."""
 
         return self.preprocessor.process(image)
 

@@ -170,6 +170,8 @@ class PipelineBridge:
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> StageResult:
         started = time.perf_counter()
+        preprocess_config = self.config.get("preprocess", self.config)
+        undistort_required = bool(preprocess_config.get("undistort", False))
         if self.engine is not None and hasattr(self.engine, "preprocess"):
             try:
                 raw = _call_supported(self.engine.preprocess, image, **kwargs)
@@ -187,13 +189,23 @@ class PipelineBridge:
                     raw=raw,
                 )
             except Exception as exc:
+                if undistort_required:
+                    raise RuntimeError(
+                        "Hiệu chỉnh méo ống kính thất bại; pipeline không tự bỏ qua undistort: "
+                        f"{type(exc).__name__}: {exc}"
+                    ) from exc
                 fallback_note = f"AOIPipeline lỗi ({type(exc).__name__}: {exc}); dùng CV demo."
             else:  # pragma: no cover - explicit for readability
                 fallback_note = ""
         else:
+            if undistort_required:
+                raise RuntimeError(
+                    "Đã bật hiệu chỉnh méo ống kính nhưng AOIPipeline không sẵn sàng; "
+                    "pipeline không tự chạy ảnh chưa undistort."
+                )
             fallback_note = "AOIPipeline chưa sẵn sàng; dùng CV demo."
 
-        output = _fallback_preprocess(image, self.config.get("preprocess", self.config))
+        output = _fallback_preprocess(image, preprocess_config)
         return StageResult(
             image=output,
             mode="CV DEMO",

@@ -5,7 +5,9 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from .calibration import CameraCalibrationProfile, CameraUndistorter
 from .config import PreprocessConfig
+from .exceptions import CalibrationProfileError
 from .image_io import ensure_bgr
 from .models import PreprocessResult
 
@@ -13,13 +15,44 @@ from .models import PreprocessResult
 class ImagePreprocessor:
     def __init__(self, config: PreprocessConfig | None = None) -> None:
         self.config = config or PreprocessConfig()
+        self.undistorter: CameraUndistorter | None = None
+        if self.config.undistort:
+            if self.config.calibration_profile is None:
+                raise CalibrationProfileError(
+                    "Lens undistortion is enabled but no calibration_profile was supplied."
+                )
+            profile = CameraCalibrationProfile.from_mapping(self.config.calibration_profile)
+            self.undistorter = CameraUndistorter(
+                profile,
+                alpha=self.config.undistort_alpha,
+                aspect_tolerance=self.config.calibration_aspect_tolerance,
+            )
 
     def process(self, image: np.ndarray) -> PreprocessResult:
         source = ensure_bgr(image)
         output = source.copy()
         operations: list[str] = []
         warnings: list[str] = []
+        metrics: dict[str, object] = {}
         scale = 1.0
+
+        if self.undistorter is not None:
+            corrected = self.undistorter.correct(output)
+            output = corrected.image
+            scaled = ":scaled_intrinsics" if corrected.scaled_intrinsics else ""
+            operations.append(f"undistort:pinhole{scaled}")
+            metrics.update(
+                {
+                    "undistort": "applied",
+                    "calibration_size": (
+                        f"{corrected.calibration_size[0]}x{corrected.calibration_size[1]}"
+                    ),
+                    "undistort_alpha": corrected.alpha,
+                    "valid_pixel_roi": "x".join(str(value) for value in corrected.roi),
+                }
+            )
+            if corrected.roi[2] <= 0 or corrected.roi[3] <= 0:
+                warnings.append("Undistortion produced an empty valid-pixel ROI")
 
         max_side = self.config.max_side
         if max_side is not None:
@@ -92,6 +125,7 @@ class ImagePreprocessor:
             operations=operations,
             scale=scale,
             warnings=warnings,
+            metrics=metrics,
         )
 
 

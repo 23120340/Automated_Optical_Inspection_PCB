@@ -122,6 +122,7 @@ class PreprocessResult:
     operations: list[str] = field(default_factory=list)
     scale: float = 1.0
     warnings: list[str] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -130,6 +131,7 @@ class PreprocessResult:
             "operations": self.operations,
             "scale": float(self.scale),
             "warnings": self.warnings,
+            "metrics": self.metrics,
         }
 
 

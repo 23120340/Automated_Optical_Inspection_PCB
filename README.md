@@ -4,7 +4,7 @@
 
 ```text
 0. Import ảnh
-   → 1. Tiền xử lý
+   → 1. Undistort tùy chọn + tiền xử lý
    → 2. Căn chỉnh với Golden Image (tùy chọn)
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
@@ -27,6 +27,42 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Sau đó mở địa chỉ Streamlit hiển thị trong terminal, mặc định là
 `http://127.0.0.1:8501`.
+
+## Hiệu chỉnh méo ống kính camera
+
+Bước 1 hỗ trợ profile camera OpenCV để sửa méo radial/tangential **trước khi
+resize**. Đây là lớp xử lý khác với homography ở bước 2: undistort sửa méo lens,
+còn homography đưa mặt phẳng PCB về Golden Image.
+
+Chuẩn bị ít nhất 10 ảnh bàn cờ calibration ở đúng camera, lens, tiêu cự, focus và
+độ phân giải sẽ dùng khi chạy AOI. Nên chụp 15–25 ảnh với bàn cờ xuất hiện ở giữa,
+các góc, cạnh ảnh và nhiều góc nghiêng. `--columns`/`--rows` là số **giao điểm bên
+trong**, không phải số ô. Ví dụ bàn cờ 10×7 ô có 9×6 giao điểm trong:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\calibrate_camera.py `
+  D:\camera_calibration\cam01 `
+  --columns 9 `
+  --rows 6 `
+  --square-size 20 `
+  --camera-id CAM01 `
+  --lens-id 12mm-fixed `
+  --output camera_profiles\cam01_12mm.json
+```
+
+Đơn vị `--square-size` có thể là mm hoặc đơn vị khác miễn nhất quán. Sau khi tạo
+profile:
+
+1. Mở sidebar **Camera calibration** và tải file JSON.
+2. Ở bước 1 bật **Sửa méo ống kính**.
+3. Để `Giữ vùng biên sau undistort = 0` nếu muốn ít viền đen; tăng dần về `1` nếu
+   cần giữ trường nhìn.
+4. Nếu dùng Golden Image, ảnh chuẩn phải là ảnh raw từ cùng camera/lens/recipe;
+   pipeline sẽ undistort cả ảnh hiện tại và Golden Image trước khi homography.
+
+Profile ghi độ phân giải calibration và reprojection error. Ảnh cùng tỉ lệ khung
+hình có thể dùng độ phân giải khác vì ma trận nội tại được scale; ảnh crop hoặc
+sai tỉ lệ sẽ bị từ chối để tránh hiệu chỉnh sai mà không báo.
 
 Chạy test:
 

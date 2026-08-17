@@ -2,6 +2,14 @@
 
 from .alignment import PCBAligner
 from .board import PCBLocalizer
+from .calibration import (
+    CalibrationRun,
+    CameraCalibrationProfile,
+    CameraUndistorter,
+    UndistortionResult,
+    calibrate_from_chessboards,
+    save_calibration_profile,
+)
 from .config import (
     AlignmentConfig,
     BoardConfig,
@@ -23,6 +31,7 @@ from .detectors import (
 from .exceptions import (
     AlignmentError,
     AOIPipelineError,
+    CalibrationProfileError,
     DetectorConfigurationError,
     ExportError,
     InvalidImageError,
@@ -51,8 +60,12 @@ __all__ = [
     "BoardConfig",
     "BoardRegion",
     "BoundingBox",
+    "CalibrationProfileError",
+    "CalibrationRun",
     "CVComponentDetector",
     "CVDetectorConfig",
+    "CameraCalibrationProfile",
+    "CameraUndistorter",
     "ComponentCrop",
     "ComponentCropper",
     "ComponentDetector",
@@ -72,6 +85,8 @@ __all__ = [
     "PreprocessConfig",
     "PreprocessResult",
     "UltralyticsDetector",
+    "UndistortionResult",
+    "calibrate_from_chessboards",
     "create_detector",
     "encode_image",
     "ensure_bgr",
@@ -80,6 +95,7 @@ __all__ = [
     "load_image",
     "non_maximum_suppression",
     "render_annotations",
+    "save_calibration_profile",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

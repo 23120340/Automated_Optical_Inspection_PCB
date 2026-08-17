@@ -15,6 +15,10 @@ class PreprocessConfig:
     without aggressively destroying tiny silkscreen or component edges.
     """
 
+    undistort: bool = False
+    calibration_profile: dict[str, Any] | None = None
+    undistort_alpha: float = 0.0
+    calibration_aspect_tolerance: float = 0.01
     max_side: int | None = 2048
     denoise: bool = True
     denoise_method: Literal["nlmeans", "bilateral", "gaussian"] = "nlmeans"

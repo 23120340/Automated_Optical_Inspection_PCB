@@ -43,12 +43,13 @@ from app.pipeline_bridge import (  # noqa: E402
 
 
 APP_TITLE = "AOI PCB · Workbench"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 MAX_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 50_000_000
+MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 STEP_DEFINITIONS = (
     (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
-    (1, "Tiền xử lý", "Làm sạch và chuẩn hóa", "FX"),
+    (1, "Tiền xử lý", "Undistort và chuẩn hóa", "FX"),
     (2, "Căn chỉnh PCB", "Golden image + homography", "AL"),
     (3, "Khoanh vùng PCB", "Xác định board ROI", "ROI"),
     (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI"),
@@ -76,6 +77,10 @@ st.set_page_config(
 def _default_config() -> dict[str, Any]:
     return {
         "preprocess": {
+            "undistort": False,
+            "calibration_profile": None,
+            "undistort_alpha": 0.0,
+            "calibration_aspect_tolerance": 0.01,
             "resize_enabled": True,
             "max_side": 1600,
             "denoise": "Bilateral",
@@ -129,6 +134,8 @@ def _init_state() -> None:
         "reference_image": None,
         "reference_name": None,
         "reference_digest": None,
+        "calibration_profile_name": None,
+        "calibration_profile_digest": None,
         "board_model_path": None,
         "board_model_name": None,
         "board_model_digest": None,
@@ -147,7 +154,12 @@ def _init_state() -> None:
         "last_backend_mode": "CHƯA CHẠY",
         "last_backend_detail": "Import ảnh để bắt đầu.",
         "config": _default_config(),
-        "ignored_uploads": {"reference": None, "board": None, "component": None},
+        "ignored_uploads": {
+            "calibration": None,
+            "reference": None,
+            "board": None,
+            "component": None,
+        },
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -258,6 +270,44 @@ def _set_reference(upload: Any) -> None:
     st.session_state.ignored_uploads["reference"] = None
     _invalidate_after(1)
     st.session_state.messages.append(f"Đã nạp Golden Image: {upload.name}")
+
+
+def _set_calibration_profile(upload: Any) -> None:
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data:
+        raise ValueError("Calibration profile rỗng.")
+    if len(data) > MAX_CALIBRATION_PROFILE_BYTES:
+        raise ValueError("Calibration profile vượt giới hạn 256 KB.")
+    digest = _digest(data)
+    if digest == st.session_state.ignored_uploads.get("calibration"):
+        return
+    if digest == st.session_state.calibration_profile_digest:
+        return
+    from aoi_pipeline import CameraCalibrationProfile
+
+    profile = CameraCalibrationProfile.from_json(data)
+    preprocess_config = st.session_state.config["preprocess"]
+    preprocess_config["calibration_profile"] = profile.to_dict()
+    preprocess_config["undistort"] = True
+    st.session_state.calibration_profile_name = upload.name
+    st.session_state.calibration_profile_digest = digest
+    st.session_state.ignored_uploads["calibration"] = None
+    _invalidate_after(0)
+    st.session_state.messages.append(f"Đã nạp camera calibration: {upload.name}")
+
+
+def _remove_calibration_profile() -> None:
+    st.session_state.ignored_uploads["calibration"] = (
+        st.session_state.calibration_profile_digest
+    )
+    st.session_state.calibration_profile_name = None
+    st.session_state.calibration_profile_digest = None
+    preprocess_config = st.session_state.config["preprocess"]
+    preprocess_config["calibration_profile"] = None
+    preprocess_config["undistort"] = False
+    _invalidate_after(0)
 
 
 def _set_model(upload: Any, kind: str) -> None:
@@ -608,6 +658,30 @@ def _render_sidebar() -> bool:
         st.session_state.active_step = selected
 
         st.markdown('<div class="sidebar-section-label">TÀI NGUYÊN</div>', unsafe_allow_html=True)
+        with st.expander("Camera calibration", expanded=False):
+            calibration_upload = st.file_uploader(
+                "Profile hiệu chỉnh (.json)",
+                type=["json"],
+                key="calibration_profile_uploader",
+                help="Profile tạo bởi scripts/calibrate_camera.py cho đúng camera, lens và tiêu cự.",
+            )
+            if calibration_upload is not None:
+                try:
+                    _set_calibration_profile(calibration_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            profile = st.session_state.config["preprocess"].get("calibration_profile")
+            if st.session_state.calibration_profile_name and isinstance(profile, dict):
+                st.success(st.session_state.calibration_profile_name)
+                rms = profile.get("rms_reprojection_error")
+                summary = f"{profile.get('image_width')}×{profile.get('image_height')}"
+                if rms is not None:
+                    summary += f" · RMS {float(rms):.4f}px"
+                st.caption(summary)
+                if st.button("Gỡ calibration profile", width="stretch"):
+                    _remove_calibration_profile()
+                    st.rerun()
+
         with st.expander("Golden Image / Reference", expanded=False):
             reference_upload = st.file_uploader(
                 "Ảnh board chuẩn",
@@ -821,6 +895,22 @@ def _render_step_one() -> None:
     with control_col:
         st.markdown("#### Recipe tiền xử lý")
         with st.form("preprocess_form"):
+            has_calibration = isinstance(config.get("calibration_profile"), dict)
+            undistort = st.checkbox(
+                "Sửa méo ống kính",
+                value=bool(config.get("undistort", False) and has_calibration),
+                disabled=not has_calibration,
+                help="Cần tải Camera calibration profile trong sidebar; chạy trước resize.",
+            )
+            undistort_alpha = st.slider(
+                "Giữ vùng biên sau undistort",
+                0.0,
+                1.0,
+                float(config.get("undistort_alpha", 0.0)),
+                0.05,
+                disabled=not undistort,
+                help="0: ít viền đen nhất; 1: giữ tối đa trường nhìn.",
+            )
             resize_enabled = st.checkbox("Resize cạnh dài", value=config["resize_enabled"])
             max_side = st.number_input("Cạnh dài tối đa", 640, 4096, int(config["max_side"]), 160)
             denoise = st.selectbox(
@@ -838,6 +928,8 @@ def _render_step_one() -> None:
         if submitted:
             config.update(
                 {
+                    "undistort": undistort,
+                    "undistort_alpha": undistort_alpha,
                     "resize_enabled": resize_enabled,
                     "max_side": max_side,
                     "denoise": denoise,
@@ -1211,8 +1303,10 @@ def _manifest() -> dict[str, Any]:
     detections = result.detections if isinstance(result, DetectionResult) else []
     board = st.session_state.board_result
     coordinate_space = _analysis_coordinate_space()
+    preprocess_config = st.session_state.config.get("preprocess", {})
+    calibration_profile = preprocess_config.get("calibration_profile")
     return {
-        "schema_version": "aoi-pcb-workbench/0.1",
+        "schema_version": "aoi-pcb-workbench/0.2",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": {
             "name": st.session_state.input_name,
@@ -1223,6 +1317,12 @@ def _manifest() -> dict[str, Any]:
         "reference": {
             "name": st.session_state.reference_name,
             "sha256": st.session_state.reference_digest,
+        },
+        "calibration": {
+            "name": getattr(st.session_state, "calibration_profile_name", None),
+            "sha256": getattr(st.session_state, "calibration_profile_digest", None),
+            "enabled": bool(preprocess_config.get("undistort", False)),
+            "profile": calibration_profile if isinstance(calibration_profile, dict) else None,
         },
         "models": {
             "board": {
@@ -1327,6 +1427,14 @@ def _build_zip() -> bytes:
         archive.writestr("detections.csv", _detections_csv_bytes())
         if st.session_state.input_image is not None:
             archive.writestr(f"stages/00_{base}_input.png", _encode_png(st.session_state.input_image))
+        calibration_profile = st.session_state.config.get("preprocess", {}).get(
+            "calibration_profile"
+        )
+        if isinstance(calibration_profile, dict):
+            archive.writestr(
+                "calibration/profile.json",
+                json.dumps(calibration_profile, ensure_ascii=False, indent=2),
+            )
         preprocess = st.session_state.preprocess_result
         if isinstance(preprocess, StageResult):
             archive.writestr(f"stages/01_{base}_preprocessed.png", _encode_png(preprocess.image))
