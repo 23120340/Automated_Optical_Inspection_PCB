@@ -10,7 +10,7 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 }
 
 Set-Location -LiteralPath $projectRoot
-& $venvPython -m streamlit run $appPath --server.address 127.0.0.1
+& $venvPython -m streamlit run $appPath --server.address 0.0.0.0
 if ($LASTEXITCODE -ne 0) {
     throw "Streamlit exited with code $LASTEXITCODE."
 }
