@@ -91,6 +91,8 @@ Notebook đã được cấu hình sẵn cho [PCB Component Detection Consolidat
 
 Nếu Kaggle đổi tên thư mục mount, mở panel **Input**, copy đường dẫn thực tế rồi chỉ sửa `dataset_source`. Khi dùng dataset tự tạo, đặt `data_yaml` tới YAML tương ứng hoặc để cả hai khóa là `None` nếu Input chỉ có đúng một YOLO YAML/ZIP.
 
+Nếu gặp lỗi đường dẫn dạng `/kaggle/input/components_data_uncropped/data.yaml`, phiên đang chạy có `dataset_source=None`. Cách sửa nhanh là chạy lại cell `CONFIG` với preset ở trên rồi chạy lại cell tìm dataset. Bản notebook hiện tại cũng tự tìm một YAML khớp duy nhất bên dưới các thư mục mount khi `dataset_source` bị để trống.
+
 **Cách B — một file ZIP trong Kaggle Input**
 
 Gắn Dataset chứa file ZIP rồi đặt `dataset_source` tới file đó. Notebook chặn path traversal và mặc định không giải nén quá 12 GB để chừa dung lượng cho checkpoint/report trong `/kaggle/working`. Chỉ tăng `max_extract_gb` sau khi kiểm tra quota của session.
