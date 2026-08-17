@@ -12,7 +12,7 @@ import random
 import numpy as np
 import pandas as pd
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 NOTEBOOK_PATH = (
     Path(__file__).parents[1]
@@ -226,3 +226,45 @@ def test_audit_accepts_partial_boxes_and_excludes_cross_split_duplicate(tmp_path
     assert len(split_images["val"]) == 1
     assert invalid["reason"].tolist() == ["duplicate_annotation"]
     assert training_yaml.is_file()
+
+
+def test_ground_truth_renderer_builds_a_three_channel_rgb_color(tmp_path: Path) -> None:
+    notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    preview_source = next(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code" and "def render_ground_truth" in "".join(cell["source"])
+    )
+    tree = ast.parse(preview_source)
+    function_nodes = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name in {"read_valid_boxes", "render_ground_truth"}
+    ]
+
+    class _ColorMaps:
+        @staticmethod
+        def tab20(_: int) -> tuple[float, float, float, float]:
+            return 0.1, 0.2, 0.3, 1.0
+
+    class _PlotStub:
+        cm = _ColorMaps()
+
+    image_path = tmp_path / "board.png"
+    label_path = tmp_path / "board.txt"
+    Image.new("RGB", (16, 16), "white").save(image_path)
+    label_path.write_text("0 0.98 0.5 0.1 0.2\n", encoding="utf-8")
+    namespace = {
+        "Path": Path,
+        "Image": Image,
+        "ImageDraw": ImageDraw,
+        "plt": _PlotStub(),
+        "CLASS_NAMES": ["component"],
+        "label_path_for_image": lambda _: label_path,
+    }
+    exec(compile(ast.Module(body=function_nodes, type_ignores=[]), str(NOTEBOOK_PATH), "exec"), namespace)
+
+    rendered = namespace["render_ground_truth"](image_path)
+
+    assert rendered.mode == "RGB"
+    assert rendered.getpixel((15, 6)) == (26, 51, 76)
