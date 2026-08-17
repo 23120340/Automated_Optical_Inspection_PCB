@@ -765,7 +765,7 @@ def build_optimizer(backbone_trainable):
     return torch.optim.AdamW(groups, weight_decay=CONFIG["weight_decay"])
 
 
-@torch.inference_mode()
+@torch.no_grad()
 def predict(loader, active_model=model):
     active_model.eval()
     all_logits, all_targets, all_paths = [], [], []
@@ -855,21 +855,52 @@ print("Best epoch:", checkpoint["epoch"], "val macro-F1:", checkpoint["val_macro
 # hoàn chỉnh: cần thêm ảnh crop ngoài taxonomy/camera thật trước production.
 
 # %%
+def fit_temperature(logits, targets):
+    # `clone()` converts tensors created by inference_mode in an older/executed
+    # predict cell into ordinary tensors that autograd may save for backward.
+    calibration_logits = logits.detach().clone().to(dtype=torch.float32)
+    calibration_targets = targets.detach().clone().to(dtype=torch.long)
+    if calibration_logits.ndim != 2 or calibration_targets.ndim != 1:
+        raise ValueError(
+            "Temperature calibration expects logits [N, C] and targets [N]"
+        )
+    if len(calibration_logits) == 0 or len(calibration_logits) != len(calibration_targets):
+        raise ValueError("Calibration split is empty or logits/targets lengths differ")
+    if not torch.isfinite(calibration_logits).all():
+        raise ValueError("Calibration logits contain NaN/Inf")
+
+    log_temperature = torch.zeros(
+        1,
+        dtype=calibration_logits.dtype,
+        device=calibration_logits.device,
+        requires_grad=True,
+    )
+    calibration_optimizer = torch.optim.LBFGS(
+        [log_temperature], lr=0.05, max_iter=100
+    )
+
+    def calibration_closure():
+        calibration_optimizer.zero_grad(set_to_none=True)
+        candidate_temperature = log_temperature.exp().clamp(0.05, 20.0)
+        loss = F.cross_entropy(
+            calibration_logits / candidate_temperature,
+            calibration_targets,
+        )
+        loss.backward()
+        return loss
+
+    calibration_optimizer.step(calibration_closure)
+    fitted_temperature = float(
+        log_temperature.detach().exp().clamp(0.05, 20.0).item()
+    )
+    return fitted_temperature, calibration_logits, calibration_targets
+
+
 calibration_logits, calibration_targets, _ = predict(loaders["calibration"])
-log_temperature = torch.zeros(1, requires_grad=True)
-calibration_optimizer = torch.optim.LBFGS([log_temperature], lr=0.05, max_iter=100)
-
-
-def calibration_closure():
-    calibration_optimizer.zero_grad()
-    temperature = log_temperature.exp()
-    loss = F.cross_entropy(calibration_logits / temperature, calibration_targets)
-    loss.backward()
-    return loss
-
-
-calibration_optimizer.step(calibration_closure)
-temperature = float(log_temperature.detach().exp().clamp(0.05, 20.0))
+temperature, calibration_logits, calibration_targets = fit_temperature(
+    calibration_logits,
+    calibration_targets,
+)
 calibration_probabilities = torch.softmax(calibration_logits / temperature, dim=1)
 calibration_confidence, calibration_prediction = calibration_probabilities.max(1)
 calibration_correct = calibration_prediction.eq(calibration_targets)

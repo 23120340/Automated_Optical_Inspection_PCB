@@ -35,6 +35,14 @@ lỗi. Notebook không tự hạ phiên bản PyTorch vì việc đó có thể 
 Torch/TorchVision và các dependency export ONNX; CPU chỉ được phép khi chủ động đặt
 `CONFIG["allow_cpu_training"] = True`.
 
+### Lỗi `Inference tensors cannot be saved for backward` ở cell calibration
+
+Temperature scaling cần gradient theo biến nhiệt độ dù model inference không cần
+gradient. Notebook dùng `torch.no_grad()` cho hàm `predict` và clone logits thành
+tensor thường trước khi chạy LBFGS. Nếu lỗi xuất hiện trong notebook cũ đã chạy
+cell train, dùng notebook mới rồi chạy lại cell định nghĩa `predict` và cell
+calibration; không cần train lại nếu `best.pt` vẫn còn trong phiên Kaggle.
+
 Một số bản mount của bộ này đặt `data.yaml` trong `components_data_uncropped`
 nhưng vẫn ghi split là `../train/images`. Resolver không ghép cứng chuỗi đó: nó
 thử cả `components_data_uncropped/train/images`, thư mục split ở gốc dataset và

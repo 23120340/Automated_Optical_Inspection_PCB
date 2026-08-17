@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from PIL import Image, ImageDraw
+import torch
 
 NOTEBOOK_PATH = (
     Path(__file__).parents[1]
@@ -320,6 +321,46 @@ def test_classification_notebook_rejects_incompatible_cuda_before_training() -> 
     assert "torch.amp.autocast" in source
     assert "torch.cuda.amp.GradScaler" not in source
     assert "torch.cuda.amp.autocast" not in source
+
+
+def test_temperature_calibration_accepts_inference_mode_logits() -> None:
+    notebook = json.loads(CLASSIFICATION_NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    source = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
+    calibration_source = next(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        and "def fit_temperature" in "".join(cell["source"])
+    )
+    tree = ast.parse(calibration_source)
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "fit_temperature"
+    )
+    namespace = {"torch": torch, "F": torch.nn.functional}
+    exec(
+        compile(
+            ast.Module(body=[function], type_ignores=[]),
+            str(CLASSIFICATION_NOTEBOOK_PATH),
+            "exec",
+        ),
+        namespace,
+    )
+    with torch.inference_mode():
+        logits = torch.tensor([[3.0, 0.2], [0.1, 2.5], [1.7, 0.4], [0.3, 1.9]])
+        targets = torch.tensor([0, 1, 0, 1])
+
+    temperature, normal_logits, normal_targets = namespace["fit_temperature"](
+        logits,
+        targets,
+    )
+
+    assert 0.05 <= temperature <= 20.0
+    assert not normal_logits.is_inference()
+    assert not normal_targets.is_inference()
+    assert "@torch.no_grad()\ndef predict" in source
+    assert "@torch.inference_mode()\ndef predict" not in source
 
 
 def test_classification_notebook_preserves_parent_image_split_and_locked_test() -> None:
