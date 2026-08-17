@@ -1,5 +1,8 @@
 # Kế hoạch pre-train bước 6.1 — Phân loại linh kiện PCB
 
+> Trạng thái triển khai: khung runtime ONNX + manifest và notebook baseline đã
+> được tạo. Xem [hướng dẫn Kaggle](../training/kaggle/README_classification.md).
+
 > Model trong sơ đồ: `03_classify_component`  
 > Phiên bản kế hoạch: `v1.0-draft` — 2026-08-16  
 > Tài liệu dữ liệu liên quan: [Khảo sát dataset PCB AOI](./pcb_aoi_component_datasets.md)
@@ -20,13 +23,14 @@ Lựa chọn model ban đầu:
 
 | Vai trò | Model đề xuất | Mục đích |
 |---|---|---|
-| Baseline bắt buộc | **EfficientNetV2-S**, pretrained ImageNet, thử 320 và 384 px | Dễ huấn luyện/xuất ONNX, đủ mạnh để làm mốc production. TorchVision công bố bản S có khoảng 21,5M tham số và 8,37 GFLOPs ở recipe 384 px. |
-| Baseline nhẹ | **EfficientNet-B0**, 224/320 px | Kiểm tra nhanh và làm student cho edge; bản chuẩn khoảng 5,3M tham số. |
+| Baseline bắt buộc/deployment | **EfficientNet-B0**, pretrained ImageNet, 224 px | Cân bằng accuracy và Raspberry Pi: khoảng 5,3M tham số, 0,39 GFLOPs, weights 20,5 MB; xuất ONNX đơn giản. |
+| Đối chứng ARM nhẹ hơn | **MobileNetV3-Large**, 224 px | Dùng khi benchmark thật trên Pi cho thấy B0 chưa đạt latency/RAM; không chọn chỉ vì nhanh hơn. |
+| Upper-bound offline, không phải deployment mặc định | **EfficientNetV2-S**, 320/384 px | Chỉ đo xem backbone lớn cải thiện macro-F1 bao nhiêu; khoảng 21,5M tham số và 8,37 GFLOPs nên quá nặng cho Raspberry Pi nếu lợi ích nhỏ. |
 | Teacher/R&D | **DINOv3 ViT-S/16**: linear probe rồi partial fine-tune | Representation mạnh, phù hợp thử nghiệm ít nhãn và unknown bằng embedding. Phải duyệt license DINOv3 trước khi dùng sản phẩm. |
 | Đối chứng kiến trúc | **ConvNeXt-Tiny** | Xác nhận kết quả không phụ thuộc riêng EfficientNet. |
-| Model triển khai | Model nhỏ tốt nhất hoặc student được distill từ teacher | Chọn sau benchmark trên đúng GPU/CPU/edge đích; không chọn bằng accuracy đơn thuần. |
+| Model triển khai | EfficientNet-B0 hoặc model nhỏ thắng benchmark | Chọn theo macro-F1/accepted precision trước, sau đó latency/RAM trên đúng Raspberry Pi; dự án không yêu cầu real-time. |
 
-Nguồn kỹ thuật: [TorchVision EfficientNetV2-S](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.efficientnet_v2_s.html), [TorchVision EfficientNet-B0](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.efficientnet_b0.html), [TorchVision ConvNeXt](https://docs.pytorch.org/vision/main/models/convnext.html), [DINOv3 paper](https://arxiv.org/abs/2508.10104), [mã và license DINOv3](https://github.com/facebookresearch/dinov3).
+Nguồn kỹ thuật: [TorchVision EfficientNet-B0](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.efficientnet_b0.html), [TorchVision MobileNetV3-Large](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.mobilenet_v3_large.html), [TorchVision EfficientNetV2-S](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.efficientnet_v2_s.html), [ONNX Runtime trên Raspberry Pi](https://onnxruntime.ai/docs/tutorials/iot-edge/rasp-pi-cv.html), [DINOv3 paper](https://arxiv.org/abs/2508.10104), [mã và license DINOv3](https://github.com/facebookresearch/dinov3).
 
 ## 2. Phạm vi và hợp đồng với hệ thống
 
@@ -265,13 +269,13 @@ Các con số trên là ngưỡng khởi động, không phải bảo đảm acc
 Đây là config cho E02, dùng để tạo baseline tái lập rồi mới tune:
 
 ```yaml
-model: efficientnet_v2_s
+model: efficientnet_b0
 init: torchvision_imagenet_default
-input_size: 320
+input_size: 224
 heads: [family, mount_type]
 optimizer: adamw
 lr_head: 3.0e-4
-lr_backbone: 3.0e-5
+lr_backbone: 5.0e-5
 weight_decay: 0.05
 schedule: cosine
 warmup_ratio: 0.05
@@ -293,7 +297,7 @@ select_checkpoint_by: [macro_f1, p0_min_recall]
 
 Tạo hai nhánh song song:
 
-- `W0-CNN`: EfficientNetV2-S pretrained ImageNet;
+- `W0-CNN`: EfficientNet-B0 pretrained ImageNet;
 - `W0-VFM`: DINOv3 ViT-S/16 pretrained; chỉ dùng sau khi chấp nhận license.
 
 Kiểm tra linear probe trên internal validation trước khi unfreeze. Nếu VFM không cải thiện macro-F1/unknown separation đủ để bù latency và độ phức tạp, không đưa vào deployment.
@@ -399,13 +403,13 @@ Validation/test không augmentation ngoài preprocessing deterministic.
 | Run | Backbone/khởi tạo | Input | Thay đổi chính | Câu hỏi cần trả lời |
 |---|---|---:|---|---|
 | E00 | EfficientNet-B0/ImageNet | 224 | Overfit 200–500 crop sạch | Pipeline/label/loss có đúng không? Phải gần như memorise tập nhỏ. |
-| E01 | EfficientNet-B0/ImageNet | 224 | Flat family baseline | Mốc nhẹ nhất. |
-| E02 | EfficientNetV2-S/ImageNet | 320 | Flat family | CNN mạnh hơn cải thiện bao nhiêu? |
-| E03 | EfficientNetV2-S/ImageNet | 384 | Giữ mọi thứ khác E02 | Resolution cao có giúp small component đủ để trả latency? |
-| E04 | ConvNeXt-Tiny/ImageNet | 320/384 | Đối chứng backbone | Kết quả có ổn định qua kiến trúc? |
+| E01 | EfficientNet-B0/ImageNet | 224 | Flat family baseline | Mốc deployment chính cho Raspberry Pi. |
+| E02 | MobileNetV3-Large/ImageNet | 224 | Giữ recipe E01 | Giảm compute có làm mất macro-F1/accepted precision quá mức không? |
+| E03 | EfficientNet-B0/ImageNet | 320 | Giữ mọi thứ khác E01 | Resolution cao có tăng accuracy đủ để bù compute trên Pi không? |
+| E04 | EfficientNetV2-S/ImageNet | 320 | Upper-bound offline | Backbone nặng cải thiện bao nhiêu; không mặc định triển khai lên Pi. |
 | E05 | DINOv3 ViT-S/16 | 224/320 | Frozen backbone + linear head | Representation zero/few-shot tốt đến đâu? |
 | E06 | DINOv3 ViT-S/16 | 224/320 | Unfreeze 2–4 block cuối | Partial fine-tune có thắng E03? |
-| E07 | Model thắng E03/E06 | như cũ | Có/không W1 domain SSL | Unlabeled internal data có lợi thật không? |
+| E07 | Model thắng E01–E06 | như cũ | Có/không W1 domain SSL | Unlabeled internal data có lợi thật không? |
 | E08 | Model tốt nhất | như cũ | Flat vs hierarchical/multi-task | Head mount/package có giảm confusion không? |
 | E09 | Model tốt nhất | như cũ | Tight/context/detector-like crop | Độ bền với sai số bước 4–5. |
 | E10 | Model tốt nhất | như cũ | CE vs weighted CE/Balanced Softmax | Xử lý tail class mà không phá head class. |
@@ -475,7 +479,7 @@ Quy tắc tích hợp:
 |---:|---|---|
 | 1 | Chốt contract, taxonomy v1, mapping nguồn, license; tạo manifest; dedup/split | `taxonomy.yaml`, `label_mapping.yaml`, `dataset_manifest.parquet`, báo cáo audit. |
 | 2 | Pipeline crop + gallery + E00/E01; đo distribution input | Sanity pass, baseline nhẹ, danh sách lỗi nhãn. |
-| 3 | E02–E06: EfficientNetV2/ConvNeXt/DINO linear + partial tune | Bảng benchmark backbone/resolution; chọn 2 ứng viên. |
+| 3 | E02–E06: MobileNetV3/EfficientNetV2/ConvNeXt/DINO đối chứng | Bảng benchmark backbone/resolution; B0 vẫn là deployment mặc định nếu model lớn không thắng rõ. |
 | 4 | E07–E10: domain SSL nếu đủ dữ liệu, hierarchy, detector jitter, imbalance | Model ứng viên và ablation report. |
 | 5 | E11: calibration, OOD/reject, hard-negative round 1; test locked | Risk–coverage, OOD, confusion/error gallery; quyết định PoC. |
 | 6 | E12: distill/export/FP16–INT8; benchmark hardware và shadow mode | ONNX/engine, model card, thresholds, deployment benchmark, rollback plan. |

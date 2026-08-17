@@ -73,6 +73,29 @@ class CropRecord:
     raw: Any = None
 
 
+@dataclass
+class ClassificationRecord:
+    crop_id: str
+    detection_id: str
+    family: str
+    probability: float
+    unknown_score: float
+    decision: str
+    top_k: list[dict[str, Any]]
+    detector_hint: str | None
+    model_version: str
+    raw: Any = None
+
+
+@dataclass
+class ClassificationResult:
+    classifications: list[ClassificationRecord] = field(default_factory=list)
+    mode: str = "MODEL"
+    message: str = ""
+    metrics: dict[str, Any] = field(default_factory=dict)
+    raw: Any = None
+
+
 class PipelineBridge:
     """Small compatibility layer between Streamlit and ``AOIPipeline``.
 
@@ -101,12 +124,16 @@ class PipelineBridge:
         detector: Any = None,
         model_path: str | None = None,
         board_model_path: str | None = None,
+        classifier_model_path: str | None = None,
+        classifier_manifest_path: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.config = dict(config or {})
         self.detector = detector
         self.model_path = model_path
         self.board_model_path = board_model_path
+        self.classifier_model_path = classifier_model_path
+        self.classifier_manifest_path = classifier_manifest_path
         self.extra = kwargs
         self.engine: Any = None
         self.engine_error: str | None = None
@@ -149,6 +176,8 @@ class PipelineBridge:
             "config": self.config or None,
             "detector": self.detector,
             "model_path": self.model_path,
+            "classifier_model_path": self.classifier_model_path,
+            "classifier_manifest_path": self.classifier_manifest_path,
         }
         init_kwargs.update(self.extra)
         try:
@@ -530,6 +559,81 @@ class PipelineBridge:
                 )
             )
         return crops
+
+    def classify_components(
+        self,
+        crops: Sequence[CropRecord],
+        **kwargs: Any,
+    ) -> ClassificationResult:
+        """Run the real step-6.1 classifier; there is deliberately no CV fallback."""
+
+        started = time.perf_counter()
+        if not self.classifier_model_path or not self.classifier_manifest_path:
+            raise RuntimeError(
+                "Bước 6.1 cần đủ best.onnx và model_manifest.json từ notebook train."
+            )
+        if self.engine is None or not hasattr(self.engine, "classify_components"):
+            detail = self.engine_error or "AOIPipeline không hỗ trợ bước 6.1"
+            raise RuntimeError(
+                "Classifier đã được chọn nhưng backend không khởi tạo được; "
+                f"không tạo nhãn giả: {detail}"
+            )
+        raw_crops = [item.raw for item in crops]
+        if any(item is None for item in raw_crops):
+            raise RuntimeError(
+                "Crop không mang metadata lõi của bước 5; hãy chạy lại bước 5 trước bước 6.1."
+            )
+        try:
+            raw = _call_supported(self.engine.classify_components, raw_crops, **kwargs)
+        except Exception as exc:
+            raise RuntimeError(
+                "Classifier inference thất bại; không lấy nhãn detector thay thế: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        if not isinstance(raw, Sequence):
+            raise RuntimeError("AOIPipeline.classify_components phải trả về một sequence")
+        records: list[ClassificationRecord] = []
+        for index, item in enumerate(raw):
+            top_k_raw = _attr(item, ("top_k",), [])
+            top_k: list[dict[str, Any]] = []
+            for score in top_k_raw if isinstance(top_k_raw, Sequence) else []:
+                top_k.append(
+                    {
+                        "label": str(_attr(score, ("label", "family"), "")),
+                        "probability": float(_attr(score, ("probability", "score"), 0.0)),
+                    }
+                )
+            records.append(
+                ClassificationRecord(
+                    crop_id=str(_attr(item, ("crop_id",), f"crop_{index + 1:04d}")),
+                    detection_id=str(_attr(item, ("detection_id",), "")),
+                    family=str(_attr(item, ("family", "label"), "unknown")),
+                    probability=float(_attr(item, ("probability", "confidence"), 0.0)),
+                    unknown_score=float(_attr(item, ("unknown_score",), 1.0)),
+                    decision=str(_attr(item, ("decision",), "unknown")),
+                    top_k=top_k,
+                    detector_hint=_attr(item, ("detector_hint",), None),
+                    model_version=str(_attr(item, ("model_version",), "unknown")),
+                    raw=item,
+                )
+            )
+        counts: dict[str, int] = {}
+        for item in records:
+            counts[item.decision] = counts.get(item.decision, 0) + 1
+        return ClassificationResult(
+            classifications=records,
+            mode="MODEL",
+            message=(
+                f"Đã phân loại {len(records)} crop bằng ONNX; kết quả review/unknown "
+                "cần được kiểm tra, không tự động coi là nhãn đúng."
+            ),
+            metrics={
+                "elapsed_ms": _elapsed_ms(started),
+                "count": len(records),
+                "decisions": counts,
+            },
+            raw=raw,
+        )
 
 
 def _call_supported(callable_obj: Any, *args: Any, **kwargs: Any) -> Any:

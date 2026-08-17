@@ -1,4 +1,4 @@
-"""Streamlit dashboard for AOI PCB steps 0 through 5.
+"""Streamlit dashboard for AOI PCB steps 0 through 6.1.
 
 Run from the repository root:
 
@@ -34,6 +34,8 @@ import streamlit as st  # noqa: E402
 
 from app.pipeline_bridge import (  # noqa: E402
     BoardResult,
+    ClassificationRecord,
+    ClassificationResult,
     CropRecord,
     DetectionRecord,
     DetectionResult,
@@ -43,7 +45,7 @@ from app.pipeline_bridge import (  # noqa: E402
 
 
 APP_TITLE = "AOI PCB · Workbench"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 MAX_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 50_000_000
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
@@ -54,6 +56,7 @@ STEP_DEFINITIONS = (
     (3, "Khoanh vùng PCB", "Xác định board ROI", "ROI"),
     (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI"),
     (5, "Cắt linh kiện", "Crop + normalize + export", "CUT"),
+    (6, "6.1 Phân loại linh kiện", "Family + accept/review/unknown", "CLS"),
 )
 STATUS_LABELS = {
     "pending": "Chờ chạy",
@@ -121,6 +124,14 @@ def _default_config() -> dict[str, Any]:
             "target_size": 224,
             "image_format": "png",
         },
+        "classification": {
+            "batch_size": 32,
+            "top_k": 3,
+            "device": "cpu",
+            "accept_threshold": None,
+            "review_threshold": None,
+            "temperature": None,
+        },
     }
 
 
@@ -142,13 +153,20 @@ def _init_state() -> None:
         "component_model_path": None,
         "component_model_name": None,
         "component_model_digest": None,
+        "classifier_model_path": None,
+        "classifier_model_name": None,
+        "classifier_model_digest": None,
+        "classifier_manifest_path": None,
+        "classifier_manifest_name": None,
+        "classifier_manifest_digest": None,
         "pt_model_trusted": False,
         "preprocess_result": None,
         "alignment_result": None,
         "board_result": None,
         "detection_result": None,
         "crops": [],
-        "statuses": {step: "pending" for step in range(6)},
+        "classification_result": None,
+        "statuses": {step: "pending" for step in range(7)},
         "latencies": {},
         "messages": [],
         "last_backend_mode": "CHƯA CHẠY",
@@ -159,6 +177,8 @@ def _init_state() -> None:
             "reference": None,
             "board": None,
             "component": None,
+            "classifier": None,
+            "classifier_manifest": None,
         },
     }
     for key, value in defaults.items():
@@ -235,8 +255,9 @@ def _invalidate_after(step: int) -> None:
         3: "board_result",
         4: "detection_result",
         5: "crops",
+        6: "classification_result",
     }
-    for candidate in range(step + 1, 6):
+    for candidate in range(step + 1, 7):
         st.session_state[result_keys[candidate]] = [] if candidate == 5 else None
         st.session_state.statuses[candidate] = "pending"
         st.session_state.latencies.pop(candidate, None)
@@ -327,9 +348,11 @@ def _set_model(upload: Any, kind: str) -> None:
     st.session_state.ignored_uploads[kind] = None
     if kind == "board":
         _invalidate_after(2)
-    else:
+    elif kind == "component":
         st.session_state.pt_model_trusted = Path(upload.name).suffix.lower() != ".pt"
         _invalidate_after(3)
+    else:
+        _invalidate_after(5)
     st.session_state.messages.append(f"Đã nạp {kind} model: {upload.name}")
 
 
@@ -340,9 +363,52 @@ def _remove_model(kind: str) -> None:
     st.session_state[f"{kind}_model_digest"] = None
     if kind == "board":
         _invalidate_after(2)
-    else:
+    elif kind == "component":
         st.session_state.pt_model_trusted = False
         _invalidate_after(3)
+    else:
+        _invalidate_after(5)
+
+
+def _set_classifier_manifest(upload: Any) -> None:
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 1024 * 1024:
+        raise ValueError("model_manifest.json rỗng hoặc vượt quá 1 MB.")
+    digest = _digest(data)
+    if digest == st.session_state.ignored_uploads.get("classifier_manifest"):
+        return
+    if digest == st.session_state.classifier_manifest_digest:
+        return
+    try:
+        manifest = json.loads(data.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"model_manifest.json không hợp lệ: {exc}") from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != "pcb-component-classifier/1.0"
+    ):
+        raise ValueError(
+            "Manifest không đúng schema pcb-component-classifier/1.0 của bước 6.1."
+        )
+    path = _materialize_upload(upload.name, data)
+    st.session_state.classifier_manifest_path = path
+    st.session_state.classifier_manifest_name = upload.name
+    st.session_state.classifier_manifest_digest = digest
+    st.session_state.ignored_uploads["classifier_manifest"] = None
+    _invalidate_after(5)
+    st.session_state.messages.append(f"Đã nạp classifier manifest: {upload.name}")
+
+
+def _remove_classifier_manifest() -> None:
+    st.session_state.ignored_uploads["classifier_manifest"] = (
+        st.session_state.classifier_manifest_digest
+    )
+    st.session_state.classifier_manifest_path = None
+    st.session_state.classifier_manifest_name = None
+    st.session_state.classifier_manifest_digest = None
+    _invalidate_after(5)
 
 
 def _pt_model_blocked() -> bool:
@@ -359,6 +425,8 @@ def _cached_bridge(
     config_json: str,
     component_model_path: str | None,
     board_model_path: str | None,
+    classifier_model_path: str | None,
+    classifier_manifest_path: str | None,
 ) -> PipelineBridge:
     config = json.loads(config_json)
     component_config = dict(config.get("components", {}))
@@ -384,15 +452,23 @@ def _cached_bridge(
         config=config,
         model_path=component_model_path,
         board_model_path=board_model_path,
+        classifier_model_path=classifier_model_path,
+        classifier_manifest_path=classifier_manifest_path,
     )
 
 
 def _get_bridge() -> PipelineBridge:
     config_json = json.dumps(st.session_state.config, sort_keys=True, ensure_ascii=False)
+    classifier_ready = bool(
+        st.session_state.classifier_model_path
+        and st.session_state.classifier_manifest_path
+    )
     bridge = _cached_bridge(
         config_json,
         st.session_state.component_model_path,
         st.session_state.board_model_path,
+        st.session_state.classifier_model_path if classifier_ready else None,
+        st.session_state.classifier_manifest_path if classifier_ready else None,
     )
     st.session_state.last_backend_mode = bridge.backend_mode
     st.session_state.last_backend_detail = bridge.backend_detail
@@ -553,10 +629,26 @@ def _execute_crops(bridge: PipelineBridge) -> list[CropRecord]:
     )
     elapsed_ms = (datetime.now(timezone.utc) - started).total_seconds() * 1000
     st.session_state.crops = crops
+    _invalidate_after(5)
     st.session_state.statuses[5] = "demo" if "DEMO" in detection_result.mode.upper() else "done"
     st.session_state.latencies[5] = round(elapsed_ms, 2)
     st.session_state.messages.append(f"Bước 5: tạo {len(crops)} crop.")
     return crops
+
+
+def _execute_classification(bridge: PipelineBridge) -> ClassificationResult:
+    crops: list[CropRecord] = st.session_state.crops
+    if not crops:
+        raise RuntimeError("Chưa có crop từ bước 5.")
+    if not st.session_state.classifier_model_path or not st.session_state.classifier_manifest_path:
+        raise RuntimeError(
+            "Chưa nạp đủ best.onnx và model_manifest.json do notebook bước 6.1 xuất."
+        )
+    st.session_state.statuses[6] = "running"
+    result = bridge.classify_components(crops)
+    st.session_state.classification_result = result
+    _record_stage(6, result)
+    return result
 
 
 def _run_stage(step: int, callback: Callable[[PipelineBridge], Any]) -> None:
@@ -586,8 +678,14 @@ def _run_all() -> None:
         (4, "Phát hiện linh kiện", _execute_components),
         (5, "Cắt linh kiện", _execute_crops),
     )
+    classifier_ready = bool(
+        st.session_state.classifier_model_path
+        and st.session_state.classifier_manifest_path
+    )
+    if classifier_ready:
+        stages += ((6, "6.1 Phân loại linh kiện", _execute_classification),)
     for index, (step, label, callback) in enumerate(stages, start=1):
-        progress.progress((index - 1) / len(stages), text=f"Bước {step}/5 · {label}")
+        progress.progress((index - 1) / len(stages), text=f"Bước {step}/6.1 · {label}")
         try:
             callback(bridge)
         except Exception as exc:
@@ -596,10 +694,17 @@ def _run_all() -> None:
             progress.empty()
             st.error(f"Dừng ở bước {step}: {exc}")
             return
-    progress.progress(1.0, text="Hoàn tất workflow 0–5")
-    st.session_state.active_step = 5
-    st.session_state.pending_navigation = 5
-    st.toast("Đã chạy xong workflow 0–5.", icon="✅")
+    final_step = 6 if classifier_ready else 5
+    progress.progress(1.0, text=f"Hoàn tất workflow 0–{final_step}")
+    st.session_state.active_step = final_step
+    st.session_state.pending_navigation = final_step
+    if classifier_ready:
+        st.toast("Đã chạy xong workflow đến bước 6.1.", icon="✅")
+    else:
+        st.info(
+            "Đã chạy xong bước 5. Bước 6.1 đang chờ best.onnx và "
+            "model_manifest.json từ notebook train."
+        )
 
 
 def _status_dot(status: str) -> str:
@@ -630,7 +735,7 @@ def _render_sidebar() -> bool:
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–5</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–6.1</div>', unsafe_allow_html=True)
         step_markup: list[str] = ['<div class="stepper">']
         for step, name, description, code in STEP_DEFINITIONS:
             status = st.session_state.statuses[step]
@@ -720,9 +825,38 @@ def _render_sidebar() -> bool:
                 _set_model(component_upload, "component")
             _render_model_asset("component")
 
+        with st.expander("Model phân loại 6.1", expanded=True):
+            classifier_upload = st.file_uploader(
+                "Classifier (best.onnx)",
+                type=["onnx"],
+                key="classifier_model_uploader",
+                help="ONNX raw-logit do notebook phân loại trong training/kaggle xuất.",
+            )
+            if classifier_upload is not None:
+                _set_model(classifier_upload, "classifier")
+            _render_model_asset("classifier")
+            manifest_upload = st.file_uploader(
+                "Contract (model_manifest.json)",
+                type=["json"],
+                key="classifier_manifest_uploader",
+                help="Bắt buộc để app biết đúng class order, preprocessing và confidence policy.",
+            )
+            if manifest_upload is not None:
+                try:
+                    _set_classifier_manifest(manifest_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            if st.session_state.classifier_manifest_name:
+                st.success(f"Manifest: {st.session_state.classifier_manifest_name}")
+                if st.button("Gỡ classifier manifest", width="stretch"):
+                    _remove_classifier_manifest()
+                    st.rerun()
+            else:
+                st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
+
         st.markdown('<div class="security-note"><b>Lưu ý model</b><br>.pt có thể chứa pickle. Chỉ mở weight do bạn tự train hoặc nguồn tin cậy; ưu tiên ONNX khi trao đổi.</div>', unsafe_allow_html=True)
         quick_run = st.button(
-            "▶  Chạy toàn bộ 0–5",
+            "▶  Chạy pipeline 0–6.1",
             type="primary",
             width="stretch",
             disabled=st.session_state.input_image is None or _pt_model_blocked(),
@@ -738,7 +872,10 @@ def _render_sidebar() -> bool:
 def _render_model_asset(kind: str) -> None:
     name = st.session_state[f"{kind}_model_name"]
     if not name:
-        st.caption("Chưa có model · sẽ dùng CV demo")
+        if kind == "classifier":
+            st.caption("Chưa có model · bước 6.1 sẽ chờ, không sinh nhãn giả")
+        else:
+            st.caption("Chưa có model · sẽ dùng CV demo")
         return
     suffix = Path(name).suffix.lower()
     st.success(f"Đã nạp: {name}")
@@ -792,7 +929,7 @@ def _render_step_heading(step: int) -> None:
         f"""
         <div class="section-heading">
           <div class="section-index">{code}</div>
-          <div><span>BƯỚC {step} / 5</span><h2>{html.escape(name)}</h2><p>{html.escape(description)}</p></div>
+          <div><span>BƯỚC {step} / 6.1</span><h2>{html.escape(name)}</h2><p>{html.escape(description)}</p></div>
           <div class="status-chip {status}">{STATUS_LABELS[status]}</div>
         </div>
         """,
@@ -1291,6 +1428,124 @@ def _render_step_five() -> None:
                 _render_exports()
 
 
+def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "crop_id": item.crop_id,
+                "detection_id": item.detection_id,
+                "family": item.family,
+                "probability": item.probability,
+                "unknown_score": item.unknown_score,
+                "decision": item.decision,
+                "detector_hint": item.detector_hint,
+                "top_k": " | ".join(
+                    f"{score['label']}:{float(score['probability']):.3f}"
+                    for score in item.top_k
+                ),
+                "model_version": item.model_version,
+            }
+            for item in items
+        ]
+    )
+
+
+def _render_step_six() -> None:
+    _render_step_heading(6)
+    crops: list[CropRecord] = st.session_state.crops
+    if not crops:
+        _render_empty("Chưa có crop", "Hoàn thành bước 5 trước khi phân loại linh kiện.")
+        return
+    detection_result = st.session_state.detection_result
+    if isinstance(detection_result, DetectionResult) and "DEMO" in detection_result.mode.upper():
+        st.warning(
+            "Các crop đầu vào đến từ CV candidate demo. Classifier có thể chạy để thử "
+            "luồng, nhưng không được coi kết quả này là AOI production."
+        )
+
+    model_ready = bool(
+        st.session_state.classifier_model_path
+        and st.session_state.classifier_manifest_path
+    )
+    settings, content = st.columns([0.8, 2.2], gap="large")
+    with settings:
+        st.markdown("#### Classifier hand-off")
+        st.caption("Runtime an toàn chỉ nhận `best.onnx` cùng `model_manifest.json`.")
+        st.metric("Crop input", len(crops))
+        if not model_ready:
+            st.info(
+                "Khung bước 6.1 đã sẵn sàng nhưng chưa có model. Hãy chạy notebook "
+                "`training/kaggle/pcb_component_classification_kaggle.ipynb`, rồi nạp "
+                "hai artifact trong sidebar."
+            )
+        submitted = st.button(
+            "Phân loại linh kiện",
+            type="primary",
+            width="stretch",
+            disabled=not model_ready,
+        )
+        if submitted:
+            _run_stage(6, _execute_classification)
+        st.caption(
+            "`accept` có thể đi tiếp; `review` cần người kiểm tra; `unknown` không được "
+            "ép thành một family đã biết."
+        )
+
+    with content:
+        result = st.session_state.classification_result
+        if not isinstance(result, ClassificationResult):
+            _render_empty(
+                "Chưa có kết quả phân loại",
+                "Nạp model và manifest rồi chạy bước 6.1. Nhãn detector không được dùng thay thế.",
+            )
+            return
+        items = result.classifications
+        table_tab, stats_tab, review_tab = st.tabs(
+            ["Classification table", "Family stats", "Review queue"]
+        )
+        with table_tab:
+            if items:
+                st.dataframe(
+                    _classifications_frame(items),
+                    hide_index=True,
+                    width="stretch",
+                    column_config={
+                        "probability": st.column_config.NumberColumn(format="%.4f"),
+                        "unknown_score": st.column_config.NumberColumn(format="%.4f"),
+                    },
+                )
+            else:
+                st.warning("Model không trả về classification nào.")
+        with stats_tab:
+            if items:
+                frame = _classifications_frame(items)
+                left, right = st.columns(2)
+                with left:
+                    st.markdown("##### Theo family")
+                    st.bar_chart(frame.groupby("family").size().sort_values(ascending=False))
+                with right:
+                    st.markdown("##### Theo quyết định")
+                    st.bar_chart(frame.groupby("decision").size())
+        with review_tab:
+            crop_by_id = {crop.crop_id: crop for crop in crops}
+            queue = [item for item in items if item.decision != "accept"]
+            if not queue:
+                st.success("Không có crop trong hàng đợi review/unknown.")
+            for offset in range(0, min(len(queue), 60), 4):
+                columns = st.columns(4)
+                for column, item in zip(columns, queue[offset : offset + 4]):
+                    with column:
+                        crop = crop_by_id.get(item.crop_id)
+                        if crop is not None:
+                            _show_image(crop.image)
+                        st.caption(
+                            f"**{item.family}** · {item.decision}\n\n"
+                            f"p={item.probability:.3f} · {item.crop_id}"
+                        )
+        _render_result_notice(result)
+        _render_metrics(result.metrics)
+
+
 def _encode_png(image: np.ndarray) -> bytes:
     success, buffer = cv2.imencode(".png", image)
     if not success:
@@ -1305,8 +1560,14 @@ def _manifest() -> dict[str, Any]:
     coordinate_space = _analysis_coordinate_space()
     preprocess_config = st.session_state.config.get("preprocess", {})
     calibration_profile = preprocess_config.get("calibration_profile")
+    classification_result = getattr(st.session_state, "classification_result", None)
+    classifications = (
+        classification_result.classifications
+        if isinstance(classification_result, ClassificationResult)
+        else []
+    )
     return {
-        "schema_version": "aoi-pcb-workbench/0.2",
+        "schema_version": "aoi-pcb-workbench/0.3",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": {
             "name": st.session_state.input_name,
@@ -1333,6 +1594,16 @@ def _manifest() -> dict[str, Any]:
                 "name": st.session_state.component_model_name,
                 "sha256": st.session_state.component_model_digest,
             },
+            "classifier": {
+                "name": getattr(st.session_state, "classifier_model_name", None),
+                "sha256": getattr(st.session_state, "classifier_model_digest", None),
+                "manifest_name": getattr(
+                    st.session_state, "classifier_manifest_name", None
+                ),
+                "manifest_sha256": getattr(
+                    st.session_state, "classifier_manifest_digest", None
+                ),
+            },
         },
         "backend": {
             "mode": st.session_state.last_backend_mode,
@@ -1355,6 +1626,21 @@ def _manifest() -> dict[str, Any]:
             for item in detections
         ],
         "crop_count": len(st.session_state.crops),
+        "classifications": [
+            {
+                "crop_id": item.crop_id,
+                "detection_id": item.detection_id,
+                "family": item.family,
+                "probability": item.probability,
+                "unknown_score": item.unknown_score,
+                "decision": item.decision,
+                "top_k": item.top_k,
+                "detector_hint": item.detector_hint,
+                "model_version": item.model_version,
+            }
+            for item in classifications
+        ],
+        "classification_count": len(classifications),
         "warning": (
             "CV candidate demo; not reliable recognition."
             if isinstance(result, DetectionResult) and "DEMO" in result.mode.upper()
@@ -1418,6 +1704,40 @@ def _csv_cell(value: Any) -> str:
     return f"'{text}" if text.startswith(("=", "+", "-", "@", "\t", "\r")) else text
 
 
+def _classifications_csv_bytes() -> bytes:
+    result = getattr(st.session_state, "classification_result", None)
+    items = result.classifications if isinstance(result, ClassificationResult) else []
+    stream = io.StringIO(newline="")
+    fieldnames = [
+        "crop_id",
+        "detection_id",
+        "family",
+        "probability",
+        "unknown_score",
+        "decision",
+        "detector_hint",
+        "top_k",
+        "model_version",
+    ]
+    writer = csv.DictWriter(stream, fieldnames=fieldnames)
+    writer.writeheader()
+    for item in items:
+        writer.writerow(
+            {
+                "crop_id": _csv_cell(item.crop_id),
+                "detection_id": _csv_cell(item.detection_id),
+                "family": _csv_cell(item.family),
+                "probability": f"{item.probability:.8f}",
+                "unknown_score": f"{item.unknown_score:.8f}",
+                "decision": _csv_cell(item.decision),
+                "detector_hint": _csv_cell(item.detector_hint or ""),
+                "top_k": json.dumps(item.top_k, ensure_ascii=False),
+                "model_version": _csv_cell(item.model_version),
+            }
+        )
+    return stream.getvalue().encode("utf-8-sig")
+
+
 def _build_zip() -> bytes:
     output = io.BytesIO()
     base = _safe_name(st.session_state.input_name or "pcb")
@@ -1425,6 +1745,7 @@ def _build_zip() -> bytes:
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
         archive.writestr("detections.csv", _detections_csv_bytes())
+        archive.writestr("classifications.csv", _classifications_csv_bytes())
         if st.session_state.input_image is not None:
             archive.writestr(f"stages/00_{base}_input.png", _encode_png(st.session_state.input_image))
         calibration_profile = st.session_state.config.get("preprocess", {}).get(
@@ -1469,13 +1790,15 @@ def _render_exports() -> None:
     zip_bytes = _build_zip()
     base = _safe_name(st.session_state.input_name or "pcb")
     st.markdown("#### Gói kết quả")
-    st.caption("ZIP gồm ảnh từng stage, annotated image, detections CSV/JSON và toàn bộ crop.")
+    st.caption(
+        "ZIP gồm ảnh từng stage, detections, classifications, manifest và toàn bộ crop."
+    )
     col_a, col_b = st.columns(2)
     with col_a:
         st.download_button(
             "Tải toàn bộ ZIP",
             zip_bytes,
-            file_name=f"{base}_aoi_steps_0_5.zip",
+            file_name=f"{base}_aoi_steps_0_6_1.zip",
             mime="application/zip",
             type="primary",
             width="stretch",
@@ -1530,7 +1853,7 @@ def _render_footer() -> None:
     st.markdown(
         """
         <div class="app-footer">
-          <span>AOI PCB WORKBENCH · STEPS 0–5</span>
+          <span>AOI PCB WORKBENCH · STEPS 0–6.1</span>
           <span>Local session · dữ liệu không được upload ra ngoài bởi UI</span>
         </div>
         """,
@@ -1553,6 +1876,7 @@ def main() -> None:
         3: _render_step_three,
         4: _render_step_four,
         5: _render_step_five,
+        6: _render_step_six,
     }
     renderers[st.session_state.active_step]()
     _render_activity_log()

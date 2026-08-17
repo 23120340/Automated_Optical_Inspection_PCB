@@ -1,7 +1,13 @@
-"""OpenCV/Ultralytics-ready AOI PCB pipeline for steps 0 through 5."""
+"""OpenCV/Ultralytics/ONNX-ready AOI PCB pipeline for steps 0 through 6.1."""
 
 from .alignment import PCBAligner
 from .board import PCBLocalizer
+from .classification import (
+    ComponentClassifier,
+    MANIFEST_SCHEMA,
+    ONNXComponentClassifier,
+    create_classifier,
+)
 from .calibration import (
     CalibrationRun,
     CameraCalibrationProfile,
@@ -13,6 +19,7 @@ from .calibration import (
 from .config import (
     AlignmentConfig,
     BoardConfig,
+    ClassificationConfig,
     CropConfig,
     CVDetectorConfig,
     ModelDetectorConfig,
@@ -32,6 +39,7 @@ from .exceptions import (
     AlignmentError,
     AOIPipelineError,
     CalibrationProfileError,
+    ClassifierConfigurationError,
     DetectorConfigurationError,
     ExportError,
     InvalidImageError,
@@ -43,6 +51,8 @@ from .models import (
     AlignmentResult,
     BoardRegion,
     BoundingBox,
+    ClassProbability,
+    ComponentClassification,
     ComponentCrop,
     Detection,
     PipelineRun,
@@ -62,11 +72,16 @@ __all__ = [
     "BoundingBox",
     "CalibrationProfileError",
     "CalibrationRun",
+    "ClassProbability",
+    "ClassificationConfig",
+    "ClassifierConfigurationError",
     "CVComponentDetector",
     "CVDetectorConfig",
     "CameraCalibrationProfile",
     "CameraUndistorter",
     "ComponentCrop",
+    "ComponentClassification",
+    "ComponentClassifier",
     "ComponentCropper",
     "ComponentDetector",
     "CropConfig",
@@ -78,6 +93,8 @@ __all__ = [
     "MockComponentDetector",
     "ModelDependencyError",
     "ModelDetectorConfig",
+    "MANIFEST_SCHEMA",
+    "ONNXComponentClassifier",
     "PCBAligner",
     "PCBLocalizer",
     "PipelineConfig",
@@ -88,6 +105,7 @@ __all__ = [
     "UndistortionResult",
     "calibrate_from_chessboards",
     "create_detector",
+    "create_classifier",
     "encode_image",
     "ensure_bgr",
     "export_json",

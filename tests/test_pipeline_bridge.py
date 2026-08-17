@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import csv
 from io import StringIO
+import json
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from aoi_pipeline import BoundingBox, Detection, MockComponentDetector
-from app.pipeline_bridge import DetectionRecord, DetectionResult, PipelineBridge, StageResult
+from app.pipeline_bridge import (
+    ClassificationRecord,
+    ClassificationResult,
+    CropRecord,
+    DetectionRecord,
+    DetectionResult,
+    PipelineBridge,
+    StageResult,
+)
 
 
 def test_bridge_exposes_failed_alignment_as_fallback() -> None:
@@ -78,6 +87,45 @@ def test_bridge_returns_core_crop_images_instead_of_recropping() -> None:
     assert len(crops) == 1
     assert crops[0].image is core_crop
     assert crops[0].image.shape == (17, 23, 3)
+
+
+def test_bridge_classification_uses_core_model_and_never_detector_label() -> None:
+    raw_crop = SimpleNamespace(detection_id="det_1")
+    crop = CropRecord(
+        crop_id="crop_0001",
+        label="detector_ic",
+        image=np.zeros((16, 16, 3), dtype=np.uint8),
+        bbox=(0, 0, 16, 16),
+        confidence=0.8,
+        source="model",
+        raw=raw_crop,
+    )
+    raw_classification = SimpleNamespace(
+        crop_id="crop_0001",
+        detection_id="det_1",
+        family="capacitor",
+        probability=0.92,
+        unknown_score=0.08,
+        decision="accept",
+        detector_hint="detector_ic",
+        model_version="v1",
+        top_k=[SimpleNamespace(label="capacitor", probability=0.92)],
+    )
+    bridge = PipelineBridge.__new__(PipelineBridge)
+    bridge.classifier_model_path = "best.onnx"
+    bridge.classifier_manifest_path = "model_manifest.json"
+    bridge.engine_error = None
+    bridge.engine = SimpleNamespace(
+        classify_components=lambda crops: [raw_classification]
+    )
+
+    result = bridge.classify_components([crop])
+
+    assert isinstance(result, ClassificationResult)
+    assert result.mode == "MODEL"
+    assert result.classifications[0].family == "capacitor"
+    assert result.classifications[0].family != crop.label
+    assert result.classifications[0].decision == "accept"
 
 
 def test_ui_manifest_and_csv_declare_analysis_coordinate_space(
@@ -150,6 +198,38 @@ def test_csv_cells_neutralize_spreadsheet_formulas() -> None:
 
     assert ui._csv_cell("resistor") == "resistor"
     assert ui._csv_cell("=HYPERLINK(\"bad\")") == "'=HYPERLINK(\"bad\")"
+
+
+def test_classification_csv_exports_decision_and_top_k(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app import streamlit_app as ui
+
+    item = ClassificationRecord(
+        crop_id="crop_0001",
+        detection_id="det_1",
+        family="resistor",
+        probability=0.91,
+        unknown_score=0.09,
+        decision="accept",
+        top_k=[{"label": "resistor", "probability": 0.91}],
+        detector_hint="component",
+        model_version="v1",
+    )
+    monkeypatch.setattr(
+        ui.st,
+        "session_state",
+        SimpleNamespace(
+            classification_result=ClassificationResult(classifications=[item])
+        ),
+    )
+
+    rows = list(
+        csv.DictReader(StringIO(ui._classifications_csv_bytes().decode("utf-8-sig")))
+    )
+    assert rows[0]["family"] == "resistor"
+    assert rows[0]["decision"] == "accept"
+    assert json.loads(rows[0]["top_k"])[0]["label"] == "resistor"
 
 
 def test_pt_model_requires_explicit_ui_trust(monkeypatch: pytest.MonkeyPatch) -> None:

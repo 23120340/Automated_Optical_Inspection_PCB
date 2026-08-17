@@ -1,6 +1,6 @@
 # Automated Optical Inspection PCB
 
-Ứng dụng local thử nghiệm luồng AOI từ bước 0 đến bước 5:
+Ứng dụng local thử nghiệm luồng AOI từ bước 0 đến bước 6.1:
 
 ```text
 0. Import ảnh
@@ -9,6 +9,7 @@
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
    → 5. Crop và xuất dữ liệu linh kiện
+   → 6.1. Phân loại family (accept/review/unknown)
 ```
 
 Hiện bước 0 dùng upload ảnh để có thể phát triển khi chưa gắn camera. Adapter
@@ -106,6 +107,25 @@ Manifest và CSV export ghi rõ `coordinate_space`, kích thước ảnh analysi
 ước box. Tọa độ bước 3–5 thuộc ảnh preprocessed/aligned được export kèm gói, không
 mặc định thuộc ảnh input gốc nếu pipeline đã resize hoặc warp.
 
+## Trạng thái bước 6.1
+
+Khung phân loại đã có trong pipeline và Streamlit. Khi chưa có classifier, bước
+6.1 hiển thị trạng thái chờ và **không** lấy nhãn detector làm kết quả giả. Để
+train baseline:
+
+1. Đọc [hướng dẫn phân loại Kaggle](training/kaggle/README_classification.md).
+2. Import [pcb_component_classification_kaggle.ipynb](training/kaggle/pcb_component_classification_kaggle.ipynb).
+3. Add Input `aryanstein/pcb-component-detection-consolidated-dataset`, bật GPU
+   và chạy `Run All`.
+4. Tải `pcb_component_classifier_artifacts.zip`, rồi nạp đồng thời `best.onnx`
+   và `model_manifest.json` trong sidebar **Model phân loại 6.1**.
+
+Runtime đọc class order, preprocessing, calibration và ngưỡng quyết định từ
+manifest, đồng thời kiểm tra SHA-256 của ONNX. Kết quả `review`/`unknown` được đưa
+vào hàng đợi kiểm tra; ZIP export có thêm `classifications.csv`. Backbone mặc
+định là EfficientNet-B0/224 để cân bằng accuracy với triển khai ONNX Runtime trên
+Raspberry Pi ARM64; YOLO chỉ thuộc bước phát hiện 4, không dùng cho phân loại 6.1.
+
 Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
 - [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
@@ -115,9 +135,9 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
 ```text
 app/                 Streamlit UI và bridge
-aoi_pipeline/        Pipeline OpenCV/model cho bước 0–5
+aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.1
 tests/               Unit tests
-training/kaggle/     Notebook train detector bước 4
+training/kaggle/     Notebook train detector bước 4 và classifier bước 6.1
 models/              Nơi đặt model local (weights không commit Git)
 Docs/                Khảo sát dataset và kế hoạch pre-train 6.1
 scripts/             Setup/chạy app trên Windows

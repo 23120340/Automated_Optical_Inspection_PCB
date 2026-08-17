@@ -1,5 +1,9 @@
 # Huấn luyện bước 4 trên Kaggle: phát hiện linh kiện PCB
 
+> Bước 6.1 đã có notebook riêng: xem
+> [README_classification.md](./README_classification.md) và
+> [pcb_component_classification_kaggle.ipynb](./pcb_component_classification_kaggle.ipynb).
+
 Notebook [`pcb_component_detection_kaggle.ipynb`](./pcb_component_detection_kaggle.ipynb) huấn luyện detector của bước 4 trong sơ đồ AOI. Nó nhận dataset object detection theo định dạng YOLO, kiểm tra dữ liệu trước khi dùng GPU, fine-tune model pretrained, đánh giá, trực quan hóa và tạo một gói kết quả để đưa về app local.
 
 ## Kết quả notebook tạo ra

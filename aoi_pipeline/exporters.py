@@ -1,4 +1,4 @@
-"""JSON and ZIP exporters for a completed steps 0-5 run."""
+"""JSON and ZIP exporters for a completed steps 0-6.1 run."""
 
 from __future__ import annotations
 

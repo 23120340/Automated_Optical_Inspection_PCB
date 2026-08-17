@@ -211,6 +211,61 @@ class ComponentCrop:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class ClassProbability:
+    """One entry in a classifier's ordered top-k output."""
+
+    label: str
+    probability: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"label": self.label, "probability": float(self.probability)}
+
+
+@dataclass(slots=True)
+class ComponentClassification:
+    """Step-6.1 family result tied back to one step-5 crop/detection."""
+
+    crop_id: str
+    detection_id: str
+    family: str
+    probability: float
+    top_k: list[ClassProbability]
+    unknown_score: float
+    decision: str
+    model_version: str
+    source: str = "onnx_classifier"
+    detector_hint: str | None = None
+    visual_subtype: str | None = None
+    mount_type: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.decision not in {"accept", "review", "unknown"}:
+            raise ValueError("Classification decision must be accept, review, or unknown")
+        if not 0.0 <= float(self.probability) <= 1.0:
+            raise ValueError("Classification probability must be between 0 and 1")
+        if not 0.0 <= float(self.unknown_score) <= 1.0:
+            raise ValueError("Classification unknown_score must be between 0 and 1")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "crop_id": self.crop_id,
+            "detection_id": self.detection_id,
+            "family": self.family,
+            "probability": float(self.probability),
+            "top_k": [item.to_dict() for item in self.top_k],
+            "unknown_score": float(self.unknown_score),
+            "decision": self.decision,
+            "model_version": self.model_version,
+            "source": self.source,
+            "detector_hint": self.detector_hint,
+            "visual_subtype": self.visual_subtype,
+            "mount_type": self.mount_type,
+            "metadata": self.metadata,
+        }
+
+
 @dataclass(slots=True)
 class PipelineRun:
     source_name: str
@@ -220,6 +275,7 @@ class PipelineRun:
     board_region: BoardRegion
     detections: list[Detection]
     crops: list[ComponentCrop]
+    classifications: list[ComponentClassification] = field(default_factory=list)
     run_id: str = field(default_factory=lambda: f"run_{uuid4().hex[:12]}")
     started_at: str = field(default_factory=utc_now_iso)
     finished_at: str = field(default_factory=utc_now_iso)
@@ -243,10 +299,14 @@ class PipelineRun:
             "board": self.board_region.to_dict(),
             "detections": [detection.to_dict() for detection in self.detections],
             "crops": [crop.to_dict() for crop in self.crops],
+            "classifications": [item.to_dict() for item in self.classifications],
             "summary": {
                 "component_count": len(self.detections),
                 "crop_count": len(self.crops),
+                "classification_count": len(self.classifications),
                 "labels": _count_labels(self.detections),
+                "families": _count_classifications(self.classifications),
+                "classification_decisions": _count_decisions(self.classifications),
             },
             "warnings": self.warnings,
             "config": self.config,
@@ -257,4 +317,22 @@ def _count_labels(detections: Sequence[Detection]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for detection in detections:
         counts[detection.label] = counts.get(detection.label, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _count_classifications(
+    classifications: Sequence[ComponentClassification],
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in classifications:
+        counts[item.family] = counts.get(item.family, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _count_decisions(
+    classifications: Sequence[ComponentClassification],
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in classifications:
+        counts[item.decision] = counts.get(item.decision, 0) + 1
     return dict(sorted(counts.items()))

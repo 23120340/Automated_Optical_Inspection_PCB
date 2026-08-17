@@ -1,4 +1,4 @@
-"""Facade that composes the AOI PCB steps 0 through 5."""
+"""Facade that composes the AOI PCB steps 0 through 6.1."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import numpy as np
 
 from .alignment import PCBAligner
 from .board import PCBLocalizer
+from .classification import ComponentClassifier, create_classifier
 from .config import PipelineConfig
 from .cropping import ComponentCropper
 from .detectors import ComponentDetector, CVComponentDetector, create_detector
@@ -21,6 +22,7 @@ from .image_io import ImageSource, load_image
 from .models import (
     AlignmentResult,
     BoardRegion,
+    ComponentClassification,
     ComponentCrop,
     Detection,
     PipelineRun,
@@ -31,7 +33,7 @@ from .preprocessing import ImagePreprocessor
 
 
 class AOIPipeline:
-    """Reusable local pipeline for the diagram's steps 0-5.
+    """Reusable local pipeline for the diagram's steps 0-6.1.
 
     Images passed to individual stage methods are BGR NumPy arrays. ``run`` also
     accepts uploaded bytes or a local path through the step-0 loader.
@@ -42,6 +44,9 @@ class AOIPipeline:
         config: PipelineConfig | Mapping[str, object] | None = None,
         detector: ComponentDetector | None = None,
         model_path: str | Path | None = None,
+        classifier: ComponentClassifier | None = None,
+        classifier_model_path: str | Path | None = None,
+        classifier_manifest_path: str | Path | Mapping[str, object] | None = None,
     ) -> None:
         self.config = (
             config
@@ -60,6 +65,17 @@ class AOIPipeline:
             model_config=self.config.model_detector,
         )
         self.cropper = ComponentCropper(self.config.crop)
+        if classifier is not None and (
+            classifier_model_path is not None or classifier_manifest_path is not None
+        ):
+            raise DetectorConfigurationError(
+                "Pass either classifier or classifier artifact paths, not both"
+            )
+        self.classifier = classifier or create_classifier(
+            classifier_model_path,
+            classifier_manifest_path,
+            self.config.classification,
+        )
 
     @staticmethod
     def load_image(source: ImageSource) -> np.ndarray:
@@ -129,6 +145,15 @@ class AOIPipeline:
 
         return self.cropper.extract(image, detections, output_dir)
 
+    def classify_components(
+        self, crops: Sequence[ComponentCrop]
+    ) -> list[ComponentClassification]:
+        """Step 6.1: classify component families or return no fabricated result."""
+
+        if self.classifier is None:
+            return []
+        return self.classifier.classify(crops)
+
     def run(
         self,
         image: ImageSource,
@@ -136,7 +161,7 @@ class AOIPipeline:
         source_name: str | None = None,
         crop_dir: str | Path | None = None,
     ) -> PipelineRun:
-        """Execute steps 0-5 and retain all artifacts for the local UI/export."""
+        """Execute steps 0-6.1 and retain all artifacts for the local UI/export."""
 
         started_at = utc_now_iso()
         input_image = load_image(image)
@@ -151,6 +176,7 @@ class AOIPipeline:
         board = self.detect_board(aligned.image)
         detections = self.detect_components(aligned.image, board)
         crops = self.make_crops(aligned.image, detections, crop_dir)
+        classifications = self.classify_components(crops)
 
         warnings = list(preprocessed.warnings)
         if not aligned.success:
@@ -161,6 +187,10 @@ class AOIPipeline:
             warnings.append(
                 "Step 4 is using OpenCV candidate proposals; labels are not component classifications."
             )
+        if self.classifier is None:
+            warnings.append(
+                "Step 6.1 was not run because best.onnx and model_manifest.json were not configured."
+            )
 
         return PipelineRun(
             source_name=inferred_name,
@@ -170,6 +200,7 @@ class AOIPipeline:
             board_region=board,
             detections=detections,
             crops=crops,
+            classifications=classifications,
             started_at=started_at,
             finished_at=utc_now_iso(),
             warnings=warnings,

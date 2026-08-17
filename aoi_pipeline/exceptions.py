@@ -25,5 +25,9 @@ class ModelDependencyError(AOIPipelineError, ImportError):
     """Raised when an optional model runtime is not installed."""
 
 
+class ClassifierConfigurationError(AOIPipelineError, ValueError):
+    """Raised when a classifier artifact or manifest violates its contract."""
+
+
 class ExportError(AOIPipelineError):
     """Raised when a run cannot be exported."""

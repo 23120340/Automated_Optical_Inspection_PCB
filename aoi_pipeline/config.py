@@ -1,4 +1,4 @@
-"""Configuration dataclasses for steps 1 through 5."""
+"""Configuration dataclasses for steps 1 through 6.1."""
 
 from __future__ import annotations
 
@@ -106,6 +106,22 @@ class CropConfig:
 
 
 @dataclass(slots=True)
+class ClassificationConfig:
+    """Runtime policy for the step-6.1 component-family classifier.
+
+    Preprocessing details and the default confidence policy live in the model
+    manifest. Non-``None`` values below are explicit deployment overrides.
+    """
+
+    batch_size: int = 32
+    top_k: int = 3
+    device: Literal["cpu", "cuda", "auto"] = "cpu"
+    accept_threshold: float | None = None
+    review_threshold: float | None = None
+    temperature: float | None = None
+
+
+@dataclass(slots=True)
 class PipelineConfig:
     """Top-level configuration consumed by :class:`AOIPipeline`."""
 
@@ -115,6 +131,7 @@ class PipelineConfig:
     cv_detector: CVDetectorConfig = field(default_factory=CVDetectorConfig)
     model_detector: ModelDetectorConfig = field(default_factory=ModelDetectorConfig)
     crop: CropConfig = field(default_factory=CropConfig)
+    classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     detector_mode: Literal["auto", "cv"] = "auto"
 
     def to_dict(self) -> dict[str, Any]:
@@ -138,6 +155,7 @@ class PipelineConfig:
         component_values = _section(values, "components", "cv_detector")
         model_values = _section(values, "model_detector", "model")
         crop_values = _section(values, "crops", "crop")
+        classification_values = _section(values, "classification", "classifier")
 
         _assign_known(
             config.preprocess,
@@ -212,6 +230,7 @@ class PipelineConfig:
             config.crop.target_size = (side, side) if side > 0 else None
         if crop_values.get("normalize") is False:
             config.crop.target_size = None
+        _assign_known(config.classification, classification_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:
             config.detector_mode = detector_mode

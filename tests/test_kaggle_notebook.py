@@ -20,6 +20,12 @@ NOTEBOOK_PATH = (
     / "kaggle"
     / "pcb_component_detection_kaggle.ipynb"
 )
+CLASSIFICATION_NOTEBOOK_PATH = (
+    Path(__file__).parents[1]
+    / "training"
+    / "kaggle"
+    / "pcb_component_classification_kaggle.ipynb"
+)
 
 
 class _YamlStub:
@@ -268,3 +274,119 @@ def test_ground_truth_renderer_builds_a_three_channel_rgb_color(tmp_path: Path) 
 
     assert rendered.mode == "RGB"
     assert rendered.getpixel((15, 6)) == (26, 51, 76)
+
+
+def test_classification_notebook_has_valid_code_and_explicit_dataset_contract() -> None:
+    notebook = json.loads(CLASSIFICATION_NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    assert notebook["nbformat"] == 4
+    source = "\n".join(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+    )
+    for index, cell in enumerate(notebook["cells"]):
+        if cell["cell_type"] == "code":
+            ast.parse("".join(cell["source"]), filename=f"classification-cell-{index}")
+
+    assert "aryanstein/pcb-component-detection-consolidated-dataset" in source
+    assert '"dataset_version": 1' in source
+    assert '"data_yaml": "components_data_uncropped/data.yaml"' in source
+    assert '"model_name": "efficientnet_b0"' in source
+    assert '"input_size": 224' in source
+    assert "models.EfficientNet_B0_Weights.DEFAULT" in source
+    assert "models.efficientnet_b0(weights=weights)" in source
+    assert '"transducer": "Không có mẫu train' in source
+    assert '"pads": "false_crop_background"' in source
+    assert '"pins": "false_crop_background"' in source
+    assert '"schema_version": "pcb-component-classifier/1.0"' in source
+    assert '"color_space": "RGB"' in source
+    assert '"resize_mode": "letterbox"' in source
+    assert '"target": "raspberry_pi_arm64_cpu"' in source
+    assert "best.onnx" in source
+    assert "model_manifest.json" in source
+    assert "pcb_component_classifier_artifacts.zip" in source
+
+
+def test_classification_notebook_rejects_incompatible_cuda_before_training() -> None:
+    notebook = json.loads(CLASSIFICATION_NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    source = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
+
+    assert "def select_training_device" in source
+    assert "torch.cuda.get_device_capability" in source
+    assert "torch.cuda.get_arch_list" in source
+    assert "torch.cuda.synchronize" in source
+    assert "GPU T4 x2" in source
+    assert "no kernel image is available" in source
+    assert "torch.amp.GradScaler" in source
+    assert "torch.amp.autocast" in source
+    assert "torch.cuda.amp.GradScaler" not in source
+    assert "torch.cuda.amp.autocast" not in source
+
+
+def test_classification_notebook_preserves_parent_image_split_and_locked_test() -> None:
+    notebook = json.loads(CLASSIFICATION_NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    source = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
+    assert "def calibration_role(image_path)" in source
+    assert 'output_split = calibration_role(image_path) if source_split == "val"' in source
+    assert 'evaluation_split = "test" if "test" in loaders else "val"' in source
+    assert "test_logits, test_targets, test_paths = predict(loaders[evaluation_split])" in source
+    assert "temperature_scaling" in source
+    assert "Confidence reject only; OOD behavior is not validated" in source
+
+
+def _classification_split_resolver_namespace(
+    source_yaml: Path, dataset_mount_root: Path
+) -> dict[str, object]:
+    notebook = json.loads(CLASSIFICATION_NOTEBOOK_PATH.read_text(encoding="utf-8"))
+    resolver_source = next(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        and "def conventional_split_candidates" in "".join(cell["source"])
+    )
+    tree = ast.parse(resolver_source)
+    required_functions = {
+        "conventional_split_candidates",
+        "resolve_path",
+        "resolve_split_images",
+    }
+    function_nodes = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name in required_functions
+    ]
+    assert {node.name for node in function_nodes} == required_functions
+    namespace: dict[str, object] = {
+        "Path": Path,
+        "SOURCE_YAML": source_yaml,
+        "DATASET_MOUNT_ROOT": dataset_mount_root,
+        "IMAGE_SUFFIXES": {".png"},
+    }
+    exec(
+        compile(
+            ast.Module(body=function_nodes, type_ignores=[]),
+            str(CLASSIFICATION_NOTEBOOK_PATH),
+            "exec",
+        ),
+        namespace,
+    )
+    return namespace
+
+
+@pytest.mark.parametrize("images_inside_yaml_folder", [True, False])
+def test_classification_resolver_repairs_parent_prefix_from_public_yaml(
+    tmp_path: Path, images_inside_yaml_folder: bool
+) -> None:
+    mount_root = tmp_path / "pcb-component-detection-consolidated-dataset"
+    yaml_parent = mount_root / "components_data_uncropped"
+    source_yaml = yaml_parent / "data.yaml"
+    yaml_parent.mkdir(parents=True)
+    source_yaml.write_text("train: ../train/images\n", encoding="utf-8")
+    split_root = yaml_parent if images_inside_yaml_folder else mount_root
+    image_path = split_root / "train" / "images" / "board.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"placeholder")
+    namespace = _classification_split_resolver_namespace(source_yaml, mount_root)
+
+    images = namespace["resolve_split_images"]("../train/images", mount_root, "train")
+
+    assert images == [image_path.resolve()]
