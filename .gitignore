@@ -19,8 +19,6 @@ tmp/
 *.log
 
 # Trained model artifacts (keep metadata/configs in Git)
-models/*.pt
-models/*.onnx
 models/*.engine
 models/*.torchscript
 training/artifacts/
