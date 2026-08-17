@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Optional: only required when loading best.pt/best.onnx through the
+# Ultralytics adapter. It matches the Kaggle notebook environment.
+ultralytics==8.4.104
+onnxruntime>=1.20,<2

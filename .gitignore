@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environments
+.venv/
+venv/
+
+# Local app state and generated outputs
+.streamlit/secrets.toml
+outputs/
+runs/
+tmp/
+*.log
+
+# Trained model artifacts (keep metadata/configs in Git)
+models/*.pt
+models/*.onnx
+models/*.engine
+models/*.torchscript
+training/artifacts/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local camera credentials from the legacy prototype
+Ver1/rtsp.txt
+Ver1/KCS_Inspec_PCBA_V2.exe
