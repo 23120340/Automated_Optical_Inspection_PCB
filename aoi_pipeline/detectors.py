@@ -135,12 +135,14 @@ class UltralyticsDetector(ComponentDetector):
             raise DetectorConfigurationError(f"Component model does not exist: {self.model_path}")
         self._model = model
 
-    def detect(self, image: np.ndarray) -> list[Detection]:
+    def detect(
+        self, image: np.ndarray, *, confidence: float | None = None
+    ) -> list[Detection]:
         bgr = ensure_bgr(image)
         model = self._get_model()
         kwargs: dict[str, Any] = {
             "source": bgr,
-            "conf": float(self.config.confidence),
+            "conf": float(self.config.confidence if confidence is None else confidence),
             "iou": float(self.config.iou),
             "imgsz": int(self.config.image_size),
             "max_det": int(self.config.max_detections),

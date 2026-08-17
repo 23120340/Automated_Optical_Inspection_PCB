@@ -101,6 +101,19 @@ def test_ultralytics_adapter_can_pin_kaggle_one_to_many_head(tmp_path: Path) -> 
     assert model.last_predict_kwargs["end2end"] is False
 
 
+def test_ultralytics_adapter_accepts_detail_confidence_override(tmp_path: Path) -> None:
+    model = _FakeModel()
+    detector = UltralyticsDetector(
+        tmp_path / "model.onnx",
+        ModelDetectorConfig(confidence=0.35),
+        model=model,
+    )
+
+    detector.detect(np.zeros((80, 100, 3), dtype=np.uint8), confidence=0.20)
+
+    assert model.last_predict_kwargs["conf"] == pytest.approx(0.20)
+
+
 def test_bad_model_path_never_silently_falls_back(tmp_path: Path) -> None:
     with pytest.raises(DetectorConfigurationError, match="does not exist"):
         create_detector(tmp_path / "missing.pt")

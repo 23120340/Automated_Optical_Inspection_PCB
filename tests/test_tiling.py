@@ -28,6 +28,8 @@ def test_tile_plan_covers_image_with_overlap_and_exact_outer_edges() -> None:
         assert tile.height <= 100
     assert np.all(coverage >= 1)
     assert np.any(coverage > 1)
+    center = BoundingBox(128, 102, 129, 103)
+    assert sum(tile.owns_center(center) for tile in tiles) == 1
 
 
 def test_adaptive_tiling_maps_seam_boxes_and_removes_duplicate() -> None:
@@ -60,14 +62,14 @@ def test_adaptive_tiling_maps_seam_boxes_and_removes_duplicate() -> None:
     assert len(batch.detections) == 1
     assert batch.detections[0].bbox.as_xyxy() == [80.0, 30.0, 100.0, 55.0]
     assert batch.detections[0].metadata["touches_tile_border"] is True
+    assert batch.detections[0].metadata["center_in_tile_ownership"] is True
     assert batch.metrics()["duplicates_removed"] == 1
 
 
 def test_global_merge_is_class_aware_for_adjacent_component_types() -> None:
-    same_box = BoundingBox(10, 10, 40, 40)
     detections = [
-        Detection("resistor", 0.92, same_box, class_id=0),
-        Detection("capacitor", 0.90, same_box, class_id=1),
+        Detection("resistor", 0.92, BoundingBox(10, 10, 40, 40), class_id=0),
+        Detection("capacitor", 0.90, BoundingBox(35, 10, 65, 40), class_id=1),
     ]
 
     merged = merge_tiled_detections(
@@ -76,6 +78,18 @@ def test_global_merge_is_class_aware_for_adjacent_component_types() -> None:
     )
 
     assert {item.label for item in merged} == {"resistor", "capacitor"}
+
+
+def test_global_merge_removes_near_identical_cross_class_hypotheses() -> None:
+    detections = [
+        Detection("capacitor", 0.62, BoundingBox(10, 10, 40, 40), class_id=0),
+        Detection("led", 0.31, BoundingBox(11, 11, 39, 39), class_id=1),
+    ]
+
+    merged = merge_tiled_detections(detections, TilingConfig())
+
+    assert len(merged) == 1
+    assert merged[0].label == "capacitor"
 
 
 def test_small_image_uses_one_ordinary_pass_in_auto_mode() -> None:
@@ -98,3 +112,23 @@ def test_small_image_uses_one_ordinary_pass_in_auto_mode() -> None:
     assert batch.tiles == []
     assert batch.detections[0].detection_id == "single_pass"
     assert "source_detection_id" not in batch.detections[0].metadata
+
+
+def test_auto_mode_runs_real_detail_pass_for_1000_by_750_board() -> None:
+    calls: list[tuple[int, int]] = []
+
+    def detect(image: np.ndarray) -> list[Detection]:
+        calls.append(image.shape[:2])
+        return []
+
+    batch = detect_with_adaptive_tiling(
+        detect,
+        np.zeros((750, 1000, 3), dtype=np.uint8),
+        TilingConfig(),
+    )
+
+    assert batch.tiling_applied
+    assert batch.effective_tile_size == 640
+    assert len(batch.tiles) == 4
+    assert calls[0] == (750, 1000)
+    assert calls[1:] == [(640, 640)] * 4

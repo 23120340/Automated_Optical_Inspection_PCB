@@ -45,9 +45,12 @@ from app.pipeline_bridge import (  # noqa: E402
 
 
 APP_TITLE = "AOI PCB · Workbench"
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 MAX_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 50_000_000
+MIN_SOURCE_LONG_SIDE = 1280
+MIN_SOURCE_SHORT_SIDE = 960
+MIN_SOURCE_PIXELS = MIN_SOURCE_LONG_SIDE * MIN_SOURCE_SHORT_SIDE
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 STEP_DEFINITIONS = (
     (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
@@ -106,7 +109,7 @@ def _default_config() -> dict[str, Any]:
             "padding_ratio": 0.005,
         },
         "components": {
-            "confidence": 0.35,
+            "confidence": 0.25,
             "iou": 0.45,
             "max_candidates": 2000,
             "min_area_ratio": 0.00004,
@@ -117,10 +120,14 @@ def _default_config() -> dict[str, Any]:
             "end2end": False,
             "tiling_mode": "auto",
             "tile_size": 1280,
+            "min_tile_size": 640,
+            "detail_window_ratio": 0.64,
             "tile_overlap": 0.20,
             "tile_trigger_scale": 1.25,
             "full_image_pass": True,
+            "tile_confidence": 0.20,
             "merge_iou": 0.45,
+            "cross_class_iou": 0.70,
             "show_tile_grid": False,
         },
         "crops": {
@@ -221,6 +228,33 @@ def _decode_image(data: bytes) -> np.ndarray:
     return image
 
 
+def _source_resolution_issue(image: np.ndarray) -> str | None:
+    """Return a user-facing quality gate error for a complete-board import."""
+
+    height, width = (int(value) for value in image.shape[:2])
+    long_side, short_side = max(width, height), min(width, height)
+    pixel_count = width * height
+    if (
+        long_side < MIN_SOURCE_LONG_SIDE
+        or short_side < MIN_SOURCE_SHORT_SIDE
+        or pixel_count < MIN_SOURCE_PIXELS
+    ):
+        return (
+            f"Ảnh {width} × {height}px ({pixel_count / 1_000_000:.2f} MP) không đạt "
+            f"ngưỡng ảnh toàn PCB tối thiểu {MIN_SOURCE_LONG_SIDE} × "
+            f"{MIN_SOURCE_SHORT_SIDE}px ({MIN_SOURCE_PIXELS / 1_000_000:.2f} MP). "
+            "Pipeline đã khóa để tránh bỏ sót linh kiện nhỏ. Hãy chụp hoặc gửi "
+            "ảnh khác có độ phân giải cao hơn; không nội suy/upscale ảnh cũ."
+        )
+    return None
+
+
+def _require_source_resolution(image: np.ndarray) -> None:
+    issue = _source_resolution_issue(image)
+    if issue:
+        raise ValueError(issue)
+
+
 def _safe_name(name: str, fallback: str = "asset") -> str:
     stem = Path(name).stem
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._")
@@ -275,6 +309,7 @@ def _set_source(name: str, data: bytes) -> None:
     if digest == st.session_state.input_digest:
         return
     image = _decode_image(data)
+    _require_source_resolution(image)
     st.session_state.input_image = image
     st.session_state.input_name = name
     st.session_state.input_digest = digest
@@ -455,10 +490,14 @@ def _cached_bridge(
     config["tiling"] = {
         "mode": component_config.get("tiling_mode", "auto"),
         "tile_size": component_config.get("tile_size", 1280),
+        "min_tile_size": component_config.get("min_tile_size", 640),
+        "detail_window_ratio": component_config.get("detail_window_ratio", 0.64),
         "overlap_ratio": component_config.get("tile_overlap", 0.20),
         "auto_trigger_scale": component_config.get("tile_trigger_scale", 1.25),
         "include_full_image": component_config.get("full_image_pass", True),
+        "detail_confidence": component_config.get("tile_confidence", 0.20),
         "merge_iou_threshold": component_config.get("merge_iou", 0.45),
+        "cross_class_iou_threshold": component_config.get("cross_class_iou", 0.70),
     }
     config.setdefault("models", {})
     config["models"]["board_path"] = board_model_path
@@ -552,6 +591,7 @@ def _execute_preprocess(bridge: PipelineBridge) -> StageResult:
     source = st.session_state.input_image
     if source is None:
         raise RuntimeError("Chưa có ảnh đầu vào.")
+    _require_source_resolution(source)
     st.session_state.statuses[1] = "running"
     result = bridge.preprocess(source)
     st.session_state.preprocess_result = result
@@ -999,7 +1039,10 @@ def _render_step_zero() -> None:
         type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
         accept_multiple_files=False,
         key="source_uploads",
-        help="Prototype xử lý một ảnh mỗi lần để giới hạn RAM; có thể thay file bất kỳ lúc nào.",
+        help=(
+            "Yêu cầu ảnh toàn PCB tối thiểu 1280×960 px (1,23 MP). "
+            "Prototype xử lý một ảnh mỗi lần để giới hạn RAM."
+        ),
     )
     if uploaded_file is not None:
         try:
@@ -1014,7 +1057,10 @@ def _render_step_zero() -> None:
                 st.metric("Kích thước", f"{candidate.shape[1]} × {candidate.shape[0]}")
                 st.metric("Dung lượng", f"{size_mb:.2f} MB")
                 st.metric("Kênh màu", "BGR · 8-bit")
-                if st.button("Nạp ảnh này vào pipeline", type="primary", width="stretch"):
+                resolution_issue = _source_resolution_issue(candidate)
+                if resolution_issue:
+                    st.error(resolution_issue)
+                elif st.button("Nạp ảnh này vào pipeline", type="primary", width="stretch"):
                     _set_source(uploaded_file.name, payload)
                     st.toast("Đã nạp ảnh vào workspace.", icon="✅")
                     st.rerun()
@@ -1029,9 +1075,13 @@ def _render_step_zero() -> None:
         with active_left:
             _show_image(st.session_state.input_image, st.session_state.input_name)
         with active_right:
-            st.success("Ảnh đã sẵn sàng cho bước 1.")
             st.code(st.session_state.input_digest[:16], language=None)
-            if st.button("Đi đến bước 1 →", width="stretch"):
+            active_issue = _source_resolution_issue(st.session_state.input_image)
+            if active_issue:
+                st.error(active_issue)
+            else:
+                st.success("Ảnh đã sẵn sàng cho bước 1.")
+            if not active_issue and st.button("Đi đến bước 1 →", width="stretch"):
                 st.session_state.active_step = 1
                 st.session_state.pending_navigation = 1
                 st.rerun()
@@ -1280,6 +1330,7 @@ def _detections_frame(detections: list[DetectionRecord]) -> pd.DataFrame:
                 "source": item.source,
                 "pass": item.metadata.get("inference_pass", ""),
                 "tile": item.metadata.get("tile_id", ""),
+                "owner": item.metadata.get("center_in_tile_ownership", ""),
             }
         )
     return pd.DataFrame(rows)
@@ -1354,10 +1405,13 @@ def _render_step_four() -> None:
                 index=["auto", "on", "off"].index(config.get("tiling_mode", "auto")),
                 format_func={"auto": "Tự động", "on": "Luôn bật", "off": "Tắt"}.get,
                 disabled=not has_model,
-                help="Auto chỉ chia khi board ROI lớn hơn khoảng 1,25 lần tile.",
+                help=(
+                    "Auto tự chọn cửa sổ chi tiết từ 640 đến kích thước tile tối đa. "
+                    "Ảnh 1000px sẽ dùng tile khoảng 640px thay vì bị bỏ qua."
+                ),
             )
             tile_size = st.number_input(
-                "Kích thước tile",
+                "Kích thước tile tối đa",
                 640,
                 2048,
                 int(config.get("tile_size", 1280)),
@@ -1378,6 +1432,18 @@ def _render_step_four() -> None:
                 disabled=not has_model or tiling_mode == "off",
                 help="Giữ khả năng bắt linh kiện lớn; sẽ tăng thời gian inference.",
             )
+            tile_confidence = st.slider(
+                "Confidence cho detail tile",
+                0.05,
+                0.95,
+                float(config.get("tile_confidence", 0.20)),
+                0.05,
+                disabled=not has_model or tiling_mode == "off",
+                help=(
+                    "Nên thấp hơn confidence toàn board để ưu tiên recall linh kiện nhỏ; "
+                    "global NMS và classifier sẽ xử lý kết quả tiếp theo."
+                ),
+            )
             merge_iou = st.slider(
                 "IoU gộp detection giữa tile",
                 0.10,
@@ -1385,6 +1451,18 @@ def _render_step_four() -> None:
                 float(config.get("merge_iou", 0.45)),
                 0.05,
                 disabled=not has_model or tiling_mode == "off",
+            )
+            cross_class_iou = st.slider(
+                "IoU xung đột khác class",
+                0.50,
+                0.95,
+                float(config.get("cross_class_iou", 0.70)),
+                0.05,
+                disabled=not has_model or tiling_mode == "off",
+                help=(
+                    "Hai box khác nhãn nhưng gần như trùng nhau được coi là hai giả thuyết "
+                    "cho cùng linh kiện; chỉ giữ box có ưu tiên cao hơn."
+                ),
             )
             show_tile_grid = st.checkbox(
                 "Hiện lưới tile trên kết quả",
@@ -1408,7 +1486,9 @@ def _render_step_four() -> None:
                     "tile_size": int(tile_size),
                     "tile_overlap": tile_overlap,
                     "full_image_pass": full_image_pass,
+                    "tile_confidence": tile_confidence,
                     "merge_iou": merge_iou,
+                    "cross_class_iou": cross_class_iou,
                     "show_tile_grid": show_tile_grid,
                 }
             )
@@ -1749,6 +1829,7 @@ def _detections_csv_bytes() -> bytes:
             "inference_pass",
             "tile_id",
             "touches_tile_border",
+            "center_in_tile_ownership",
             "coordinate_space",
             "image_width",
             "image_height",
@@ -1774,6 +1855,9 @@ def _detections_csv_bytes() -> bytes:
                 "inference_pass": _csv_cell(item.metadata.get("inference_pass", "")),
                 "tile_id": _csv_cell(item.metadata.get("tile_id", "")),
                 "touches_tile_border": bool(item.metadata.get("touches_tile_border", False)),
+                "center_in_tile_ownership": item.metadata.get(
+                    "center_in_tile_ownership", ""
+                ),
                 "coordinate_space": coordinate_space["id"],
                 "image_width": coordinate_space["width"],
                 "image_height": coordinate_space["height"],

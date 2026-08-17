@@ -85,7 +85,8 @@ def test_facade_tiles_board_roi_and_exports_analysis_coordinates() -> None:
     assert len(detections) == 1
     assert detections[0].bbox.as_xyxy() == [100.0, 40.0, 120.0, 65.0]
     assert detections[0].metadata["coordinate_space"] == "analysis_image_pixels"
-    assert detections[0].metadata["tile_bbox"] == [20.0, 10.0, 120.0, 110.0]
+    assert detections[0].metadata["tile_bbox"] == [100.0, 10.0, 200.0, 110.0]
+    assert detections[0].metadata["center_in_tile_ownership"] is True
     assert pipeline.last_detection_metrics["tile_count"] == 2
     assert pipeline.last_detection_metrics["duplicates_removed"] == 1
     assert pipeline.last_detection_metrics["tile_regions"][1]["xyxy"] == [100, 10, 200, 110]
@@ -108,9 +109,13 @@ def test_facade_accepts_ui_mapping_config() -> None:
                 "end2end": False,
                 "tiling_mode": "on",
                 "tile_size": 960,
+                "min_tile_size": 512,
+                "detail_window_ratio": 0.60,
                 "tile_overlap": 0.25,
                 "full_image_pass": False,
+                "tile_confidence": 0.18,
                 "merge_iou": 0.51,
+                "cross_class_iou": 0.76,
             },
             "crops": {"padding": 7, "target_size": 128, "normalize": True},
             "classification": {"batch_size": 12, "top_k": 2, "device": "auto"},
@@ -130,9 +135,13 @@ def test_facade_accepts_ui_mapping_config() -> None:
     assert pipeline.config.model_detector.end2end is False
     assert pipeline.config.tiling.mode == "on"
     assert pipeline.config.tiling.tile_size == 960
+    assert pipeline.config.tiling.min_tile_size == 512
+    assert pipeline.config.tiling.detail_window_ratio == 0.60
     assert pipeline.config.tiling.overlap_ratio == 0.25
     assert pipeline.config.tiling.include_full_image is False
+    assert pipeline.config.tiling.detail_confidence == 0.18
     assert pipeline.config.tiling.merge_iou_threshold == 0.51
+    assert pipeline.config.tiling.cross_class_iou_threshold == 0.76
     assert pipeline.config.crop.padding_pixels == 7
     assert pipeline.config.crop.target_size == (128, 128)
     assert pipeline.config.classification.batch_size == 12

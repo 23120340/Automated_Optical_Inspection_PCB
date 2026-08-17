@@ -425,9 +425,10 @@ class PipelineBridge:
                     result_mode = "MODEL" if self.model_path else "PIPELINE"
                     result_message = "Kết quả nhận dạng từ AOIPipeline."
                 if core_metrics.get("tiling_applied"):
+                    effective_size = core_metrics.get("effective_tile_size", "?")
                     result_message += (
                         f" Adaptive tiling đã chạy {int(core_metrics.get('tile_count', 0))} "
-                        "khung và gộp detection trong tọa độ ảnh phân tích."
+                        f"khung {effective_size}px và gộp detection trong tọa độ ảnh phân tích."
                     )
                 return DetectionResult(
                     image=annotated,
@@ -939,6 +940,12 @@ def _draw_tile_grid(image: np.ndarray, tile_regions: Any) -> np.ndarray:
             continue
         x1, y1, x2, y2 = (int(round(float(value))) for value in xyxy[:4])
         cv2.rectangle(output, (x1, y1), (x2, y2), (255, 120, 40), 1)
+        ownership_xyxy = region.get("ownership_xyxy")
+        if isinstance(ownership_xyxy, Sequence) and len(ownership_xyxy) >= 4:
+            ox1, oy1, ox2, oy2 = (
+                int(round(float(value))) for value in ownership_xyxy[:4]
+            )
+            cv2.rectangle(output, (ox1, oy1), (ox2, oy2), (190, 70, 255), 1)
         _draw_label(
             output,
             str(region.get("tile_id", f"tile_{index:03d}")),

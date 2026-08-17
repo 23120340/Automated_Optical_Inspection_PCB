@@ -14,7 +14,12 @@ from .board import PCBLocalizer
 from .classification import ComponentClassifier, create_classifier
 from .config import PipelineConfig
 from .cropping import ComponentCropper
-from .detectors import ComponentDetector, CVComponentDetector, create_detector
+from .detectors import (
+    ComponentDetector,
+    CVComponentDetector,
+    UltralyticsDetector,
+    create_detector,
+)
 from .exceptions import DetectorConfigurationError
 from .exporters import export_json as write_json
 from .exporters import export_zip as write_zip
@@ -139,10 +144,25 @@ class AOIPipeline:
             if isinstance(self.detector, CVComponentDetector)
             else self.config.model_detector.max_detections
         )
+        tile_detect = None
+        applied_detail_confidence = tiling_policy.detail_confidence
+        if (
+            isinstance(self.detector, UltralyticsDetector)
+            and tiling_policy.detail_confidence is not None
+        ):
+            applied_detail_confidence = min(
+                float(self.config.model_detector.confidence),
+                float(tiling_policy.detail_confidence),
+            )
+            tile_detect = lambda tile: self.detector.detect(
+                tile,
+                confidence=applied_detail_confidence,
+            )
         batch = detect_with_adaptive_tiling(
             self.detector.detect,
             roi,
             tiling_policy,
+            tile_detect=tile_detect,
             max_detections=max_detections,
             frame_id=frame_id,
         )
@@ -150,6 +170,7 @@ class AOIPipeline:
             **batch.metrics(offset=(x1, y1)),
             "coordinate_space": "analysis_image_pixels",
             "roi_bbox": [x1, y1, x2, y2],
+            "detail_confidence": applied_detail_confidence,
         }
         if tiling_reason:
             self.last_detection_metrics["tiling_reason"] = tiling_reason
@@ -162,15 +183,16 @@ class AOIPipeline:
             metadata = dict(detection.metadata)
             metadata["roi_offset"] = [x1, y1]
             metadata["coordinate_space"] = "analysis_image_pixels"
-            tile_bbox = metadata.get("tile_bbox")
-            if isinstance(tile_bbox, list) and len(tile_bbox) == 4:
-                metadata["tile_bbox_roi"] = list(tile_bbox)
-                metadata["tile_bbox"] = [
-                    float(tile_bbox[0]) + x1,
-                    float(tile_bbox[1]) + y1,
-                    float(tile_bbox[2]) + x1,
-                    float(tile_bbox[3]) + y1,
-                ]
+            for bbox_key in ("tile_bbox", "tile_ownership_bbox"):
+                tile_bbox = metadata.get(bbox_key)
+                if isinstance(tile_bbox, list) and len(tile_bbox) == 4:
+                    metadata[f"{bbox_key}_roi"] = list(tile_bbox)
+                    metadata[bbox_key] = [
+                        float(tile_bbox[0]) + x1,
+                        float(tile_bbox[1]) + y1,
+                        float(tile_bbox[2]) + x1,
+                        float(tile_bbox[3]) + y1,
+                    ]
             translated.append(
                 Detection(
                     label=detection.label,

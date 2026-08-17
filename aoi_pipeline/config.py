@@ -99,14 +99,23 @@ class TilingConfig:
     """Adaptive high-resolution inference policy for step 4."""
 
     mode: Literal["auto", "on", "off"] = "auto"
+    # ``tile_size`` is the upper bound. Auto mode may choose a smaller detail
+    # window so a 1000px PCB is not incorrectly treated as a single 1280px tile.
     tile_size: int = 1280
+    min_tile_size: int = 640
+    detail_window_ratio: float = 0.64
     overlap_ratio: float = 0.20
     auto_trigger_scale: float = 1.25
     include_full_image: bool = True
+    detail_confidence: float | None = 0.20
     merge_iou_threshold: float = 0.45
     class_aware_merge: bool = True
+    # Different class labels may still be duplicate hypotheses for one object.
+    # Use a stricter threshold than same-class NMS to preserve adjacent parts.
+    cross_class_iou_threshold: float = 0.70
     edge_margin_ratio: float = 0.03
-    edge_confidence_penalty: float = 0.05
+    edge_confidence_penalty: float = 0.10
+    non_ownership_confidence_penalty: float = 0.10
 
 
 @dataclass(slots=True)
@@ -247,7 +256,9 @@ class PipelineConfig:
                 "tile_overlap": "overlap_ratio",
                 "tile_trigger_scale": "auto_trigger_scale",
                 "full_image_pass": "include_full_image",
+                "tile_confidence": "detail_confidence",
                 "merge_iou": "merge_iou_threshold",
+                "cross_class_iou": "cross_class_iou_threshold",
             },
         )
         _assign_known(

@@ -29,6 +29,10 @@ class InferenceTile:
     y1: int
     x2: int
     y2: int
+    ownership_x1: float | None = None
+    ownership_y1: float | None = None
+    ownership_x2: float | None = None
+    ownership_y2: float | None = None
 
     @property
     def width(self) -> int:
@@ -42,6 +46,24 @@ class InferenceTile:
     def bbox(self) -> BoundingBox:
         return BoundingBox(float(self.x1), float(self.y1), float(self.x2), float(self.y2))
 
+    @property
+    def ownership_bbox(self) -> BoundingBox:
+        return BoundingBox(
+            float(self.x1 if self.ownership_x1 is None else self.ownership_x1),
+            float(self.y1 if self.ownership_y1 is None else self.ownership_y1),
+            float(self.x2 if self.ownership_x2 is None else self.ownership_x2),
+            float(self.y2 if self.ownership_y2 is None else self.ownership_y2),
+        )
+
+    def owns_center(self, bbox: BoundingBox) -> bool:
+        ownership = self.ownership_bbox
+        center_x = (bbox.x1 + bbox.x2) / 2.0
+        center_y = (bbox.y1 + bbox.y2) / 2.0
+        return bool(
+            ownership.x1 <= center_x < ownership.x2
+            and ownership.y1 <= center_y < ownership.y2
+        )
+
     def to_dict(self, offset: tuple[int, int] = (0, 0)) -> dict[str, Any]:
         offset_x, offset_y = offset
         return {
@@ -54,6 +76,12 @@ class InferenceTile:
             ],
             "width": self.width,
             "height": self.height,
+            "ownership_xyxy": [
+                self.ownership_bbox.x1 + offset_x,
+                self.ownership_bbox.y1 + offset_y,
+                self.ownership_bbox.x2 + offset_x,
+                self.ownership_bbox.y2 + offset_y,
+            ],
         }
 
 
@@ -69,16 +97,22 @@ class TiledDetectionBatch:
     full_image_detection_count: int = 0
     tile_detection_count: int = 0
     duplicates_removed_count: int = 0
+    same_class_duplicates_removed_count: int = 0
+    cross_class_conflicts_removed_count: int = 0
+    effective_tile_size: int | None = None
 
     def metrics(self, offset: tuple[int, int] = (0, 0)) -> dict[str, Any]:
         return {
             "tiling_applied": self.tiling_applied,
             "tile_count": len(self.tiles),
+            "effective_tile_size": self.effective_tile_size,
             "full_image_pass": self.full_image_pass,
             "raw_detection_count": self.raw_detection_count,
             "full_image_detection_count": self.full_image_detection_count,
             "tile_detection_count": self.tile_detection_count,
             "duplicates_removed": self.duplicates_removed_count,
+            "same_class_duplicates_removed": self.same_class_duplicates_removed_count,
+            "cross_class_conflicts_removed": self.cross_class_conflicts_removed_count,
             "tile_regions": [tile.to_dict(offset) for tile in self.tiles],
         }
 
@@ -103,6 +137,8 @@ def plan_inference_tiles(
 
     x_starts = _axis_starts(width, tile_size, overlap_ratio)
     y_starts = _axis_starts(height, tile_size, overlap_ratio)
+    x_ownership = _axis_ownership_ranges(x_starts, width, tile_size)
+    y_ownership = _axis_ownership_ranges(y_starts, height, tile_size)
     tiles: list[InferenceTile] = []
     for row, y1 in enumerate(y_starts):
         for column, x1 in enumerate(x_starts):
@@ -115,6 +151,10 @@ def plan_inference_tiles(
                     y1=y1,
                     x2=x2,
                     y2=y2,
+                    ownership_x1=x_ownership[column][0],
+                    ownership_y1=y_ownership[row][0],
+                    ownership_x2=x_ownership[column][1],
+                    ownership_y2=y_ownership[row][1],
                 )
             )
     return tiles
@@ -125,6 +165,7 @@ def detect_with_adaptive_tiling(
     image: np.ndarray,
     config: TilingConfig | None = None,
     *,
+    tile_detect: Callable[[np.ndarray], Sequence[Detection]] | None = None,
     max_detections: int | None = None,
     frame_id: str = "import_0000",
 ) -> TiledDetectionBatch:
@@ -134,9 +175,10 @@ def detect_with_adaptive_tiling(
     bgr = ensure_bgr(image)
     height, width = bgr.shape[:2]
     _validate_policy(policy)
-    tiling_applied = _should_tile(width, height, policy)
+    effective_tile_size = _effective_tile_size(width, height, policy)
+    tiling_applied = _should_tile(width, height, effective_tile_size, policy)
     tiles = (
-        plan_inference_tiles(width, height, policy.tile_size, policy.overlap_ratio)
+        plan_inference_tiles(width, height, effective_tile_size, policy.overlap_ratio)
         if tiling_applied
         else []
     )
@@ -169,9 +211,10 @@ def detect_with_adaptive_tiling(
                 raw_detections.append(cloned)
 
     if tiling_applied:
+        detail_detector = tile_detect or detect
         for tile in tiles:
             crop = np.ascontiguousarray(bgr[tile.y1 : tile.y2, tile.x1 : tile.x2])
-            tile_detections = list(detect(crop))
+            tile_detections = list(detail_detector(crop))
             tile_count += len(tile_detections)
             for detection in tile_detections:
                 cloned = _map_detection(
@@ -188,7 +231,10 @@ def detect_with_adaptive_tiling(
                 if cloned is not None:
                     raw_detections.append(cloned)
 
-    merged_before_limit = merge_tiled_detections(raw_detections, policy)
+    merged_before_limit, same_class_removed, cross_class_removed = _merge_with_stats(
+        raw_detections,
+        policy,
+    )
     merged = (
         merged_before_limit[: max(0, int(max_detections))]
         if max_detections is not None
@@ -203,6 +249,9 @@ def detect_with_adaptive_tiling(
         full_image_detection_count=full_count,
         tile_detection_count=tile_count,
         duplicates_removed_count=max(0, len(raw_detections) - len(merged_before_limit)),
+        same_class_duplicates_removed_count=same_class_removed,
+        cross_class_conflicts_removed_count=cross_class_removed,
+        effective_tile_size=effective_tile_size if tiling_applied else None,
     )
 
 
@@ -215,23 +264,42 @@ def merge_tiled_detections(
     """Class-aware global NMS with a small penalty for internal tile seams."""
 
     policy = config or TilingConfig()
-    threshold = float(np.clip(policy.merge_iou_threshold, 0.0, 1.0))
-    remaining = sorted(detections, key=lambda item: _merge_score(item, policy), reverse=True)
-    kept: list[Detection] = []
-    while remaining:
-        current = remaining.pop(0)
-        kept.append(current)
-        remaining = [
-            candidate
-            for candidate in remaining
-            if not (
-                _same_merge_class(current, candidate, policy.class_aware_merge)
-                and _intersection_over_union(current.bbox, candidate.bbox) > threshold
-            )
-        ]
+    kept, _, _ = _merge_with_stats(detections, policy)
     if max_detections is not None:
         return kept[: max(0, int(max_detections))]
     return kept
+
+
+def _merge_with_stats(
+    detections: Sequence[Detection],
+    policy: TilingConfig,
+) -> tuple[list[Detection], int, int]:
+    same_threshold = float(np.clip(policy.merge_iou_threshold, 0.0, 1.0))
+    cross_threshold = float(np.clip(policy.cross_class_iou_threshold, 0.0, 1.0))
+    remaining = sorted(detections, key=lambda item: _merge_score(item, policy), reverse=True)
+    kept: list[Detection] = []
+    same_class_removed = 0
+    cross_class_removed = 0
+    while remaining:
+        current = remaining.pop(0)
+        kept.append(current)
+        survivors: list[Detection] = []
+        for candidate in remaining:
+            same_class = _same_detection_class(current, candidate)
+            threshold = (
+                same_threshold
+                if same_class or not policy.class_aware_merge
+                else cross_threshold
+            )
+            if _intersection_over_union(current.bbox, candidate.bbox) > threshold:
+                if same_class:
+                    same_class_removed += 1
+                else:
+                    cross_class_removed += 1
+                continue
+            survivors.append(candidate)
+        remaining = survivors
+    return kept, same_class_removed, cross_class_removed
 
 
 def _axis_starts(length: int, tile_size: int, overlap_ratio: float) -> list[int]:
@@ -243,25 +311,63 @@ def _axis_starts(length: int, tile_size: int, overlap_ratio: float) -> list[int]
     return [int(round(index * span / step_count)) for index in range(step_count + 1)]
 
 
+def _axis_ownership_ranges(
+    starts: Sequence[int],
+    length: int,
+    tile_size: int,
+) -> list[tuple[float, float]]:
+    centers = [
+        (float(start) + float(min(length, start + tile_size))) / 2.0
+        for start in starts
+    ]
+    boundaries = [0.0]
+    boundaries.extend(
+        (centers[index] + centers[index + 1]) / 2.0
+        for index in range(len(centers) - 1)
+    )
+    boundaries.append(float(length))
+    return [(boundaries[index], boundaries[index + 1]) for index in range(len(starts))]
+
+
 def _validate_policy(policy: TilingConfig) -> None:
     if policy.mode not in {"auto", "on", "off"}:
         raise ValueError("tiling mode must be auto, on, or off")
     if policy.tile_size < 64:
         raise ValueError("tile_size must be at least 64 pixels")
+    if policy.min_tile_size < 64:
+        raise ValueError("min_tile_size must be at least 64 pixels")
+    if not 0.25 <= float(policy.detail_window_ratio) <= 1.0:
+        raise ValueError("detail_window_ratio must satisfy 0.25 <= value <= 1.0")
     if not 0.0 <= float(policy.overlap_ratio) < 0.5:
         raise ValueError("overlap_ratio must satisfy 0 <= overlap_ratio < 0.5")
     if float(policy.auto_trigger_scale) < 1.0:
         raise ValueError("auto_trigger_scale must be at least 1.0")
     if not 0.0 <= float(policy.edge_margin_ratio) < 0.5:
         raise ValueError("edge_margin_ratio must satisfy 0 <= value < 0.5")
+    if not 0.0 <= float(policy.cross_class_iou_threshold) <= 1.0:
+        raise ValueError("cross_class_iou_threshold must be between 0 and 1")
+    if policy.detail_confidence is not None and not 0.0 <= float(policy.detail_confidence) <= 1.0:
+        raise ValueError("detail_confidence must be between 0 and 1 or None")
 
 
-def _should_tile(width: int, height: int, policy: TilingConfig) -> bool:
+def _effective_tile_size(width: int, height: int, policy: TilingConfig) -> int:
+    upper = max(64, int(policy.tile_size))
+    lower = min(upper, max(64, int(policy.min_tile_size)))
+    adaptive = int(round(max(width, height) * float(policy.detail_window_ratio)))
+    return int(np.clip(adaptive, lower, upper))
+
+
+def _should_tile(
+    width: int,
+    height: int,
+    effective_tile_size: int,
+    policy: TilingConfig,
+) -> bool:
     if policy.mode == "off":
         return False
     if policy.mode == "on":
-        return width > policy.tile_size or height > policy.tile_size
-    threshold = policy.tile_size * float(policy.auto_trigger_scale)
+        return width > effective_tile_size or height > effective_tile_size
+    threshold = effective_tile_size * float(policy.auto_trigger_scale)
     return max(width, height) > threshold
 
 
@@ -304,6 +410,10 @@ def _map_detection(
                 "tile_id": tile.tile_id,
                 "tile_offset": [tile.x1, tile.y1],
                 "tile_bbox": tile.bbox.as_xyxy(),
+                "tile_ownership_bbox": tile.ownership_bbox.as_xyxy(),
+                "center_in_tile_ownership": tile.owns_center(
+                    local_bbox.translated(offset_x, offset_y)
+                ),
                 "touches_tile_border": touches,
             }
         )
@@ -346,12 +456,15 @@ def _merge_score(detection: Detection, policy: TilingConfig) -> float:
         if detection.metadata.get("touches_tile_border")
         else 0.0
     )
+    if (
+        detection.metadata.get("inference_pass") == "tile"
+        and not detection.metadata.get("center_in_tile_ownership", True)
+    ):
+        penalty += float(policy.non_ownership_confidence_penalty)
     return float(detection.confidence) - penalty
 
 
-def _same_merge_class(first: Detection, second: Detection, class_aware: bool) -> bool:
-    if not class_aware:
-        return True
+def _same_detection_class(first: Detection, second: Detection) -> bool:
     if first.class_id is not None and second.class_id is not None:
         return first.class_id == second.class_id
     return first.label == second.label

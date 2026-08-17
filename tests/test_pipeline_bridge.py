@@ -144,6 +144,7 @@ def test_ui_manifest_and_csv_declare_analysis_coordinate_space(
             "inference_pass": "tile",
             "tile_id": "tile_r000_c001",
             "touches_tile_border": False,
+            "center_in_tile_ownership": True,
         },
     )
     aligned = np.zeros((80, 120, 3), dtype=np.uint8)
@@ -201,6 +202,7 @@ def test_ui_manifest_and_csv_declare_analysis_coordinate_space(
     assert rows[0]["frame_id"] == "import_0000"
     assert rows[0]["inference_pass"] == "tile"
     assert rows[0]["tile_id"] == "tile_r000_c001"
+    assert rows[0]["center_in_tile_ownership"] == "True"
 
 
 def test_csv_cells_neutralize_spreadsheet_formulas() -> None:
@@ -208,6 +210,19 @@ def test_csv_cells_neutralize_spreadsheet_formulas() -> None:
 
     assert ui._csv_cell("resistor") == "resistor"
     assert ui._csv_cell("=HYPERLINK(\"bad\")") == "'=HYPERLINK(\"bad\")"
+
+
+def test_source_resolution_gate_rejects_low_pixel_board_import() -> None:
+    from app import streamlit_app as ui
+
+    issue = ui._source_resolution_issue(np.zeros((750, 1000, 3), dtype=np.uint8))
+
+    assert issue is not None
+    assert "1000 × 750px" in issue
+    assert "1280 × 960px" in issue
+    assert ui._source_resolution_issue(np.zeros((960, 1280, 3), dtype=np.uint8)) is None
+    with pytest.raises(ValueError, match="không đạt"):
+        ui._require_source_resolution(np.zeros((900, 1280, 3), dtype=np.uint8))
 
 
 def test_classification_csv_exports_decision_and_top_k(

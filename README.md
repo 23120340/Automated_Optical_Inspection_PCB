@@ -109,17 +109,35 @@ mặc định thuộc ảnh input gốc nếu pipeline đã resize hoặc warp.
 
 ## Adaptive tiling cho ảnh PCB lớn
 
-Bước 4 mặc định dùng chế độ `auto`: board ROI lớn hơn khoảng `1.25 × tile_size`
-được chia thành các tile `1280 × 1280` với overlap 20%. Pipeline có thể chạy thêm
+Bước 4 mặc định dùng chế độ `auto`: `tile_size=1280` là giới hạn trên, còn cửa sổ
+detail được chọn thích ứng từ 640–1280 px. Vì vậy ảnh 1000×750 sẽ thực sự chạy bốn
+tile khoảng 640 px thay vì bị coi là nhỏ hơn một tile 1280. Các tile overlap 20%
+và dùng confidence detail mặc định 0.20. Pipeline có thể chạy thêm
 một lượt toàn board để giữ ngữ cảnh cho linh kiện lớn, sau đó đổi mọi box về tọa
 độ ảnh analysis và dùng class-aware global NMS để loại detection trùng. Box nằm ở
 đường nối tile nhận một penalty ưu tiên nhỏ, nhờ đó box nhìn thấy linh kiện đầy đủ
 hơn ở tile bên cạnh được giữ lại. Ảnh nhỏ vẫn chỉ chạy đúng một lượt như trước.
 
-UI bước 4 cho phép chọn `Tự động / Luôn bật / Tắt`, tile size, overlap, full-board
-pass, merge IoU và lưới debug. Metadata/CSV ghi thêm `frame_id`, `inference_pass`,
+UI bước 4 cho phép chọn `Tự động / Luôn bật / Tắt`, tile size tối đa, overlap,
+confidence detail, full-board pass, merge IoU và lưới debug. Metadata/CSV ghi thêm `frame_id`, `inference_pass`,
 `tile_id` và trạng thái chạm biên. CV candidate demo không dùng tiling vì các
 ngưỡng area ratio của nó gắn với toàn ROI và không phải model nhận dạng thật.
+
+Mỗi tile còn có một vùng ownership nằm giữa phần overlap. Detection có tâm trong
+ownership được ưu tiên hơn box sát đường cắt, nên linh kiện nhỏ không bị chọn theo
+một crop cụt ở mép. Sau same-class NMS, hai box khác class nhưng IoU trên 0.70 được
+coi là hai giả thuyết cho cùng vật thể và chỉ giữ box có ưu tiên cao hơn. Lưới debug
+vẽ cả cửa sổ inference và ownership để kiểm tra trực quan.
+
+Client chặn ảnh toàn PCB dưới **1280×960 px (1,23 MP)** ngay tại bước import và
+kiểm tra lại trước preprocessing. Thông báo yêu cầu chụp/gửi ảnh khác; upscale ảnh
+cũ không được coi là đạt chất lượng vì không tạo thêm chi tiết quang học. Ngưỡng
+này là gate ban đầu, cần tăng theo kích thước linh kiện nhỏ nhất của camera thật.
+
+Detector class trên overlay chỉ là gợi ý. Nếu một capacitor/LED có box nhưng bị
+gán thành resistor, tiling/NMS không thể sửa class một cách đáng tin cậy; bước 6.1
+phải phân loại lại crop hoặc detector cần fine-tune bằng dữ liệu capacitor/LED từ
+đúng camera và recipe ánh sáng của hệ thống.
 
 Bước tiền xử lý của app giữ mặc định cạnh dài tối đa 4096 px. Nếu ảnh bị thu nhỏ
 quá mạnh, bước 4 cảnh báo vì tiling không thể khôi phục pixel đã mất. Crop cho
