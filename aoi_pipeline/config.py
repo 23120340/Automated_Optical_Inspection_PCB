@@ -19,7 +19,9 @@ class PreprocessConfig:
     calibration_profile: dict[str, Any] | None = None
     undistort_alpha: float = 0.0
     calibration_aspect_tolerance: float = 0.01
-    max_side: int | None = 2048
+    # Preserve enough detail for tiled component detection. The detector still
+    # receives bounded tiles, so this does not enlarge its model input tensor.
+    max_side: int | None = 4096
     denoise: bool = True
     denoise_method: Literal["nlmeans", "bilateral", "gaussian"] = "nlmeans"
     denoise_strength: int = 5
@@ -93,6 +95,21 @@ class ModelDetectorConfig:
 
 
 @dataclass(slots=True)
+class TilingConfig:
+    """Adaptive high-resolution inference policy for step 4."""
+
+    mode: Literal["auto", "on", "off"] = "auto"
+    tile_size: int = 1280
+    overlap_ratio: float = 0.20
+    auto_trigger_scale: float = 1.25
+    include_full_image: bool = True
+    merge_iou_threshold: float = 0.45
+    class_aware_merge: bool = True
+    edge_margin_ratio: float = 0.03
+    edge_confidence_penalty: float = 0.05
+
+
+@dataclass(slots=True)
 class CropConfig:
     """Crop and normalization options used by step 5."""
 
@@ -130,6 +147,7 @@ class PipelineConfig:
     board: BoardConfig = field(default_factory=BoardConfig)
     cv_detector: CVDetectorConfig = field(default_factory=CVDetectorConfig)
     model_detector: ModelDetectorConfig = field(default_factory=ModelDetectorConfig)
+    tiling: TilingConfig = field(default_factory=TilingConfig)
     crop: CropConfig = field(default_factory=CropConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     detector_mode: Literal["auto", "cv"] = "auto"
@@ -154,6 +172,7 @@ class PipelineConfig:
         board_values = _section(values, "board")
         component_values = _section(values, "components", "cv_detector")
         model_values = _section(values, "model_detector", "model")
+        tiling_values = _section(values, "tiling")
         crop_values = _section(values, "crops", "crop")
         classification_values = _section(values, "classification", "classifier")
 
@@ -219,6 +238,18 @@ class PipelineConfig:
         )
         if config.model_detector.device == "auto":
             config.model_detector.device = None
+        _assign_known(config.tiling, tiling_values)
+        _assign_known(
+            config.tiling,
+            component_values,
+            aliases={
+                "tiling_mode": "mode",
+                "tile_overlap": "overlap_ratio",
+                "tile_trigger_scale": "auto_trigger_scale",
+                "full_image_pass": "include_full_image",
+                "merge_iou": "merge_iou_threshold",
+            },
+        )
         _assign_known(
             config.crop,
             crop_values,

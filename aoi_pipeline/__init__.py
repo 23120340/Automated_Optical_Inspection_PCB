@@ -25,6 +25,7 @@ from .config import (
     ModelDetectorConfig,
     PipelineConfig,
     PreprocessConfig,
+    TilingConfig,
 )
 from .cropping import ComponentCropper
 from .detectors import (
@@ -60,6 +61,13 @@ from .models import (
 )
 from .pipeline import AOIPipeline
 from .preprocessing import ImagePreprocessor
+from .tiling import (
+    InferenceTile,
+    TiledDetectionBatch,
+    detect_with_adaptive_tiling,
+    merge_tiled_detections,
+    plan_inference_tiles,
+)
 
 __all__ = [
     "AOIPipeline",
@@ -89,6 +97,7 @@ __all__ = [
     "DetectorConfigurationError",
     "ExportError",
     "ImagePreprocessor",
+    "InferenceTile",
     "InvalidImageError",
     "MockComponentDetector",
     "ModelDependencyError",
@@ -101,17 +110,22 @@ __all__ = [
     "PipelineRun",
     "PreprocessConfig",
     "PreprocessResult",
+    "TiledDetectionBatch",
+    "TilingConfig",
     "UltralyticsDetector",
     "UndistortionResult",
     "calibrate_from_chessboards",
     "create_detector",
     "create_classifier",
+    "detect_with_adaptive_tiling",
     "encode_image",
     "ensure_bgr",
     "export_json",
     "export_zip",
     "load_image",
+    "merge_tiled_detections",
     "non_maximum_suppression",
+    "plan_inference_tiles",
     "render_annotations",
     "save_calibration_profile",
 ]

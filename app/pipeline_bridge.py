@@ -42,6 +42,7 @@ class DetectionRecord:
     confidence: float | None
     bbox: tuple[int, int, int, int]
     source: str
+    metadata: dict[str, Any] = field(default_factory=dict)
     raw: Any = None
 
     @property
@@ -399,7 +400,13 @@ class PipelineBridge:
                         else ("model" if self.model_path else "pipeline")
                     ),
                 )
+                core_metrics = getattr(self.engine, "last_detection_metrics", {})
+                if not isinstance(core_metrics, Mapping):
+                    core_metrics = {}
                 annotated = _draw_detections(image, detections)
+                component_config = self.config.get("components", self.config)
+                if bool(component_config.get("show_tile_grid", False)):
+                    annotated = _draw_tile_grid(annotated, core_metrics.get("tile_regions", []))
                 demo_count = sum(_is_demo_source(item.source) for item in detections)
                 inferred_count = len(detections) - demo_count
                 if demo_count and inferred_count:
@@ -417,6 +424,11 @@ class PipelineBridge:
                 else:
                     result_mode = "MODEL" if self.model_path else "PIPELINE"
                     result_message = "Kết quả nhận dạng từ AOIPipeline."
+                if core_metrics.get("tiling_applied"):
+                    result_message += (
+                        f" Adaptive tiling đã chạy {int(core_metrics.get('tile_count', 0))} "
+                        "khung và gộp detection trong tọa độ ảnh phân tích."
+                    )
                 return DetectionResult(
                     image=annotated,
                     detections=detections,
@@ -425,6 +437,7 @@ class PipelineBridge:
                     metrics={
                         "elapsed_ms": _elapsed_ms(started),
                         "count": len(detections),
+                        **dict(core_metrics),
                     },
                     raw=raw,
                 )
@@ -716,6 +729,9 @@ def _normalize_detections(
                 source,
             )
         )
+        item_metadata = _attr(item, ("metadata",), {})
+        if not isinstance(item_metadata, Mapping):
+            item_metadata = {}
         records.append(
             DetectionRecord(
                 detection_id=detection_id,
@@ -723,6 +739,7 @@ def _normalize_detections(
                 confidence=confidence,
                 bbox=bbox,
                 source=item_source,
+                metadata=dict(item_metadata),
                 raw=item,
             )
         )
@@ -905,6 +922,30 @@ def _draw_detections(image: np.ndarray, detections: Sequence[DetectionRecord]) -
         cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
         confidence = "" if detection.confidence is None else f" {detection.confidence:.2f}"
         _draw_label(output, f"{detection.label}{confidence}", x1, y1, color)
+    return output
+
+
+def _draw_tile_grid(image: np.ndarray, tile_regions: Any) -> np.ndarray:
+    """Draw optional debug geometry without changing detection coordinates."""
+
+    output = image.copy()
+    if not isinstance(tile_regions, Sequence):
+        return output
+    for index, region in enumerate(tile_regions):
+        if not isinstance(region, Mapping):
+            continue
+        xyxy = region.get("xyxy")
+        if not isinstance(xyxy, Sequence) or len(xyxy) < 4:
+            continue
+        x1, y1, x2, y2 = (int(round(float(value))) for value in xyxy[:4])
+        cv2.rectangle(output, (x1, y1), (x2, y2), (255, 120, 40), 1)
+        _draw_label(
+            output,
+            str(region.get("tile_id", f"tile_{index:03d}")),
+            x1,
+            y1,
+            (255, 120, 40),
+        )
     return output
 
 

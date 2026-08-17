@@ -139,6 +139,12 @@ def test_ui_manifest_and_csv_declare_analysis_coordinate_space(
         confidence=0.8,
         bbox=(5, 6, 20, 18),
         source="model",
+        metadata={
+            "frame_id": "import_0000",
+            "inference_pass": "tile",
+            "tile_id": "tile_r000_c001",
+            "touches_tile_border": False,
+        },
     )
     aligned = np.zeros((80, 120, 3), dtype=np.uint8)
     state = SimpleNamespace(
@@ -183,6 +189,7 @@ def test_ui_manifest_and_csv_declare_analysis_coordinate_space(
         "right_bottom": "exclusive",
     }
     assert manifest["detections"][0]["coordinate_space"] == "analysis_image_pixels"
+    assert manifest["detections"][0]["metadata"]["tile_id"] == "tile_r000_c001"
 
     rows = list(
         csv.DictReader(StringIO(ui._detections_csv_bytes().decode("utf-8-sig")))
@@ -191,6 +198,9 @@ def test_ui_manifest_and_csv_declare_analysis_coordinate_space(
     assert rows[0]["image_width"] == "120"
     assert rows[0]["image_height"] == "80"
     assert rows[0]["bbox_format"] == "xyxy_right_bottom_exclusive"
+    assert rows[0]["frame_id"] == "import_0000"
+    assert rows[0]["inference_pass"] == "tile"
+    assert rows[0]["tile_id"] == "tile_r000_c001"
 
 
 def test_csv_cells_neutralize_spreadsheet_formulas() -> None:

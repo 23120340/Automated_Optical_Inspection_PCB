@@ -45,7 +45,7 @@ from app.pipeline_bridge import (  # noqa: E402
 
 
 APP_TITLE = "AOI PCB · Workbench"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 MAX_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 50_000_000
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
@@ -85,7 +85,7 @@ def _default_config() -> dict[str, Any]:
             "undistort_alpha": 0.0,
             "calibration_aspect_tolerance": 0.01,
             "resize_enabled": True,
-            "max_side": 1600,
+            "max_side": 4096,
             "denoise": "Bilateral",
             "denoise_strength": 5,
             "white_balance": True,
@@ -115,6 +115,13 @@ def _default_config() -> dict[str, Any]:
             # Kaggle notebook validates/exports the YOLO26 one-to-many head so
             # IoU/NMS behavior is identical in Kaggle and in this local app.
             "end2end": False,
+            "tiling_mode": "auto",
+            "tile_size": 1280,
+            "tile_overlap": 0.20,
+            "tile_trigger_scale": 1.25,
+            "full_image_pass": True,
+            "merge_iou": 0.45,
+            "show_tile_grid": False,
         },
         "crops": {
             "padding": 6,
@@ -444,6 +451,14 @@ def _cached_bridge(
         "max_detections": component_config.get("max_candidates"),
         "device": None if component_config.get("device") == "auto" else component_config.get("device"),
         "end2end": component_config.get("end2end"),
+    }
+    config["tiling"] = {
+        "mode": component_config.get("tiling_mode", "auto"),
+        "tile_size": component_config.get("tile_size", 1280),
+        "overlap_ratio": component_config.get("tile_overlap", 0.20),
+        "auto_trigger_scale": component_config.get("tile_trigger_scale", 1.25),
+        "include_full_image": component_config.get("full_image_pass", True),
+        "merge_iou_threshold": component_config.get("merge_iou", 0.45),
     }
     config.setdefault("models", {})
     config["models"]["board_path"] = board_model_path
@@ -1049,7 +1064,7 @@ def _render_step_one() -> None:
                 help="0: ít viền đen nhất; 1: giữ tối đa trường nhìn.",
             )
             resize_enabled = st.checkbox("Resize cạnh dài", value=config["resize_enabled"])
-            max_side = st.number_input("Cạnh dài tối đa", 640, 4096, int(config["max_side"]), 160)
+            max_side = st.number_input("Cạnh dài tối đa", 640, 8192, int(config["max_side"]), 160)
             denoise = st.selectbox(
                 "Khử nhiễu",
                 ["None", "Bilateral", "Gaussian", "NLMeans"],
@@ -1263,6 +1278,8 @@ def _detections_frame(detections: list[DetectionRecord]) -> pd.DataFrame:
                 "width": item.width,
                 "height": item.height,
                 "source": item.source,
+                "pass": item.metadata.get("inference_pass", ""),
+                "tile": item.metadata.get("tile_id", ""),
             }
         )
     return pd.DataFrame(rows)
@@ -1275,6 +1292,16 @@ def _render_step_four() -> None:
         _render_empty("Thiếu ảnh đầu vào", "Hoàn thành bước 0 trước khi chạy detector.")
         return
     config = st.session_state.config["components"]
+    input_image = st.session_state.input_image
+    if isinstance(input_image, np.ndarray):
+        source_long_side = max(source.shape[:2])
+        input_long_side = max(input_image.shape[:2])
+        if source_long_side > 0 and input_long_side / source_long_side >= 1.75:
+            st.warning(
+                f"Ảnh phân tích đã bị thu từ cạnh dài {input_long_side}px xuống "
+                f"{source_long_side}px. Tiling không thể khôi phục chi tiết đã mất; "
+                "hãy quay lại bước 1, tăng Cạnh dài tối đa hoặc tắt resize."
+            )
     has_model = st.session_state.component_model_path is not None
     model_blocked = _pt_model_blocked()
     if has_model:
@@ -1320,6 +1347,50 @@ def _render_step_four() -> None:
                 disabled=not has_model,
                 help="Chỉ áp dụng cho model đã nạp; ONNX local mặc định dùng CPU.",
             )
+            st.markdown("##### Ảnh lớn / adaptive tiling")
+            tiling_mode = st.selectbox(
+                "Chế độ chia ảnh",
+                ["auto", "on", "off"],
+                index=["auto", "on", "off"].index(config.get("tiling_mode", "auto")),
+                format_func={"auto": "Tự động", "on": "Luôn bật", "off": "Tắt"}.get,
+                disabled=not has_model,
+                help="Auto chỉ chia khi board ROI lớn hơn khoảng 1,25 lần tile.",
+            )
+            tile_size = st.number_input(
+                "Kích thước tile",
+                640,
+                2048,
+                int(config.get("tile_size", 1280)),
+                64,
+                disabled=not has_model,
+            )
+            tile_overlap = st.slider(
+                "Overlap giữa tile",
+                0.0,
+                0.40,
+                float(config.get("tile_overlap", 0.20)),
+                0.05,
+                disabled=not has_model,
+            )
+            full_image_pass = st.checkbox(
+                "Chạy thêm một lượt toàn board",
+                value=bool(config.get("full_image_pass", True)),
+                disabled=not has_model or tiling_mode == "off",
+                help="Giữ khả năng bắt linh kiện lớn; sẽ tăng thời gian inference.",
+            )
+            merge_iou = st.slider(
+                "IoU gộp detection giữa tile",
+                0.10,
+                0.90,
+                float(config.get("merge_iou", 0.45)),
+                0.05,
+                disabled=not has_model or tiling_mode == "off",
+            )
+            show_tile_grid = st.checkbox(
+                "Hiện lưới tile trên kết quả",
+                value=bool(config.get("show_tile_grid", False)),
+                disabled=not has_model or tiling_mode == "off",
+            )
             submitted = st.form_submit_button(
                 "Phát hiện linh kiện" if has_model else "Tạo candidate boxes (demo)",
                 type="primary",
@@ -1333,6 +1404,12 @@ def _render_step_four() -> None:
                     "iou": iou,
                     "max_candidates": max_candidates,
                     "device": device,
+                    "tiling_mode": tiling_mode,
+                    "tile_size": int(tile_size),
+                    "tile_overlap": tile_overlap,
+                    "full_image_pass": full_image_pass,
+                    "merge_iou": merge_iou,
+                    "show_tile_grid": show_tile_grid,
                 }
             )
             _run_stage(4, _execute_components)
@@ -1622,6 +1699,7 @@ def _manifest() -> dict[str, Any]:
                 "bbox_xyxy": list(item.bbox),
                 "coordinate_space": coordinate_space["id"],
                 "source": item.source,
+                "metadata": item.metadata,
             }
             for item in detections
         ],
@@ -1667,6 +1745,10 @@ def _detections_csv_bytes() -> bytes:
             "width",
             "height",
             "source",
+            "frame_id",
+            "inference_pass",
+            "tile_id",
+            "touches_tile_border",
             "coordinate_space",
             "image_width",
             "image_height",
@@ -1688,6 +1770,10 @@ def _detections_csv_bytes() -> bytes:
                 "width": item.width,
                 "height": item.height,
                 "source": _csv_cell(item.source),
+                "frame_id": _csv_cell(item.metadata.get("frame_id", "")),
+                "inference_pass": _csv_cell(item.metadata.get("inference_pass", "")),
+                "tile_id": _csv_cell(item.metadata.get("tile_id", "")),
+                "touches_tile_border": bool(item.metadata.get("touches_tile_border", False)),
                 "coordinate_space": coordinate_space["id"],
                 "image_width": coordinate_space["width"],
                 "image_height": coordinate_space["height"],

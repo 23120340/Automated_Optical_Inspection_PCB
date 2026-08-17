@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from collections.abc import Mapping
 from typing import Sequence
@@ -30,6 +30,7 @@ from .models import (
     utc_now_iso,
 )
 from .preprocessing import ImagePreprocessor
+from .tiling import detect_with_adaptive_tiling
 
 
 class AOIPipeline:
@@ -64,6 +65,7 @@ class AOIPipeline:
             cv_config=self.config.cv_detector,
             model_config=self.config.model_detector,
         )
+        self.last_detection_metrics: dict[str, object] = {}
         self.cropper = ComponentCropper(self.config.crop)
         if classifier is not None and (
             classifier_model_path is not None or classifier_manifest_path is not None
@@ -101,27 +103,74 @@ class AOIPipeline:
         return self.localizer.locate(image)
 
     def detect_components(
-        self, image: np.ndarray, board_region: BoardRegion | None = None
+        self,
+        image: np.ndarray,
+        board_region: BoardRegion | None = None,
+        *,
+        frame_id: str = "import_0000",
     ) -> list[Detection]:
-        """Step 4: detect components in a board ROI and return full-image boxes."""
+        """Step 4: detect a board ROI with adaptive tiled inference."""
 
         bgr = load_image(image)
-        if board_region is None:
-            return self.detector.detect(bgr)
-
         height, width = bgr.shape[:2]
-        x1, y1, x2, y2 = board_region.bbox.clamp(width, height).to_int()
+        if board_region is None:
+            x1, y1, x2, y2 = 0, 0, width, height
+        else:
+            x1, y1, x2, y2 = board_region.bbox.clamp(width, height).to_int()
         roi = bgr[y1:y2, x1:x2]
         if roi.size == 0:
+            self.last_detection_metrics = {
+                "tiling_applied": False,
+                "tile_count": 0,
+                "raw_detection_count": 0,
+                "duplicates_removed": 0,
+            }
             return []
-        local_detections = self.detector.detect(roi)
+
+        tiling_policy = self.config.tiling
+        tiling_reason: str | None = None
+        if isinstance(self.detector, CVComponentDetector):
+            # CV proposals use area ratios tied to the complete ROI and are an
+            # explicit demo, so tiling them would change their semantics.
+            tiling_policy = replace(tiling_policy, mode="off")
+            tiling_reason = "disabled_for_cv_demo"
+        max_detections = (
+            self.config.cv_detector.max_detections
+            if isinstance(self.detector, CVComponentDetector)
+            else self.config.model_detector.max_detections
+        )
+        batch = detect_with_adaptive_tiling(
+            self.detector.detect,
+            roi,
+            tiling_policy,
+            max_detections=max_detections,
+            frame_id=frame_id,
+        )
+        self.last_detection_metrics = {
+            **batch.metrics(offset=(x1, y1)),
+            "coordinate_space": "analysis_image_pixels",
+            "roi_bbox": [x1, y1, x2, y2],
+        }
+        if tiling_reason:
+            self.last_detection_metrics["tiling_reason"] = tiling_reason
+
         translated: list[Detection] = []
-        for detection in local_detections:
+        for detection in batch.detections:
             global_bbox = detection.bbox.translated(x1, y1).clamp(width, height)
             if global_bbox.width <= 0 or global_bbox.height <= 0:
                 continue
             metadata = dict(detection.metadata)
             metadata["roi_offset"] = [x1, y1]
+            metadata["coordinate_space"] = "analysis_image_pixels"
+            tile_bbox = metadata.get("tile_bbox")
+            if isinstance(tile_bbox, list) and len(tile_bbox) == 4:
+                metadata["tile_bbox_roi"] = list(tile_bbox)
+                metadata["tile_bbox"] = [
+                    float(tile_bbox[0]) + x1,
+                    float(tile_bbox[1]) + y1,
+                    float(tile_bbox[2]) + x1,
+                    float(tile_bbox[3]) + y1,
+                ]
             translated.append(
                 Detection(
                     label=detection.label,

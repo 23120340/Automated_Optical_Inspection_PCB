@@ -4,9 +4,12 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
+import numpy as np
+
 from aoi_pipeline import (
     AOIPipeline,
     BoardConfig,
+    BoardRegion,
     BoundingBox,
     ClassProbability,
     ComponentClassification,
@@ -14,6 +17,7 @@ from aoi_pipeline import (
     MockComponentDetector,
     PipelineConfig,
     PreprocessConfig,
+    TilingConfig,
 )
 
 
@@ -48,6 +52,45 @@ def test_facade_translates_roi_detections_to_full_image(pcb_image) -> None:
     assert detections[0].metadata["roi_offset"] == [x1, y1]
 
 
+def test_facade_tiles_board_roi_and_exports_analysis_coordinates() -> None:
+    calls = 0
+
+    def seam_detection(_):
+        nonlocal calls
+        calls += 1
+        bbox = BoundingBox(80, 30, 100, 55) if calls == 1 else BoundingBox(0, 30, 20, 55)
+        return [Detection("resistor", 0.9, bbox, class_id=0, detection_id="local")]
+
+    pipeline = AOIPipeline(
+        config=PipelineConfig(
+            tiling=TilingConfig(
+                mode="on",
+                tile_size=100,
+                overlap_ratio=0.20,
+                include_full_image=False,
+            )
+        ),
+        detector=MockComponentDetector(seam_detection),
+    )
+    board = BoardRegion(
+        bbox=BoundingBox(20, 10, 200, 110),
+        polygon=[(20, 10), (200, 10), (200, 110), (20, 110)],
+        confidence=1.0,
+        method="test",
+    )
+
+    detections = pipeline.detect_components(np.zeros((120, 220, 3), dtype=np.uint8), board)
+
+    assert calls == 2
+    assert len(detections) == 1
+    assert detections[0].bbox.as_xyxy() == [100.0, 40.0, 120.0, 65.0]
+    assert detections[0].metadata["coordinate_space"] == "analysis_image_pixels"
+    assert detections[0].metadata["tile_bbox"] == [20.0, 10.0, 120.0, 110.0]
+    assert pipeline.last_detection_metrics["tile_count"] == 2
+    assert pipeline.last_detection_metrics["duplicates_removed"] == 1
+    assert pipeline.last_detection_metrics["tile_regions"][1]["xyxy"] == [100, 10, 200, 110]
+
+
 def test_facade_accepts_ui_mapping_config() -> None:
     pipeline = AOIPipeline(
         config={
@@ -63,6 +106,11 @@ def test_facade_accepts_ui_mapping_config() -> None:
                 "max_candidates": 77,
                 "device": "auto",
                 "end2end": False,
+                "tiling_mode": "on",
+                "tile_size": 960,
+                "tile_overlap": 0.25,
+                "full_image_pass": False,
+                "merge_iou": 0.51,
             },
             "crops": {"padding": 7, "target_size": 128, "normalize": True},
             "classification": {"batch_size": 12, "top_k": 2, "device": "auto"},
@@ -80,6 +128,11 @@ def test_facade_accepts_ui_mapping_config() -> None:
     assert pipeline.config.model_detector.max_detections == 77
     assert pipeline.config.model_detector.device is None
     assert pipeline.config.model_detector.end2end is False
+    assert pipeline.config.tiling.mode == "on"
+    assert pipeline.config.tiling.tile_size == 960
+    assert pipeline.config.tiling.overlap_ratio == 0.25
+    assert pipeline.config.tiling.include_full_image is False
+    assert pipeline.config.tiling.merge_iou_threshold == 0.51
     assert pipeline.config.crop.padding_pixels == 7
     assert pipeline.config.crop.target_size == (128, 128)
     assert pipeline.config.classification.batch_size == 12

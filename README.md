@@ -107,6 +107,29 @@ Manifest và CSV export ghi rõ `coordinate_space`, kích thước ảnh analysi
 ước box. Tọa độ bước 3–5 thuộc ảnh preprocessed/aligned được export kèm gói, không
 mặc định thuộc ảnh input gốc nếu pipeline đã resize hoặc warp.
 
+## Adaptive tiling cho ảnh PCB lớn
+
+Bước 4 mặc định dùng chế độ `auto`: board ROI lớn hơn khoảng `1.25 × tile_size`
+được chia thành các tile `1280 × 1280` với overlap 20%. Pipeline có thể chạy thêm
+một lượt toàn board để giữ ngữ cảnh cho linh kiện lớn, sau đó đổi mọi box về tọa
+độ ảnh analysis và dùng class-aware global NMS để loại detection trùng. Box nằm ở
+đường nối tile nhận một penalty ưu tiên nhỏ, nhờ đó box nhìn thấy linh kiện đầy đủ
+hơn ở tile bên cạnh được giữ lại. Ảnh nhỏ vẫn chỉ chạy đúng một lượt như trước.
+
+UI bước 4 cho phép chọn `Tự động / Luôn bật / Tắt`, tile size, overlap, full-board
+pass, merge IoU và lưới debug. Metadata/CSV ghi thêm `frame_id`, `inference_pass`,
+`tile_id` và trạng thái chạm biên. CV candidate demo không dùng tiling vì các
+ngưỡng area ratio của nó gắn với toàn ROI và không phải model nhận dạng thật.
+
+Bước tiền xử lý của app giữ mặc định cạnh dài tối đa 4096 px. Nếu ảnh bị thu nhỏ
+quá mạnh, bước 4 cảnh báo vì tiling không thể khôi phục pixel đã mất. Crop cho
+classifier được lấy từ ảnh analysis độ phân giải cao bằng box đã gộp, không lấy
+từ tensor tile đã bị detector letterbox/resize.
+
+Với camera nhiều khung sau này, mỗi frame dùng chính contract `frame_id` và tọa độ
+frame-local này: undistort, detect từng frame, chiếu box qua homography sang hệ PCB
+chung rồi global merge. Panorama chỉ cần cho hiển thị, không phải đầu vào detector.
+
 ## Trạng thái bước 6.1
 
 Khung phân loại đã có trong pipeline và Streamlit. Khi chưa có classifier, bước
@@ -148,6 +171,8 @@ scripts/             Setup/chạy app trên Windows
 - Khoanh PCB ở bước 3 đang dùng contour fallback, chưa có PCB detector riêng.
 - CV proposal ở bước 4 không thay thế model đã train.
 - Baseline dùng `max_det=2000` cho board dày linh kiện; cần tune lại theo SKU/tốc độ.
+- Adaptive tiling tăng recall cho linh kiện nhỏ nhưng tăng thời gian gần tỷ lệ với
+  số tile; cần benchmark tile size/overlap trên máy chạy thật và Raspberry Pi.
 - Căn chỉnh chính xác cần một Golden Image/reference cùng board side.
 - Model cuối phải được đánh giá trên camera, lens, ánh sáng và PCB của dây chuyền.
 - Mỗi ảnh import được giới hạn 64 MB/50 MP; upload Streamlit tối đa 256 MB/file.
