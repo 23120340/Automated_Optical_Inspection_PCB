@@ -123,6 +123,9 @@ Baseline đã đặt:
 "max_det": 2000,
 "allow_negative_images": False,
 "max_missing_label_ratio": 0.0,
+"allow_edge_crossing_boxes": True,
+"deduplicate_across_splits": True,
+"absent_train_class_is_error": False,
 ```
 
 `YOLO26s` là baseline PoC; `1280` giữ nhiều chi tiết hơn cho linh kiện nhỏ. Nếu hết VRAM, giảm `imgsz` xuống `960` hoặc dùng `yolo26n.pt`. `batch=-1` để Ultralytics tự chọn batch theo VRAM. `save_period=10` tạo checkpoint định kỳ phòng khi session bị gián đoạn.
@@ -141,13 +144,14 @@ Notebook audit:
 - Split/list phải resolve được; mọi path ảnh trong file list phải tồn tại và có extension được hỗ trợ.
 - Mỗi ảnh phải có label; file `.txt` rỗng là negative image tường minh; nhãn không rỗng phải có đúng 5 cột.
 - Class ID là số nguyên, bắt đầu từ 0 và nằm trong class map.
-- Tọa độ hữu hạn, tâm nằm trong 0–1, chiều rộng/cao lớn hơn 0 và box không vượt biên.
-- Dòng annotation bị lặp.
-- Ảnh trùng byte giữa train/val/test.
+- Tọa độ hữu hạn, tâm nằm trong 0–1 và chiều rộng/cao thuộc miền YOLO mà Ultralytics kiểm tra.
+- Partial-object box vượt mép tile được giữ và báo cáo tổng hợp khi `allow_edge_crossing_boxes=True`; đây không phải lỗi trainer nếu `x_center y_center width height` vẫn hợp lệ.
+- Dòng annotation bị lặp được bỏ qua và ghi warning.
+- Ảnh trùng byte giữa train/val/test được loại khỏi split ưu tiên thấp hơn (`train > val > test`) bằng các image-list trong `/kaggle/working`; Kaggle Input không bị sửa.
 - Phân bố class, class không xuất hiện, ảnh âm tính và tỷ lệ box rất nhỏ.
 - Giải mã thử ảnh để phát hiện file hỏng.
 
-`strict_audit=True` khiến notebook dừng trước train khi có lỗi nghiêm trọng. Hãy sửa dataset; không nên chuyển sang `False` chỉ để ép chạy.
+`strict_audit=True` khiến notebook dừng trước train khi có lỗi trainer thực sự. Không nên chuyển sang `False` chỉ để ép chạy. Preset công khai ghi class vắng khỏi train thành warning vì `transducer` chỉ có ở test; model kết quả sẽ không học được class đó và không được tuyên bố hỗ trợ nó.
 
 Chỉ khi dataset quy ước rõ rằng “không có file label = negative”, đặt `allow_negative_images=True` và chọn `max_missing_label_ratio` dương phù hợp. Notebook vẫn dừng nếu tỷ lệ thiếu vượt ngưỡng. Cách an toàn hơn là tạo file `.txt` rỗng.
 
@@ -166,7 +170,7 @@ Gửi file `pcb_component_detector_artifacts.zip`. Nếu giới hạn dung lư�
 1. `best.onnx` (ưu tiên cho inference an toàn hơn) và `best.pt` nếu cần debug/tích
    hợp Ultralytics Python. App hiện hỗ trợ độc lập từng định dạng.
 2. `model_manifest.json`, `metrics_summary.json`, `per_class_metrics.csv`.
-3. `dataset_audit.json`, `data_resolved.yaml` và `class_distribution.csv`.
+3. `dataset_audit.json`, `data_resolved.yaml`, `data_training.yaml`, các image-list đã deduplicate và `class_distribution.csv`.
 4. Khoảng 10–20 ảnh PCB nguyên bản chưa dùng trong train, ưu tiên ảnh giống camera AOI thực tế.
 5. Nguồn/license của dataset và mô tả cách chia train/val/test.
 
