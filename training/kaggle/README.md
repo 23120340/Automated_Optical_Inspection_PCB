@@ -62,19 +62,34 @@ names:
 
 Khuyến nghị chia dữ liệu theo **board/SKU/lot**, không random các crop hoặc ảnh gần giống của cùng một board vào nhiều split. Notebook chỉ tìm được ảnh trùng byte hoàn toàn; nó không thể tự phát hiện mọi trường hợp leakage do ảnh chụp gần giống.
 
+### Dataset mặc định đã chọn
+
+Notebook đã được cấu hình sẵn cho [PCB Component Detection Consolidated Dataset](https://www.kaggle.com/datasets/aryanstein/pcb-component-detection-consolidated-dataset/data):
+
+- Kaggle slug: `aryanstein/pcb-component-detection-consolidated-dataset`.
+- Phiên bản đã kiểm tra: **1**, cập nhật ngày **2025-07-06**.
+- Dung lượng: **2.866.262.263 byte** (~2,87 GB).
+- Định dạng: YOLO detect; YAML dùng để train là `components_data_uncropped/data.yaml`.
+- Split có sẵn: `train`, `valid`, `test` với ảnh và label `.txt` tương ứng.
+- Kaggle uploader khai báo **Apache 2.0**. Vì đây là dataset hợp nhất từ nhiều nguồn, vẫn phải kiểm tra quyền của từng nguồn thành phần trước khi dùng thương mại.
+
+Đây là lựa chọn phù hợp nhất để bootstrap detector nhiều lớp của bước 4. Không dùng DeepPCB/PCB Defects thay thế: các bộ đó gán nhãn lỗi đường mạch trần, không gán bounding box loại linh kiện.
+
 ### Hai cách đưa dữ liệu vào Kaggle
 
 **Cách A — Kaggle Dataset (khuyến nghị)**
 
-1. Nén cả thư mục dataset thành `.zip`, hoặc upload cấu trúc thư mục trực tiếp khi tạo Kaggle Dataset.
-2. Tạo Notebook, chọn **Add Input**, gắn dataset vừa tạo.
+1. Tạo Kaggle Notebook, chọn **Add Input**.
+2. Tìm `aryanstein/pcb-component-detection-consolidated-dataset` và gắn dataset đó.
 3. Import notebook `.ipynb` trong thư mục này.
-4. Giữ khóa `"dataset_source": None` trong dict `CONFIG` để tự tìm. Nếu có nhiều dataset/YAML, điền đường dẫn rõ ràng, ví dụ:
+4. Giữ nguyên preset trong `CONFIG`:
 
    ```python
-   "dataset_source": "/kaggle/input/pcb-components-yolo/pcb_dataset.zip",
-   "data_yaml": None,
+   "dataset_source": "/kaggle/input/pcb-component-detection-consolidated-dataset",
+   "data_yaml": "components_data_uncropped/data.yaml",
    ```
+
+Nếu Kaggle đổi tên thư mục mount, mở panel **Input**, copy đường dẫn thực tế rồi chỉ sửa `dataset_source`. Khi dùng dataset tự tạo, đặt `data_yaml` tới YAML tương ứng hoặc để cả hai khóa là `None` nếu Input chỉ có đúng một YOLO YAML/ZIP.
 
 **Cách B — một file ZIP trong Kaggle Input**
 

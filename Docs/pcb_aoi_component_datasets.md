@@ -1,6 +1,6 @@
 # Khảo sát dataset nhận dạng linh kiện PCB cho AOI
 
-> Cập nhật: 2026-08-16. Mục tiêu là **phát hiện/phân loại linh kiện đã gắn trên PCB từ ảnh quang học**, không phải phát hiện lỗi đường mạch trên bare PCB.
+> Cập nhật: 2026-08-17. Mục tiêu là **phát hiện/phân loại linh kiện đã gắn trên PCB từ ảnh quang học**, không phải phát hiện lỗi đường mạch trên bare PCB.
 
 ## Kết luận nhanh
 
@@ -8,7 +8,7 @@ Không có dataset công khai nào bao phủ đủ danh sách 30 nhóm ở mức
 
 Khuyến nghị thực tế:
 
-1. Dùng **PCB Component Detection Consolidated** làm bootstrap detector nhiều lớp.
+1. Dùng **PCB Component Detection Consolidated v1** làm bootstrap detector nhiều lớp. Kaggle API xác nhận gói ~2,87 GB và YAML dùng trực tiếp là `components_data_uncropped/data.yaml`; notebook đã có preset cho nguồn này.
 2. Bổ sung **FPIC/FICS-PCB** để tăng dữ liệu linh kiện nhỏ và ảnh độ phân giải cao; dùng **WACV 2019** cho các lớp cơ bản/connector/fuse/LED/heatsink.
 3. Dùng **PCB-SAID** cho trạng thái lắp ráp và lỗi SMD; không coi đây là nguồn chính để nhận dạng chức năng điện tử.
 4. Tự chụp ảnh đúng camera, lens, ánh sáng, góc, PCB và dây chuyền đích; join annotation với BOM/centroid. Đây mới là tập quyết định độ chính xác AOI sản xuất.
@@ -138,4 +138,3 @@ Cho mỗi SKU/board side, nên có golden images và defect injection có kiểm
 - PCB DSLR: quy mô, annotation và điều khoản nghiên cứu phi thương mại trên [TU Wien CVL](https://cvl.tuwien.ac.at/research/cvl-databases/pcb-dslr-dataset/).
 - PCB-SAID: 175 ảnh, 66 state classes, bbox/mask theo [IEEE](https://doi.org/10.1109/ICCVW69036.2025.00145).
 - Consolidated dataset: nguồn thành phần, format YOLO và license khai báo trên [Kaggle](https://www.kaggle.com/datasets/aryanstein/pcb-component-detection-consolidated-dataset/data).
-
