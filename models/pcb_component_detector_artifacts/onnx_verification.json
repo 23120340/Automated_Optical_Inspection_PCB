@@ -1,0 +1,29 @@
+{
+  "checker_passed": true,
+  "ultralytics_smoke_passed": true,
+  "smoke_image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/00001__1024__0___4992.png",
+  "smoke_detection_count": 12,
+  "inputs": [
+    {
+      "name": "images",
+      "shape": [
+        1,
+        3,
+        1280,
+        1280
+      ],
+      "type": "tensor(float)"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "output0",
+      "shape": [
+        1,
+        26,
+        33600
+      ],
+      "type": "tensor(float)"
+    }
+  ]
+}

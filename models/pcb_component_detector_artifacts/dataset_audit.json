@@ -1,0 +1,302 @@
+{
+  "created_at_utc": "2026-08-17T04:23:28.010968+00:00",
+  "source_yaml": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/data.yaml",
+  "resolved_yaml": "/kaggle/working/pcb_component_training/reports/data_resolved.yaml",
+  "training_yaml": "/kaggle/working/pcb_component_training/reports/data_training.yaml",
+  "class_names": [
+    "battery",
+    "button",
+    "buzzer",
+    "capacitor",
+    "clock",
+    "connector",
+    "diode",
+    "display",
+    "fuse",
+    "heatsink",
+    "ic",
+    "inductor",
+    "led",
+    "pads",
+    "pins",
+    "potentiometer",
+    "relay",
+    "resistor",
+    "switch",
+    "transducer",
+    "transformer",
+    "transistor"
+  ],
+  "dataset_fingerprint_sha256": "3ff1773f7297d7229651322e27819e6f4c3f3af7fd7c1fab51e37207658f256f",
+  "splits": {
+    "train": {
+      "images": 670,
+      "label_files": 670,
+      "missing_label_files": 0,
+      "missing_label_ratio": 0.0,
+      "missing_label_examples": [],
+      "empty_label_files": 12,
+      "valid_boxes": 21160,
+      "duplicate_rows": 5,
+      "class_counts": {
+        "0": 42,
+        "1": 56,
+        "2": 45,
+        "3": 7775,
+        "4": 89,
+        "5": 889,
+        "6": 551,
+        "7": 63,
+        "8": 111,
+        "9": 4,
+        "10": 2220,
+        "11": 213,
+        "12": 549,
+        "13": 186,
+        "14": 261,
+        "15": 50,
+        "16": 66,
+        "17": 7133,
+        "18": 283,
+        "20": 2,
+        "21": 572
+      },
+      "training_images_after_cross_split_dedup": 670
+    },
+    "val": {
+      "images": 125,
+      "label_files": 125,
+      "missing_label_files": 0,
+      "missing_label_ratio": 0.0,
+      "missing_label_examples": [],
+      "empty_label_files": 3,
+      "valid_boxes": 4566,
+      "duplicate_rows": 0,
+      "class_counts": {
+        "0": 4,
+        "1": 11,
+        "2": 7,
+        "3": 1519,
+        "4": 17,
+        "5": 194,
+        "6": 103,
+        "7": 9,
+        "8": 22,
+        "10": 565,
+        "11": 55,
+        "12": 114,
+        "13": 103,
+        "14": 42,
+        "15": 20,
+        "16": 8,
+        "17": 1614,
+        "18": 48,
+        "21": 111
+      },
+      "training_images_after_cross_split_dedup": 123
+    },
+    "test": {
+      "images": 122,
+      "label_files": 122,
+      "missing_label_files": 0,
+      "missing_label_ratio": 0.0,
+      "missing_label_examples": [],
+      "empty_label_files": 2,
+      "valid_boxes": 3937,
+      "duplicate_rows": 1,
+      "class_counts": {
+        "0": 8,
+        "1": 18,
+        "2": 8,
+        "3": 1337,
+        "4": 16,
+        "5": 228,
+        "6": 91,
+        "7": 14,
+        "8": 20,
+        "10": 514,
+        "11": 57,
+        "12": 113,
+        "13": 43,
+        "14": 14,
+        "15": 12,
+        "16": 10,
+        "17": 1300,
+        "18": 53,
+        "19": 4,
+        "21": 77
+      },
+      "training_images_after_cross_split_dedup": 122
+    }
+  },
+  "box_stats": {
+    "normalized_area_p01": 3.258172758506499e-05,
+    "normalized_area_p10": 6.225651957138994e-05,
+    "normalized_area_p50": 0.0005136283770270339,
+    "normalized_area_p90": 0.01012714680526269,
+    "approx_boxes_min_side_below_4px_at_imgsz": 152,
+    "approx_boxes_min_side_below_8px_at_imgsz": 3623
+  },
+  "missing_label_policy": {
+    "allow_negative_images": false,
+    "max_missing_label_ratio": 0.0,
+    "explicit_empty_label_files_are_negative": true
+  },
+  "cross_split_duplicate_count": 2,
+  "cross_split_duplicate_examples": [
+    {
+      "sha256": "6a9af304ea160894d8fdd44cb4ad3b8808be6e7b2ac772747fe780a2ecd364dd",
+      "locations": [
+        [
+          "train",
+          "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/PCBA_168.jpg"
+        ],
+        [
+          "val",
+          "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/PCBA_540.jpg"
+        ]
+      ]
+    },
+    {
+      "sha256": "fba5bfb35f06042eb1a2284ff265a0b49fd1c8971fa467a8c19b9fa4dd0b62ad",
+      "locations": [
+        [
+          "train",
+          "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/PCBA_549.jpg"
+        ],
+        [
+          "val",
+          "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/PCBA_241.jpg"
+        ]
+      ]
+    }
+  ],
+  "cross_split_excluded_images": [
+    "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/PCBA_241.jpg",
+    "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/PCBA_540.jpg"
+  ],
+  "edge_crossing_boxes": {
+    "allowed": true,
+    "count": 274,
+    "max_normalized_overshoot": 0.1708984375
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "duplicate_annotation_ignored",
+      "message": "Annotation trùng được bỏ qua.",
+      "split": "train",
+      "image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/s15_back2.png",
+      "label": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/labels/s15_back2.txt",
+      "line": "196",
+      "row": "10 0.4474321705426357 0.6987645348837209 0.04408914728682171 0.12936046511627908"
+    },
+    {
+      "severity": "warning",
+      "code": "duplicate_annotation_ignored",
+      "message": "Annotation trùng được bỏ qua.",
+      "split": "train",
+      "image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/s26_front1.png",
+      "label": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/labels/s26_front1.txt",
+      "line": "65",
+      "row": "17 0.22183866279069767 0.40843023255813954 0.0061773255813953485 0.015261627906976744"
+    },
+    {
+      "severity": "warning",
+      "code": "duplicate_annotation_ignored",
+      "message": "Annotation trùng được bỏ qua.",
+      "split": "train",
+      "image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/s26_front1.png",
+      "label": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/labels/s26_front1.txt",
+      "line": "66",
+      "row": "17 0.2295906007751938 0.4086119186046512 0.005692829457364341 0.014171511627906976"
+    },
+    {
+      "severity": "warning",
+      "code": "duplicate_annotation_ignored",
+      "message": "Annotation trùng được bỏ qua.",
+      "split": "train",
+      "image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/s26_front2.png",
+      "label": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/labels/s26_front2.txt",
+      "line": "49",
+      "row": "10 0.33649866082298513 0.3464752906976744 0.026661796932067203 0.03488372093023256"
+    },
+    {
+      "severity": "warning",
+      "code": "duplicate_annotation_ignored",
+      "message": "Annotation trùng được bỏ qua.",
+      "split": "train",
+      "image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/images/s9_back.png",
+      "label": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/train/labels/s9_back.txt",
+      "line": "23",
+      "row": "6 0.32806443798449614 0.08893531976744186 0.017078488372093022 0.015806686046511628"
+    },
+    {
+      "severity": "warning",
+      "code": "class_absent_train",
+      "message": "Class transducer không xuất hiện trong train; model sẽ không học được class này.",
+      "class_id": "19"
+    },
+    {
+      "severity": "warning",
+      "code": "class_absent_eval",
+      "message": "Class heatsink không có trong val; không đo được metric.",
+      "class_id": "9"
+    },
+    {
+      "severity": "warning",
+      "code": "class_absent_eval",
+      "message": "Class transducer không có trong val; không đo được metric.",
+      "class_id": "19"
+    },
+    {
+      "severity": "warning",
+      "code": "class_absent_eval",
+      "message": "Class transformer không có trong val; không đo được metric.",
+      "class_id": "20"
+    },
+    {
+      "severity": "warning",
+      "code": "duplicate_annotation_ignored",
+      "message": "Annotation trùng được bỏ qua.",
+      "split": "test",
+      "image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/test/images/s14_front1.png",
+      "label": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/test/labels/s14_front1.txt",
+      "line": "93",
+      "row": "10 0.49164244186046513 0.4731104651162791 0.14825581395348836 0.22238372093023256"
+    },
+    {
+      "severity": "warning",
+      "code": "class_absent_eval",
+      "message": "Class heatsink không có trong test; không đo được metric.",
+      "class_id": "9"
+    },
+    {
+      "severity": "warning",
+      "code": "class_absent_eval",
+      "message": "Class transformer không có trong test; không đo được metric.",
+      "class_id": "20"
+    },
+    {
+      "severity": "warning",
+      "code": "cross_split_duplicates_excluded",
+      "message": "Đã loại 2 ảnh trùng khỏi split ưu tiên thấp hơn."
+    },
+    {
+      "severity": "warning",
+      "code": "edge_crossing_boxes_allowed",
+      "message": "Partial-object boxes vượt mép được giữ vì xywh vẫn hợp lệ với Ultralytics.",
+      "count": "274",
+      "max_normalized_overshoot": "0.17089844"
+    },
+    {
+      "severity": "warning",
+      "code": "tiny_boxes_at_training_size",
+      "message": "Một số box có cạnh ước tính dưới 8 px; cân nhắc crop/tiling board trước detection.",
+      "count": "3623",
+      "imgsz": "1280"
+    }
+  ],
+  "error_count": 0,
+  "warning_count": 15
+}
