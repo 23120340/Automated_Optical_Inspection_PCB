@@ -21,6 +21,8 @@ tmp/
 # Trained model artifacts (keep metadata/configs in Git)
 models/*.engine
 models/*.torchscript
+models/detector/
+models/classifier/
 training/artifacts/
 
 # IDE / OS
