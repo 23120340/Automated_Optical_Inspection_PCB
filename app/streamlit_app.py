@@ -1694,6 +1694,56 @@ def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:
     )
 
 
+DECISION_OVERLAY_COLORS = {
+    "accept": (60, 180, 75),    # BGR green
+    "review": (0, 165, 255),    # BGR orange
+    "unknown": (32, 32, 220),   # BGR red
+}
+DECISION_OVERLAY_DEFAULT_COLOR = (200, 200, 200)
+
+
+def _draw_classification_overlay(
+    image: np.ndarray,
+    detections: list[DetectionRecord],
+    classifications: list[ClassificationRecord],
+) -> np.ndarray:
+    """Draw bbox + family/decision label per classified crop, same visual
+    language (rectangle + filled label strip) as the step-4 detector overlay."""
+
+    overlay = image.copy()
+    detection_by_id = {item.detection_id: item for item in detections}
+    for item in classifications:
+        detection = detection_by_id.get(item.detection_id)
+        if detection is None:
+            continue
+        x1, y1, x2, y2 = detection.bbox
+        color = DECISION_OVERLAY_COLORS.get(item.decision, DECISION_OVERLAY_DEFAULT_COLOR)
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
+        label = f"{item.family} {item.probability:.2f}"
+        (text_width, text_height), baseline = cv2.getTextSize(
+            label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1
+        )
+        label_top = max(0, y1 - text_height - baseline - 4)
+        cv2.rectangle(
+            overlay,
+            (x1, label_top),
+            (x1 + text_width + 6, label_top + text_height + baseline + 4),
+            color,
+            -1,
+        )
+        cv2.putText(
+            overlay,
+            label,
+            (x1 + 3, label_top + text_height + 1),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
+    return overlay
+
+
 def _render_step_six() -> None:
     _render_step_heading(6)
     crops: list[CropRecord] = st.session_state.crops
@@ -1744,9 +1794,24 @@ def _render_step_six() -> None:
             )
             return
         items = result.classifications
-        table_tab, stats_tab, review_tab = st.tabs(
-            ["Classification table", "Family stats", "Review queue"]
+        detection_result = st.session_state.detection_result
+        source_image = _analysis_image()
+        overlay_image = None
+        if source_image is not None and isinstance(detection_result, DetectionResult) and items:
+            overlay_image = _draw_classification_overlay(
+                source_image, detection_result.detections, items
+            )
+        overlay_tab, table_tab, stats_tab, review_tab = st.tabs(
+            ["Classification overlay", "Classification table", "Family stats", "Review queue"]
         )
+        with overlay_tab:
+            if overlay_image is not None:
+                _show_image(overlay_image, "Family + decision theo từng detection")
+            else:
+                _render_empty(
+                    "Chưa có overlay",
+                    "Cần cả bbox từ bước 4 và kết quả phân loại để vẽ overlay.",
+                )
         with table_tab:
             if items:
                 st.dataframe(
@@ -1788,6 +1853,13 @@ def _render_step_six() -> None:
                         )
         _render_result_notice(result)
         _render_metrics(result.metrics)
+        if overlay_image is not None:
+            st.download_button(
+                "Tải ảnh classified PNG",
+                _encode_png(overlay_image),
+                file_name=f"{_safe_name(st.session_state.input_name or 'pcb')}_classified.png",
+                mime="image/png",
+            )
 
 
 def _encode_png(image: np.ndarray) -> bytes:
