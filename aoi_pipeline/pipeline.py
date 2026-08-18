@@ -146,6 +146,7 @@ class AOIPipeline:
         )
         tile_detect = None
         applied_detail_confidence = tiling_policy.detail_confidence
+        detail_class_confidence = dict(tiling_policy.detail_class_confidence)
         if (
             isinstance(self.detector, UltralyticsDetector)
             and tiling_policy.detail_confidence is not None
@@ -154,10 +155,25 @@ class AOIPipeline:
                 float(self.config.model_detector.confidence),
                 float(tiling_policy.detail_confidence),
             )
-            tile_detect = lambda tile: self.detector.detect(
-                tile,
-                confidence=applied_detail_confidence,
-            )
+
+            def detect_detail_tile(tile: np.ndarray) -> list[Detection]:
+                detections = self.detector.detect(
+                    tile,
+                    confidence=applied_detail_confidence,
+                )
+                return [
+                    detection
+                    for detection in detections
+                    if detection.confidence
+                    >= float(
+                        detail_class_confidence.get(
+                            detection.label,
+                            applied_detail_confidence,
+                        )
+                    )
+                ]
+
+            tile_detect = detect_detail_tile
         batch = detect_with_adaptive_tiling(
             self.detector.detect,
             roi,
@@ -171,6 +187,7 @@ class AOIPipeline:
             "coordinate_space": "analysis_image_pixels",
             "roi_bbox": [x1, y1, x2, y2],
             "detail_confidence": applied_detail_confidence,
+            "detail_class_confidence": detail_class_confidence,
         }
         if tiling_reason:
             self.last_detection_metrics["tiling_reason"] = tiling_reason

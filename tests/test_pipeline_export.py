@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from zipfile import ZipFile
 
 import numpy as np
@@ -18,6 +19,7 @@ from aoi_pipeline import (
     PipelineConfig,
     PreprocessConfig,
     TilingConfig,
+    UltralyticsDetector,
 )
 
 
@@ -114,7 +116,10 @@ def test_facade_accepts_ui_mapping_config() -> None:
                 "tile_overlap": 0.25,
                 "full_image_pass": False,
                 "tile_confidence": 0.18,
+                "tile_led_confidence": 0.36,
                 "merge_iou": 0.51,
+                "seam_ios": 0.58,
+                "containment_ios": 0.84,
                 "cross_class_iou": 0.76,
             },
             "crops": {"padding": 7, "target_size": 128, "normalize": True},
@@ -140,13 +145,54 @@ def test_facade_accepts_ui_mapping_config() -> None:
     assert pipeline.config.tiling.overlap_ratio == 0.25
     assert pipeline.config.tiling.include_full_image is False
     assert pipeline.config.tiling.detail_confidence == 0.18
+    assert pipeline.config.tiling.detail_class_confidence == {"led": 0.36}
     assert pipeline.config.tiling.merge_iou_threshold == 0.51
+    assert pipeline.config.tiling.seam_ios_threshold == 0.58
+    assert pipeline.config.tiling.containment_ios_threshold == 0.84
     assert pipeline.config.tiling.cross_class_iou_threshold == 0.76
     assert pipeline.config.crop.padding_pixels == 7
     assert pipeline.config.crop.target_size == (128, 128)
     assert pipeline.config.classification.batch_size == 12
     assert pipeline.config.classification.top_k == 2
     assert pipeline.config.classification.device == "auto"
+
+
+def test_detail_tile_applies_stricter_led_confidence_without_hiding_other_classes(
+    tmp_path: Path,
+) -> None:
+    class FakeBoxes:
+        xyxy = np.asarray([[10, 10, 30, 30], [40, 10, 60, 30]], dtype=np.float32)
+        conf = np.asarray([0.24, 0.21], dtype=np.float32)
+        cls = np.asarray([12, 17], dtype=np.float32)
+
+        def __len__(self) -> int:
+            return 2
+
+    class FakeModel:
+        names = {12: "led", 17: "resistor"}
+
+        def predict(self, **_: object) -> list[SimpleNamespace]:
+            return [SimpleNamespace(boxes=FakeBoxes(), names=self.names)]
+
+    detector = UltralyticsDetector(tmp_path / "model.onnx", model=FakeModel())
+    pipeline = AOIPipeline(
+        config=PipelineConfig(
+            tiling=TilingConfig(
+                mode="on",
+                tile_size=100,
+                include_full_image=False,
+                detail_confidence=0.20,
+                detail_class_confidence={"led": 0.35},
+            )
+        ),
+        detector=detector,
+    )
+
+    detections = pipeline.detect_components(np.zeros((100, 180, 3), dtype=np.uint8))
+
+    assert detections
+    assert {item.label for item in detections} == {"resistor"}
+    assert all(item.confidence >= 0.20 for item in detections)
 
 
 def test_end_to_end_run_and_json_zip_exports(tmp_path: Path, pcb_image) -> None:

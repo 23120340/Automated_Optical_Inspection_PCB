@@ -66,6 +66,121 @@ def test_adaptive_tiling_maps_seam_boxes_and_removes_duplicate() -> None:
     assert batch.metrics()["duplicates_removed"] == 1
 
 
+def test_seam_fragments_with_low_iou_are_merged_into_one_complete_box() -> None:
+    calls = 0
+
+    def detect(_: np.ndarray) -> list[Detection]:
+        nonlocal calls
+        calls += 1
+        # In frame coordinates these become [65, 100] and [80, 115]. Their
+        # IoU is only 0.40, so ordinary global NMS cannot remove the duplicate.
+        bbox = (
+            BoundingBox(65, 30, 100, 55)
+            if calls == 1
+            else BoundingBox(0, 30, 35, 55)
+        )
+        return [Detection("resistor", 0.9, bbox, class_id=0, detection_id="partial")]
+
+    batch = detect_with_adaptive_tiling(
+        detect,
+        np.zeros((100, 180, 3), dtype=np.uint8),
+        TilingConfig(
+            mode="on",
+            tile_size=100,
+            overlap_ratio=0.20,
+            include_full_image=False,
+            merge_iou_threshold=0.45,
+            seam_ios_threshold=0.50,
+        ),
+    )
+
+    assert len(batch.detections) == 1
+    assert batch.detections[0].bbox.as_xyxy() == [65.0, 30.0, 115.0, 55.0]
+    assert batch.detections[0].metadata["seam_fragments_merged"] is True
+    assert batch.detections[0].metadata["merged_from_tile_ids"] == [
+        "tile_r000_c000",
+        "tile_r000_c001",
+    ]
+    assert batch.metrics()["seam_fragments_merged"] == 1
+    assert batch.metrics()["duplicates_removed"] == 1
+
+
+def test_seam_ios_does_not_merge_non_overlapping_neighboring_components() -> None:
+    calls = 0
+
+    def detect(_: np.ndarray) -> list[Detection]:
+        nonlocal calls
+        calls += 1
+        bbox = (
+            BoundingBox(70, 20, 100, 40)
+            if calls == 1
+            else BoundingBox(0, 50, 30, 70)
+        )
+        return [Detection("resistor", 0.9, bbox, class_id=0)]
+
+    batch = detect_with_adaptive_tiling(
+        detect,
+        np.zeros((100, 180, 3), dtype=np.uint8),
+        TilingConfig(mode="on", tile_size=100, include_full_image=False),
+    )
+
+    assert len(batch.detections) == 2
+    assert batch.metrics()["seam_fragments_merged"] == 0
+
+
+def test_nested_partial_box_from_another_tile_keeps_complete_detection() -> None:
+    complete = Detection(
+        "ic",
+        0.83,
+        BoundingBox(100, 100, 270, 225),
+        detection_id="complete",
+        metadata={
+            "frame_id": "frame",
+            "inference_pass": "tile",
+            "tile_id": "tile_left",
+            "touches_tile_border": False,
+            "center_in_tile_ownership": True,
+        },
+    )
+    partial = Detection(
+        "ic",
+        0.68,
+        BoundingBox(237, 110, 272, 220),
+        detection_id="partial",
+        metadata={
+            "frame_id": "frame",
+            "inference_pass": "tile",
+            "tile_id": "tile_right",
+            "touches_tile_border": True,
+            "center_in_tile_ownership": False,
+        },
+    )
+
+    merged = merge_tiled_detections([complete, partial], TilingConfig())
+
+    assert len(merged) == 1
+    assert merged[0].detection_id == "complete"
+    assert merged[0].bbox == complete.bbox
+    assert merged[0].metadata["contained_detection_ids"] == ["partial"]
+
+
+def test_nested_boxes_from_same_inference_window_are_not_containment_merged() -> None:
+    metadata = {
+        "frame_id": "frame",
+        "inference_pass": "tile",
+        "tile_id": "same_tile",
+        "touches_tile_border": False,
+    }
+    detections = [
+        Detection("ic", 0.9, BoundingBox(0, 0, 100, 100), metadata=metadata),
+        Detection("ic", 0.8, BoundingBox(10, 10, 30, 30), metadata=metadata),
+    ]
+
+    merged = merge_tiled_detections(detections, TilingConfig())
+
+    assert len(merged) == 2
+
+
 def test_global_merge_is_class_aware_for_adjacent_component_types() -> None:
     detections = [
         Detection("resistor", 0.92, BoundingBox(10, 10, 40, 40), class_id=0),

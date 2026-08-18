@@ -99,6 +99,8 @@ class TiledDetectionBatch:
     duplicates_removed_count: int = 0
     same_class_duplicates_removed_count: int = 0
     cross_class_conflicts_removed_count: int = 0
+    seam_fragments_merged_count: int = 0
+    containment_duplicates_removed_count: int = 0
     effective_tile_size: int | None = None
 
     def metrics(self, offset: tuple[int, int] = (0, 0)) -> dict[str, Any]:
@@ -113,6 +115,8 @@ class TiledDetectionBatch:
             "duplicates_removed": self.duplicates_removed_count,
             "same_class_duplicates_removed": self.same_class_duplicates_removed_count,
             "cross_class_conflicts_removed": self.cross_class_conflicts_removed_count,
+            "seam_fragments_merged": self.seam_fragments_merged_count,
+            "containment_duplicates_removed": self.containment_duplicates_removed_count,
             "tile_regions": [tile.to_dict(offset) for tile in self.tiles],
         }
 
@@ -231,7 +235,13 @@ def detect_with_adaptive_tiling(
                 if cloned is not None:
                     raw_detections.append(cloned)
 
-    merged_before_limit, same_class_removed, cross_class_removed = _merge_with_stats(
+    (
+        merged_before_limit,
+        same_class_removed,
+        cross_class_removed,
+        seam_fragments_merged,
+        containment_duplicates_removed,
+    ) = _merge_with_stats(
         raw_detections,
         policy,
     )
@@ -251,6 +261,8 @@ def detect_with_adaptive_tiling(
         duplicates_removed_count=max(0, len(raw_detections) - len(merged_before_limit)),
         same_class_duplicates_removed_count=same_class_removed,
         cross_class_conflicts_removed_count=cross_class_removed,
+        seam_fragments_merged_count=seam_fragments_merged,
+        containment_duplicates_removed_count=containment_duplicates_removed,
         effective_tile_size=effective_tile_size if tiling_applied else None,
     )
 
@@ -261,10 +273,10 @@ def merge_tiled_detections(
     *,
     max_detections: int | None = None,
 ) -> list[Detection]:
-    """Class-aware global NMS with a small penalty for internal tile seams."""
+    """Merge tile-seam fragments, then apply class-aware global NMS."""
 
     policy = config or TilingConfig()
-    kept, _, _ = _merge_with_stats(detections, policy)
+    kept, _, _, _, _ = _merge_with_stats(detections, policy)
     if max_detections is not None:
         return kept[: max(0, int(max_detections))]
     return kept
@@ -273,16 +285,17 @@ def merge_tiled_detections(
 def _merge_with_stats(
     detections: Sequence[Detection],
     policy: TilingConfig,
-) -> tuple[list[Detection], int, int]:
+) -> tuple[list[Detection], int, int, int, int]:
     same_threshold = float(np.clip(policy.merge_iou_threshold, 0.0, 1.0))
     cross_threshold = float(np.clip(policy.cross_class_iou_threshold, 0.0, 1.0))
     remaining = sorted(detections, key=lambda item: _merge_score(item, policy), reverse=True)
     kept: list[Detection] = []
     same_class_removed = 0
     cross_class_removed = 0
+    seam_fragments_merged = 0
+    containment_duplicates_removed = 0
     while remaining:
         current = remaining.pop(0)
-        kept.append(current)
         survivors: list[Detection] = []
         for candidate in remaining:
             same_class = _same_detection_class(current, candidate)
@@ -291,6 +304,19 @@ def _merge_with_stats(
                 if same_class or not policy.class_aware_merge
                 else cross_threshold
             )
+            if _is_seam_fragment_match(current, candidate, policy, same_class):
+                current = _merge_seam_fragments(current, candidate)
+                seam_fragments_merged += 1
+                if same_class:
+                    same_class_removed += 1
+                else:
+                    cross_class_removed += 1
+                continue
+            if _is_containment_duplicate(current, candidate, policy, same_class):
+                current = _prefer_complete_detection(current, candidate)
+                containment_duplicates_removed += 1
+                same_class_removed += 1
+                continue
             if _intersection_over_union(current.bbox, candidate.bbox) > threshold:
                 if same_class:
                     same_class_removed += 1
@@ -298,8 +324,15 @@ def _merge_with_stats(
                     cross_class_removed += 1
                 continue
             survivors.append(candidate)
+        kept.append(current)
         remaining = survivors
-    return kept, same_class_removed, cross_class_removed
+    return (
+        kept,
+        same_class_removed,
+        cross_class_removed,
+        seam_fragments_merged,
+        containment_duplicates_removed,
+    )
 
 
 def _axis_starts(length: int, tile_size: int, overlap_ratio: float) -> list[int]:
@@ -346,6 +379,17 @@ def _validate_policy(policy: TilingConfig) -> None:
         raise ValueError("edge_margin_ratio must satisfy 0 <= value < 0.5")
     if not 0.0 <= float(policy.cross_class_iou_threshold) <= 1.0:
         raise ValueError("cross_class_iou_threshold must be between 0 and 1")
+    if not 0.0 <= float(policy.seam_ios_threshold) <= 1.0:
+        raise ValueError("seam_ios_threshold must be between 0 and 1")
+    if not 0.0 <= float(policy.containment_ios_threshold) <= 1.0:
+        raise ValueError("containment_ios_threshold must be between 0 and 1")
+    if not isinstance(policy.detail_class_confidence, dict):
+        raise ValueError("detail_class_confidence must be a dictionary")
+    for label, threshold in policy.detail_class_confidence.items():
+        if not str(label).strip() or not 0.0 <= float(threshold) <= 1.0:
+            raise ValueError(
+                "detail_class_confidence needs non-empty labels and thresholds in [0, 1]"
+            )
     if policy.detail_confidence is not None and not 0.0 <= float(policy.detail_confidence) <= 1.0:
         raise ValueError("detail_confidence must be between 0 and 1 or None")
 
@@ -470,9 +514,176 @@ def _same_detection_class(first: Detection, second: Detection) -> bool:
     return first.label == second.label
 
 
+def _is_seam_fragment_match(
+    first: Detection,
+    second: Detection,
+    policy: TilingConfig,
+    same_class: bool,
+) -> bool:
+    """Match partial hypotheses produced by two overlapping tile borders.
+
+    Global NMS uses IoU, which becomes artificially small when each tile only
+    sees a different part of one component. Restricting the more permissive
+    IoS metric to border detections from distinct tiles avoids changing normal
+    full-image NMS behavior.
+    """
+
+    first_metadata = first.metadata
+    second_metadata = second.metadata
+    if (
+        first_metadata.get("inference_pass") != "tile"
+        or second_metadata.get("inference_pass") != "tile"
+        or not first_metadata.get("touches_tile_border")
+        or not second_metadata.get("touches_tile_border")
+    ):
+        return False
+    first_tile = first_metadata.get("tile_id")
+    second_tile = second_metadata.get("tile_id")
+    if not first_tile or not second_tile or first_tile == second_tile:
+        return False
+    first_frame = first_metadata.get("frame_id")
+    second_frame = second_metadata.get("frame_id")
+    if first_frame is not None and second_frame is not None and first_frame != second_frame:
+        return False
+
+    threshold = float(np.clip(policy.seam_ios_threshold, 0.0, 1.0))
+    if policy.class_aware_merge and not same_class:
+        threshold = max(
+            threshold,
+            float(np.clip(policy.cross_class_iou_threshold, 0.0, 1.0)),
+        )
+    return _intersection_over_smaller(first.bbox, second.bbox) >= threshold
+
+
+def _merge_seam_fragments(primary: Detection, fragment: Detection) -> Detection:
+    """Keep the best hypothesis while expanding its box over both fragments."""
+
+    bbox = BoundingBox(
+        min(primary.bbox.x1, fragment.bbox.x1),
+        min(primary.bbox.y1, fragment.bbox.y1),
+        max(primary.bbox.x2, fragment.bbox.x2),
+        max(primary.bbox.y2, fragment.bbox.y2),
+    )
+    metadata = dict(primary.metadata)
+    metadata.update(
+        {
+            "seam_fragments_merged": True,
+            "merged_from_detection_ids": _merged_metadata_values(
+                primary,
+                fragment,
+                key="merged_from_detection_ids",
+                fallback=lambda item: item.detection_id,
+            ),
+            "merged_from_tile_ids": _merged_metadata_values(
+                primary,
+                fragment,
+                key="merged_from_tile_ids",
+                fallback=lambda item: item.metadata.get("tile_id"),
+            ),
+        }
+    )
+    return Detection(
+        label=primary.label,
+        confidence=primary.confidence,
+        bbox=bbox,
+        class_id=primary.class_id,
+        source=primary.source,
+        detection_id=primary.detection_id,
+        metadata=metadata,
+    )
+
+
+def _is_containment_duplicate(
+    first: Detection,
+    second: Detection,
+    policy: TilingConfig,
+    same_class: bool,
+) -> bool:
+    """Identify a complete box plus a nested partial box from another pass/tile."""
+
+    if not same_class:
+        return False
+    first_metadata = first.metadata
+    second_metadata = second.metadata
+    first_frame = first_metadata.get("frame_id")
+    second_frame = second_metadata.get("frame_id")
+    if first_frame is not None and second_frame is not None and first_frame != second_frame:
+        return False
+    first_origin = (
+        first_metadata.get("inference_pass"),
+        first_metadata.get("tile_id"),
+    )
+    second_origin = (
+        second_metadata.get("inference_pass"),
+        second_metadata.get("tile_id"),
+    )
+    if first_origin == second_origin:
+        return False
+    threshold = float(np.clip(policy.containment_ios_threshold, 0.0, 1.0))
+    return _intersection_over_smaller(first.bbox, second.bbox) >= threshold
+
+
+def _prefer_complete_detection(first: Detection, second: Detection) -> Detection:
+    """Prefer a non-edge, owner-region, complete hypothesis over a partial box."""
+
+    def priority(item: Detection) -> tuple[int, int, float, float]:
+        return (
+            int(not bool(item.metadata.get("touches_tile_border"))),
+            int(bool(item.metadata.get("center_in_tile_ownership", True))),
+            float(item.bbox.area),
+            float(item.confidence),
+        )
+
+    kept, removed = (first, second) if priority(first) >= priority(second) else (second, first)
+    metadata = dict(kept.metadata)
+    suppressed = list(metadata.get("contained_detection_ids", []))
+    removed_ids = [removed.detection_id]
+    stored_removed_ids = removed.metadata.get("contained_detection_ids", [])
+    if isinstance(stored_removed_ids, list):
+        removed_ids.extend(stored_removed_ids)
+    for detection_id in removed_ids:
+        if detection_id not in suppressed:
+            suppressed.append(detection_id)
+    metadata["contained_detection_ids"] = suppressed
+    return Detection(
+        label=kept.label,
+        confidence=kept.confidence,
+        bbox=kept.bbox,
+        class_id=kept.class_id,
+        source=kept.source,
+        detection_id=kept.detection_id,
+        metadata=metadata,
+    )
+
+
+def _merged_metadata_values(
+    first: Detection,
+    second: Detection,
+    *,
+    key: str,
+    fallback: Callable[[Detection], Any],
+) -> list[Any]:
+    values: list[Any] = []
+    for detection in (first, second):
+        stored = detection.metadata.get(key)
+        candidates = stored if isinstance(stored, list) else [fallback(detection)]
+        for candidate in candidates:
+            if candidate is not None and candidate not in values:
+                values.append(candidate)
+    return values
+
+
 def _intersection_over_union(first: BoundingBox, second: BoundingBox) -> float:
     x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
     x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
     intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
     union = first.area + second.area - intersection
     return intersection / union if union > 0 else 0.0
+
+
+def _intersection_over_smaller(first: BoundingBox, second: BoundingBox) -> float:
+    x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
+    x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
+    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    smaller_area = min(first.area, second.area)
+    return intersection / smaller_area if smaller_area > 0 else 0.0

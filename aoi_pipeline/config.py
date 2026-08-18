@@ -108,7 +108,20 @@ class TilingConfig:
     auto_trigger_scale: float = 1.25
     include_full_image: bool = True
     detail_confidence: float | None = 0.20
+    # Detail tiles improve recall, but some visually ambiguous classes need a
+    # stricter floor. In the current detector, bright solder joints are the
+    # main low-confidence false positive for ``led``.
+    detail_class_confidence: dict[str, float] = field(
+        default_factory=lambda: {"led": 0.35}
+    )
     merge_iou_threshold: float = 0.45
+    # IoU alone misses duplicate partial boxes on opposite sides of a tile seam.
+    # IoS (intersection / smaller box) recognizes those fragments without
+    # merging ordinary neighboring components that do not overlap.
+    seam_ios_threshold: float = 0.50
+    # Remove a partial/tight box almost completely enclosed by another box for
+    # the same class when they originate from different inference windows.
+    containment_ios_threshold: float = 0.80
     class_aware_merge: bool = True
     # Different class labels may still be duplicate hypotheses for one object.
     # Use a stricter threshold than same-class NMS to preserve adjacent parts.
@@ -258,9 +271,15 @@ class PipelineConfig:
                 "full_image_pass": "include_full_image",
                 "tile_confidence": "detail_confidence",
                 "merge_iou": "merge_iou_threshold",
+                "seam_ios": "seam_ios_threshold",
+                "containment_ios": "containment_ios_threshold",
                 "cross_class_iou": "cross_class_iou_threshold",
             },
         )
+        if "tile_led_confidence" in component_values:
+            config.tiling.detail_class_confidence["led"] = float(
+                component_values["tile_led_confidence"]
+            )
         _assign_known(
             config.crop,
             crop_values,

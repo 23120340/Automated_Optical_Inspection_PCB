@@ -6,6 +6,7 @@ import json
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from aoi_pipeline import BoundingBox, Detection, MockComponentDetector
@@ -210,6 +211,53 @@ def test_csv_cells_neutralize_spreadsheet_formulas() -> None:
 
     assert ui._csv_cell("resistor") == "resistor"
     assert ui._csv_cell("=HYPERLINK(\"bad\")") == "'=HYPERLINK(\"bad\")"
+
+
+def test_detection_table_owner_column_is_arrow_compatible_nullable_boolean() -> None:
+    from app import streamlit_app as ui
+
+    detections = [
+        DetectionRecord(
+            detection_id="det_full",
+            label="ic",
+            confidence=0.9,
+            bbox=(0, 0, 10, 10),
+            source="model",
+            metadata={"inference_pass": "full_image"},
+        ),
+        DetectionRecord(
+            detection_id="det_tile",
+            label="resistor",
+            confidence=0.8,
+            bbox=(10, 0, 20, 10),
+            source="model",
+            metadata={
+                "inference_pass": "tile",
+                "center_in_tile_ownership": True,
+            },
+        ),
+    ]
+
+    frame = ui._detections_frame(detections)
+
+    assert str(frame["owner"].dtype) == "boolean"
+    assert pd.isna(frame.loc[0, "owner"])
+    assert bool(frame.loc[1, "owner"]) is True
+
+
+def test_classifier_manifest_warns_for_low_quality_artifact() -> None:
+    from app import streamlit_app as ui
+
+    warning = ui._classifier_manifest_quality_warning(
+        {"metrics": {"accuracy": 0.1348, "weighted_f1": 0.1633}}
+    )
+
+    assert warning is not None
+    assert "accuracy=0.135" in warning
+    assert "weighted_f1=0.163" in warning
+    assert ui._classifier_manifest_quality_warning(
+        {"metrics": {"accuracy": 0.8, "weighted_f1": 0.75}}
+    ) is None
 
 
 def test_source_resolution_gate_rejects_low_pixel_board_import() -> None:

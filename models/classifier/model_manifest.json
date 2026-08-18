@@ -1,0 +1,201 @@
+{
+  "schema_version": "pcb-component-classifier/1.0",
+  "task": "component_family_classification",
+  "model_format": "onnx",
+  "created_at": "2026-08-17T19:37:44.178538+00:00",
+  "class_names": [
+    "acoustic",
+    "battery_power_input",
+    "capacitor",
+    "connector",
+    "diode",
+    "discrete_semiconductor",
+    "display",
+    "false_crop_background",
+    "ic",
+    "led",
+    "magnetic",
+    "protection",
+    "relay",
+    "resistor",
+    "switch_control",
+    "thermal_mechanical",
+    "timing"
+  ],
+  "input": {
+    "name": "images",
+    "size": [
+      224,
+      224
+    ],
+    "layout": "NCHW",
+    "dtype": "float32",
+    "color_space": "RGB",
+    "resize_mode": "letterbox",
+    "letterbox_value": 114,
+    "scale": 0.00392156862745098,
+    "normalization": {
+      "mean": [
+        0.485,
+        0.456,
+        0.406
+      ],
+      "std": [
+        0.229,
+        0.224,
+        0.225
+      ]
+    }
+  },
+  "output": {
+    "name": "logits",
+    "semantics": "raw_logits",
+    "dynamic_batch": true
+  },
+  "calibration": {
+    "method": "temperature_scaling",
+    "temperature": 1.334511637687683,
+    "split": "calibration_from_original_validation_grouped_by_parent_image"
+  },
+  "decision_thresholds": {
+    "accept": 0.6286868686868687,
+    "review": 0.5,
+    "accept_by_class": {},
+    "unknown_score": "1 - max(softmax(logits / temperature))"
+  },
+  "model": {
+    "filename": "best.onnx",
+    "sha256": "9f5d3347e3dae11fcdd699b87e609576f8ef3d5b89f5e8c0193a47f131703b05",
+    "version": "efficientnet_b0-2026-08-17",
+    "architecture": "efficientnet_b0",
+    "pretrained_weights": "EfficientNet_B0_Weights.DEFAULT",
+    "exporter": "legacy",
+    "max_abs_parity_error": 0.00019913911819458008
+  },
+  "dataset": {
+    "provider": "Kaggle",
+    "slug": "aryanstein/pcb-component-detection-consolidated-dataset",
+    "version": 1,
+    "source_yaml": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/data.yaml",
+    "source_classes": [
+      "battery",
+      "button",
+      "buzzer",
+      "capacitor",
+      "clock",
+      "connector",
+      "diode",
+      "display",
+      "fuse",
+      "heatsink",
+      "ic",
+      "inductor",
+      "led",
+      "pads",
+      "pins",
+      "potentiometer",
+      "relay",
+      "resistor",
+      "switch",
+      "transducer",
+      "transformer",
+      "transistor"
+    ],
+    "source_to_family": {
+      "battery": "battery_power_input",
+      "button": "switch_control",
+      "buzzer": "acoustic",
+      "capacitor": "capacitor",
+      "clock": "timing",
+      "connector": "connector",
+      "diode": "diode",
+      "display": "display",
+      "fuse": "protection",
+      "heatsink": "thermal_mechanical",
+      "ic": "ic",
+      "inductor": "magnetic",
+      "led": "led",
+      "pads": "false_crop_background",
+      "pins": "false_crop_background",
+      "potentiometer": "switch_control",
+      "relay": "relay",
+      "resistor": "resistor",
+      "switch": "switch_control",
+      "transformer": "magnetic",
+      "transistor": "discrete_semiconductor"
+    },
+    "ignored_source_classes": {
+      "transducer": "Không có mẫu train đáng tin cậy trong preset đã audit; nhãn quá rộng."
+    },
+    "license_note": "Kaggle uploader lists Apache 2.0. This is a consolidated dataset; verify licenses of every upstream source before commercial use."
+  },
+  "taxonomy": {
+    "supported_families": [
+      "acoustic",
+      "battery_power_input",
+      "capacitor",
+      "connector",
+      "diode",
+      "discrete_semiconductor",
+      "display",
+      "false_crop_background",
+      "ic",
+      "led",
+      "magnetic",
+      "protection",
+      "relay",
+      "resistor",
+      "switch_control",
+      "thermal_mechanical",
+      "timing"
+    ],
+    "unsupported_baseline_families": [
+      "chip_passive",
+      "module",
+      "other_component",
+      "physical_port",
+      "power_semiconductor"
+    ],
+    "pads_and_pins_policy": "false_crop_background/reject-support",
+    "transducer_policy": "ignored because the preset has no usable train support",
+    "scope_limit": "Visual family only. Do not infer IC function/part number; use OCR and BOM matching later."
+  },
+  "deployment": {
+    "target": "raspberry_pi_arm64_cpu",
+    "runtime": "onnxruntime",
+    "precision": "fp32",
+    "quantization_status": "not_applied; benchmark FP32 first, then calibrate/evaluate INT8 on held-out camera crops before replacing the production artifact"
+  },
+  "metrics": {
+    "evaluation_split": "test",
+    "accuracy": 0.13475718281210272,
+    "macro_f1": 0.6257596546600188,
+    "weighted_f1": 0.1633016646926749,
+    "temperature": 1.334511637687683,
+    "accept_threshold": 0.6286868686868687,
+    "review_threshold": 0.5,
+    "accepted_precision": 0.9902912621359223,
+    "accepted_coverage": 0.026188660055936945,
+    "unknown_policy_limit": "Confidence reject only; OOD behavior is not validated by this dataset."
+  },
+  "training": {
+    "seed": 42,
+    "model_name": "efficientnet_b0",
+    "input_size": 224,
+    "batch_size": 64,
+    "epochs": 40,
+    "freeze_epochs": 3,
+    "patience": 8,
+    "head_lr": 0.0003,
+    "backbone_lr": 5e-05,
+    "weight_decay": 0.0001,
+    "label_smoothing": 0.05
+  },
+  "runtime_versions": {
+    "python": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+    "torch": "2.10.0+cu128",
+    "torchvision": "0.25.0+cu128",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.28.0"
+  }
+}

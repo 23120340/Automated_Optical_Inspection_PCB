@@ -38,10 +38,13 @@ CONFIG = {
     "backbone_lr": 5e-5,
     "weight_decay": 1e-4,
     "label_smoothing": 0.05,
+    "max_class_weight": 10.0,
     "num_workers": 2,
     "target_accept_precision": 0.98,
     "default_accept_threshold": 0.90,
     "review_threshold": 0.50,
+    "minimum_test_accuracy": 0.50,
+    "minimum_test_weighted_f1": 0.50,
     "strict_audit": True,
     "max_preview": 16,
     # Đặt True chỉ khi muốn thử pipeline trên CPU. Huấn luyện đầy đủ sẽ rất chậm.
@@ -60,7 +63,6 @@ SOURCE_TO_FAMILY = {
     "diode": "diode",
     "display": "display",
     "fuse": "protection",
-    "heatsink": "thermal_mechanical",
     "ic": "ic",
     "inductor": "magnetic",
     "led": "led",
@@ -74,6 +76,7 @@ SOURCE_TO_FAMILY = {
     "transistor": "discrete_semiconductor",
 }
 IGNORED_SOURCE_CLASSES = {
+    "heatsink": "Dataset v1 chỉ có 4 box train; không đủ để học family thermal_mechanical an toàn.",
     "transducer": "Không có mẫu train đáng tin cậy trong preset đã audit; nhãn quá rộng.",
 }
 UNSUPPORTED_BASELINE_FAMILIES = [
@@ -746,7 +749,13 @@ train_counts = frames["train"]["class_id"].value_counts().reindex(range(len(CLAS
 if (train_counts == 0).any():
     absent = [CLASS_NAMES[index] for index, count in train_counts.items() if count == 0]
     raise RuntimeError(f"Không thể train: family không có sample train: {absent}")
-class_weights = len(frames["train"]) / (len(CLASS_NAMES) * train_counts.to_numpy())
+raw_class_weights = np.sqrt(train_counts.max() / train_counts.to_numpy(dtype=float))
+class_weights = np.minimum(raw_class_weights, float(CONFIG["max_class_weight"]))
+class_weights /= class_weights.mean()
+print(
+    "Class weights:",
+    {name: round(float(weight), 3) for name, weight in zip(CLASS_NAMES, class_weights)},
+)
 criterion = nn.CrossEntropyLoss(
     weight=torch.tensor(class_weights, dtype=torch.float32, device=DEVICE),
     label_smoothing=CONFIG["label_smoothing"],
@@ -782,7 +791,7 @@ optimizer = build_optimizer(False)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, CONFIG["epochs"]))
 USE_AMP = DEVICE.type == "cuda"
 scaler = torch.amp.GradScaler("cuda", enabled=USE_AMP)
-best_f1 = -1.0
+best_selection_score = -1.0
 epochs_without_improvement = 0
 history = []
 checkpoint_path = ARTIFACT_DIR / "best.pt"
@@ -812,18 +821,26 @@ for epoch in range(CONFIG["epochs"]):
 
     val_logits, val_targets, _ = predict(loaders["val"])
     val_predictions = val_logits.argmax(1).numpy()
-    val_f1 = f1_score(val_targets.numpy(), val_predictions, average="macro", zero_division=0)
+    val_true = val_targets.numpy()
+    val_macro_f1 = f1_score(val_true, val_predictions, average="macro", zero_division=0)
+    val_weighted_f1 = f1_score(val_true, val_predictions, average="weighted", zero_division=0)
+    # Prevent selection of a checkpoint that learns rare classes while
+    # collapsing high-support capacitor/resistor families.
+    val_selection_score = math.sqrt(max(0.0, val_macro_f1 * val_weighted_f1))
     row = {
         "epoch": epoch + 1,
         "train_loss": running_loss / len(datasets["train"]),
-        "val_macro_f1": val_f1,
+        "val_accuracy": float((val_true == val_predictions).mean()),
+        "val_macro_f1": val_macro_f1,
+        "val_weighted_f1": val_weighted_f1,
+        "val_selection_score": val_selection_score,
         "seconds": time.perf_counter() - started,
         "backbone_trainable": epoch >= CONFIG["freeze_epochs"],
     }
     history.append(row)
     print(row)
-    if val_f1 > best_f1 + 1e-4:
-        best_f1 = val_f1
+    if val_selection_score > best_selection_score + 1e-4:
+        best_selection_score = val_selection_score
         epochs_without_improvement = 0
         torch.save(
             {
@@ -832,7 +849,9 @@ for epoch in range(CONFIG["epochs"]):
                 "architecture": CONFIG["model_name"],
                 "input_size": CONFIG["input_size"],
                 "epoch": epoch + 1,
-                "val_macro_f1": val_f1,
+                "val_macro_f1": val_macro_f1,
+                "val_weighted_f1": val_weighted_f1,
+                "val_selection_score": val_selection_score,
             },
             checkpoint_path,
         )
@@ -845,7 +864,12 @@ for epoch in range(CONFIG["epochs"]):
 pd.DataFrame(history).to_csv(REPORT_DIR / "training_history.csv", index=False)
 checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
 model.load_state_dict(checkpoint["state_dict"])
-print("Best epoch:", checkpoint["epoch"], "val macro-F1:", checkpoint["val_macro_f1"])
+print(
+    "Best epoch:", checkpoint["epoch"],
+    "selection score:", checkpoint["val_selection_score"],
+    "macro-F1:", checkpoint["val_macro_f1"],
+    "weighted-F1:", checkpoint["val_weighted_f1"],
+)
 
 # %% [markdown]
 # ## 6. Temperature calibration, confidence gate và locked-test evaluation
@@ -1004,6 +1028,22 @@ metrics_summary = {
 )
 display(per_class)
 print(metrics_summary)
+
+quality_failures = []
+if metrics_summary["accuracy"] < float(CONFIG["minimum_test_accuracy"]):
+    quality_failures.append(
+        f"accuracy={metrics_summary['accuracy']:.3f} < {CONFIG['minimum_test_accuracy']:.3f}"
+    )
+if metrics_summary["weighted_f1"] < float(CONFIG["minimum_test_weighted_f1"]):
+    quality_failures.append(
+        f"weighted_f1={metrics_summary['weighted_f1']:.3f} < "
+        f"{CONFIG['minimum_test_weighted_f1']:.3f}"
+    )
+if quality_failures:
+    raise RuntimeError(
+        "Classifier quality gate failed; refusing to export a deployment artifact: "
+        + "; ".join(quality_failures)
+    )
 
 # %% [markdown]
 # ## 7. Export ONNX raw logits, kiểm tra parity và tạo model manifest

@@ -103,6 +103,11 @@ thật và xác nhận macro-F1/accepted precision không giảm quá gate của
   ảnh không lọt sang cả hai phía. Test gốc chỉ dùng đánh giá cuối.
 - Theo dõi macro-F1, metric từng class, confusion matrix, temperature scaling và
   precision/coverage của confidence gate.
+- Bỏ `heatsink/thermal_mechanical` khỏi baseline vì dataset v1 chỉ có 4 box train;
+  dùng class weight căn bậc hai có giới hạn để lớp cực hiếm không lấn át
+  capacitor/resistor.
+- Chọn checkpoint bằng trung bình nhân của macro-F1 và weighted-F1, đồng thời
+  chặn export nếu accuracy hoặc weighted-F1 test thấp hơn quality gate 0.50.
 - Kiểm tra ONNX bằng `onnx.checker`, ONNX Runtime CPU và parity với PyTorch.
 
 Reject hiện tại dựa trên `1 - max_probability`; đây chưa phải đánh giá OOD đầy

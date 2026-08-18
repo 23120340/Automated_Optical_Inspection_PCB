@@ -9,6 +9,7 @@ All images in session state and at the pipeline boundary use OpenCV BGR order.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import csv
 from datetime import datetime, timezone
 import hashlib
@@ -126,7 +127,10 @@ def _default_config() -> dict[str, Any]:
             "tile_trigger_scale": 1.25,
             "full_image_pass": True,
             "tile_confidence": 0.20,
+            "tile_led_confidence": 0.35,
             "merge_iou": 0.45,
+            "seam_ios": 0.50,
+            "containment_ios": 0.80,
             "cross_class_iou": 0.70,
             "show_tile_grid": False,
         },
@@ -173,6 +177,7 @@ def _init_state() -> None:
         "classifier_manifest_path": None,
         "classifier_manifest_name": None,
         "classifier_manifest_digest": None,
+        "classifier_manifest_quality_warning": None,
         "pt_model_trusted": False,
         "preprocess_result": None,
         "alignment_result": None,
@@ -421,8 +426,6 @@ def _set_classifier_manifest(upload: Any) -> None:
     digest = _digest(data)
     if digest == st.session_state.ignored_uploads.get("classifier_manifest"):
         return
-    if digest == st.session_state.classifier_manifest_digest:
-        return
     try:
         manifest = json.loads(data.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
@@ -434,10 +437,17 @@ def _set_classifier_manifest(upload: Any) -> None:
         raise ValueError(
             "Manifest không đúng schema pcb-component-classifier/1.0 của bước 6.1."
         )
+    quality_warning = _classifier_manifest_quality_warning(manifest)
+    if digest == st.session_state.classifier_manifest_digest:
+        # Recompute after a hot reload so an already-uploaded manifest also
+        # receives quality diagnostics introduced by a newer app version.
+        st.session_state.classifier_manifest_quality_warning = quality_warning
+        return
     path = _materialize_upload(upload.name, data)
     st.session_state.classifier_manifest_path = path
     st.session_state.classifier_manifest_name = upload.name
     st.session_state.classifier_manifest_digest = digest
+    st.session_state.classifier_manifest_quality_warning = quality_warning
     st.session_state.ignored_uploads["classifier_manifest"] = None
     _invalidate_after(5)
     st.session_state.messages.append(f"Đã nạp classifier manifest: {upload.name}")
@@ -450,7 +460,26 @@ def _remove_classifier_manifest() -> None:
     st.session_state.classifier_manifest_path = None
     st.session_state.classifier_manifest_name = None
     st.session_state.classifier_manifest_digest = None
+    st.session_state.classifier_manifest_quality_warning = None
     _invalidate_after(5)
+
+
+def _classifier_manifest_quality_warning(manifest: Mapping[str, Any]) -> str | None:
+    metrics = manifest.get("metrics")
+    if not isinstance(metrics, Mapping):
+        return None
+    failures: list[str] = []
+    for key, minimum in (("accuracy", 0.50), ("weighted_f1", 0.50)):
+        value = metrics.get(key)
+        if isinstance(value, (int, float)) and float(value) < minimum:
+            failures.append(f"{key}={float(value):.3f} < {minimum:.2f}")
+    if not failures:
+        return None
+    return (
+        "Classifier artifact không đạt quality gate ("
+        + "; ".join(failures)
+        + "). Kết quả sẽ chủ yếu review/unknown; cần retrain trước production."
+    )
 
 
 def _pt_model_blocked() -> bool:
@@ -496,7 +525,12 @@ def _cached_bridge(
         "auto_trigger_scale": component_config.get("tile_trigger_scale", 1.25),
         "include_full_image": component_config.get("full_image_pass", True),
         "detail_confidence": component_config.get("tile_confidence", 0.20),
+        "detail_class_confidence": {
+            "led": component_config.get("tile_led_confidence", 0.35),
+        },
         "merge_iou_threshold": component_config.get("merge_iou", 0.45),
+        "seam_ios_threshold": component_config.get("seam_ios", 0.50),
+        "containment_ios_threshold": component_config.get("containment_ios", 0.80),
         "cross_class_iou_threshold": component_config.get("cross_class_iou", 0.70),
     }
     config.setdefault("models", {})
@@ -806,10 +840,16 @@ def _render_sidebar() -> bool:
         st.markdown("".join(step_markup), unsafe_allow_html=True)
 
         step_options = [step for step, *_ in STEP_DEFINITIONS]
+        if "sidebar_step_navigation" not in st.session_state:
+            st.session_state.sidebar_step_navigation = st.session_state.active_step
+        elif st.session_state.sidebar_step_navigation not in step_options:
+            st.session_state.sidebar_step_navigation = st.session_state.active_step
         selected = st.radio(
             "Mở bước",
             options=step_options,
-            index=step_options.index(st.session_state.active_step),
+            # Session State is the single source of truth. Passing an ``index``
+            # as well would make Streamlit warn that the widget has two defaults.
+            index=None,
             format_func=lambda value: f"{value}. {STEP_DEFINITIONS[value][1]}",
             horizontal=False,
             label_visibility="collapsed",
@@ -903,6 +943,9 @@ def _render_sidebar() -> bool:
                     st.error(str(exc))
             if st.session_state.classifier_manifest_name:
                 st.success(f"Manifest: {st.session_state.classifier_manifest_name}")
+                quality_warning = st.session_state.classifier_manifest_quality_warning
+                if quality_warning:
+                    st.warning(quality_warning)
                 if st.button("Gỡ classifier manifest", width="stretch"):
                     _remove_classifier_manifest()
                     st.rerun()
@@ -1330,10 +1373,15 @@ def _detections_frame(detections: list[DetectionRecord]) -> pd.DataFrame:
                 "source": item.source,
                 "pass": item.metadata.get("inference_pass", ""),
                 "tile": item.metadata.get("tile_id", ""),
-                "owner": item.metadata.get("center_in_tile_ownership", ""),
+                "owner": item.metadata.get("center_in_tile_ownership", pd.NA),
             }
         )
-    return pd.DataFrame(rows)
+    frame = pd.DataFrame(rows)
+    if "owner" in frame.columns:
+        # Full-image detections have no tile owner. A nullable Boolean keeps
+        # that missing value without mixing strings and bools in Arrow.
+        frame["owner"] = frame["owner"].astype("boolean")
+    return frame
 
 
 def _render_step_four() -> None:
@@ -1444,6 +1492,18 @@ def _render_step_four() -> None:
                     "global NMS và classifier sẽ xử lý kết quả tiếp theo."
                 ),
             )
+            tile_led_confidence = st.slider(
+                "Confidence LED trong detail tile",
+                0.20,
+                0.90,
+                float(config.get("tile_led_confidence", 0.35)),
+                0.05,
+                disabled=not has_model or tiling_mode == "off",
+                help=(
+                    "LED dễ bị nhầm với mối hàn sáng. Ngưỡng riêng này giữ recall "
+                    "cho resistor/capacitor nhưng loại LED confidence thấp."
+                ),
+            )
             merge_iou = st.slider(
                 "IoU gộp detection giữa tile",
                 0.10,
@@ -1451,6 +1511,30 @@ def _render_step_four() -> None:
                 float(config.get("merge_iou", 0.45)),
                 0.05,
                 disabled=not has_model or tiling_mode == "off",
+            )
+            seam_ios = st.slider(
+                "IoS gộp box bị cắt tại biên tile",
+                0.30,
+                0.90,
+                float(config.get("seam_ios", 0.50)),
+                0.05,
+                disabled=not has_model or tiling_mode == "off",
+                help=(
+                    "Chỉ áp dụng cho hai box chạm biên từ hai tile khác nhau. "
+                    "Giảm ngưỡng nếu box của cùng linh kiện vẫn bị đếm hai lần."
+                ),
+            )
+            containment_ios = st.slider(
+                "IoS loại box nhỏ nằm trong box lớn",
+                0.60,
+                0.95,
+                float(config.get("containment_ios", 0.80)),
+                0.05,
+                disabled=not has_model or tiling_mode == "off",
+                help=(
+                    "Áp dụng cho cùng class từ full-image/hai tile khác nhau; "
+                    "ưu tiên box đầy đủ không chạm biên."
+                ),
             )
             cross_class_iou = st.slider(
                 "IoU xung đột khác class",
@@ -1487,7 +1571,10 @@ def _render_step_four() -> None:
                     "tile_overlap": tile_overlap,
                     "full_image_pass": full_image_pass,
                     "tile_confidence": tile_confidence,
+                    "tile_led_confidence": tile_led_confidence,
                     "merge_iou": merge_iou,
+                    "seam_ios": seam_ios,
+                    "containment_ios": containment_ios,
                     "cross_class_iou": cross_class_iou,
                     "show_tile_grid": show_tile_grid,
                 }

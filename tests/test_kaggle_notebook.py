@@ -296,6 +296,12 @@ def test_classification_notebook_has_valid_code_and_explicit_dataset_contract() 
     assert "models.EfficientNet_B0_Weights.DEFAULT" in source
     assert "models.efficientnet_b0(weights=weights)" in source
     assert '"transducer": "Không có mẫu train' in source
+    assert '"heatsink": "thermal_mechanical"' not in source
+    assert '"max_class_weight": 10.0' in source
+    assert "raw_class_weights = np.sqrt" in source
+    assert 'average="weighted"' in source
+    assert "val_selection_score" in source
+    assert "Classifier quality gate failed" in source
     assert '"pads": "false_crop_background"' in source
     assert '"pins": "false_crop_background"' in source
     assert '"schema_version": "pcb-component-classifier/1.0"' in source
