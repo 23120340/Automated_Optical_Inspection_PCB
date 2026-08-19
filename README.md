@@ -11,6 +11,7 @@
    → 5. Crop và xuất dữ liệu linh kiện
    → 5.5. Suy ra ROI mối hàn + hợp nhất CAD nếu có (dữ liệu cho 6.2)
    → 6.1. Phân loại family (accept/review/unknown)
+   → 6.2. Kiểm tra mối hàn (luật đo + model, accept/review/reject)
 ```
 
 Hiện bước 0 dùng upload ảnh để có thể phát triển khi chưa gắn camera. Adapter
@@ -344,6 +345,132 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 - [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
 - [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach_pretrain_6_1_classification.md).
 
+## Bước 6.2 — Kiểm tra mối hàn
+
+Chấm từng ROI do bước 5.5 sinh ra. **Chạy được ngay khi chưa có model.**
+
+### Ba tầng, dùng cùng nhau
+
+| Tầng | Là gì | Cần train? | Vai trò |
+|---|---|---|---|
+| A · `grading/features.py` + `rules.py` | Đo đặc trưng vật lý rồi phán quyết theo ngưỡng | Không | Chạy từ ngày đầu, giải thích được, sinh nhãn mồi |
+| B · `grading/classifier.py` | CNN trên crop mối hàn (ONNX) | Có | Bắt cái ngưỡng không bắt được: mối hàn nguội, hình dạng tinh vi |
+| C · `grading/inspector.py` | Hợp nhất A và B | — | Quyết định cuối, kèm chốt chặn |
+
+Vì sao không nhảy thẳng vào CNN: tầng A chạy khi chưa có nhãn nào, biến việc gán
+nhãn thành *xác nhận/sửa* thay vì gán từ đầu, và ở lại làm chốt chặn. Một call
+mà người vận hành không truy được về con số sẽ bị bỏ qua ngay trong tuần đầu.
+
+### Quy tắc hợp nhất
+
+Bất đối xứng có chủ ý: **bỏ lọt lỗi thì giao hàng lỗi, báo nhầm chỉ tốn 10 giây
+của người kiểm.**
+
+| Tình huống | Kết quả |
+|---|---|
+| Model và luật đồng ý, model đủ tự tin | `accept` · source `model+rules` |
+| Model và luật đồng ý nhưng model thiếu tự tin | `review` |
+| Hai bên **bất đồng** | `review` · source `conflict` — không chọn bên nào thắng |
+| Model nói đạt nhưng lượng thiếc dưới sàn vật lý | `review` · source `escape_guard` — không confidence nào vượt qua được |
+| Chưa có model | Verdict của luật · source `rules` |
+
+Chốt chặn chạy **sau cùng** nên không bước nào ở trên hoàn tác được nó. Tắt bằng
+`SolderGradingConfig.escape_guard_enabled=False` nếu thật sự muốn model toàn quyền.
+
+### Phân loại lỗi
+
+Bám đúng hai loại ROI bước 5.5 đã sinh:
+
+- **ROI mối hàn** (`kind="joint"`): `good`, `insufficient`, `excess`, `bridge`,
+  `cold`, `missing_solder`
+- **ROI linh kiện** (`kind="body"`): `ok`, `missing`, `tombstone`, `shifted`,
+  `wrong_polarity`
+
+Hai lỗi chỉ nhìn thấy khi so ROI với nhau, nên được xử lý riêng: **bridge** cần
+hai chân cạnh nhau cùng phủ kín biên chung; **dựng bia** cần so hai đầu của cùng
+một linh kiện hai chân.
+
+### Bước 1 — hiệu chỉnh ngưỡng (làm trước, kể cả khi định train)
+
+Ngưỡng mặc định trong `SolderGradingConfig` **là số khởi đầu, không phải số
+đúng**. Chúng phụ thuộc ống kính, ánh sáng, hình dạng land và độ rộng ROI của
+bước 5.5. Chạy mặc định trên một dây chuyền mới thường gắn cờ gần hết board.
+
+Đo thay vì đoán — chỉ vào các board bạn **đã chấp nhận**:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\calibrate_solder_thresholds.py D:\board_dat `
+  --model models\detector\kaggle\best.onnx `
+  --output config\solder_thresholds.json `
+  --dump-features config\solder_features.csv
+```
+
+Script in phân bố từng đặc trưng và đề xuất ngưỡng theo phân vị. Dán khối
+`solder_grading` vào config. Xem lại trước khi dùng: board đưa vào mà có lỗi thì
+ngưỡng sẽ nới rộng đúng chỗ đáng lẽ phải bắt.
+
+### Bước 2 — train model (khi đã có nhãn)
+
+```powershell
+# 1. sinh dataset ROI (đã có từ bước 5.5)
+.\.venv\Scripts\python.exe scripts\export_solder_dataset.py D:\anh_board `
+  --output D:\datasets\solder_v1 --model models\detector\kaggle\best.onnx
+
+# 2. điền cột defect_class trong solder_dataset.csv
+
+# 3. train và export
+.\.venv\Scripts\python.exe -m pip install -r requirements-train.txt
+.\.venv\Scripts\python.exe training\train_solder_classifier.py D:\datasets\solder_v1 `
+  --output models\solder --epochs 30
+```
+
+Ba điểm trong script không nên đổi nếu không có lý do:
+
+- **Chia tập theo board, không theo ROI.** Hai mối hàn cùng board dùng chung ánh
+  sáng, tiêu cự và thao tác của cùng một người. Chia theo ROI đặt các mẫu gần
+  trùng nhau ở cả hai phía và cho ra điểm số dây chuyền sẽ không bao giờ thấy.
+- **Chỉ số báo là escape rate và false call rate, không phải accuracy.** Dây
+  chuyền 99.5% đạt thì cứ gọi tất cả là đạt đã được 99.5%. Cái cần biết là bao
+  nhiêu lỗi bị gọi thành đạt, và bao nhiêu mối hàn tốt bị gọi thành lỗi.
+- **Class weight bật sẵn.** Không có nó, loss bị lớp `good` chi phối và model học
+  cách không bao giờ đánh trượt thứ gì.
+
+### Bước 3 — thả model vào là chạy
+
+Cần đúng hai file, do script train xuất ra:
+
+```text
+best.onnx            model logit thô
+model_manifest.json  thứ tự class, tiền xử lý, calibration, ngưỡng
+```
+
+Nạp cả hai ở sidebar **Model kiểm tra mối hàn 6.2**, hoặc trỏ bằng config:
+
+```python
+config.solder_grading.model_path = "models/solder/best.onnx"
+config.solder_grading.manifest_path = "models/solder/model_manifest.json"
+```
+
+Không cần đổi gì khác. Thiếu một trong hai thì bước 6.2 vẫn chạy bằng luật và
+báo rõ. Runtime **từ chối** manifest sai schema thay vì đoán — đoán sai thứ tự
+class là biến mọi lỗi thành "đạt". Schema đầy đủ:
+[docs/solder_model_manifest_template.json](docs/solder_model_manifest_template.json).
+
+### Kết quả xem ở đâu
+
+Trong app: bước 5 → tab **Chấm mối hàn (6.2)**, có overlay theo quyết định, bảng
+kết quả và chi tiết từng ROI kèm lý do. Trong gói ZIP export:
+`solder_joints/solder_verdicts.csv` và `images/06_solder_verdicts.png`. Mỗi dòng
+CSV mang theo số đo đã dẫn tới quyết định, để tranh luận được là ngưỡng sai hay
+mối hàn sai.
+
+### Giới hạn phải biết trước
+
+Tầng A tìm thiếc bằng "sáng và ít bão hoà", tức giả định fillet phản xạ nhiều
+hơn nền quanh nó. **Dưới đèn trắng phẳng, mối hàn nguội và mối hàn tốt đo ra gần
+như nhau** — đó là giới hạn quang học, không ngưỡng nào cứu được. Đây cũng chính
+là hai nút thắt đã nêu ở mục bước 5.5: ánh sáng và độ phân giải.
+
 ## Cấu trúc dự án
 
 ```text
@@ -354,12 +481,13 @@ aoi_pipeline/        Thư viện pipeline, chia theo bước
   detection/           Bước 4: detectors, tiling
   inspection/          Bước 5–5.5: cropping, solder, cad, fusion
   export/              Đóng gói: exporters, overlays
+  grading/             Bước 6.2: features, rules, classifier, inspector
   classification.py    Bước 6.1
   config.py            Toàn bộ knob của mọi bước, một chỗ
   pipeline.py          Facade 0 → 6.1
 app/                 Streamlit UI và bridge
 tests/               Unit tests, soi gương cấu trúc aoi_pipeline/
-training/kaggle/     Notebook train detector bước 4 và classifier bước 6.1
+training/            Notebook train bước 4 / 6.1, script train bước 6.2
 models/              Nơi đặt model local (weights không commit Git)
 docs/                Khảo sát dataset, kế hoạch 6.1, hướng dẫn nạp CAD
 scripts/             Setup/chạy app, calibrate camera, export dataset 6.2
@@ -386,7 +514,10 @@ import thẳng submodule mới cần dùng đường dẫn mới, ví dụ
   hoặc thêm loader vào `CAD_LOADERS`.
 - Ước lượng góc xoay linh kiện (`estimate_orientation`) mặc định tắt: góc sai làm
   lệch mọi ROI suy ra từ nó, đắt hơn là để ROI axis-aligned hơi rộng.
-- Chưa có model bước 6.2; bước 5.5 chỉ tạo ROI và bảng nhãn, không chấm mối hàn.
+- Ngưỡng mặc định của bước 6.2 là số khởi đầu, không phải số đúng cho dây chuyền
+  của bạn; phải chạy `calibrate_solder_thresholds.py` trước khi tin kết quả.
+- Tầng đo của bước 6.2 phụ thuộc mạnh vào ánh sáng: đèn trắng phẳng không tách
+  được mối hàn nguội khỏi mối hàn tốt.
 - CV proposal ở bước 4 không thay thế model đã train.
 - Baseline dùng `max_det=2000` cho board dày linh kiện; cần tune lại theo SKU/tốc độ.
 - Adaptive tiling tăng recall cho linh kiện nhỏ nhưng tăng thời gian gần tỷ lệ với

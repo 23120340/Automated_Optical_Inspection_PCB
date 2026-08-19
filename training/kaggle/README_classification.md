@@ -4,7 +4,7 @@ Notebook [pcb_component_classification_kaggle.ipynb](./pcb_component_classificat
 nhận annotation YOLO detect, cắt từng bounding box thành ảnh phân loại, fine-tune
 EfficientNet-B0, hiệu chỉnh confidence và export ONNX cho app local. File
 [pcb_component_classification_kaggle.py](./pcb_component_classification_kaggle.py) là nguồn
-percent-format của notebook; chạy `scripts/build_classification_notebook.py` sau khi sửa nguồn.
+percent-format của notebook; chạy `scripts/build_notebook.py` sau khi sửa nguồn.
 
 ## Dataset đã chọn
 

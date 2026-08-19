@@ -364,6 +364,63 @@ class ClassificationConfig:
 
 
 @dataclass(slots=True)
+class SolderGradingConfig:
+    """Step 6.2: how solder ROIs are measured, judged and fused.
+
+    Works with no model at all -- the rule layer alone produces verdicts. The
+    model fields stay empty until a trained artifact is dropped in, and nothing
+    else has to change when it is.
+    """
+
+    enabled: bool = True
+
+    # --- model artifacts (optional) ----------------------------------------
+    model_path: str | None = None
+    manifest_path: str | None = None
+    batch_size: int = 32
+    device: Literal["cpu", "cuda", "auto"] = "cpu"
+    # Deployment overrides for the manifest's own policy; None keeps the
+    # manifest value so the trained contract stays authoritative.
+    accept_threshold: float | None = None
+    review_threshold: float | None = None
+    temperature: float | None = None
+
+    # --- segmentation -------------------------------------------------------
+    saturation_max: int = 110
+    specular_percentile: float = 99.0
+
+    # --- joint rule thresholds ---------------------------------------------
+    # Fractions of the ROI, so they survive a change of lens or magnification.
+    missing_solder_ratio: float = 0.04
+    insufficient_solder_ratio: float = 0.18
+    excess_solder_ratio: float = 0.80
+    insufficient_span_ratio: float = 0.45
+    cold_specular_ratio: float = 0.010
+    cold_contrast: float = 0.06
+    max_centroid_offset_ratio: float = 0.55
+    bridge_edge_contact: float = 0.35
+    bridge_span_ratio: float = 0.85
+
+    # --- component rule thresholds -----------------------------------------
+    missing_component_ratio: float = 0.02
+
+    # --- fusion -------------------------------------------------------------
+    # A model verdict below this is never accepted on its own.
+    model_accept_probability: float = 0.80
+    # Hard physical floor. However confident the model is that a joint is good,
+    # this much solder has to actually be there; an escape ships a bad board,
+    # a false call costs an operator ten seconds.
+    escape_guard_solder_ratio: float = 0.10
+    escape_guard_enabled: bool = True
+    # When the two layers disagree, send it to review rather than picking a
+    # winner. Turning this off makes the model authoritative.
+    disagreement_is_review: bool = True
+    # With no model loaded, should a rule-only defect be a hard reject or a
+    # review queue item? Review is the safe default while thresholds settle.
+    rules_only_defect_decision: Literal["reject", "review"] = "review"
+
+
+@dataclass(slots=True)
 class PipelineConfig:
     """Top-level configuration consumed by :class:`AOIPipeline`."""
 
@@ -378,6 +435,7 @@ class PipelineConfig:
     cad: CadConfig = field(default_factory=CadConfig)
     fusion: FusionConfig = field(default_factory=FusionConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
+    solder_grading: SolderGradingConfig = field(default_factory=SolderGradingConfig)
     detector_mode: Literal["auto", "cv"] = "auto"
 
     def to_dict(self) -> dict[str, Any]:
@@ -405,6 +463,7 @@ class PipelineConfig:
         solder_values = _section(values, "solder", "solder_joints")
         cad_values = _section(values, "cad", "board_cad")
         fusion_values = _section(values, "fusion", "cad_fusion")
+        grading_values = _section(values, "solder_grading", "solder_inspection")
         classification_values = _section(values, "classification", "classifier")
 
         _assign_known(
@@ -527,6 +586,14 @@ class PipelineConfig:
         # Step 5.5 geometry is shared: re-anchored ROIs must match the ones the
         # detector-only path would have produced.
         config.fusion.solder = config.solder
+        if isinstance(values.get("solder_grading"), Mapping) or isinstance(
+            values.get("solder_inspection"), Mapping
+        ):
+            _assign_known(
+                config.solder_grading,
+                grading_values,
+                aliases={"model": "model_path", "manifest": "manifest_path"},
+            )
         _assign_known(config.classification, classification_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:

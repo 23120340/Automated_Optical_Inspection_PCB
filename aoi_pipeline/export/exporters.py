@@ -15,7 +15,11 @@ import numpy as np
 from ..core.exceptions import ExportError
 from ..core.image_io import encode_image
 from ..core.models import PipelineRun
-from .overlays import render_annotations, render_solder_overlay
+from .overlays import (
+    render_annotations,
+    render_solder_overlay,
+    render_verdict_overlay,
+)
 
 
 def export_json(run: PipelineRun, path: str | Path) -> Path:
@@ -82,6 +86,14 @@ def export_zip(
                 archive.writestr(
                     "solder_joints/solder_joints.csv", solder_joints_csv(run)
                 )
+            if run.solder_verdicts:
+                archive.writestr(
+                    "solder_joints/solder_verdicts.csv", solder_verdicts_csv(run)
+                )
+                archive.writestr(
+                    "images/06_solder_verdicts.png",
+                    encode_image(render_verdict_overlay(run)),
+                )
             if run.fusion is not None and getattr(run.fusion, "used_cad", False):
                 archive.writestr("cad/cad_findings.csv", cad_findings_csv(run))
                 archive.writestr(
@@ -120,6 +132,78 @@ SOLDER_CSV_COLUMNS = (
     "filename",
     "defect_class",
 )
+
+SOLDER_VERDICT_COLUMNS = (
+    "joint_id",
+    "detection_id",
+    "designator",
+    "pin",
+    "component_label",
+    "scope",
+    "label",
+    "decision",
+    "source",
+    "probability",
+    "rule_label",
+    "model_label",
+    "model_probability",
+    "solder_ratio",
+    "span_ratio",
+    "specular_ratio",
+    "contrast",
+    "centroid_offset_ratio",
+    "roi_width_px",
+    "roi_height_px",
+    "model_version",
+    "reasons",
+)
+
+
+def solder_verdicts_csv(run: PipelineRun) -> str:
+    """One row per graded ROI, with the measurement that drove the call.
+
+    The numbers ride along with the verdict on purpose: a review station that
+    only shows a label cannot settle an argument about whether the threshold
+    was wrong or the joint was.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(SOLDER_VERDICT_COLUMNS)
+    for verdict in run.solder_verdicts:
+        features = verdict.features
+        writer.writerow(
+            [
+                verdict.joint_id,
+                verdict.detection_id,
+                verdict.designator or "",
+                verdict.pin or "",
+                verdict.component_label,
+                verdict.scope,
+                verdict.label,
+                verdict.decision,
+                verdict.source,
+                f"{verdict.probability:.4f}",
+                verdict.rule_label or "",
+                verdict.model_label or "",
+                (
+                    ""
+                    if verdict.model_probability is None
+                    else f"{verdict.model_probability:.4f}"
+                ),
+                "" if features is None else f"{features.solder_ratio:.4f}",
+                "" if features is None else f"{features.span_ratio:.4f}",
+                "" if features is None else f"{features.specular_ratio:.4f}",
+                "" if features is None else f"{features.contrast:.4f}",
+                "" if features is None else f"{features.centroid_offset_ratio:.4f}",
+                verdict.metadata.get("roi_width_px", ""),
+                verdict.metadata.get("roi_height_px", ""),
+                verdict.model_version,
+                " | ".join(verdict.reasons),
+            ]
+        )
+    return buffer.getvalue()
+
 
 CAD_FINDING_COLUMNS = (
     "kind",

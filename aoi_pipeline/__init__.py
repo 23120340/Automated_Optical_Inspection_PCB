@@ -32,8 +32,10 @@ from .core.models import (
     Detection,
     PipelineRun,
     PreprocessResult,
+    SolderFeatures,
     SolderJoint,
     SolderJointCrop,
+    SolderVerdict,
 )
 
 # --- every stage's knobs, in one place -------------------------------------
@@ -49,6 +51,7 @@ from .config import (
     PadProfile,
     PipelineConfig,
     PreprocessConfig,
+    SolderGradingConfig,
     SolderJointConfig,
     TilingConfig,
     terminal_geometry,
@@ -111,6 +114,21 @@ from .inspection.cad import (
 )
 from .inspection.fusion import CadFinding, FusionResult, fuse_solder_joints
 
+# --- step 6.2: grade the solder ---------------------------------------------
+from .grading.classifier import (
+    MANIFEST_SCHEMA as SOLDER_MANIFEST_SCHEMA,
+    ONNXSolderClassifier,
+    create_solder_classifier,
+)
+from .grading.features import measure_solder, segment_solder
+from .grading.inspector import SolderInspector
+from .grading.rules import (
+    COMPONENT_CLASSES,
+    JOINT_CLASSES,
+    grade_component_by_rules,
+    grade_joint_by_rules,
+)
+
 # --- step 6.1: classify component families ---------------------------------
 from .classification import (
     ComponentClassifier,
@@ -125,8 +143,13 @@ from .export.exporters import (
     export_json,
     export_zip,
     solder_joints_csv,
+    solder_verdicts_csv,
 )
-from .export.overlays import render_annotations, render_solder_overlay
+from .export.overlays import (
+    render_annotations,
+    render_solder_overlay,
+    render_verdict_overlay,
+)
 
 # --- the facade ------------------------------------------------------------
 from .pipeline import AOIPipeline
@@ -154,6 +177,7 @@ __all__ = [
     "ClassificationConfig",
     "ClassifierConfigurationError",
     "CAD_LOADERS",
+    "COMPONENT_CLASSES",
     "CVComponentDetector",
     "CVDetectorConfig",
     "CameraCalibrationProfile",
@@ -172,6 +196,7 @@ __all__ = [
     "FusionResult",
     "ImagePreprocessor",
     "InferenceTile",
+    "JOINT_CLASSES",
     "InvalidImageError",
     "MockComponentDetector",
     "ModelDependencyError",
@@ -185,10 +210,16 @@ __all__ = [
     "PipelineRun",
     "PreprocessConfig",
     "PreprocessResult",
+    "SOLDER_MANIFEST_SCHEMA",
+    "SolderFeatures",
+    "SolderGradingConfig",
+    "SolderInspector",
     "SolderJoint",
     "SolderJointConfig",
     "SolderJointCrop",
     "SolderJointCropper",
+    "SolderVerdict",
+    "ONNXSolderClassifier",
     "TiledDetectionBatch",
     "TilingConfig",
     "UltralyticsDetector",
@@ -198,6 +229,7 @@ __all__ = [
     "calibrate_from_chessboards",
     "create_detector",
     "create_classifier",
+    "create_solder_classifier",
     "derive_solder_joints",
     "designator_to_class",
     "detect_with_adaptive_tiling",
@@ -208,9 +240,12 @@ __all__ = [
     "fuse_solder_joints",
     "is_informative_label",
     "export_zip",
+    "grade_component_by_rules",
+    "grade_joint_by_rules",
     "letterbox_normalize",
     "load_cad",
     "load_image",
+    "measure_solder",
     "merge_tiled_detections",
     "non_maximum_suppression",
     "plan_inference_tiles",
@@ -218,9 +253,12 @@ __all__ = [
     "register_from_fiducials",
     "render_annotations",
     "render_solder_overlay",
+    "render_verdict_overlay",
     "save_cad_json",
     "save_calibration_profile",
+    "segment_solder",
     "solder_joints_csv",
+    "solder_verdicts_csv",
     "terminal_geometry",
 ]
 

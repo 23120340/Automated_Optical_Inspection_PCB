@@ -259,6 +259,105 @@ class SolderJoint:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class SolderFeatures:
+    """Physical measurements of one solder ROI, in units a human can argue with.
+
+    Every value is a ratio in [0, 1] unless named otherwise, so thresholds carry
+    over between lenses and magnifications. These feed the rule layer, the
+    fusion guard rails, and the operator-facing explanation -- a defect report
+    that only says "the network disagreed" cannot be acted on.
+    """
+
+    solder_ratio: float
+    solder_area_px: int
+    span_ratio: float
+    width_ratio: float
+    centroid_offset_ratio: float
+    specular_ratio: float
+    edge_density: float
+    contrast: float
+    uniformity: float
+    edge_contact_start: float
+    edge_contact_end: float
+    mean_value: float
+    mean_saturation: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "solder_ratio": round(float(self.solder_ratio), 5),
+            "solder_area_px": int(self.solder_area_px),
+            "span_ratio": round(float(self.span_ratio), 5),
+            "width_ratio": round(float(self.width_ratio), 5),
+            "centroid_offset_ratio": round(float(self.centroid_offset_ratio), 5),
+            "specular_ratio": round(float(self.specular_ratio), 5),
+            "edge_density": round(float(self.edge_density), 5),
+            "contrast": round(float(self.contrast), 5),
+            "uniformity": round(float(self.uniformity), 5),
+            "edge_contact_start": round(float(self.edge_contact_start), 5),
+            "edge_contact_end": round(float(self.edge_contact_end), 5),
+            "mean_value": round(float(self.mean_value), 5),
+            "mean_saturation": round(float(self.mean_saturation), 5),
+        }
+
+
+@dataclass(slots=True)
+class SolderVerdict:
+    """The step-6.2 call on one ROI, and how it was reached.
+
+    ``rule_label`` and ``model_label`` are kept side by side on purpose: when
+    they disagree the run is worth a human look, and collapsing them into one
+    field would hide exactly the cases that matter.
+    """
+
+    joint_id: str
+    detection_id: str
+    scope: str
+    label: str
+    probability: float
+    decision: str
+    source: str
+    rule_label: str | None = None
+    model_label: str | None = None
+    model_probability: float | None = None
+    designator: str | None = None
+    pin: str | None = None
+    component_label: str = ""
+    reasons: list[str] = field(default_factory=list)
+    top_k: list[ClassProbability] = field(default_factory=list)
+    features: SolderFeatures | None = None
+    model_version: str = "rules-only"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def is_defect(self) -> bool:
+        return self.label not in {"good", "ok"}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "joint_id": self.joint_id,
+            "detection_id": self.detection_id,
+            "scope": self.scope,
+            "label": self.label,
+            "probability": float(self.probability),
+            "decision": self.decision,
+            "source": self.source,
+            "rule_label": self.rule_label,
+            "model_label": self.model_label,
+            "model_probability": (
+                None if self.model_probability is None else float(self.model_probability)
+            ),
+            "designator": self.designator,
+            "pin": self.pin,
+            "component_label": self.component_label,
+            "reasons": list(self.reasons),
+            "top_k": [item.to_dict() for item in self.top_k],
+            "features": None if self.features is None else self.features.to_dict(),
+            "model_version": self.model_version,
+            "metadata": self.metadata,
+        }
+
+
 @dataclass(slots=True)
 class SolderJointCrop:
     """Pixels for one :class:`SolderJoint`, ready to label for step 6.2."""
@@ -357,6 +456,7 @@ class PipelineRun:
     # ``Any`` avoids importing fusion here: models is the leaf module every
     # other one depends on, and fusion depends on models.
     fusion: Any | None = None
+    solder_verdicts: list[SolderVerdict] = field(default_factory=list)
     run_id: str = field(default_factory=lambda: f"run_{uuid4().hex[:12]}")
     started_at: str = field(default_factory=utc_now_iso)
     finished_at: str = field(default_factory=utc_now_iso)
@@ -381,6 +481,7 @@ class PipelineRun:
             "detections": [detection.to_dict() for detection in self.detections],
             "crops": [crop.to_dict() for crop in self.crops],
             "solder_crops": [crop.to_dict() for crop in self.solder_crops],
+            "solder_verdicts": [item.to_dict() for item in self.solder_verdicts],
             "cad_fusion": (
                 self.fusion.to_dict() if self.fusion is not None else None
             ),
@@ -393,6 +494,8 @@ class PipelineRun:
                 ),
                 "solder_crop_count": len(self.solder_crops),
                 "solder_roi_sources": _count_roi_sources(self.solder_crops),
+                "solder_verdicts": _count_verdicts(self.solder_verdicts),
+                "solder_decisions": _count_verdict_decisions(self.solder_verdicts),
                 "cad_findings": (
                     _count_findings(self.fusion.findings)
                     if self.fusion is not None
@@ -406,6 +509,20 @@ class PipelineRun:
             "warnings": self.warnings,
             "config": self.config,
         }
+
+
+def _count_verdicts(verdicts: Sequence[SolderVerdict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for verdict in verdicts:
+        counts[verdict.label] = counts.get(verdict.label, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _count_verdict_decisions(verdicts: Sequence[SolderVerdict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for verdict in verdicts:
+        counts[verdict.decision] = counts.get(verdict.decision, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def _count_roi_sources(crops: Sequence[SolderJointCrop]) -> dict[str, int]:

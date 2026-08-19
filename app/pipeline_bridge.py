@@ -96,8 +96,33 @@ class SolderCropRecord:
 
 
 @dataclass
+class SolderVerdictRecord:
+    """One step-6.2 call, flattened for the UI."""
+
+    joint_id: str
+    detection_id: str
+    scope: str
+    label: str
+    decision: str
+    source: str
+    probability: float
+    rule_label: str | None
+    model_label: str | None
+    model_probability: float | None
+    designator: str | None
+    pin: str | None
+    component_label: str
+    bbox: tuple[int, int, int, int]
+    reasons: list[str] = field(default_factory=list)
+    features: dict[str, Any] = field(default_factory=dict)
+    model_version: str = "rules-only"
+
+
+@dataclass
 class SolderResult(StageResult):
     crops: list[SolderCropRecord] = field(default_factory=list)
+    verdicts: list[SolderVerdictRecord] = field(default_factory=list)
+    graded_by_model: bool = False
     # Populated only when a CAD board was loaded and registered.
     used_cad: bool = False
     findings: list[dict[str, Any]] = field(default_factory=list)
@@ -675,6 +700,7 @@ class PipelineBridge:
                 )
             )
         joints = sum(1 for item in records if item.kind == "joint")
+        verdicts, graded_by_model = self._grade_solder(image, raw_crops)
         fusion = getattr(self.engine, "last_fusion", None)
         used_cad = bool(getattr(fusion, "used_cad", False))
         findings = [
@@ -704,6 +730,8 @@ class PipelineBridge:
                 "total_rois": len(records),
             },
             crops=records,
+            verdicts=verdicts,
+            graded_by_model=graded_by_model,
             used_cad=used_cad,
             findings=findings,
             registration=(
@@ -715,6 +743,55 @@ class PipelineBridge:
                 + list(getattr(self.engine, "cad_warnings", None) or [])
             ),
         )
+
+    def _grade_solder(
+        self, image: np.ndarray, raw_crops: Sequence[Any]
+    ) -> tuple[list[SolderVerdictRecord], bool]:
+        """Run step 6.2 over the ROIs the core just produced.
+
+        A grading failure returns no verdicts rather than taking the ROI stage
+        down with it: the crops are still useful for labelling even when the
+        call on them cannot be made.
+        """
+
+        engine = self.engine
+        if engine is None or not hasattr(engine, "grade_solder"):
+            return ([], False)
+        try:
+            raw_verdicts = engine.grade_solder(raw_crops, image)
+        except Exception:  # noqa: BLE001 - surfaced through the empty result
+            return ([], False)
+
+        records: list[SolderVerdictRecord] = []
+        for item in raw_verdicts or []:
+            box = (item.metadata or {}).get("bbox") or [0, 0, 0, 0]
+            records.append(
+                SolderVerdictRecord(
+                    joint_id=str(getattr(item, "joint_id", "")),
+                    detection_id=str(getattr(item, "detection_id", "")),
+                    scope=str(getattr(item, "scope", "joint")),
+                    label=str(getattr(item, "label", "")),
+                    decision=str(getattr(item, "decision", "review")),
+                    source=str(getattr(item, "source", "rules")),
+                    probability=float(getattr(item, "probability", 0.0)),
+                    rule_label=getattr(item, "rule_label", None),
+                    model_label=getattr(item, "model_label", None),
+                    model_probability=getattr(item, "model_probability", None),
+                    designator=getattr(item, "designator", None),
+                    pin=getattr(item, "pin", None),
+                    component_label=str(getattr(item, "component_label", "")),
+                    bbox=_clip_bbox(
+                        tuple(int(round(float(value))) for value in box[:4]), image.shape
+                    ),
+                    reasons=list(getattr(item, "reasons", []) or []),
+                    features=(
+                        item.features.to_dict() if getattr(item, "features", None) else {}
+                    ),
+                    model_version=str(getattr(item, "model_version", "rules-only")),
+                )
+            )
+        inspector = getattr(engine, "solder_inspector", None)
+        return (records, bool(getattr(inspector, "has_model", False)))
 
     def classify_components(
         self,

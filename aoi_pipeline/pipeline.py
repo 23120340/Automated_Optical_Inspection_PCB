@@ -23,6 +23,7 @@ from .detection.detectors import (
     create_detector,
 )
 from .core.exceptions import DetectorConfigurationError
+from .grading.inspector import SolderInspector
 from .inspection.fusion import FusionResult, fuse_solder_joints
 from .export.exporters import export_json as write_json
 from .export.exporters import export_zip as write_zip
@@ -37,6 +38,7 @@ from .core.models import (
     PreprocessResult,
     SolderJoint,
     SolderJointCrop,
+    SolderVerdict,
     utc_now_iso,
 )
 from .imaging.preprocessing import ImagePreprocessor
@@ -80,6 +82,7 @@ class AOIPipeline:
         self.last_detection_metrics: dict[str, object] = {}
         self.cropper = ComponentCropper(self.config.crop)
         self.solder_cropper = SolderJointCropper(self.config.solder)
+        self.solder_inspector = SolderInspector(self.config.solder_grading)
         self.cad: BoardCad | None = None
         self.cad_registration: CadRegistration | None = None
         self.cad_warnings: list[str] = []
@@ -373,6 +376,20 @@ class AOIPipeline:
         self.last_fusion = fusion
         return self.solder_cropper.extract_joints(image, fusion.joints, output_dir)
 
+    def grade_solder(
+        self,
+        crops: Sequence[SolderJointCrop],
+        image: np.ndarray | None = None,
+    ) -> list[SolderVerdict]:
+        """Step 6.2: measure every solder ROI and call it.
+
+        Runs on rules alone until a trained model is configured, so the stage
+        produces verdicts from the first board rather than waiting for a
+        training cycle to finish.
+        """
+
+        return self.solder_inspector.inspect(crops, image)
+
     def classify_components(
         self, crops: Sequence[ComponentCrop]
     ) -> list[ComponentClassification]:
@@ -410,6 +427,7 @@ class AOIPipeline:
         )
         fusion = self.last_fusion
         classifications = self.classify_components(crops)
+        solder_verdicts = self.grade_solder(solder_crops, aligned.image)
 
         warnings = list(preprocessed.warnings)
         if not aligned.success:
@@ -431,6 +449,12 @@ class AOIPipeline:
                 "CAD was loaded but not applied; step 5.5 used detector-derived "
                 "ROIs only."
             )
+        warnings.extend(self.solder_inspector.warnings)
+        if self.config.solder_grading.enabled and solder_crops and not self.solder_inspector.has_model:
+            warnings.append(
+                "Bước 6.2 đang chấm bằng luật đo hình học; nạp model ONNX + "
+                "model_manifest.json để bật thêm tầng phân loại."
+            )
         if self.config.solder.enabled and detections and not solder_crops:
             warnings.append(
                 "Step 5.5 derived no solder ROI; check that detections are larger "
@@ -447,6 +471,7 @@ class AOIPipeline:
             crops=crops,
             solder_crops=solder_crops,
             fusion=fusion,
+            solder_verdicts=solder_verdicts,
             classifications=classifications,
             started_at=started_at,
             finished_at=utc_now_iso(),
