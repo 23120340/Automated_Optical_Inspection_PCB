@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
+import json
 import sys
 from pathlib import Path
 
@@ -35,7 +36,7 @@ from aoi_pipeline import (  # noqa: E402
     encode_image,
     load_image,
 )
-from aoi_pipeline.solder import render_solder_overlay  # noqa: E402
+from aoi_pipeline.export.overlays import render_solder_overlay  # noqa: E402
 
 IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
 
@@ -57,7 +58,23 @@ CSV_COLUMNS = (
     "detector_confidence",
     "roi_width_px",
     "roi_height_px",
+    # Empty unless a CAD board was loaded and registered.
+    "source",
+    "designator",
+    "pin",
+    "net",
     "defect_class",
+)
+
+CAD_FINDING_COLUMNS = (
+    "source_image",
+    "kind",
+    "severity",
+    "designator",
+    "expected_class",
+    "observed_class",
+    "shift_mm",
+    "message",
 )
 
 
@@ -111,6 +128,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also write an annotated board per image so the ROI geometry can be checked.",
     )
     parser.add_argument(
+        "--cad",
+        default=None,
+        help="Board CAD file (pad table, pick-and-place centroid, IPC-D-356A or a "
+        "saved cad_json). Without it the ROIs come from the detector geometry alone.",
+    )
+    parser.add_argument(
+        "--cad-format",
+        default="auto",
+        help="Force a CAD loader instead of sniffing the format.",
+    )
+    parser.add_argument(
+        "--cad-units", default="mm", help="Units of the CAD file (default: mm)."
+    )
+    parser.add_argument(
+        "--cad-side",
+        default="top",
+        choices=["top", "bottom", "both"],
+        help="Board face being inspected (default: top).",
+    )
+    parser.add_argument(
+        "--cad-registration",
+        default=None,
+        help="JSON registration matrix from an earlier run. Reusing one is the "
+        "normal steady state: register once per SKU and fixture.",
+    )
+    parser.add_argument(
+        "--save-registration",
+        default=None,
+        help="Write the registration found on the first board to this JSON path.",
+    )
+    parser.add_argument(
         "--limit", type=int, default=0, help="Stop after N images (0 = no limit)."
     )
     return parser
@@ -154,6 +202,11 @@ def build_config(args: argparse.Namespace) -> PipelineConfig:
     config.solder.target_size = (
         (args.joint_size, args.joint_size) if args.joint_size > 0 else None
     )
+    config.cad.path = args.cad
+    config.cad.fmt = args.cad_format
+    config.cad.units = args.cad_units
+    config.cad.side = None if args.cad_side == "both" else args.cad_side
+    config.cad.registration_path = args.cad_registration
     return config
 
 
@@ -185,7 +238,21 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    if args.cad and pipeline.cad is None:
+        print(
+            "ERROR: a CAD file was given but could not be loaded:\n  "
+            + "\n  ".join(pipeline.cad_warnings),
+            file=sys.stderr,
+        )
+        return 1
+    if pipeline.cad is not None:
+        print(
+            f"CAD: {len(pipeline.cad.components)} components, "
+            f"{pipeline.cad.pad_count} pads ({pipeline.cad.source_format})"
+        )
+
     rows: list[dict[str, object]] = []
+    finding_rows: list[dict[str, object]] = []
     failures = 0
     for index, image_path in enumerate(images, start=1):
         try:
@@ -223,7 +290,27 @@ def main(argv: list[str] | None = None) -> int:
                     "detector_confidence": f"{float(joint.metadata.get('detector_confidence', 0.0)):.4f}",
                     "roi_width_px": int(round(joint.bbox.width)),
                     "roi_height_px": int(round(joint.bbox.height)),
+                    "source": joint.source,
+                    "designator": joint.designator or "",
+                    "pin": joint.pin or "",
+                    "net": joint.net or "",
                     "defect_class": "",
+                }
+            )
+
+        for finding in getattr(run.fusion, "findings", None) or []:
+            finding_rows.append(
+                {
+                    "source_image": image_path.name,
+                    "kind": finding.kind,
+                    "severity": finding.severity,
+                    "designator": finding.designator or "",
+                    "expected_class": finding.expected_class or "",
+                    "observed_class": finding.observed_class or "",
+                    "shift_mm": (
+                        "" if finding.shift_mm is None else f"{finding.shift_mm:.3f}"
+                    ),
+                    "message": finding.message,
                 }
             )
 
@@ -233,16 +320,46 @@ def main(argv: list[str] | None = None) -> int:
             )
             (overlays_dir / f"{stem}.png").write_bytes(encode_image(overlay, ".png"))
 
+        cad_note = ""
+        if run.fusion is not None and run.fusion.used_cad:
+            stats = run.fusion.stats
+            cad_note = (
+                f" | CAD matched {stats.get('matched', 0)}/"
+                f"{stats.get('cad_components', 0)}"
+                f", missing {stats.get('missing', 0)}"
+            )
         print(
             f"[{index}/{len(images)}] {image_path.name}: "
-            f"{len(run.detections)} detections -> {written} ROI crops"
+            f"{len(run.detections)} detections -> {written} ROI crops{cad_note}"
         )
+        if (
+            args.save_registration
+            and run.fusion is not None
+            and run.fusion.registration is not None
+        ):
+            Path(args.save_registration).expanduser().write_text(
+                json.dumps(run.fusion.registration.to_dict(), indent=2),
+                encoding="utf-8",
+            )
+            # Only the first successful fit is saved; later boards reuse it via
+            # --cad-registration so every run inspects the same coordinates.
+            args.save_registration = None
 
     manifest = output / "solder_dataset.csv"
     with manifest.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
+
+    if finding_rows:
+        findings_path = output / "cad_findings.csv"
+        with findings_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=CAD_FINDING_COLUMNS)
+            writer.writeheader()
+            writer.writerows(finding_rows)
+        defects = sum(1 for row in finding_rows if row["severity"] == "defect")
+        print(f"CAD comparison: {len(finding_rows)} findings ({defects} defect) "
+              f"in {findings_path}")
 
     joints = sum(1 for row in rows if row["kind"] == "joint")
     print(f"\nWrote {len(rows)} crops ({joints} joints) to {crops_dir}")

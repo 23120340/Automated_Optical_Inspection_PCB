@@ -5,10 +5,10 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from .config import AlignmentConfig
-from .exceptions import AlignmentError
-from .image_io import ensure_bgr
-from .models import AlignmentResult
+from ..config import AlignmentConfig
+from ..core.exceptions import AlignmentError
+from ..core.image_io import ensure_bgr
+from ..core.models import AlignmentResult
 
 
 class PCBAligner:

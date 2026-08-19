@@ -266,6 +266,88 @@ class SolderJointConfig:
 
 
 @dataclass(slots=True)
+class CadConfig:
+    """Where the board's CAD data comes from and how it is registered.
+
+    Every field is optional. With ``path`` unset the pipeline runs exactly as it
+    does with no CAD at all, so this can stay in place until a board file is
+    actually available.
+    """
+
+    path: str | None = None
+    # ``auto`` sniffs the format; otherwise name one of ``aoi_pipeline.inspection.cad.CAD_LOADERS``.
+    fmt: str = "auto"
+    units: str = "mm"
+    # Boards are inspected one side at a time; ``None`` keeps every component.
+    side: str | None = "top"
+
+    # Registration. A saved matrix is reused as-is, which is the normal steady
+    # state: register once per SKU/fixture, then never again.
+    registration_path: str | None = None
+    registration: dict[str, Any] | None = None
+    # Correspondences in board mm and analysis-image pixels, when the operator
+    # picks fiducials by hand instead of relying on auto-registration.
+    fiducials_mm: list[tuple[float, float]] = field(default_factory=list)
+    fiducials_px: list[tuple[float, float]] = field(default_factory=list)
+    fiducial_perspective: bool = False
+    # Fall back to matching CAD placements against the detections themselves.
+    auto_register: bool = True
+    auto_min_matches: int = 4
+    auto_match_tolerance_ratio: float = 0.10
+    auto_refine_rounds: int = 3
+
+
+@dataclass(slots=True)
+class FusionConfig:
+    """How registered CAD geometry and derived ROIs are combined.
+
+    The defaults keep every ROI either source produced. Losing a joint is worse
+    than inspecting one twice, so nothing is dropped just because the two
+    disagree -- the disagreement is reported instead.
+    """
+
+    enabled: bool = True
+
+    # Registration quality gates. Below these the CAD half is abandoned rather
+    # than applied, because mis-registered ROIs are indistinguishable from
+    # correct ones by eye.
+    min_inlier_ratio: float = 0.35
+    max_residual_px: float = 25.0
+
+    # Pairing CAD placements to detections.
+    match_tolerance_mm: float = 3.0
+    class_mismatch_penalty: float = 0.5
+
+    # Per-component correction: CAD gives the footprint, the detector gives
+    # where this part actually landed. This is what makes a globally
+    # approximate registration locally accurate.
+    local_refine: bool = True
+    max_local_shift_mm: float = 2.0
+
+    # Findings.
+    max_shift_mm: float = 0.5
+    report_unexpected: bool = True
+    emit_cad_only_rois: bool = True
+
+    # ROI construction from CAD lands.
+    pad_margin_ratio: float = 0.35
+    pitch_pad_ratio: float = 0.55
+    fallback_pad_mm: float = 0.8
+    min_roi_pixels: int = 6
+    include_body_view: bool = True
+
+    # Reconciling the two ROI sets.
+    agreement_ios: float = 0.35
+    merge_mode: Literal["cad", "union", "intersect"] = "union"
+    keep_unmatched_derived: bool = True
+
+    # Placement-only CAD (pick-and-place): rebuild the derived ROI geometry on
+    # the CAD centre and rotation instead of the detector's axis-aligned box.
+    reanchor_on_placement: bool = True
+    solder: SolderJointConfig = field(default_factory=SolderJointConfig)
+
+
+@dataclass(slots=True)
 class ClassificationConfig:
     """Runtime policy for the step-6.1 component-family classifier.
 
@@ -293,6 +375,8 @@ class PipelineConfig:
     tiling: TilingConfig = field(default_factory=TilingConfig)
     crop: CropConfig = field(default_factory=CropConfig)
     solder: SolderJointConfig = field(default_factory=SolderJointConfig)
+    cad: CadConfig = field(default_factory=CadConfig)
+    fusion: FusionConfig = field(default_factory=FusionConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     detector_mode: Literal["auto", "cv"] = "auto"
 
@@ -319,6 +403,8 @@ class PipelineConfig:
         tiling_values = _section(values, "tiling")
         crop_values = _section(values, "crops", "crop")
         solder_values = _section(values, "solder", "solder_joints")
+        cad_values = _section(values, "cad", "board_cad")
+        fusion_values = _section(values, "fusion", "cad_fusion")
         classification_values = _section(values, "classification", "classifier")
 
         _assign_known(
@@ -423,6 +509,24 @@ class PipelineConfig:
         if isinstance(solder_target, (int, float)):
             side = int(solder_target)
             config.solder.target_size = (side, side) if side > 0 else None
+        # ``cad``/``fusion`` are only read when the caller supplied that section;
+        # the permissive whole-dict fallback would otherwise let unrelated keys
+        # switch CAD on.
+        if isinstance(values.get("cad"), Mapping) or isinstance(
+            values.get("board_cad"), Mapping
+        ):
+            _assign_known(
+                config.cad,
+                cad_values,
+                aliases={"file": "path", "format": "fmt", "board_side": "side"},
+            )
+        if isinstance(values.get("fusion"), Mapping) or isinstance(
+            values.get("cad_fusion"), Mapping
+        ):
+            _assign_known(config.fusion, fusion_values)
+        # Step 5.5 geometry is shared: re-anchored ROIs must match the ones the
+        # detector-only path would have produced.
+        config.fusion.solder = config.solder
         _assign_known(config.classification, classification_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:

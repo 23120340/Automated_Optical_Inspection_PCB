@@ -15,18 +15,18 @@ import pytest
 from PIL import Image, ImageDraw
 import torch
 
-NOTEBOOK_PATH = (
-    Path(__file__).parents[1]
-    / "training"
-    / "kaggle"
-    / "pcb_component_detection_kaggle.ipynb"
-)
-CLASSIFICATION_NOTEBOOK_PATH = (
-    Path(__file__).parents[1]
-    / "training"
-    / "kaggle"
-    / "pcb_component_classification_kaggle.ipynb"
-)
+# Resolved from a marker rather than a fixed number of parents, so moving this
+# file between test folders cannot silently point it at a missing notebook.
+def _project_root() -> Path:
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "aoi_pipeline").is_dir():
+            return candidate
+    raise RuntimeError("Could not locate the project root from the test file.")
+
+
+KAGGLE_DIR = _project_root() / "training" / "kaggle"
+NOTEBOOK_PATH = KAGGLE_DIR / "pcb_component_detection_kaggle.ipynb"
+CLASSIFICATION_NOTEBOOK_PATH = KAGGLE_DIR / "pcb_component_classification_kaggle.ipynb"
 
 
 class _YamlStub:

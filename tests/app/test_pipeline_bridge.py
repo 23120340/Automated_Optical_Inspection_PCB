@@ -339,7 +339,7 @@ def test_bridge_reports_missing_solder_stage_instead_of_faking_rois() -> None:
 
 
 def test_bridge_passes_through_core_solder_rois() -> None:
-    from aoi_pipeline.models import SolderJoint
+    from aoi_pipeline.core.models import SolderJoint
 
     joint = SolderJoint(
         detection_id="det_0001",

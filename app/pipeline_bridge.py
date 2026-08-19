@@ -88,12 +88,22 @@ class SolderCropRecord:
     bbox: tuple[int, int, int, int]
     confidence: float | None
     pin_index: int | None = None
+    source: str = "derived"
+    designator: str | None = None
+    pin: str | None = None
+    net: str | None = None
     raw: Any = None
 
 
 @dataclass
 class SolderResult(StageResult):
     crops: list[SolderCropRecord] = field(default_factory=list)
+    # Populated only when a CAD board was loaded and registered.
+    used_cad: bool = False
+    findings: list[dict[str, Any]] = field(default_factory=list)
+    registration: dict[str, Any] | None = None
+    cad_stats: dict[str, Any] = field(default_factory=dict)
+    cad_warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -657,24 +667,53 @@ class PipelineBridge:
                     bbox=_extract_bbox(joint, image.shape),
                     confidence=confidence,
                     pin_index=getattr(joint, "pin_index", None),
+                    source=str(getattr(joint, "source", "derived")),
+                    designator=getattr(joint, "designator", None),
+                    pin=getattr(joint, "pin", None),
+                    net=getattr(joint, "net", None),
                     raw=raw_crop,
                 )
             )
         joints = sum(1 for item in records if item.kind == "joint")
+        fusion = getattr(self.engine, "last_fusion", None)
+        used_cad = bool(getattr(fusion, "used_cad", False))
+        findings = [
+            finding.to_dict()
+            for finding in (getattr(fusion, "findings", None) or [])
+            if hasattr(finding, "to_dict")
+        ]
+        registration = getattr(fusion, "registration", None)
+        message = (
+            f"Đã sinh {joints} ROI mối hàn từ {len(detections)} detection."
+            if joints
+            else "Không sinh được ROI mối hàn nào từ detection hiện tại."
+        )
+        if used_cad:
+            stats = getattr(fusion, "stats", {}) or {}
+            message += (
+                f" CAD khớp {stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
+                f" linh kiện, thiếu {stats.get('missing', 0)}."
+            )
         return SolderResult(
             image=image,
-            mode="MODEL",
-            message=(
-                f"Đã sinh {joints} ROI mối hàn từ {len(detections)} detection."
-                if joints
-                else "Không sinh được ROI mối hàn nào từ detection hiện tại."
-            ),
+            mode="CAD FUSION" if used_cad else "MODEL",
+            message=message,
             metrics={
                 "elapsed_ms": _elapsed_ms(started),
                 "joints": joints,
                 "total_rois": len(records),
             },
             crops=records,
+            used_cad=used_cad,
+            findings=findings,
+            registration=(
+                registration.to_dict() if hasattr(registration, "to_dict") else None
+            ),
+            cad_stats=dict(getattr(fusion, "stats", {}) or {}),
+            cad_warnings=(
+                list(getattr(fusion, "warnings", None) or [])
+                + list(getattr(self.engine, "cad_warnings", None) or [])
+            ),
         )
 
     def classify_components(

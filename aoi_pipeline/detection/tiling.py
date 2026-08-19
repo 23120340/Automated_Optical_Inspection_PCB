@@ -15,9 +15,9 @@ from typing import Any
 
 import numpy as np
 
-from .config import TilingConfig
-from .image_io import ensure_bgr
-from .models import BoundingBox, Detection
+from ..config import TilingConfig
+from ..core.image_io import ensure_bgr
+from ..core.models import BoundingBox, Detection
 
 
 @dataclass(frozen=True, slots=True)

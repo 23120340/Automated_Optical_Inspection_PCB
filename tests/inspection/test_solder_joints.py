@@ -20,9 +20,10 @@ from aoi_pipeline import (
     derive_solder_joints,
     terminal_geometry,
 )
-from aoi_pipeline.cropping import ComponentCropper
-from aoi_pipeline.exporters import solder_joints_csv
-from aoi_pipeline.solder import estimate_component_angle, render_solder_overlay
+from aoi_pipeline.inspection.cropping import ComponentCropper
+from aoi_pipeline.export.exporters import solder_joints_csv
+from aoi_pipeline.export.overlays import render_solder_overlay
+from aoi_pipeline.inspection.solder import estimate_component_angle
 
 BOARD_SIZE = (400, 700)
 
@@ -297,7 +298,7 @@ def test_solder_aware_padding_uses_a_wider_margin_along_the_long_axis() -> None:
 
 def test_solder_joints_csv_has_one_row_per_crop_and_a_label_column(tmp_path: Path) -> None:
     from aoi_pipeline import AOIPipeline, PipelineConfig
-    from aoi_pipeline.detectors import MockComponentDetector
+    from aoi_pipeline.detection.detectors import MockComponentDetector
 
     image, detection = _chip_board()
     pipeline = AOIPipeline(PipelineConfig(), detector=MockComponentDetector([detection]))

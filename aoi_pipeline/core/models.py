@@ -231,6 +231,13 @@ class SolderJoint:
     position: str
     angle: float = 0.0
     pin_index: int | None = None
+    # Provenance of the ROI geometry: "derived" from the detector box alone,
+    # "cad" from registered CAD land coordinates, "cad+derived" when both
+    # agreed and were merged. Downstream labelling can filter on it.
+    source: str = "derived"
+    designator: str | None = None
+    pin: str | None = None
+    net: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -244,6 +251,10 @@ class SolderJoint:
             "position": self.position,
             "angle": float(self.angle),
             "pin_index": self.pin_index,
+            "source": self.source,
+            "designator": self.designator,
+            "pin": self.pin,
+            "net": self.net,
             "metadata": self.metadata,
         }
 
@@ -343,6 +354,9 @@ class PipelineRun:
     crops: list[ComponentCrop]
     classifications: list[ComponentClassification] = field(default_factory=list)
     solder_crops: list[SolderJointCrop] = field(default_factory=list)
+    # ``Any`` avoids importing fusion here: models is the leaf module every
+    # other one depends on, and fusion depends on models.
+    fusion: Any | None = None
     run_id: str = field(default_factory=lambda: f"run_{uuid4().hex[:12]}")
     started_at: str = field(default_factory=utc_now_iso)
     finished_at: str = field(default_factory=utc_now_iso)
@@ -367,6 +381,9 @@ class PipelineRun:
             "detections": [detection.to_dict() for detection in self.detections],
             "crops": [crop.to_dict() for crop in self.crops],
             "solder_crops": [crop.to_dict() for crop in self.solder_crops],
+            "cad_fusion": (
+                self.fusion.to_dict() if self.fusion is not None else None
+            ),
             "classifications": [item.to_dict() for item in self.classifications],
             "summary": {
                 "component_count": len(self.detections),
@@ -375,6 +392,12 @@ class PipelineRun:
                     1 for crop in self.solder_crops if crop.joint.kind == "joint"
                 ),
                 "solder_crop_count": len(self.solder_crops),
+                "solder_roi_sources": _count_roi_sources(self.solder_crops),
+                "cad_findings": (
+                    _count_findings(self.fusion.findings)
+                    if self.fusion is not None
+                    else {}
+                ),
                 "classification_count": len(self.classifications),
                 "labels": _count_labels(self.detections),
                 "families": _count_classifications(self.classifications),
@@ -383,6 +406,21 @@ class PipelineRun:
             "warnings": self.warnings,
             "config": self.config,
         }
+
+
+def _count_roi_sources(crops: Sequence[SolderJointCrop]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for crop in crops:
+        counts[crop.joint.source] = counts.get(crop.joint.source, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _count_findings(findings: Sequence[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for finding in findings:
+        kind = str(getattr(finding, "kind", "unknown"))
+        counts[kind] = counts.get(kind, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def _count_labels(detections: Sequence[Detection]) -> dict[str, int]:

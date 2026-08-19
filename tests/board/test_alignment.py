@@ -1,21 +1,12 @@
+"""Step 2: homography alignment against a Golden Image, and its fallbacks."""
+
 from __future__ import annotations
 
 import cv2
 import numpy as np
 import pytest
 
-from aoi_pipeline import AlignmentConfig, ImagePreprocessor, PCBAligner, PreprocessConfig
-
-
-def test_preprocessor_preserves_uint8_bgr_and_limits_size(pcb_image: np.ndarray) -> None:
-    processor = ImagePreprocessor(PreprocessConfig(max_side=170, denoise=False))
-    result = processor.process(pcb_image)
-    assert result.image.dtype == np.uint8
-    assert result.image.ndim == 3 and result.image.shape[2] == 3
-    assert max(result.image.shape[:2]) == 170
-    assert result.scale == 0.5
-    assert any(operation.startswith("resize:") for operation in result.operations)
-    assert "contrast:clahe" in result.operations
+from aoi_pipeline import AlignmentConfig, PCBAligner
 
 
 def test_orb_alignment_recovers_translated_textured_board(pcb_image: np.ndarray) -> None:

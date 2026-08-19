@@ -12,10 +12,10 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import cv2
 import numpy as np
 
-from .exceptions import ExportError
-from .image_io import encode_image
-from .models import PipelineRun
-from .solder import render_solder_overlay
+from ..core.exceptions import ExportError
+from ..core.image_io import encode_image
+from ..core.models import PipelineRun
+from .overlays import render_annotations, render_solder_overlay
 
 
 def export_json(run: PipelineRun, path: str | Path) -> Path:
@@ -82,34 +82,18 @@ def export_zip(
                 archive.writestr(
                     "solder_joints/solder_joints.csv", solder_joints_csv(run)
                 )
+            if run.fusion is not None and getattr(run.fusion, "used_cad", False):
+                archive.writestr("cad/cad_findings.csv", cad_findings_csv(run))
+                archive.writestr(
+                    "cad/registration.json",
+                    json.dumps(
+                        run.fusion.to_dict(), ensure_ascii=False, indent=2,
+                        default=_json_default,
+                    ),
+                )
     except (OSError, TypeError, ValueError) as exc:
         raise ExportError(f"Could not export ZIP to {destination}: {exc}") from exc
     return destination
-
-
-def render_annotations(run: PipelineRun) -> np.ndarray:
-    """Render board and component boxes without mutating the run image."""
-
-    canvas = run.final_image.copy()
-    board_points = np.asarray(run.board_region.polygon, dtype=np.int32).reshape(-1, 1, 2)
-    if len(board_points) >= 3:
-        cv2.polylines(canvas, [board_points], True, (0, 220, 255), 2, cv2.LINE_AA)
-    for detection in run.detections:
-        x1, y1, x2, y2 = detection.bbox.to_int()
-        cv2.rectangle(canvas, (x1, y1), (x2, y2), (60, 220, 60), 2)
-        caption = f"{detection.label} {detection.confidence:.2f}"
-        text_y = max(14, y1 - 5)
-        cv2.putText(
-            canvas,
-            caption,
-            (x1, text_y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.42,
-            (60, 220, 60),
-            1,
-            cv2.LINE_AA,
-        )
-    return canvas
 
 
 SOLDER_CSV_COLUMNS = (
@@ -126,8 +110,30 @@ SOLDER_CSV_COLUMNS = (
     "x2",
     "y2",
     "detector_confidence",
+    # Provenance, empty until a CAD board is loaded. ``source`` says whether the
+    # ROI came from the detector geometry, registered CAD lands, or both
+    # agreeing, which is what lets a training set be filtered by trust.
+    "source",
+    "designator",
+    "pin",
+    "net",
     "filename",
     "defect_class",
+)
+
+CAD_FINDING_COLUMNS = (
+    "kind",
+    "severity",
+    "designator",
+    "detection_id",
+    "expected_class",
+    "observed_class",
+    "shift_mm",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "message",
 )
 
 
@@ -159,8 +165,45 @@ def solder_joints_csv(run: PipelineRun) -> str:
                 f"{joint.bbox.x2:.2f}",
                 f"{joint.bbox.y2:.2f}",
                 f"{float(joint.metadata.get('detector_confidence', 0.0)):.4f}",
+                joint.source,
+                joint.designator or "",
+                joint.pin or "",
+                joint.net or "",
                 f"{folder}/{crop.filename}",
                 "",
+            ]
+        )
+    return buffer.getvalue()
+
+
+def cad_findings_csv(run: PipelineRun) -> str:
+    """Board-level disagreements between CAD and what the camera saw.
+
+    Missing, shifted and unexpected components are defects in their own right,
+    found by comparison rather than by any model, so they ship next to the ROI
+    table instead of inside it.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(CAD_FINDING_COLUMNS)
+    findings = getattr(run.fusion, "findings", None) or []
+    for finding in findings:
+        bbox = finding.bbox
+        writer.writerow(
+            [
+                finding.kind,
+                finding.severity,
+                finding.designator or "",
+                finding.detection_id or "",
+                finding.expected_class or "",
+                finding.observed_class or "",
+                "" if finding.shift_mm is None else f"{finding.shift_mm:.3f}",
+                "" if bbox is None else f"{bbox.x1:.2f}",
+                "" if bbox is None else f"{bbox.y1:.2f}",
+                "" if bbox is None else f"{bbox.x2:.2f}",
+                "" if bbox is None else f"{bbox.y2:.2f}",
+                finding.message,
             ]
         )
     return buffer.getvalue()

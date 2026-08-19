@@ -33,6 +33,8 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from aoi_pipeline.inspection.cad import CadError, CadRegistration, load_cad  # noqa: E402
+
 from app.pipeline_bridge import (  # noqa: E402
     BoardResult,
     ClassificationRecord,
@@ -147,6 +149,23 @@ def _default_config() -> dict[str, Any]:
             "target_size": 224,
             "image_format": "png",
         },
+        # Left empty on purpose: the pipeline runs unchanged with no CAD,
+        # and the sidebar fills these in when a board file is uploaded.
+        "cad": {
+            "path": None,
+            "fmt": "auto",
+            "units": "mm",
+            "side": "top",
+            "registration_path": None,
+            "auto_register": True,
+        },
+        "fusion": {
+            "enabled": True,
+            "local_refine": True,
+            "max_shift_mm": 0.5,
+            "merge_mode": "union",
+            "emit_cad_only_rois": True,
+        },
         "solder": {
             "enabled": True,
             "split_pins": False,
@@ -191,6 +210,12 @@ def _init_state() -> None:
         "classifier_manifest_name": None,
         "classifier_manifest_digest": None,
         "classifier_manifest_quality_warning": None,
+        "cad_path": None,
+        "cad_name": None,
+        "cad_digest": None,
+        "cad_summary": None,
+        "cad_registration_path": None,
+        "cad_registration_name": None,
         "pt_model_trusted": False,
         "preprocess_result": None,
         "alignment_result": None,
@@ -212,6 +237,8 @@ def _init_state() -> None:
             "component": None,
             "classifier": None,
             "classifier_manifest": None,
+            "cad": None,
+            "cad_registration": None,
         },
     }
     for key, value in defaults.items():
@@ -479,6 +506,95 @@ def _remove_classifier_manifest() -> None:
     st.session_state.classifier_manifest_digest = None
     st.session_state.classifier_manifest_quality_warning = None
     _invalidate_after(5)
+
+
+def _set_cad(upload: Any) -> None:
+    """Accept a board CAD file and report what was parsed out of it.
+
+    Parsing happens here rather than at run time so a wrong or unreadable file
+    is caught while the operator is still looking at the sidebar.
+    """
+
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 32 * 1024 * 1024:
+        raise ValueError("File CAD rỗng hoặc vượt quá 32 MB.")
+    digest = _digest(data)
+    if digest == st.session_state.ignored_uploads.get("cad"):
+        return
+    if digest == st.session_state.cad_digest:
+        return
+    path = _materialize_upload(upload.name, data)
+    side = st.session_state.config["cad"].get("side") or None
+    try:
+        board = load_cad(
+            path,
+            fmt=st.session_state.config["cad"].get("fmt", "auto"),
+            units=st.session_state.config["cad"].get("units", "mm"),
+            side=side,
+        )
+    except CadError as exc:
+        st.session_state.ignored_uploads["cad"] = digest
+        raise ValueError(str(exc)) from exc
+
+    st.session_state.cad_path = path
+    st.session_state.cad_name = upload.name
+    st.session_state.cad_digest = digest
+    st.session_state.cad_summary = {
+        "format": board.source_format,
+        "components": len(board.components),
+        "pads": board.pad_count,
+        "with_pads": sum(1 for item in board.components if item.has_pads),
+        "side": side or "cả hai mặt",
+    }
+    st.session_state.config["cad"]["path"] = path
+    st.session_state.ignored_uploads["cad"] = None
+    _invalidate_after(4)
+    st.session_state.messages.append(
+        f"Đã nạp CAD {upload.name}: {len(board.components)} linh kiện, "
+        f"{board.pad_count} pad."
+    )
+
+
+def _remove_cad() -> None:
+    for key in ("cad_path", "cad_name", "cad_digest", "cad_summary"):
+        st.session_state[key] = None
+    st.session_state.config["cad"]["path"] = None
+    _invalidate_after(4)
+    st.session_state.messages.append("Đã gỡ file CAD; bước 5.5 quay lại ROI suy ra.")
+
+
+def _set_cad_registration(upload: Any) -> None:
+    """Reuse a registration measured earlier for this SKU and fixture."""
+
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 256 * 1024:
+        raise ValueError("File registration rỗng hoặc quá lớn.")
+    digest = _digest(data)
+    if digest == st.session_state.ignored_uploads.get("cad_registration"):
+        return
+    try:
+        CadRegistration.from_dict(json.loads(data.decode("utf-8")))
+    except (UnicodeError, json.JSONDecodeError, CadError, KeyError, TypeError, ValueError) as exc:
+        st.session_state.ignored_uploads["cad_registration"] = digest
+        raise ValueError(f"registration.json không hợp lệ: {exc}") from exc
+    path = _materialize_upload(upload.name, data)
+    st.session_state.cad_registration_path = path
+    st.session_state.cad_registration_name = upload.name
+    st.session_state.config["cad"]["registration_path"] = path
+    st.session_state.ignored_uploads["cad_registration"] = None
+    _invalidate_after(4)
+    st.session_state.messages.append(f"Đã nạp CAD registration: {upload.name}")
+
+
+def _remove_cad_registration() -> None:
+    st.session_state.cad_registration_path = None
+    st.session_state.cad_registration_name = None
+    st.session_state.config["cad"]["registration_path"] = None
+    _invalidate_after(4)
 
 
 def _classifier_manifest_quality_warning(manifest: Mapping[str, Any]) -> str | None:
@@ -996,6 +1112,79 @@ def _render_sidebar() -> bool:
                     st.rerun()
             else:
                 st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
+
+        with st.expander("Sơ đồ CAD (tuỳ chọn)", expanded=False):
+            st.caption(
+                "Chưa có CAD thì bước 5.5 vẫn chạy bằng ROI suy ra. Nạp file vào "
+                "đây để hợp nhất toạ độ land thật với hình học đó."
+            )
+            cad_config = st.session_state.config["cad"]
+            side_options = ["top", "bottom", "both"]
+            current_side = cad_config.get("side") or "both"
+            chosen_side = st.selectbox(
+                "Mặt board đang soi",
+                side_options,
+                index=side_options.index(current_side) if current_side in side_options else 0,
+                key="cad_side_select",
+            )
+            cad_config["side"] = None if chosen_side == "both" else chosen_side
+            cad_upload = st.file_uploader(
+                "Board CAD",
+                type=["csv", "txt", "ipc", "d356", "json"],
+                key="cad_uploader",
+                help=(
+                    "Bảng pad, file pick-and-place (centroid), IPC-D-356A, hoặc "
+                    "cad_json đã lưu. Định dạng được nhận dạng tự động."
+                ),
+            )
+            if cad_upload is not None:
+                try:
+                    _set_cad(cad_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            summary = st.session_state.cad_summary
+            if summary:
+                st.success(f"CAD: {st.session_state.cad_name}")
+                st.caption(
+                    f"{summary['format']} · {summary['components']} linh kiện · "
+                    f"{summary['pads']} pad · {summary['with_pads']} linh kiện có land · "
+                    f"mặt {summary['side']}"
+                )
+                if summary["pads"] == 0:
+                    st.info(
+                        "File chỉ có vị trí đặt, không có land. Bước 5.5 sẽ dựng lại "
+                        "ROI suy ra trên tâm và góc xoay của CAD."
+                    )
+                if st.button("Gỡ CAD", key="remove_cad", width="stretch"):
+                    _remove_cad()
+                    st.rerun()
+            else:
+                st.caption("Chưa có CAD · bước 5.5 chỉ dùng ROI suy ra")
+
+            registration_upload = st.file_uploader(
+                "Registration đã lưu (JSON)",
+                type=["json"],
+                key="cad_registration_uploader",
+                help=(
+                    "Ma trận CAD→ảnh đo một lần cho mỗi SKU/đồ gá. Không có thì app "
+                    "tự căn theo detection của từng ảnh."
+                ),
+            )
+            if registration_upload is not None:
+                try:
+                    _set_cad_registration(registration_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            if st.session_state.cad_registration_name:
+                st.success(f"Registration: {st.session_state.cad_registration_name}")
+                if st.button("Gỡ registration", key="remove_cad_reg", width="stretch"):
+                    _remove_cad_registration()
+                    st.rerun()
+            else:
+                cad_config["auto_register"] = st.checkbox(
+                    "Tự căn CAD theo detection",
+                    value=bool(cad_config.get("auto_register", True)),
+                )
 
         st.markdown('<div class="security-note"><b>Lưu ý model</b><br>.pt có thể chứa pickle. Chỉ mở weight do bạn tự train hoặc nguồn tin cậy; ưu tiên ONNX khi trao đổi.</div>', unsafe_allow_html=True)
         quick_run = st.button(
@@ -1726,18 +1915,34 @@ SOLDER_ROI_COLORS = {
     "body": (255, 170, 0),   # BGR blue
 }
 
+# Provenance colours, so a glance at the overlay says which ROIs rest on CAD
+# land coordinates and which were inferred from the detector box alone.
+SOLDER_SOURCE_COLORS = {
+    "cad+derived": (80, 220, 80),   # BGR green: both sources agreed
+    "cad": (255, 120, 255),         # BGR magenta: CAD only
+    "derived": (0, 200, 255),       # BGR amber: detector geometry only
+}
+
+CAD_SEVERITY_ICONS = {"defect": "🔴", "review": "🟠", "info": "🔵"}
+
 SOLDER_MIN_READABLE_PX = 24
 
 
 def _draw_solder_overlay(
-    image: np.ndarray, crops: list[SolderCropRecord], show_body: bool
+    image: np.ndarray,
+    crops: list[SolderCropRecord],
+    show_body: bool,
+    by_source: bool = False,
 ) -> np.ndarray:
     overlay = image.copy()
     for crop in crops:
         if crop.kind == "body" and not show_body:
             continue
         x1, y1, x2, y2 = crop.bbox
-        color = SOLDER_ROI_COLORS.get(crop.kind, (200, 200, 200))
+        if by_source:
+            color = SOLDER_SOURCE_COLORS.get(crop.source, (200, 200, 200))
+        else:
+            color = SOLDER_ROI_COLORS.get(crop.kind, (200, 200, 200))
         thickness = 1 if crop.kind == "body" else 2
         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, thickness)
     return overlay
@@ -1761,6 +1966,10 @@ def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
                 "roi_width_px": crop.bbox[2] - crop.bbox[0],
                 "roi_height_px": crop.bbox[3] - crop.bbox[1],
                 "detector_confidence": crop.confidence,
+                "source": crop.source,
+                "designator": crop.designator or "",
+                "pin": crop.pin or "",
+                "net": crop.net or "",
                 "defect_class": "",
             }
             for crop in crops
@@ -1831,6 +2040,93 @@ def _render_solder_settings() -> None:
         st.rerun()
 
 
+def _findings_frame(findings: list[dict[str, Any]]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "kind": item.get("kind"),
+                "severity": item.get("severity"),
+                "designator": item.get("designator") or "",
+                "expected_class": item.get("expected_class") or "",
+                "observed_class": item.get("observed_class") or "",
+                "shift_mm": item.get("shift_mm"),
+                "message": item.get("message"),
+            }
+            for item in findings
+        ]
+    )
+
+
+def _render_cad_panel(result: SolderResult) -> None:
+    """What the CAD comparison found, and how far to trust the alignment."""
+
+    if not st.session_state.cad_summary:
+        st.info(
+            "Chưa nạp sơ đồ CAD. ROI hiện tại được suy ra từ box của detector cộng "
+            "topology chân của class. Nạp file CAD ở sidebar để hợp nhất với toạ độ "
+            "land thật; pipeline không đổi gì khác."
+        )
+        return
+    if not result.used_cad:
+        st.warning(
+            "Đã nạp CAD nhưng chưa áp dụng được cho ảnh này; bước 5.5 dùng ROI suy ra."
+        )
+        for warning in result.cad_warnings:
+            st.caption(f"· {warning}")
+        return
+
+    registration = result.registration or {}
+    stats = result.cad_stats or {}
+    if registration.get("ambiguous"):
+        st.error(
+            "Căn CAD **mơ hồ**: có phép căn khác khớp không kém. Kiểm tra overlay "
+            "trước khi dùng crop, hoặc chốt bằng fiducial / file registration."
+        )
+    for warning in result.cad_warnings:
+        st.warning(warning)
+
+    columns = st.columns(4)
+    columns[0].metric(
+        "Khớp CAD", f"{stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
+    )
+    columns[1].metric("Thiếu linh kiện", stats.get("missing", 0))
+    columns[2].metric("Lệch vị trí", stats.get("shifted", 0))
+    columns[3].metric("px / mm", f"{registration.get('scale_px_per_mm', 0.0):.2f}")
+    st.caption(
+        f"Phương pháp: {registration.get('method', '—')} · "
+        f"residual {registration.get('residual_px', 0.0):.2f} px · "
+        f"inlier {registration.get('inlier_ratio', 0.0):.0%} · "
+        f"class khớp {stats.get('class_agreements', 0)}/{stats.get('class_comparable', 0)}"
+    )
+
+    if result.findings:
+        for item in sorted(
+            result.findings,
+            key=lambda entry: {"defect": 0, "review": 1}.get(entry.get("severity"), 2),
+        )[:6]:
+            icon = CAD_SEVERITY_ICONS.get(item.get("severity"), "·")
+            st.markdown(f"{icon} {item.get('message')}")
+        frame = _findings_frame(result.findings)
+        st.dataframe(frame, width="stretch", height=220)
+        st.download_button(
+            "Tải cad_findings.csv",
+            frame.to_csv(index=False).encode("utf-8-sig"),
+            file_name="cad_findings.csv",
+            mime="text/csv",
+        )
+    else:
+        st.success("CAD và ảnh khớp nhau: không có linh kiện thiếu, thừa hay lệch.")
+
+    if registration:
+        st.download_button(
+            "Tải registration.json",
+            json.dumps(registration, indent=2).encode("utf-8"),
+            file_name="cad_registration.json",
+            mime="application/json",
+            help="Nạp lại ở sidebar để mọi lần chạy sau dùng đúng phép căn này.",
+        )
+
+
 def _render_solder_rois() -> None:
     """Step 5.5 view: the ROIs that make solder joints visible for step 6.2.
 
@@ -1875,17 +2171,29 @@ def _render_solder_rois() -> None:
                 "hẹp trường nhìn trước khi gán nhãn 6.2."
             )
 
-        overlay_tab, gallery_tab, table_tab = st.tabs(
-            ["ROI overlay", "Joint gallery", "Bảng nhãn 6.2"]
+        overlay_tab, gallery_tab, table_tab, cad_tab = st.tabs(
+            ["ROI overlay", "Joint gallery", "Bảng nhãn 6.2", "Đối chiếu CAD"]
         )
         with overlay_tab:
             if source is None:
                 _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
             else:
                 show_body = st.checkbox("Hiện khung toàn linh kiện", value=True)
+                by_source = False
+                if result.used_cad:
+                    by_source = st.checkbox(
+                        "Tô màu theo nguồn ROI",
+                        value=True,
+                        help="Xanh lá: CAD và detector cùng đồng ý · Hồng: chỉ CAD · "
+                        "Vàng: chỉ suy ra từ detector.",
+                    )
                 _show_image(
-                    _draw_solder_overlay(source, result.crops, show_body),
-                    "Vàng: ROI mối hàn - Xanh: linh kiện kèm chân",
+                    _draw_solder_overlay(source, result.crops, show_body, by_source),
+                    (
+                        "Xanh lá: CAD + detector - Hồng: chỉ CAD - Vàng: chỉ suy ra"
+                        if by_source
+                        else "Vàng: ROI mối hàn - Xanh: linh kiện kèm chân"
+                    ),
                 )
         with gallery_tab:
             kind = st.radio("Loại ROI", ["Mối hàn", "Linh kiện kèm chân"], horizontal=True)
@@ -1899,7 +2207,8 @@ def _render_solder_rois() -> None:
                 for column, crop in zip(columns, selected[offset : offset + 6]):
                     with column:
                         _show_image(crop.image)
-                        st.caption(f"**{crop.label}**\n\n{crop.position}")
+                        tag = f" · {crop.designator}" if crop.designator else ""
+                        st.caption(f"**{crop.label}**{tag}\n\n{crop.position}")
         with table_tab:
             frame = _solder_frame(result.crops)
             st.dataframe(frame, width="stretch", height=320)
@@ -1914,6 +2223,8 @@ def _render_solder_rois() -> None:
                 file_name="solder_joints.csv",
                 mime="text/csv",
             )
+        with cad_tab:
+            _render_cad_panel(result)
 
 
 def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:

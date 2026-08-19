@@ -16,10 +16,10 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .config import CVDetectorConfig, ModelDetectorConfig
-from .exceptions import DetectorConfigurationError, ModelDependencyError
-from .image_io import ensure_bgr
-from .models import BoundingBox, Detection
+from ..config import CVDetectorConfig, ModelDetectorConfig
+from ..core.exceptions import DetectorConfigurationError, ModelDependencyError
+from ..core.image_io import ensure_bgr
+from ..core.models import BoundingBox, Detection
 
 
 class ComponentDetector(ABC):

@@ -9,7 +9,7 @@
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
    → 5. Crop và xuất dữ liệu linh kiện
-   → 5.5. Suy ra ROI mối hàn (dữ liệu cho 6.2)
+   → 5.5. Suy ra ROI mối hàn + hợp nhất CAD nếu có (dữ liệu cho 6.2)
    → 6.1. Phân loại family (accept/review/unknown)
 ```
 
@@ -208,9 +208,64 @@ Trước khi gán nhãn cả lô, hãy xem `overlays/` và một mẫu `crops/`:
   px chiều ngang. Gate import hiện tại là 1280×960, thấp hơn nhiều bậc so với
   yêu cầu đó.
 
-Nếu có Gerber/CAD hoặc file pick-and-place thì chiếu thẳng tọa độ land qua
-homography ở bước 2 sẽ chính xác hơn hẳn cách suy ra từ bounding box; bước 5.5
-là phương án cho board không có dữ liệu CAD.
+Nếu có Gerber/CAD hoặc file pick-and-place thì phần dưới đây hợp nhất toạ độ
+land thật vào chính hình học này. Không có CAD thì mọi thứ trên vẫn chạy nguyên
+vẹn.
+
+### Hợp nhất sơ đồ CAD (đã dựng sẵn, chưa cần file)
+
+Toàn bộ đường CAD đã có trong code. Khi có sơ đồ thì chỉ cần nạp file vào, không
+phải sửa gì. **Chưa có file thì pipeline chạy đúng như phần trên**, không thêm
+bước nào.
+
+Quan trọng: đây là **kết hợp**, không phải chọn một trong hai. CAD biết land nằm
+đâu và linh kiện *phải* là gì, nhưng không biết board đang nằm đâu dưới camera và
+không biết linh kiện nào đặt sai hay thiếu. Detector thì ngược lại. Nên:
+
+| Tình huống | ROI sinh ra | `source` |
+|---|---|---|
+| Hai bên cùng chỉ vào một land | ROI hợp nhất | `cad+derived` |
+| CAD có land, detector không có ROI ở đó | ROI theo land CAD | `cad` |
+| Detector có ROI, CAD không liệt kê land (thermal pad, shield…) | Giữ ROI suy ra | `derived` |
+| CAD chỉ có vị trí đặt (pick-and-place) | Hình học suy ra, neo trên tâm/góc CAD | `cad+derived` |
+| CAD có linh kiện, ảnh không thấy | ROI theo land + finding `missing_component` | `cad` |
+| Ảnh có linh kiện, CAD không có | Giữ ROI suy ra + finding `unexpected_component` | `derived` |
+
+Hai điểm làm nên phần "kết hợp":
+
+- **Hiệu chỉnh cục bộ.** CAD cho footprint, detector cho biết linh kiện *này*
+  thực tế nằm đâu. Mỗi linh kiện được dịch theo sai lệch giữa hai vị trí, nên một
+  phép căn chỉ gần đúng trên toàn board vẫn cho ROI chính xác tại từng linh kiện.
+- **Topology chân lấy từ số pad thật.** Một linh kiện 4 chân bị detector đọc nhầm
+  thành `resistor` vẫn ra 4 ROI, thay vì 2 theo suy đoán từ class.
+
+Nhờ đối chiếu, có thêm bốn loại lỗi phát hiện được **không cần model nào** — ghi
+vào `cad_findings.csv`: `missing_component` (defect), `shifted_component`
+(review, ngưỡng mặc định 0.5 mm), `unexpected_component` và `class_mismatch`.
+
+Định dạng nhận được: bảng pad CSV, file pick-and-place/centroid, IPC-D-356A, và
+`cad_json` đã lưu. Nhận dạng tự động. Thêm định dạng mới chỉ là viết một hàm rồi
+đăng ký vào `CAD_LOADERS`.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\export_solder_dataset.py D:\anh_board `
+  --output D:\datasets\solder_v1 `
+  --model models\detector\kaggle\best.onnx `
+  --cad D:\cad\board_pads.csv `
+  --save-registration D:\cad\reg_sku01.json
+```
+
+Trong app: sidebar có mục **Sơ đồ CAD (tuỳ chọn)**, bước 5 có tab **Đối chiếu CAD**.
+
+**Phép căn sai trông y hệt phép căn đúng nếu chỉ nhìn residual**, nên hệ thống báo
+ra thay vì im lặng áp dụng: phép căn kém chất lượng bị **từ chối** và quay về ROI
+suy ra; phép căn mơ hồ (layout đối xứng, hoặc detector không cho class) bị đánh
+dấu `ambiguous` kèm cảnh báo. Chốt chắc chắn bằng fiducial hoặc file
+`registration.json` lưu một lần cho mỗi SKU/đồ gá.
+
+Chi tiết định dạng, cách căn và cách xử lý khi phép căn không đáng tin:
+[docs/cad_formats.md](docs/cad_formats.md), template:
+[docs/cad_pads_template.csv](docs/cad_pads_template.csv).
 
 ### Crop bước 5 vẫn giữ nguyên hợp đồng với 6.1
 
@@ -247,20 +302,43 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 ## Cấu trúc dự án
 
 ```text
+aoi_pipeline/        Thư viện pipeline, chia theo bước
+  core/                Nền tảng: models, exceptions, image_io (không phụ thuộc ai)
+  imaging/             Bước 0–1: calibration, preprocessing
+  board/               Bước 2–3: alignment, localization
+  detection/           Bước 4: detectors, tiling
+  inspection/          Bước 5–5.5: cropping, solder, cad, fusion
+  export/              Đóng gói: exporters, overlays
+  classification.py    Bước 6.1
+  config.py            Toàn bộ knob của mọi bước, một chỗ
+  pipeline.py          Facade 0 → 6.1
 app/                 Streamlit UI và bridge
-aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.1 (kèm 5.5 ROI mối hàn)
-tests/               Unit tests
+tests/               Unit tests, soi gương cấu trúc aoi_pipeline/
 training/kaggle/     Notebook train detector bước 4 và classifier bước 6.1
 models/              Nơi đặt model local (weights không commit Git)
-Docs/                Khảo sát dataset và kế hoạch pre-train 6.1
+docs/                Khảo sát dataset, kế hoạch 6.1, hướng dẫn nạp CAD
 scripts/             Setup/chạy app, calibrate camera, export dataset 6.2
+legacy/              Prototype cũ (KCS_Inspec_PCBA_V2.exe), không commit Git
 ```
+
+Phụ thuộc trong `aoi_pipeline/` phân tầng nghiêm ngặt và không có vòng: `core/`
+không phụ thuộc ai, mỗi package theo bước chỉ phụ thuộc `core/` cộng `config.py`,
+và chỉ `pipeline.py` biết tới tất cả. Vì vậy đọc một bước không cần đọc bước khác.
+
+API công khai vẫn nguyên: `from aoi_pipeline import ...` không đổi gì. Chỉ khi
+import thẳng submodule mới cần dùng đường dẫn mới, ví dụ
+`from aoi_pipeline.inspection.cad import load_cad`.
 
 ## Giới hạn hiện tại
 
 - Khoanh PCB ở bước 3 đang dùng contour fallback, chưa có PCB detector riêng.
 - ROI bước 5.5 suy ra từ box nên chỉ đúng khi class của detector đúng; class sai
-  kéo theo topology chân sai. Có CAD thì nên chiếu land qua homography.
+  kéo theo topology chân sai. Nạp CAD sẽ lấy topology từ số pad thật.
+- Tự căn CAD cần detector cho được class thật; với CV demo (mọi thứ đều là
+  `component_candidate`) phép căn chỉ dựa trên hình học và bị đánh dấu mơ hồ trên
+  layout đối xứng. Dùng fiducial hoặc registration đã lưu cho sản xuất.
+- Chưa có loader cho KiCad `.kicad_pcb`, ODB++ hay Gerber; quy về bảng pad CSV
+  hoặc thêm loader vào `CAD_LOADERS`.
 - Ước lượng góc xoay linh kiện (`estimate_orientation`) mặc định tắt: góc sai làm
   lệch mọi ROI suy ra từ nó, đắt hơn là để ROI axis-aligned hơi rộng.
 - Chưa có model bước 6.2; bước 5.5 chỉ tạo ROI và bảng nhãn, không chấm mối hàn.

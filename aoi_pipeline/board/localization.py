@@ -7,10 +7,10 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from .config import BoardConfig
-from .exceptions import AOIPipelineError
-from .image_io import ensure_bgr
-from .models import BoardRegion, BoundingBox
+from ..config import BoardConfig
+from ..core.exceptions import AOIPipelineError
+from ..core.image_io import ensure_bgr
+from ..core.models import BoardRegion, BoundingBox
 
 
 @dataclass(slots=True)

@@ -10,8 +10,8 @@ from typing import Any, Mapping, Sequence
 import cv2
 import numpy as np
 
-from .exceptions import CalibrationProfileError
-from .image_io import ensure_bgr
+from ..core.exceptions import CalibrationProfileError
+from ..core.image_io import ensure_bgr
 
 
 PROFILE_SCHEMA_VERSION = "1.0"

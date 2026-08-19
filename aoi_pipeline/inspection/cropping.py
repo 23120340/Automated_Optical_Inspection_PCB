@@ -8,10 +8,9 @@ from typing import Sequence
 
 import numpy as np
 
-from .config import CropConfig, terminal_geometry
-from .image_io import encode_image, ensure_bgr
-from .models import BoundingBox, ComponentCrop, Detection
-from .solder import letterbox_normalize
+from ..config import CropConfig, terminal_geometry
+from ..core.image_io import encode_image, ensure_bgr, letterbox_normalize
+from ..core.models import BoundingBox, ComponentCrop, Detection
 
 
 class ComponentCropper:

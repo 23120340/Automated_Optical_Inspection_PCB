@@ -12,9 +12,9 @@ import cv2
 import numpy as np
 
 from .config import ClassificationConfig
-from .exceptions import ClassifierConfigurationError, ModelDependencyError
-from .image_io import ensure_bgr
-from .models import ClassProbability, ComponentClassification, ComponentCrop
+from .core.exceptions import ClassifierConfigurationError, ModelDependencyError
+from .core.image_io import ensure_bgr
+from .core.models import ClassProbability, ComponentClassification, ComponentCrop
 
 
 MANIFEST_SCHEMA = "pcb-component-classifier/1.0"

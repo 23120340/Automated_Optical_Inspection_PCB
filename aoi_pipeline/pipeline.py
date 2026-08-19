@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, replace
 from pathlib import Path
 from collections.abc import Mapping
@@ -9,22 +10,24 @@ from typing import Sequence
 
 import numpy as np
 
-from .alignment import PCBAligner
-from .board import PCBLocalizer
+from .board.alignment import PCBAligner
+from .board.localization import PCBLocalizer
+from .inspection.cad import BoardCad, CadError, CadRegistration, load_cad, register_cad, register_from_fiducials
 from .classification import ComponentClassifier, create_classifier
 from .config import PipelineConfig
-from .cropping import ComponentCropper
-from .detectors import (
+from .inspection.cropping import ComponentCropper
+from .detection.detectors import (
     ComponentDetector,
     CVComponentDetector,
     UltralyticsDetector,
     create_detector,
 )
-from .exceptions import DetectorConfigurationError
-from .exporters import export_json as write_json
-from .exporters import export_zip as write_zip
-from .image_io import ImageSource, load_image
-from .models import (
+from .core.exceptions import DetectorConfigurationError
+from .inspection.fusion import FusionResult, fuse_solder_joints
+from .export.exporters import export_json as write_json
+from .export.exporters import export_zip as write_zip
+from .core.image_io import ImageSource, load_image
+from .core.models import (
     AlignmentResult,
     BoardRegion,
     ComponentClassification,
@@ -32,12 +35,13 @@ from .models import (
     Detection,
     PipelineRun,
     PreprocessResult,
+    SolderJoint,
     SolderJointCrop,
     utc_now_iso,
 )
-from .preprocessing import ImagePreprocessor
-from .solder import SolderJointCropper
-from .tiling import detect_with_adaptive_tiling
+from .imaging.preprocessing import ImagePreprocessor
+from .inspection.solder import SolderJointCropper
+from .detection.tiling import detect_with_adaptive_tiling
 
 
 class AOIPipeline:
@@ -55,6 +59,7 @@ class AOIPipeline:
         classifier: ComponentClassifier | None = None,
         classifier_model_path: str | Path | None = None,
         classifier_manifest_path: str | Path | Mapping[str, object] | None = None,
+        cad: BoardCad | str | Path | None = None,
     ) -> None:
         self.config = (
             config
@@ -75,6 +80,11 @@ class AOIPipeline:
         self.last_detection_metrics: dict[str, object] = {}
         self.cropper = ComponentCropper(self.config.crop)
         self.solder_cropper = SolderJointCropper(self.config.solder)
+        self.cad: BoardCad | None = None
+        self.cad_registration: CadRegistration | None = None
+        self.cad_warnings: list[str] = []
+        self.last_fusion: FusionResult = FusionResult()
+        self._load_cad(cad)
         if classifier is not None and (
             classifier_model_path is not None or classifier_manifest_path is not None
         ):
@@ -236,11 +246,119 @@ class AOIPipeline:
 
         return self.cropper.extract(image, detections, output_dir)
 
+    def _load_cad(self, cad: BoardCad | str | Path | None) -> None:
+        """Bring in CAD data if any was given, and never fail the run over it.
+
+        A missing or unreadable board file downgrades the pipeline to the
+        detector-only path with a warning. Inspection without CAD is the
+        supported baseline, so it must not become an error.
+        """
+
+        settings = self.config.cad
+        if isinstance(cad, BoardCad):
+            self.cad = cad
+        else:
+            source = cad if cad is not None else settings.path
+            if source:
+                try:
+                    self.cad = load_cad(
+                        source, fmt=settings.fmt, units=settings.units, side=settings.side
+                    )
+                except CadError as exc:
+                    self.cad_warnings.append(f"CAD not loaded: {exc}")
+                    self.cad = None
+        if self.cad is None:
+            return
+
+        if settings.registration:
+            try:
+                self.cad_registration = CadRegistration.from_dict(settings.registration)
+            except (CadError, KeyError, TypeError, ValueError) as exc:
+                self.cad_warnings.append(f"CAD registration not applied: {exc}")
+        elif settings.registration_path:
+            try:
+                payload = json.loads(
+                    Path(settings.registration_path).expanduser().read_text(encoding="utf-8")
+                )
+                self.cad_registration = CadRegistration.from_dict(payload)
+            except (OSError, CadError, KeyError, TypeError, ValueError) as exc:
+                self.cad_warnings.append(f"CAD registration file not read: {exc}")
+        elif settings.fiducials_mm and settings.fiducials_px:
+            try:
+                self.cad_registration = register_from_fiducials(
+                    settings.fiducials_mm,
+                    settings.fiducials_px,
+                    perspective=settings.fiducial_perspective,
+                )
+            except CadError as exc:
+                self.cad_warnings.append(f"CAD fiducials rejected: {exc}")
+
+    def register_cad_to_image(
+        self,
+        image: np.ndarray,
+        detections: Sequence[Detection],
+        board_region: BoardRegion | None = None,
+    ) -> CadRegistration | None:
+        """Auto-align the loaded CAD board to this frame's detections.
+
+        Only used when no registration was supplied. The result is cached on the
+        instance so a fixed camera and fixture pay for it once.
+        """
+
+        if self.cad is None or not self.config.cad.auto_register:
+            return self.cad_registration
+        settings = self.config.cad
+        height, width = image.shape[:2]
+        registration = register_cad(
+            self.cad,
+            detections,
+            (width, height),
+            board_polygon=board_region.polygon if board_region is not None else None,
+            min_matches=settings.auto_min_matches,
+            match_tolerance_ratio=settings.auto_match_tolerance_ratio,
+            refine_rounds=settings.auto_refine_rounds,
+        )
+        if registration is None:
+            self.cad_warnings.append(
+                "CAD auto-registration did not converge; run with fiducials or a "
+                "saved registration matrix."
+            )
+            return None
+        self.cad_registration = registration
+        return registration
+
+    def fuse_solder_rois(
+        self,
+        image: np.ndarray,
+        detections: Sequence[Detection],
+        derived_joints: Sequence[SolderJoint],
+        board_region: BoardRegion | None = None,
+    ) -> FusionResult:
+        """Step 5.5b: combine CAD lands with the derived ROIs."""
+
+        if self.cad is None:
+            return FusionResult(joints=list(derived_joints), used_cad=False)
+        height, width = image.shape[:2]
+        registration = self.cad_registration or self.register_cad_to_image(
+            image, detections, board_region
+        )
+        return fuse_solder_joints(
+            detections,
+            derived_joints,
+            width,
+            height,
+            board=self.cad,
+            registration=registration,
+            config=self.config.fusion,
+            image=image,
+        )
+
     def make_solder_crops(
         self,
         image: np.ndarray,
         detections: Sequence[Detection],
         output_dir: str | Path | None = None,
+        board_region: BoardRegion | None = None,
     ) -> list[SolderJointCrop]:
         """Step 5.5: derive solder-joint ROIs and cut them out.
 
@@ -250,7 +368,10 @@ class AOIPipeline:
         instead.
         """
 
-        return self.solder_cropper.extract(image, detections, output_dir)
+        derived = self.solder_cropper.derive(image, detections)
+        fusion = self.fuse_solder_rois(image, detections, derived, board_region)
+        self.last_fusion = fusion
+        return self.solder_cropper.extract_joints(image, fusion.joints, output_dir)
 
     def classify_components(
         self, crops: Sequence[ComponentCrop]
@@ -284,7 +405,10 @@ class AOIPipeline:
         board = self.detect_board(aligned.image)
         detections = self.detect_components(aligned.image, board)
         crops = self.make_crops(aligned.image, detections, crop_dir)
-        solder_crops = self.make_solder_crops(aligned.image, detections, solder_crop_dir)
+        solder_crops = self.make_solder_crops(
+            aligned.image, detections, solder_crop_dir, board_region=board
+        )
+        fusion = self.last_fusion
         classifications = self.classify_components(crops)
 
         warnings = list(preprocessed.warnings)
@@ -299,6 +423,13 @@ class AOIPipeline:
         if self.classifier is None:
             warnings.append(
                 "Step 6.1 was not run because best.onnx and model_manifest.json were not configured."
+            )
+        warnings.extend(self.cad_warnings)
+        warnings.extend(fusion.warnings)
+        if self.cad is not None and not fusion.used_cad:
+            warnings.append(
+                "CAD was loaded but not applied; step 5.5 used detector-derived "
+                "ROIs only."
             )
         if self.config.solder.enabled and detections and not solder_crops:
             warnings.append(
@@ -315,6 +446,7 @@ class AOIPipeline:
             detections=detections,
             crops=crops,
             solder_crops=solder_crops,
+            fusion=fusion,
             classifications=classifications,
             started_at=started_at,
             finished_at=utc_now_iso(),

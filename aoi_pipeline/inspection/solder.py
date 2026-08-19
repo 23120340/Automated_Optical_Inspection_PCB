@@ -27,16 +27,15 @@ from typing import Sequence
 import cv2
 import numpy as np
 
-from .config import SolderJointConfig, terminal_geometry
-from .image_io import encode_image, ensure_bgr
-from .models import BoundingBox, Detection, SolderJoint, SolderJointCrop
+from ..config import SolderJointConfig, terminal_geometry
+from ..core.image_io import encode_image, ensure_bgr, letterbox_normalize
+from ..core.models import BoundingBox, Detection, SolderJoint, SolderJointCrop
 
 __all__ = [
+    "ComponentFrame",
     "SolderJointCropper",
     "derive_solder_joints",
     "estimate_component_angle",
-    "letterbox_normalize",
-    "render_solder_overlay",
 ]
 
 
@@ -54,8 +53,13 @@ class _LocalRect:
 
 
 @dataclass(frozen=True, slots=True)
-class _Frame:
-    """The component's own coordinate frame inside the analysis image."""
+class ComponentFrame:
+    """The component's own coordinate frame inside the analysis image.
+
+    ``angle`` rotates local +x, which runs along ``length``, off the image x
+    axis. CAD fusion builds this frame from registered land coordinates instead
+    of from the detector box, which is why it is part of the public surface.
+    """
 
     center_x: float
     center_y: float
@@ -70,6 +74,8 @@ def derive_solder_joints(
     image_height: int,
     config: SolderJointConfig | None = None,
     image: np.ndarray | None = None,
+    frame: ComponentFrame | None = None,
+    geometry: str | None = None,
 ) -> list[SolderJoint]:
     """Return the inspection ROIs for one detection.
 
@@ -77,6 +83,10 @@ def derive_solder_joints(
     per-pin split and orientation estimation are all skipped and every
     candidate ROI is kept, because dropping one on no evidence would silently
     lose joints.
+
+    ``frame`` and ``geometry`` let a caller that knows better override what the
+    box alone can say. CAD fusion uses them to keep this exact ROI geometry
+    while anchoring it on a registered placement and a real pad count.
     """
 
     config = config or SolderJointConfig()
@@ -84,8 +94,8 @@ def derive_solder_joints(
     if box.width <= 0 or box.height <= 0:
         return []
 
-    geometry = terminal_geometry(detection.label)
-    frame = _component_frame(box, config, image)
+    geometry = geometry or terminal_geometry(detection.label)
+    frame = frame or _component_frame(box, config, image)
 
     if geometry == "two_terminal":
         rects = _two_terminal_rects(frame, config)
@@ -146,7 +156,7 @@ def _component_frame(
     box: BoundingBox,
     config: SolderJointConfig,
     image: np.ndarray | None,
-) -> _Frame:
+) -> ComponentFrame:
     """Pick the frame whose +x axis runs along the component's long side.
 
     The axis-aligned default already covers the usual 0/90 degree placement.
@@ -158,7 +168,7 @@ def _component_frame(
     center_y = (box.y1 + box.y2) / 2.0
     length = max(box.width, box.height)
     span = min(box.width, box.height)
-    fallback = _Frame(
+    fallback = ComponentFrame(
         center_x,
         center_y,
         0.0 if box.width >= box.height else 90.0,
@@ -181,7 +191,7 @@ def _component_frame(
     deviation = _angle_difference(rect_angle, fallback.angle)
     if abs(deviation) < 5.0 or abs(deviation) > config.orientation_max_angle:
         return fallback
-    return _Frame(rect_cx, rect_cy, rect_angle, rect_length, rect_span)
+    return ComponentFrame(rect_cx, rect_cy, rect_angle, rect_length, rect_span)
 
 
 def _measure_min_area_rect(
@@ -260,7 +270,7 @@ def _angle_difference(angle: float, reference: float) -> float:
 # --------------------------------------------------------------------------- #
 
 
-def _two_terminal_rects(frame: _Frame, config: SolderJointConfig) -> list[_LocalRect]:
+def _two_terminal_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
     inner = config.terminal_inner_ratio * frame.length
     outer = config.terminal_outer_ratio * frame.length
     side = config.terminal_side_ratio * frame.span
@@ -273,7 +283,7 @@ def _two_terminal_rects(frame: _Frame, config: SolderJointConfig) -> list[_Local
     ]
 
 
-def _pad_only_rects(frame: _Frame, config: SolderJointConfig) -> list[_LocalRect]:
+def _pad_only_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
     margin = config.pad_margin_ratio * frame.span
     return [
         _LocalRect(
@@ -286,7 +296,7 @@ def _pad_only_rects(frame: _Frame, config: SolderJointConfig) -> list[_LocalRect
     ]
 
 
-def _multi_pin_rects(frame: _Frame, config: SolderJointConfig) -> list[_LocalRect]:
+def _multi_pin_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
     inner = config.lead_inner_ratio * frame.span
     outer = config.lead_outer_ratio * frame.span
     depth = inner + outer
@@ -301,7 +311,7 @@ def _multi_pin_rects(frame: _Frame, config: SolderJointConfig) -> list[_LocalRec
     ]
 
 
-def _body_rect(rects: Sequence[_LocalRect], frame: _Frame) -> _LocalRect:
+def _body_rect(rects: Sequence[_LocalRect], frame: ComponentFrame) -> _LocalRect:
     """Smallest local rect covering the body and every derived joint ROI."""
 
     half_length = frame.length / 2.0
@@ -320,7 +330,7 @@ def _body_rect(rects: Sequence[_LocalRect], frame: _Frame) -> _LocalRect:
     )
 
 
-def _to_image(points: np.ndarray, frame: _Frame) -> np.ndarray:
+def _to_image(points: np.ndarray, frame: ComponentFrame) -> np.ndarray:
     """Map local-frame points to image pixels.
 
     Uses the same rotation convention as ``cv2.boxPoints`` in the y-down image
@@ -338,7 +348,7 @@ def _to_image(points: np.ndarray, frame: _Frame) -> np.ndarray:
     return mapped
 
 
-def _local_rect_corners(rect: _LocalRect, frame: _Frame) -> np.ndarray:
+def _local_rect_corners(rect: _LocalRect, frame: ComponentFrame) -> np.ndarray:
     half_width = rect.width / 2.0
     half_height = rect.height / 2.0
     corners = np.array(
@@ -355,7 +365,7 @@ def _local_rect_corners(rect: _LocalRect, frame: _Frame) -> np.ndarray:
 
 def _local_rect_to_bbox(
     rect: _LocalRect,
-    frame: _Frame,
+    frame: ComponentFrame,
     image_width: int,
     image_height: int,
 ) -> BoundingBox | None:
@@ -379,7 +389,7 @@ def _local_rect_to_bbox(
 def _band_patch(
     rect: _LocalRect,
     image: np.ndarray,
-    frame: _Frame,
+    frame: ComponentFrame,
     image_width: int,
     image_height: int,
 ) -> np.ndarray | None:
@@ -394,7 +404,7 @@ def _band_patch(
 def _filter_bands_by_energy(
     rects: Sequence[_LocalRect],
     image: np.ndarray,
-    frame: _Frame,
+    frame: ComponentFrame,
     image_width: int,
     image_height: int,
     config: SolderJointConfig,
@@ -429,7 +439,7 @@ def _filter_bands_by_energy(
 def _split_bands_into_pins(
     rects: Sequence[_LocalRect],
     image: np.ndarray,
-    frame: _Frame,
+    frame: ComponentFrame,
     image_width: int,
     image_height: int,
     config: SolderJointConfig,
@@ -454,7 +464,7 @@ def _split_bands_into_pins(
 def _split_one_band(
     rect: _LocalRect,
     image: np.ndarray,
-    frame: _Frame,
+    frame: ComponentFrame,
     image_width: int,
     image_height: int,
     config: SolderJointConfig,
@@ -629,6 +639,23 @@ class SolderJointCropper:
     ) -> list[SolderJointCrop]:
         if not self.config.enabled:
             return []
+        return self.extract_joints(image, self.derive(image, detections), output_dir)
+
+    def extract_joints(
+        self,
+        image: np.ndarray,
+        joints: Sequence[SolderJoint],
+        output_dir: str | Path | None = None,
+    ) -> list[SolderJointCrop]:
+        """Cut out ROIs that were already resolved.
+
+        Split from :meth:`extract` so CAD fusion can rewrite the ROI set between
+        derivation and cropping without the cropper knowing where a ROI came
+        from.
+        """
+
+        if not self.config.enabled:
+            return []
         bgr = ensure_bgr(image)
         destination = (
             Path(output_dir).expanduser().resolve() if output_dir is not None else None
@@ -637,7 +664,7 @@ class SolderJointCropper:
             destination.mkdir(parents=True, exist_ok=True)
 
         crops: list[SolderJointCrop] = []
-        for index, joint in enumerate(self.derive(bgr, detections)):
+        for index, joint in enumerate(joints):
             x1, y1, x2, y2 = joint.bbox.to_int()
             raw = bgr[y1:y2, x1:x2]
             if raw.size == 0:
@@ -645,8 +672,9 @@ class SolderJointCropper:
             normalized = letterbox_normalize(
                 raw, self.config.target_size, self.config.letterbox_color
             )
+            designator = f"{_safe(joint.designator)}_" if joint.designator else ""
             filename = (
-                f"{index:05d}_{_safe(joint.label)}_{joint.kind}_"
+                f"{index:05d}_{_safe(joint.label)}_{designator}{joint.kind}_"
                 f"{_safe(joint.position)}_{_safe(joint.joint_id)}"
                 f"{self.config.image_extension}"
             )
@@ -672,65 +700,11 @@ class SolderJointCropper:
                             "width": int(raw.shape[1]),
                         },
                         "normalized": self.config.target_size is not None,
+                        "source": joint.source,
                     },
                 )
             )
         return crops
-
-
-def letterbox_normalize(
-    crop: np.ndarray,
-    target_size: tuple[int, int] | None,
-    letterbox_color: tuple[int, int, int] = (114, 114, 114),
-) -> np.ndarray:
-    """Resize preserving aspect ratio and pad to ``target_size``."""
-
-    if target_size is None:
-        return np.ascontiguousarray(crop.copy())
-    target_width, target_height = (int(value) for value in target_size)
-    if target_width <= 0 or target_height <= 0:
-        raise ValueError("target_size values must be positive")
-    source_height, source_width = crop.shape[:2]
-    scale = min(target_width / source_width, target_height / source_height)
-    resized_width = max(1, int(round(source_width * scale)))
-    resized_height = max(1, int(round(source_height * scale)))
-    interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
-    resized = cv2.resize(
-        crop, (resized_width, resized_height), interpolation=interpolation
-    )
-    canvas = np.full(
-        (target_height, target_width, 3),
-        tuple(int(np.clip(value, 0, 255)) for value in letterbox_color),
-        dtype=np.uint8,
-    )
-    x = (target_width - resized_width) // 2
-    y = (target_height - resized_height) // 2
-    canvas[y : y + resized_height, x : x + resized_width] = resized
-    return canvas
-
-
-SOLDER_OVERLAY_COLORS = {
-    "joint": (0, 200, 255),  # BGR amber
-    "body": (255, 170, 0),   # BGR blue
-}
-
-
-def render_solder_overlay(
-    image: np.ndarray,
-    joints: Sequence[SolderJoint],
-    draw_body: bool = True,
-) -> np.ndarray:
-    """Draw derived ROIs so the geometry can be checked by eye before labelling."""
-
-    canvas = ensure_bgr(image).copy()
-    for joint in joints:
-        if joint.kind == "body" and not draw_body:
-            continue
-        x1, y1, x2, y2 = joint.bbox.to_int()
-        color = SOLDER_OVERLAY_COLORS.get(joint.kind, (200, 200, 200))
-        thickness = 1 if joint.kind == "body" else 2
-        cv2.rectangle(canvas, (x1, y1), (x2, y2), color, thickness, cv2.LINE_AA)
-    return canvas
 
 
 def _safe(value: str) -> str:

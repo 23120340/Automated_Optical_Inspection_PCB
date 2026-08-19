@@ -6,10 +6,10 @@ import cv2
 import numpy as np
 
 from .calibration import CameraCalibrationProfile, CameraUndistorter
-from .config import PreprocessConfig
-from .exceptions import CalibrationProfileError
-from .image_io import ensure_bgr
-from .models import PreprocessResult
+from ..config import PreprocessConfig
+from ..core.exceptions import CalibrationProfileError
+from ..core.image_io import ensure_bgr
+from ..core.models import PreprocessResult
 
 
 class ImagePreprocessor:
