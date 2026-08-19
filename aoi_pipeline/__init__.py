@@ -51,6 +51,7 @@ from .config import (
     PadProfile,
     PipelineConfig,
     PreprocessConfig,
+    LeadFusionConfig,
     SolderGradingConfig,
     SolderJointConfig,
     TilingConfig,
@@ -113,6 +114,12 @@ from .inspection.cad import (
     save_cad_json,
 )
 from .inspection.fusion import CadFinding, FusionResult, fuse_solder_joints
+from .inspection.leads import (
+    LEAD_CLASSES,
+    LeadFusionResult,
+    fuse_detected_leads,
+    split_lead_detections,
+)
 
 # --- step 6.2: grade the solder ---------------------------------------------
 from .grading.classifier import (
@@ -197,6 +204,9 @@ __all__ = [
     "ImagePreprocessor",
     "InferenceTile",
     "JOINT_CLASSES",
+    "LEAD_CLASSES",
+    "LeadFusionConfig",
+    "LeadFusionResult",
     "InvalidImageError",
     "MockComponentDetector",
     "ModelDependencyError",
@@ -237,6 +247,7 @@ __all__ = [
     "ensure_bgr",
     "estimate_component_angle",
     "export_json",
+    "fuse_detected_leads",
     "fuse_solder_joints",
     "is_informative_label",
     "export_zip",
@@ -257,6 +268,7 @@ __all__ = [
     "save_cad_json",
     "save_calibration_profile",
     "segment_solder",
+    "split_lead_detections",
     "solder_joints_csv",
     "solder_verdicts_csv",
     "terminal_geometry",

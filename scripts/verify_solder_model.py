@@ -62,6 +62,21 @@ def main(argv: list[str] | None = None) -> int:
     manifest_path = Path(args.manifest).expanduser().resolve()
 
     problems: list[str] = []
+    # A split export loads on the machine that trained it and nowhere else, so
+    # check before anything that would mask it.
+    external = sorted(model_path.parent.glob(f"{model_path.stem}*.data"))
+    if external:
+        print(
+            "REJECTED: this .onnx keeps its weights in a separate file "
+            f"({[p.name for p in external]}). The app copies only the .onnx and "
+            "its manifest, so it would fail with 'External data path validation "
+            "failed'. Re-export with weights embedded, or run:\n"
+            "  python -c \"import onnx,sys; m=onnx.load(sys.argv[1]); "
+            "onnx.save_model(m, sys.argv[1], save_as_external_data=False)\" "
+            f"{model_path}",
+            file=sys.stderr,
+        )
+        return 1
     print(f"model    : {model_path}")
     print(f"manifest : {manifest_path}\n")
 

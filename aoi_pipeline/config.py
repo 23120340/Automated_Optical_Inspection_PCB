@@ -364,6 +364,29 @@ class ClassificationConfig:
 
 
 @dataclass(slots=True)
+class LeadFusionConfig:
+    """Step 5.5: prefer detected lead/pad boxes over derived ones.
+
+    Inert until the detector actually reports ``pads``/``pins``. On the shipped
+    model those classes score 0.00 and 0.14-0.21 recall, so the derived geometry
+    still carries the pipeline; this only takes over where a real detection
+    exists.
+    """
+
+    enabled: bool = True
+    # A lead box is only trusted above this. Lead classes are the weakest part
+    # of the detector, so the bar sits higher than the component threshold.
+    min_lead_confidence: float = 0.35
+    # Distance from the lead centre to the body box, as a multiple of the body's
+    # shorter side. Leads sit just outside the body, so a small multiple is
+    # right; too large and a neighbouring part's lead gets adopted.
+    max_lead_distance_ratio: float = 1.2
+    # Overlap at which a detected lead is taken to stand in for a derived ROI.
+    # Below it, both are kept -- they are evidently looking at different things.
+    replace_ios: float = 0.30
+
+
+@dataclass(slots=True)
 class SolderGradingConfig:
     """Step 6.2: how solder ROIs are measured, judged and fused.
 
@@ -432,6 +455,7 @@ class PipelineConfig:
     tiling: TilingConfig = field(default_factory=TilingConfig)
     crop: CropConfig = field(default_factory=CropConfig)
     solder: SolderJointConfig = field(default_factory=SolderJointConfig)
+    lead_fusion: LeadFusionConfig = field(default_factory=LeadFusionConfig)
     cad: CadConfig = field(default_factory=CadConfig)
     fusion: FusionConfig = field(default_factory=FusionConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
@@ -461,6 +485,7 @@ class PipelineConfig:
         tiling_values = _section(values, "tiling")
         crop_values = _section(values, "crops", "crop")
         solder_values = _section(values, "solder", "solder_joints")
+        lead_values = _section(values, "lead_fusion", "leads")
         cad_values = _section(values, "cad", "board_cad")
         fusion_values = _section(values, "fusion", "cad_fusion")
         grading_values = _section(values, "solder_grading", "solder_inspection")
@@ -586,6 +611,10 @@ class PipelineConfig:
         # Step 5.5 geometry is shared: re-anchored ROIs must match the ones the
         # detector-only path would have produced.
         config.fusion.solder = config.solder
+        if isinstance(values.get("lead_fusion"), Mapping) or isinstance(
+            values.get("leads"), Mapping
+        ):
+            _assign_known(config.lead_fusion, lead_values)
         if isinstance(values.get("solder_grading"), Mapping) or isinstance(
             values.get("solder_inspection"), Mapping
         ):

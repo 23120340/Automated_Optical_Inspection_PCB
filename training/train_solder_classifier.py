@@ -320,8 +320,11 @@ def main(argv: list[str] | None = None) -> int:
         model, dummy, str(onnx_path),
         input_names=["input"], output_names=["logits"],
         dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
-        opset_version=17,
+        # 18, not 17: newer torch exporters emit 18 and then fail the automatic
+        # down-conversion, leaving an 18 graph plus a confusing error either way.
+        opset_version=18,
     )
+    _collapse_external_data(onnx_path)
     _verify_onnx(onnx_path, model, dummy, torch)
 
     manifest = {
@@ -380,6 +383,29 @@ def _line_metrics(truths, predictions, good_index: int) -> tuple[float, float]:
     escape = float(np.mean(predictions[defects] == good_index)) if defects.any() else 0.0
     false_call = float(np.mean(predictions[goods] != good_index)) if goods.any() else 0.0
     return escape, false_call
+
+
+def _collapse_external_data(path: Path) -> None:
+    """Fold weights back into the .onnx file itself.
+
+    torch's exporter may write tensors to a sibling ``best.onnx.data``. The app
+    is documented as needing exactly two files -- the .onnx and its manifest --
+    and the manifest's SHA-256 covers only the .onnx, so a split export loads on
+    the machine that trained it and fails with "External data path validation
+    failed" everywhere else.
+    """
+
+    try:
+        import onnx
+    except ImportError:
+        print("onnx not installed; cannot make the export self-contained.", file=sys.stderr)
+        return
+    model = onnx.load(str(path))
+    onnx.save_model(model, str(path), save_as_external_data=False)
+    for orphan in path.parent.glob(f"{path.name}*.data"):
+        orphan.unlink()
+    for orphan in path.parent.glob(f"{path.stem}*.data"):
+        orphan.unlink()
 
 
 def _verify_onnx(path: Path, model, dummy, torch) -> None:

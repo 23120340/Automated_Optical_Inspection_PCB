@@ -18,6 +18,10 @@ runs/
 tmp/
 *.log
 
+# Pretrained weights auto-downloaded by Ultralytics into the CWD
+yolo*.pt
+yolo*.yaml
+
 # Trained model artifacts (keep metadata/configs in Git)
 models/*.engine
 models/*.torchscript

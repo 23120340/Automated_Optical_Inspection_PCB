@@ -409,6 +409,28 @@ Script in phân bố từng đặc trưng và đề xuất ngưỡng theo phân 
 `solder_grading` vào config. Xem lại trước khi dùng: board đưa vào mà có lỗi thì
 ngưỡng sẽ nới rộng đúng chỗ đáng lẽ phải bắt.
 
+### Dataset: không có nguồn công khai nào đủ, phải ghép
+
+Khảo sát tháng 8/2026. **Không dataset công khai nào phủ đủ taxonomy 6.2.** Nguồn
+tốt nhất mỗi nguồn phủ một phần, nên chúng được ghép lại:
+
+| Nguồn | Phủ | Ghi chú |
+|---|---|---|
+| **SolDef_AI** (Kaggle, [MDPI JMMP 2024](https://doi.org/10.3390/jmmp8030117)) | good, insufficient, excess, **shift_component** | 1150 ảnh, 3 góc nhìn. Nguồn peer-reviewed duy nhất có nhãn lệch vị trí linh kiện |
+| HF `ouvic215` / `AndyLiu0104` | bridge, excess, missing_solder | **Không license, không nguồn gốc**; nghi dữ liệu sinh |
+| Roboflow soldering-defects | **cold**, bridge | Nguồn công khai duy nhất có cold solder, nhưng vài trăm ảnh |
+| Export từ board của bạn | tất cả | Nguồn **duy nhất** khớp camera/ánh sáng của bạn |
+
+**Đừng nối nhầm:** DeepPCB, HRIPCB/PKU-Market-PCB, DsPCBSD+, `akhatova/pcb-defects`
+là lỗi **board trần** — board chưa gắn linh kiện, không có mối hàn nào. AXI_PCB là
+X-quang. PCBSPDefect chưa phát hành. `aoi_pipeline/grading/datasets.py` liệt kê
+chúng trong `BARE_BOARD_DATASETS` để không ai nối vào nhầm.
+
+Module ghép ([datasets.py](aoi_pipeline/grading/datasets.py)) cưỡng chế ba điều:
+tự **dò** layout thư mục thay vì đoán (layout lạ thì dừng và báo), nhãn không map
+được thì **bỏ và đếm** chứ không gộp vào lớp gần nhất, và mỗi record mang `group`
+là board gốc để chia tập giữ nguyên board một phía.
+
 ### Bước 2 — train model (khi đã có nhãn)
 
 ```powershell
@@ -423,6 +445,12 @@ ngưỡng sẽ nới rộng đúng chỗ đáng lẽ phải bắt.
 .\.venv\Scripts\python.exe training\train_solder_classifier.py D:\datasets\solder_v1 `
   --output models\solder --epochs 30
 ```
+
+**Trên Kaggle** (ghép dataset công khai, dùng khi chưa gán nhãn đủ):
+[training/kaggle/README_solder.md](training/kaggle/README_solder.md) và notebook
+[pcb_solder_defect_kaggle.ipynb](training/kaggle/pcb_solder_defect_kaggle.ipynb).
+Notebook in ma trận phủ taxonomy trước khi train và **loại lớp không đủ dữ liệu
+khỏi `class_names`** thay vì train một head xuất ra lớp nó chưa từng thấy.
 
 Ba điểm trong script không nên đổi nếu không có lý do:
 
@@ -443,6 +471,17 @@ Cần đúng hai file, do script train xuất ra:
 best.onnx            model logit thô
 model_manifest.json  thứ tự class, tiền xử lý, calibration, ngưỡng
 ```
+
+Kiểm tra trước khi tin:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify_solder_model.py `
+  models\solder\best.onnx models\solder\model_manifest.json
+```
+
+Lệnh này nạp cặp file qua **đúng runtime app dùng**, nên pass ở đó nghĩa là app
+nạp được. Nó bắt cả trường hợp export bị tách trọng số ra file `.data` riêng —
+lúc đó `best.onnx` một mình sẽ hỏng dù trên máy vừa train vẫn chạy.
 
 Nạp cả hai ở sidebar **Model kiểm tra mối hàn 6.2**, hoặc trỏ bằng config:
 
@@ -471,6 +510,65 @@ hơn nền quanh nó. **Dưới đèn trắng phẳng, mối hàn nguội và m�
 như nhau** — đó là giới hạn quang học, không ngưỡng nào cứu được. Đây cũng chính
 là hai nút thắt đã nêu ở mục bước 5.5: ánh sáng và độ phân giải.
 
+## Train lại detector và classifier (v2)
+
+Hai notebook v2 ở [training/kaggle/README_v2_models.md](training/kaggle/README_v2_models.md).
+
+### Detector: vấn đề là dữ liệu, không phải kiến trúc
+
+Model hiện tại có `pads` recall **0.000** và `pins` recall **0.145**. Nguyên nhân
+đo được: `pads` có **186** instance train so với **7775** của capacitor — ít hơn
+42 lần — và mỗi pad chỉ vài chục pixel.
+
+**Đổi sang RT-DETR / D-FINE / YOLOv12 không sửa được 186 instance.** YOLO26 vốn đã
+có STAL (small-target-aware label assignment) ép tối thiểu 4 anchor cho object
+nhỏ hơn 8 px — đúng cơ chế cho bài toán này. Khuyến nghị: **giữ YOLO26**, sửa dữ
+liệu và công thức.
+
+[pcb_detector_v2_kaggle.ipynb](training/kaggle/pcb_detector_v2_kaggle.ipynb) làm:
+imgsz 1280→1536, oversample ảnh chứa pads/pins (có trần 35% và tự hạ hệ số),
+`copy_paste` 0.30, 150 epoch với `close_mosaic` muộn, và một **cổng verdict** so
+recall với baseline rồi nói thẳng nếu vẫn kẹt.
+
+**Không có dataset công khai nào gán nhãn chân/pad thành object riêng.** FPIC —
+dataset PCB uy tín nhất — ghi rõ trong bài báo rằng annotation pin là *future
+work*. Bản dẫn xuất FPIC-Component chỉ mức linh kiện và mang license **CC BY-NC-ND**
+(NonCommercial **và** NoDerivatives — rủi ro thật khi train model). Chi tiết ở
+README_v2_models.
+
+### Classifier: EfficientNetV2-S + công thức train kỹ
+
+[pcb_classifier_v2_kaggle.ipynb](training/kaggle/pcb_classifier_v2_kaggle.ipynb):
+chia tập **theo ảnh cha** (không theo crop), freeze head rồi mở khoá với
+layer-wise LR decay, RandAugment + Mixup/CutMix, EMA, class-balanced sampler,
+chọn model theo **macro recall** (không phải accuracy), và tách riêng tập
+calibration để chọn ngưỡng.
+
+Đổi backbone bằng `CONFIG["model_name"]`: `efficientnet_v2_s` (mặc định),
+`mobilenet_v3_small` (nhanh nhất CPU, dùng nếu Pi không kham nổi), `convnext_tiny`,
+`efficientnet_b0`.
+
+### Kết hợp thuật toán và model ở bước 5.5
+
+[`aoi_pipeline/inspection/leads.py`](aoi_pipeline/inspection/leads.py) — **ưu tiên
+detection thật, quay về hình học suy ra ở chỗ không có**, và chọn **theo từng
+chân, không theo từng linh kiện**:
+
+| Tình huống | ROI dùng | `source` |
+|---|---|---|
+| Detector tìm được chân, chồng ROI suy ra | Box detect | `detected` |
+| Detector tìm được chân ở chỗ ROI suy ra không đoán | Thêm vào, giữ cả hai | `detected` + `derived` |
+| Detector tìm được 1 trong 2 đầu | Đầu đó detect, **đầu kia vẫn giữ ROI suy ra** | trộn |
+| Detector không tìm được gì | Toàn bộ ROI suy ra | `derived` |
+| Detection chân quá xa mọi linh kiện | **Bỏ và báo**, không gán bừa | — |
+
+Dòng thứ ba là quan trọng nhất: chuyển cả linh kiện sang "detected" khi model chỉ
+thấy một đầu sẽ **âm thầm mất đầu kia** — thường đúng là đầu có lỗi. Cấu hình ở
+`LeadFusionConfig`; inert hoàn toàn khi detector không báo class `pads`/`pins`.
+
+Sau khi nạp detector mới, chạy một board và xem cảnh báo *"dùng N ROI từ detection
+chân/pad thật và M ROI suy ra"*. N > 0 nghĩa là detector mới thực sự đóng góp.
+
 ## Cấu trúc dự án
 
 ```text
@@ -487,7 +585,7 @@ aoi_pipeline/        Thư viện pipeline, chia theo bước
   pipeline.py          Facade 0 → 6.1
 app/                 Streamlit UI và bridge
 tests/               Unit tests, soi gương cấu trúc aoi_pipeline/
-training/            Notebook train bước 4 / 6.1, script train bước 6.2
+training/            Notebook train bước 4 / 6.1 / 6.2 (có bản v2), script train 6.2 tại máy
 models/              Nơi đặt model local (weights không commit Git)
 docs/                Khảo sát dataset, kế hoạch 6.1, hướng dẫn nạp CAD
 scripts/             Setup/chạy app, calibrate camera, export dataset 6.2

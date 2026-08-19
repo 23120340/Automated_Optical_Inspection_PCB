@@ -25,6 +25,7 @@ from .detection.detectors import (
 from .core.exceptions import DetectorConfigurationError
 from .grading.inspector import SolderInspector
 from .inspection.fusion import FusionResult, fuse_solder_joints
+from .inspection.leads import fuse_detected_leads, split_lead_detections
 from .export.exporters import export_json as write_json
 from .export.exporters import export_zip as write_zip
 from .core.image_io import ImageSource, load_image
@@ -87,6 +88,7 @@ class AOIPipeline:
         self.cad_registration: CadRegistration | None = None
         self.cad_warnings: list[str] = []
         self.last_fusion: FusionResult = FusionResult()
+        self.last_lead_fusion = None
         self._load_cad(cad)
         if classifier is not None and (
             classifier_model_path is not None or classifier_manifest_path is not None
@@ -371,8 +373,19 @@ class AOIPipeline:
         instead.
         """
 
-        derived = self.solder_cropper.derive(image, detections)
-        fusion = self.fuse_solder_rois(image, detections, derived, board_region)
+        # Lead/pad detections describe the ROI directly, so they win where they
+        # exist; everything else keeps the derived geometry. Split them out
+        # first so a pad box is never also treated as a component to derive
+        # terminals around.
+        bodies, leads = split_lead_detections(detections)
+        derived = self.solder_cropper.derive(image, bodies or detections)
+        lead_result = fuse_detected_leads(
+            bodies or detections, leads, derived, self.config.lead_fusion
+        )
+        self.last_lead_fusion = lead_result
+        fusion = self.fuse_solder_rois(
+            image, bodies or detections, lead_result.joints, board_region
+        )
         self.last_fusion = fusion
         return self.solder_cropper.extract_joints(image, fusion.joints, output_dir)
 
@@ -450,6 +463,14 @@ class AOIPipeline:
                 "ROIs only."
             )
         warnings.extend(self.solder_inspector.warnings)
+        lead_result = self.last_lead_fusion
+        if lead_result is not None:
+            warnings.extend(lead_result.warnings)
+            if lead_result.used_detected:
+                warnings.append(
+                    f"Bước 5.5: dùng {lead_result.used_detected} ROI từ detection "
+                    f"chân/pad thật và {lead_result.used_derived} ROI suy ra."
+                )
         if self.config.solder_grading.enabled and solder_crops and not self.solder_inspector.has_model:
             warnings.append(
                 "Bước 6.2 đang chấm bằng luật đo hình học; nạp model ONNX + "
