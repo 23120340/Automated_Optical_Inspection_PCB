@@ -211,6 +211,72 @@ class ComponentCrop:
         }
 
 
+@dataclass(slots=True)
+class SolderJoint:
+    """One derived inspection ROI on or around a component's terminals.
+
+    ``kind`` is ``"joint"`` for a terminal/lead ROI and ``"body"`` for the
+    whole-component view that includes every joint. ``angle`` is the ROI
+    rotation in degrees (0 for the axis-aligned default); ``bbox`` is always
+    the axis-aligned box that encloses the ROI, so overlays and exports do not
+    need to know whether orientation estimation ran.
+    """
+
+    detection_id: str
+    joint_id: str
+    label: str
+    kind: str
+    bbox: BoundingBox
+    terminal_geometry: str
+    position: str
+    angle: float = 0.0
+    pin_index: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "joint_id": self.joint_id,
+            "detection_id": self.detection_id,
+            "label": self.label,
+            "kind": self.kind,
+            "bbox": self.bbox.to_dict(),
+            "terminal_geometry": self.terminal_geometry,
+            "position": self.position,
+            "angle": float(self.angle),
+            "pin_index": self.pin_index,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass(slots=True)
+class SolderJointCrop:
+    """Pixels for one :class:`SolderJoint`, ready to label for step 6.2."""
+
+    image: np.ndarray
+    joint: SolderJoint
+    filename: str
+    path: Path | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def joint_id(self) -> str:
+        return self.joint.joint_id
+
+    @property
+    def detection_id(self) -> str:
+        return self.joint.detection_id
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "joint": self.joint.to_dict(),
+            "filename": self.filename,
+            # Export only the portable filename, not an absolute workstation path.
+            "path": self.path.name if self.path is not None else None,
+            "image_shape": shape_dict(self.image),
+            "metadata": self.metadata,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class ClassProbability:
     """One entry in a classifier's ordered top-k output."""
@@ -276,6 +342,7 @@ class PipelineRun:
     detections: list[Detection]
     crops: list[ComponentCrop]
     classifications: list[ComponentClassification] = field(default_factory=list)
+    solder_crops: list[SolderJointCrop] = field(default_factory=list)
     run_id: str = field(default_factory=lambda: f"run_{uuid4().hex[:12]}")
     started_at: str = field(default_factory=utc_now_iso)
     finished_at: str = field(default_factory=utc_now_iso)
@@ -299,10 +366,15 @@ class PipelineRun:
             "board": self.board_region.to_dict(),
             "detections": [detection.to_dict() for detection in self.detections],
             "crops": [crop.to_dict() for crop in self.crops],
+            "solder_crops": [crop.to_dict() for crop in self.solder_crops],
             "classifications": [item.to_dict() for item in self.classifications],
             "summary": {
                 "component_count": len(self.detections),
                 "crop_count": len(self.crops),
+                "solder_joint_count": sum(
+                    1 for crop in self.solder_crops if crop.joint.kind == "joint"
+                ),
+                "solder_crop_count": len(self.solder_crops),
                 "classification_count": len(self.classifications),
                 "labels": _count_labels(self.detections),
                 "families": _count_classifications(self.classifications),

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,7 @@ import numpy as np
 from .exceptions import ExportError
 from .image_io import encode_image
 from .models import PipelineRun
+from .solder import render_solder_overlay
 
 
 def export_json(run: PipelineRun, path: str | Path) -> Path:
@@ -32,6 +35,7 @@ def export_zip(
     include_input: bool = True,
     include_intermediate: bool = True,
     include_crops: bool = True,
+    include_solder_crops: bool = True,
 ) -> Path:
     destination = Path(path).expanduser().resolve()
     if destination.suffix.lower() != ".zip":
@@ -48,6 +52,16 @@ def export_zip(
                 )
                 archive.writestr("images/02_aligned.png", encode_image(run.alignment_result.image))
                 archive.writestr("images/03_annotated.png", encode_image(render_annotations(run)))
+                if run.solder_crops:
+                    archive.writestr(
+                        "images/05_solder_rois.png",
+                        encode_image(
+                            render_solder_overlay(
+                                run.final_image,
+                                [crop.joint for crop in run.solder_crops],
+                            )
+                        ),
+                    )
                 if run.board_region.mask is not None:
                     mask_bgr = cv2.cvtColor(run.board_region.mask, cv2.COLOR_GRAY2BGR)
                     archive.writestr("images/03_board_mask.png", encode_image(mask_bgr))
@@ -57,6 +71,17 @@ def export_zip(
                     archive.writestr(
                         f"crops/{crop.filename}", encode_image(crop.image, extension)
                     )
+            if include_solder_crops and run.solder_crops:
+                for crop in run.solder_crops:
+                    extension = Path(crop.filename).suffix or ".png"
+                    folder = "body_views" if crop.joint.kind == "body" else "joints"
+                    archive.writestr(
+                        f"solder_joints/{folder}/{crop.filename}",
+                        encode_image(crop.image, extension),
+                    )
+                archive.writestr(
+                    "solder_joints/solder_joints.csv", solder_joints_csv(run)
+                )
     except (OSError, TypeError, ValueError) as exc:
         raise ExportError(f"Could not export ZIP to {destination}: {exc}") from exc
     return destination
@@ -85,6 +110,60 @@ def render_annotations(run: PipelineRun) -> np.ndarray:
             cv2.LINE_AA,
         )
     return canvas
+
+
+SOLDER_CSV_COLUMNS = (
+    "joint_id",
+    "detection_id",
+    "label",
+    "kind",
+    "position",
+    "pin_index",
+    "terminal_geometry",
+    "angle",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "detector_confidence",
+    "filename",
+    "defect_class",
+)
+
+
+def solder_joints_csv(run: PipelineRun) -> str:
+    """One row per derived ROI, with an empty ``defect_class`` to fill in.
+
+    This is the labelling sheet for step 6.2: the geometry is already resolved,
+    so annotation is a per-row verdict rather than a boxing job.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(SOLDER_CSV_COLUMNS)
+    for crop in run.solder_crops:
+        joint = crop.joint
+        folder = "body_views" if joint.kind == "body" else "joints"
+        writer.writerow(
+            [
+                joint.joint_id,
+                joint.detection_id,
+                joint.label,
+                joint.kind,
+                joint.position,
+                "" if joint.pin_index is None else joint.pin_index,
+                joint.terminal_geometry,
+                f"{joint.angle:.2f}",
+                f"{joint.bbox.x1:.2f}",
+                f"{joint.bbox.y1:.2f}",
+                f"{joint.bbox.x2:.2f}",
+                f"{joint.bbox.y2:.2f}",
+                f"{float(joint.metadata.get('detector_confidence', 0.0)):.4f}",
+                f"{folder}/{crop.filename}",
+                "",
+            ]
+        )
+    return buffer.getvalue()
 
 
 def _manifest_json(run: PipelineRun) -> str:

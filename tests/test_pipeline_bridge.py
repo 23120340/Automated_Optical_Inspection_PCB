@@ -17,6 +17,7 @@ from app.pipeline_bridge import (
     DetectionRecord,
     DetectionResult,
     PipelineBridge,
+    SolderResult,
     StageResult,
 )
 
@@ -317,3 +318,69 @@ def test_pt_model_requires_explicit_ui_trust(monkeypatch: pytest.MonkeyPatch) ->
     assert ui._pt_model_blocked()
     state.pt_model_trusted = True
     assert not ui._pt_model_blocked()
+
+
+def _solder_bridge(engine) -> PipelineBridge:
+    bridge = PipelineBridge.__new__(PipelineBridge)
+    bridge.config = {"solder": {"enabled": True}}
+    bridge.engine = engine
+    return bridge
+
+
+def test_bridge_reports_missing_solder_stage_instead_of_faking_rois() -> None:
+    """A naive box-padding substitute would look right while placing the ROIs
+    in the wrong place, so the bridge refuses to improvise one."""
+
+    bridge = _solder_bridge(SimpleNamespace())
+    result = bridge.make_solder_crops(np.zeros((40, 40, 3), dtype=np.uint8), [])
+    assert isinstance(result, SolderResult)
+    assert result.mode == "UNAVAILABLE"
+    assert result.crops == []
+
+
+def test_bridge_passes_through_core_solder_rois() -> None:
+    from aoi_pipeline.models import SolderJoint
+
+    joint = SolderJoint(
+        detection_id="det_0001",
+        joint_id="det_0001_joint00",
+        label="resistor",
+        kind="joint",
+        bbox=BoundingBox(4, 4, 20, 18),
+        terminal_geometry="two_terminal",
+        position="terminal_a",
+        metadata={"detector_confidence": 0.87},
+    )
+    core_crop = np.full((13, 19, 3), 42, dtype=np.uint8)
+    raw = SimpleNamespace(image=core_crop, joint=joint)
+    bridge = _solder_bridge(
+        SimpleNamespace(make_solder_crops=lambda image, detections, output_dir=None: [raw])
+    )
+    detection = Detection("resistor", 0.87, BoundingBox(6, 6, 18, 16))
+    record = DetectionRecord(
+        detection_id="det_0001",
+        label="resistor",
+        confidence=0.87,
+        bbox=(6, 6, 18, 16),
+        source="model",
+        raw=detection,
+    )
+    result = bridge.make_solder_crops(np.zeros((40, 40, 3), dtype=np.uint8), [record])
+    assert result.mode == "MODEL"
+    assert result.metrics["joints"] == 1
+    assert len(result.crops) == 1
+    crop = result.crops[0]
+    assert crop.image is core_crop
+    assert crop.bbox == (4, 4, 20, 18)
+    assert crop.label == "resistor"
+    assert crop.position == "terminal_a"
+    assert crop.confidence == pytest.approx(0.87)
+
+
+def test_bridge_surfaces_a_solder_stage_failure() -> None:
+    def boom(image, detections, output_dir=None):
+        raise ValueError("bad geometry")
+
+    bridge = _solder_bridge(SimpleNamespace(make_solder_crops=boom))
+    with pytest.raises(RuntimeError, match="solder ROI"):
+        bridge.make_solder_crops(np.zeros((40, 40, 3), dtype=np.uint8), [])

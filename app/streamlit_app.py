@@ -41,6 +41,8 @@ from app.pipeline_bridge import (  # noqa: E402
     DetectionRecord,
     DetectionResult,
     PipelineBridge,
+    SolderCropRecord,
+    SolderResult,
     StageResult,
 )
 
@@ -134,13 +136,24 @@ def _default_config() -> dict[str, Any]:
             "cross_class_iou": 0.70,
             "show_tile_grid": False,
         },
+        # Mirrors the step-6.1 training crop recipe: pad = 0.15 * max(w, h),
+        # no squaring, letterbox to 224. A fixed pixel padding is not a
+        # substitute -- 6 px around an 0603 chip is effectively no padding.
         "crops": {
-            "padding": 6,
-            "padding_ratio": 0.0,
+            "padding": 0,
+            "padding_ratio": 0.15,
             "square": False,
             "normalize": True,
             "target_size": 224,
             "image_format": "png",
+        },
+        "solder": {
+            "enabled": True,
+            "split_pins": False,
+            "include_body_view": True,
+            "target_size": 128,
+            "terminal_outer_ratio": 0.45,
+            "lead_outer_ratio": 0.26,
         },
         "classification": {
             "batch_size": 32,
@@ -184,6 +197,7 @@ def _init_state() -> None:
         "board_result": None,
         "detection_result": None,
         "crops": [],
+        "solder_result": None,
         "classification_result": None,
         "statuses": {step: "pending" for step in range(7)},
         "latencies": {},
@@ -305,6 +319,9 @@ def _invalidate_after(step: int) -> None:
     }
     for candidate in range(step + 1, 7):
         st.session_state[result_keys[candidate]] = [] if candidate == 5 else None
+        if candidate == 5:
+            # Step 5.5 shares step 5's inputs, so it expires with the crops.
+            st.session_state.solder_result = None
         st.session_state.statuses[candidate] = "pending"
         st.session_state.latencies.pop(candidate, None)
 
@@ -722,7 +739,35 @@ def _execute_crops(bridge: PipelineBridge) -> list[CropRecord]:
     st.session_state.statuses[5] = "demo" if "DEMO" in detection_result.mode.upper() else "done"
     st.session_state.latencies[5] = round(elapsed_ms, 2)
     st.session_state.messages.append(f"Bước 5: tạo {len(crops)} crop.")
+    _execute_solder(bridge)
     return crops
+
+
+def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
+    """Step 5.5: derive the solder-joint ROIs that step 6.2 needs.
+
+    Failure here must not invalidate the component crops, which are the input
+    to step 6.1; it is reported and the run continues.
+    """
+
+    source = _analysis_image()
+    detection_result = st.session_state.detection_result
+    if source is None or not isinstance(detection_result, DetectionResult):
+        return None
+    if not st.session_state.config.get("solder", {}).get("enabled", True):
+        st.session_state.solder_result = None
+        return None
+    try:
+        result = bridge.make_solder_crops(source, detection_result.detections)
+    except Exception as exc:
+        st.session_state.solder_result = None
+        st.session_state.messages.append(
+            f"Bước 5.5 lỗi: {type(exc).__name__}: {exc}"
+        )
+        return None
+    st.session_state.solder_result = result
+    st.session_state.messages.append(f"Bước 5.5: {result.message}")
+    return result
 
 
 def _execute_classification(bridge: PipelineBridge) -> ClassificationResult:
@@ -1652,7 +1697,9 @@ def _render_step_five() -> None:
                 st.rerun()
             _render_empty("Chưa có crop", "Nhấn Tạo crop để cắt các detection hiện tại.")
         else:
-            gallery_tab, export_tab = st.tabs(["Crop gallery", "Export package"])
+            gallery_tab, solder_tab, export_tab = st.tabs(
+                ["Crop gallery", "ROI mối hàn (6.2)", "Export package"]
+            )
             with gallery_tab:
                 search = st.text_input("Lọc theo class/id", placeholder="resistor, det_0001…")
                 filtered = [
@@ -1668,8 +1715,205 @@ def _render_step_five() -> None:
                             _show_image(crop.image)
                             confidence = "—" if crop.confidence is None else f"{crop.confidence:.2f}"
                             st.caption(f"**{crop.label}** · {crop.crop_id}\n\nconf {confidence}")
+            with solder_tab:
+                _render_solder_rois()
             with export_tab:
                 _render_exports()
+
+
+SOLDER_ROI_COLORS = {
+    "joint": (0, 200, 255),  # BGR amber
+    "body": (255, 170, 0),   # BGR blue
+}
+
+SOLDER_MIN_READABLE_PX = 24
+
+
+def _draw_solder_overlay(
+    image: np.ndarray, crops: list[SolderCropRecord], show_body: bool
+) -> np.ndarray:
+    overlay = image.copy()
+    for crop in crops:
+        if crop.kind == "body" and not show_body:
+            continue
+        x1, y1, x2, y2 = crop.bbox
+        color = SOLDER_ROI_COLORS.get(crop.kind, (200, 200, 200))
+        thickness = 1 if crop.kind == "body" else 2
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, thickness)
+    return overlay
+
+
+def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "joint_id": crop.joint_id,
+                "detection_id": crop.detection_id,
+                "component_label": crop.label,
+                "kind": crop.kind,
+                "position": crop.position,
+                "pin_index": crop.pin_index,
+                "terminal_geometry": crop.terminal_geometry,
+                "x1": crop.bbox[0],
+                "y1": crop.bbox[1],
+                "x2": crop.bbox[2],
+                "y2": crop.bbox[3],
+                "roi_width_px": crop.bbox[2] - crop.bbox[0],
+                "roi_height_px": crop.bbox[3] - crop.bbox[1],
+                "detector_confidence": crop.confidence,
+                "defect_class": "",
+            }
+            for crop in crops
+        ]
+    )
+
+
+def _render_solder_settings() -> None:
+    """Controls for step 5.5. The bridge is cached on the config JSON, so
+    writing the new values is enough to rebuild the engine on the next call."""
+
+    config = st.session_state.config.setdefault("solder", {})
+    st.markdown("#### ROI mối hàn")
+    st.caption(
+        "Box của detector chỉ ôm thân linh kiện. Các ROI dưới đây được suy ra từ "
+        "box cộng topology chân của class, không phải do detector tìm ra."
+    )
+    with st.form("solder_form"):
+        enabled = st.checkbox("Bật bước 5.5", value=bool(config.get("enabled", True)))
+        split_pins = st.checkbox(
+            "Tách từng chân (IC/connector)",
+            value=bool(config.get("split_pins", False)),
+            help=(
+                "Tắt thì mỗi cạnh là một ROI dải. Lỗi bridge nằm giữa hai chân nên "
+                "ROI dải thường là đơn vị kiểm tra tốt hơn."
+            ),
+        )
+        include_body = st.checkbox(
+            "Kèm ảnh toàn linh kiện + chân",
+            value=bool(config.get("include_body_view", True)),
+        )
+        terminal_outer = st.slider(
+            "Nới đầu trục dài (nhân cạnh dài)",
+            0.10,
+            0.80,
+            float(config.get("terminal_outer_ratio", 0.45)),
+            0.05,
+            help="Tăng nếu ROI chưa với tới hết pad của điện trở/tụ.",
+        )
+        lead_outer = st.slider(
+            "Nới cạnh nhiều chân (nhân cạnh ngắn)",
+            0.10,
+            0.60,
+            float(config.get("lead_outer_ratio", 0.26)),
+            0.02,
+        )
+        current_size = int(config.get("target_size", 128))
+        size_options = [64, 96, 128, 160, 224]
+        size_index = (
+            size_options.index(current_size) if current_size in size_options else 2
+        )
+        joint_size = st.selectbox("Kích thước crop", size_options, index=size_index)
+        submitted = st.form_submit_button(
+            "Tạo lại ROI", type="primary", width="stretch"
+        )
+    if submitted:
+        config.update(
+            {
+                "enabled": enabled,
+                "split_pins": split_pins,
+                "include_body_view": include_body,
+                "terminal_outer_ratio": terminal_outer,
+                "lead_outer_ratio": lead_outer,
+                "target_size": joint_size,
+            }
+        )
+        _execute_solder(_get_bridge())
+        st.rerun()
+
+
+def _render_solder_rois() -> None:
+    """Step 5.5 view: the ROIs that make solder joints visible for step 6.2.
+
+    The detector box stops at the component body, so these ROIs are derived
+    from that box plus the class terminal topology rather than detected.
+    """
+
+    source = _analysis_image()
+    settings, content = st.columns([0.75, 2.25], gap="large")
+    with settings:
+        _render_solder_settings()
+
+    result = st.session_state.solder_result
+    with content:
+        if not isinstance(result, SolderResult):
+            _render_empty(
+                "Chưa có ROI mối hàn",
+                "Chạy lại bước 5 hoặc bấm Tạo lại ROI để sinh vùng kiểm tra mối hàn.",
+            )
+            return
+        if result.mode == "UNAVAILABLE" or not result.crops:
+            _render_empty("Chưa sinh được ROI", result.message)
+            return
+
+        joints = [crop for crop in result.crops if crop.kind == "joint"]
+        bodies = [crop for crop in result.crops if crop.kind == "body"]
+        metric_a, metric_b, metric_c = st.columns(3)
+        metric_a.metric("ROI mối hàn", len(joints))
+        metric_b.metric("Ảnh linh kiện kèm chân", len(bodies))
+        smallest = min(
+            (
+                min(crop.bbox[2] - crop.bbox[0], crop.bbox[3] - crop.bbox[1])
+                for crop in joints
+            ),
+            default=0,
+        )
+        metric_c.metric("ROI nhỏ nhất (px)", smallest)
+        if joints and smallest < SOLDER_MIN_READABLE_PX:
+            st.warning(
+                f"ROI nhỏ nhất chỉ {smallest} px ở cạnh ngắn. Ở kích thước đó không "
+                "đọc được hình dạng fillet; cần chụp độ phân giải cao hơn hoặc thu "
+                "hẹp trường nhìn trước khi gán nhãn 6.2."
+            )
+
+        overlay_tab, gallery_tab, table_tab = st.tabs(
+            ["ROI overlay", "Joint gallery", "Bảng nhãn 6.2"]
+        )
+        with overlay_tab:
+            if source is None:
+                _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
+            else:
+                show_body = st.checkbox("Hiện khung toàn linh kiện", value=True)
+                _show_image(
+                    _draw_solder_overlay(source, result.crops, show_body),
+                    "Vàng: ROI mối hàn - Xanh: linh kiện kèm chân",
+                )
+        with gallery_tab:
+            kind = st.radio("Loại ROI", ["Mối hàn", "Linh kiện kèm chân"], horizontal=True)
+            selected = joints if kind == "Mối hàn" else bodies
+            st.caption(
+                f"Hiển thị {min(len(selected), 60)}/{len(selected)} ROI "
+                "(giới hạn 60 để UI mượt)."
+            )
+            for offset in range(0, min(len(selected), 60), 6):
+                columns = st.columns(6)
+                for column, crop in zip(columns, selected[offset : offset + 6]):
+                    with column:
+                        _show_image(crop.image)
+                        st.caption(f"**{crop.label}**\n\n{crop.position}")
+        with table_tab:
+            frame = _solder_frame(result.crops)
+            st.dataframe(frame, width="stretch", height=320)
+            st.caption(
+                "Cột defect_class để trống chính là chỗ gán nhãn cho bước 6.2. "
+                "Hình học đã giải quyết xong nên gán nhãn chỉ còn là phán quyết "
+                "theo từng dòng."
+            )
+            st.download_button(
+                "Tải solder_joints.csv",
+                frame.to_csv(index=False).encode("utf-8-sig"),
+                file_name="solder_joints.csv",
+                mime="text/csv",
+            )
 
 
 def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:

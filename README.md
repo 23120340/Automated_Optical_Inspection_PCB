@@ -9,6 +9,7 @@
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
    → 5. Crop và xuất dữ liệu linh kiện
+   → 5.5. Suy ra ROI mối hàn (dữ liệu cho 6.2)
    → 6.1. Phân loại family (accept/review/unknown)
 ```
 
@@ -148,6 +149,77 @@ Với camera nhiều khung sau này, mỗi frame dùng chính contract `frame_id
 frame-local này: undistort, detect từng frame, chiếu box qua homography sang hệ PCB
 chung rồi global merge. Panorama chỉ cần cho hiển thị, không phải đầu vào detector.
 
+## Bước 5.5 — ROI mối hàn cho bước 6.2
+
+Detector ở bước 4 được train trên dataset gán nhãn **thân linh kiện**. Fillet
+mối hàn nằm *ngoài* silhouette đó, nên không có box nào của detector — và không
+có lần train lại nào trên cùng bộ nhãn — chứa được mối hàn. Đi bắt detector tìm
+thẳng mối hàn cũng không phải lựa chọn: model hiện tại đạt recall **0.0** cho
+class `pads` trên cả val lẫn test (186 instance train), và 0.14/0.21 cho `pins`.
+
+Vì vậy ROI mối hàn được **suy ra** chứ không phải detect. Từ box cộng với
+topology chân của class, vị trí mọi mối hàn là bài toán hình học — đúng cách các
+hệ AOI cửa sổ vẫn đặt vùng kiểm tra:
+
+| Topology | Class | ROI sinh ra |
+|---|---|---|
+| `two_terminal` | resistor, capacitor, diode, led, inductor, fuse | 2 ROI ở hai đầu trục dài |
+| `multi_pin` | ic, connector, transistor, relay, switch… và mọi class chưa biết | 1 ROI dải cho mỗi cạnh có chân |
+| `pad_only` | pads | chính box đó, nới nhẹ |
+
+Mỗi linh kiện còn có thêm một ảnh `body` gồm thân **và** toàn bộ chân — đây là
+view "nhìn thấy cả mối hàn" mà box gốc không cho.
+
+Với board `multi_pin`, cạnh nào không có kim loại chân sẽ bị loại bằng năng
+lượng Laplacian tương đối giữa 4 cạnh của cùng linh kiện, nên SOIC chỉ còn hai
+dải trái/phải thay vì bốn. Nếu không truyền ảnh vào, bộ lọc bị bỏ qua và cả 4
+cạnh được giữ: loại bỏ một cạnh khi không có bằng chứng sẽ làm mất mối hàn mà
+không báo.
+
+Tùy chọn `split_pins` cắt mỗi dải thành một ROI cho từng chân, dùng profile 1-D
+đã khử nền. Mặc định **tắt**, vì lỗi bridge nằm giữa hai chân nên ROI dải thường
+là đơn vị kiểm tra tốt hơn. Khi bật, dải nào không đọc được hàng chân đáng tin
+(số chân hoặc pitch bất thường) sẽ giữ nguyên là một dải thay vì bịa ra chân.
+
+### Sinh dataset cho bước 6.2
+
+```powershell
+.\.venv\Scripts\python.exe scripts\export_solder_dataset.py D:\anh_board `
+  --output D:\datasets\solder_v1 `
+  --model models\detector\best.onnx `
+  --overlays
+```
+
+Kết quả là `crops/` phẳng cộng `solder_dataset.csv` có cột `defect_class` bỏ
+trống. Hình học đã giải quyết xong, nên gán nhãn chỉ còn là phán quyết theo từng
+dòng chứ không phải đi khoanh box lại. Script cảnh báo nếu ROI quá nhỏ để chấm
+được fillet. Trong app, bước 5 có tab **ROI mối hàn (6.2)** để xem overlay,
+gallery và tải cùng bảng nhãn đó.
+
+### Hai điều kiện vật lý quyết định bước 6.2
+
+Trước khi gán nhãn cả lô, hãy xem `overlays/` và một mẫu `crops/`:
+
+- **Ánh sáng.** AOI soi mối hàn thật dùng đèn vòng RGB đa góc để độ dốc fillet
+  được mã hóa thành màu. Với đèn trắng phẳng hoặc coaxial, mối hàn tốt và cold
+  joint gần như giống hệt nhau, và không model nào sửa được điều đó.
+- **Độ phân giải.** Fillet cần cỡ 10–15 px ngang mới đọc được hình dạng. Với
+  linh kiện 0402 tức khoảng 15–25 µm/px, tức board 100 mm cần ảnh cỡ 5000–6000
+  px chiều ngang. Gate import hiện tại là 1280×960, thấp hơn nhiều bậc so với
+  yêu cầu đó.
+
+Nếu có Gerber/CAD hoặc file pick-and-place thì chiếu thẳng tọa độ land qua
+homography ở bước 2 sẽ chính xác hơn hẳn cách suy ra từ bounding box; bước 5.5
+là phương án cho board không có dữ liệu CAD.
+
+### Crop bước 5 vẫn giữ nguyên hợp đồng với 6.1
+
+Bước 5.5 có ROI riêng đúng để không phải nới crop của bước 5. Classifier 6.1
+được train với `pad = 0.15 × max(w, h)`, cắt theo biên ảnh, **không** ép vuông;
+`CropConfig` và config UI nay khớp đúng công thức đó. `CropConfig.solder_aware_padding`
+cho phép chuyển sang padding theo trục/theo class, nhưng mặc định tắt vì nó làm
+lệch phân bố đầu vào của classifier.
+
 ## Trạng thái bước 6.1
 
 Khung phân loại đã có trong pipeline và Streamlit. Khi chưa có classifier, bước
@@ -176,17 +248,22 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
 ```text
 app/                 Streamlit UI và bridge
-aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.1
+aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.1 (kèm 5.5 ROI mối hàn)
 tests/               Unit tests
 training/kaggle/     Notebook train detector bước 4 và classifier bước 6.1
 models/              Nơi đặt model local (weights không commit Git)
 Docs/                Khảo sát dataset và kế hoạch pre-train 6.1
-scripts/             Setup/chạy app trên Windows
+scripts/             Setup/chạy app, calibrate camera, export dataset 6.2
 ```
 
 ## Giới hạn hiện tại
 
 - Khoanh PCB ở bước 3 đang dùng contour fallback, chưa có PCB detector riêng.
+- ROI bước 5.5 suy ra từ box nên chỉ đúng khi class của detector đúng; class sai
+  kéo theo topology chân sai. Có CAD thì nên chiếu land qua homography.
+- Ước lượng góc xoay linh kiện (`estimate_orientation`) mặc định tắt: góc sai làm
+  lệch mọi ROI suy ra từ nó, đắt hơn là để ROI axis-aligned hơi rộng.
+- Chưa có model bước 6.2; bước 5.5 chỉ tạo ROI và bảng nhãn, không chấm mối hàn.
 - CV proposal ở bước 4 không thay thế model đã train.
 - Baseline dùng `max_det=2000` cho board dày linh kiện; cần tune lại theo SKU/tốc độ.
 - Adaptive tiling tăng recall cho linh kiện nhỏ nhưng tăng thời gian gần tỷ lệ với

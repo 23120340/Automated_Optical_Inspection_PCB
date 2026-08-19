@@ -23,9 +23,12 @@ from .config import (
     CropConfig,
     CVDetectorConfig,
     ModelDetectorConfig,
+    PadProfile,
     PipelineConfig,
     PreprocessConfig,
+    SolderJointConfig,
     TilingConfig,
+    terminal_geometry,
 )
 from .cropping import ComponentCropper
 from .detectors import (
@@ -46,7 +49,7 @@ from .exceptions import (
     InvalidImageError,
     ModelDependencyError,
 )
-from .exporters import export_json, export_zip, render_annotations
+from .exporters import export_json, export_zip, render_annotations, solder_joints_csv
 from .image_io import encode_image, ensure_bgr, load_image
 from .models import (
     AlignmentResult,
@@ -58,9 +61,18 @@ from .models import (
     Detection,
     PipelineRun,
     PreprocessResult,
+    SolderJoint,
+    SolderJointCrop,
 )
 from .pipeline import AOIPipeline
 from .preprocessing import ImagePreprocessor
+from .solder import (
+    SolderJointCropper,
+    derive_solder_joints,
+    estimate_component_angle,
+    letterbox_normalize,
+    render_solder_overlay,
+)
 from .tiling import (
     InferenceTile,
     TiledDetectionBatch,
@@ -106,10 +118,15 @@ __all__ = [
     "ONNXComponentClassifier",
     "PCBAligner",
     "PCBLocalizer",
+    "PadProfile",
     "PipelineConfig",
     "PipelineRun",
     "PreprocessConfig",
     "PreprocessResult",
+    "SolderJoint",
+    "SolderJointConfig",
+    "SolderJointCrop",
+    "SolderJointCropper",
     "TiledDetectionBatch",
     "TilingConfig",
     "UltralyticsDetector",
@@ -117,17 +134,23 @@ __all__ = [
     "calibrate_from_chessboards",
     "create_detector",
     "create_classifier",
+    "derive_solder_joints",
     "detect_with_adaptive_tiling",
     "encode_image",
     "ensure_bgr",
+    "estimate_component_angle",
     "export_json",
     "export_zip",
+    "letterbox_normalize",
     "load_image",
     "merge_tiled_detections",
     "non_maximum_suppression",
     "plan_inference_tiles",
     "render_annotations",
+    "render_solder_overlay",
     "save_calibration_profile",
+    "solder_joints_csv",
+    "terminal_geometry",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

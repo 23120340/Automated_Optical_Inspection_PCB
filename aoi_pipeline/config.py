@@ -7,6 +7,57 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 
+@dataclass(frozen=True, slots=True)
+class PadProfile:
+    """Outward crop margin expressed as a fraction of the box side it extends.
+
+    ``long_axis`` is applied at both ends of the longer box side and
+    ``short_axis`` at both ends of the shorter side. Solder fillets sit outside
+    the labelled component body, so a two-lead chip needs a much larger margin
+    along its long axis (where the terminals are) than across it.
+    """
+
+    long_axis: float
+    short_axis: float
+
+
+# Terminal topology per detector class. It decides where the solder joints of a
+# component are, which no bounding box alone can express.
+#
+# ``two_terminal``  joints at both ends of the long axis (chip/axial parts)
+# ``multi_pin``     leads along the box edges (ICs, connectors, TO packages)
+# ``pad_only``      the detection already is the joint/land
+TWO_TERMINAL_CLASSES: frozenset[str] = frozenset(
+    {"capacitor", "resistor", "diode", "led", "inductor", "fuse"}
+)
+PAD_ONLY_CLASSES: frozenset[str] = frozenset({"pads"})
+# Everything else — ic, connector, transistor, relay, switch, display, clock,
+# buzzer, battery, potentiometer, button, transformer, transducer, heatsink,
+# pins — is treated as multi-pin. Defaulting unknown labels to the perimeter
+# policy keeps recall: a wrong-but-present ROI can be reviewed, a missing one
+# cannot.
+DEFAULT_TERMINAL_GEOMETRY = "multi_pin"
+
+
+def terminal_geometry(label: str) -> str:
+    """Map a detector class name to its terminal topology."""
+
+    normalized = str(label).strip().lower()
+    if normalized in TWO_TERMINAL_CLASSES:
+        return "two_terminal"
+    if normalized in PAD_ONLY_CLASSES:
+        return "pad_only"
+    return DEFAULT_TERMINAL_GEOMETRY
+
+
+def _default_pad_profiles() -> dict[str, PadProfile]:
+    return {
+        "two_terminal": PadProfile(long_axis=0.35, short_axis=0.22),
+        "multi_pin": PadProfile(long_axis=0.20, short_axis=0.20),
+        "pad_only": PadProfile(long_axis=0.10, short_axis=0.10),
+    }
+
+
 @dataclass(slots=True)
 class PreprocessConfig:
     """Image enhancement options used by step 1.
@@ -133,12 +184,82 @@ class TilingConfig:
 
 @dataclass(slots=True)
 class CropConfig:
-    """Crop and normalization options used by step 5."""
+    """Crop and normalization options used by step 5.
 
-    padding_ratio: float = 0.12
-    padding_pixels: int = 2
-    square: bool = True
+    These crops feed the step-6.1 family classifier, whose accuracy depends on
+    matching the padding it was trained with. Keep ``solder_aware_padding``
+    off unless the classifier is retrained on the wider recipe; solder-joint
+    inspection has its own ROIs in :class:`SolderJointConfig` precisely so this
+    contract does not have to move.
+    """
+
+    # These three mirror the step-6.1 training notebook exactly
+    # (``pad = 0.15 * max(w, h)``, clipped, no squaring). Changing them shifts
+    # the classifier's input distribution away from what it was fitted on.
+    padding_ratio: float = 0.15
+    padding_pixels: int = 0
+    square: bool = False
+    # Per-axis, per-topology margins. Off by default for the same reason.
+    solder_aware_padding: bool = False
+    pad_profiles: dict[str, PadProfile] = field(default_factory=_default_pad_profiles)
     target_size: tuple[int, int] | None = (224, 224)
+    letterbox_color: tuple[int, int, int] = (114, 114, 114)
+    image_extension: Literal[".png", ".jpg"] = ".png"
+    jpeg_quality: int = 95
+
+
+@dataclass(slots=True)
+class SolderJointConfig:
+    """Step 5.5: derive solder-joint ROIs from component boxes.
+
+    The component detector is trained on datasets that label component bodies,
+    so its boxes never contain the fillet. Rather than asking a detector to
+    find joints — the current model scores ``pads`` at 0.0 recall — the joints
+    are *derived* geometrically from the box plus the class topology, which is
+    how window-based AOI has always placed its inspection ROIs.
+    """
+
+    enabled: bool = True
+
+    # --- two-terminal geometry, as fractions of the box sides ---------------
+    # ``inner`` reaches back over the terminal cap on the body, ``outer``
+    # reaches past the body onto the land/fillet, ``side`` widens across the
+    # short axis so a slightly rotated part is still covered.
+    terminal_inner_ratio: float = 0.30
+    terminal_outer_ratio: float = 0.45
+    terminal_side_ratio: float = 0.20
+
+    # --- multi-pin geometry, as fractions of the shorter box side -----------
+    lead_inner_ratio: float = 0.14
+    lead_outer_ratio: float = 0.26
+    # A perimeter band with no lead metal in it is dropped. ``None`` disables
+    # the check and keeps all four bands.
+    lead_band_energy_ratio: float | None = 0.35
+    # Bridges span two adjacent pins, so a band ROI is often the better
+    # inspection unit than a single pin. Per-pin splitting is opt-in.
+    split_pins: bool = False
+    # Grow each pin ROI along the band by this fraction of the lead pitch so
+    # the gap to the neighbour is inside the crop; a bridge lives in that gap.
+    pin_padding_ratio: float = 0.35
+    min_pins_per_band: int = 3
+    max_pins_per_band: int = 64
+
+    # --- pad-only geometry --------------------------------------------------
+    pad_margin_ratio: float = 0.15
+
+    # --- shared -------------------------------------------------------------
+    min_roi_pixels: int = 6
+    # Also emit one ROI per component covering body + every joint. This is the
+    # "see the leads too" view; it is not a joint sample by itself.
+    include_body_view: bool = True
+    # Experimental: recover the true component axis with ``cv2.minAreaRect`` on
+    # the box interior so a rotated part gets rotated ROIs. Off by default —
+    # an unreliable angle silently mis-places every ROI, which is worse than a
+    # slightly loose axis-aligned one.
+    estimate_orientation: bool = False
+    orientation_max_angle: float = 30.0
+
+    target_size: tuple[int, int] | None = (128, 128)
     letterbox_color: tuple[int, int, int] = (114, 114, 114)
     image_extension: Literal[".png", ".jpg"] = ".png"
     jpeg_quality: int = 95
@@ -171,6 +292,7 @@ class PipelineConfig:
     model_detector: ModelDetectorConfig = field(default_factory=ModelDetectorConfig)
     tiling: TilingConfig = field(default_factory=TilingConfig)
     crop: CropConfig = field(default_factory=CropConfig)
+    solder: SolderJointConfig = field(default_factory=SolderJointConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     detector_mode: Literal["auto", "cv"] = "auto"
 
@@ -196,6 +318,7 @@ class PipelineConfig:
         model_values = _section(values, "model_detector", "model")
         tiling_values = _section(values, "tiling")
         crop_values = _section(values, "crops", "crop")
+        solder_values = _section(values, "solder", "solder_joints")
         classification_values = _section(values, "classification", "classifier")
 
         _assign_known(
@@ -291,6 +414,15 @@ class PipelineConfig:
             config.crop.target_size = (side, side) if side > 0 else None
         if crop_values.get("normalize") is False:
             config.crop.target_size = None
+        _assign_known(
+            config.solder,
+            solder_values,
+            aliases={"joint_size": "target_size", "pins": "split_pins"},
+        )
+        solder_target = solder_values.get("target_size")
+        if isinstance(solder_target, (int, float)):
+            side = int(solder_target)
+            config.solder.target_size = (side, side) if side > 0 else None
         _assign_known(config.classification, classification_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:

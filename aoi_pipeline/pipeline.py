@@ -32,9 +32,11 @@ from .models import (
     Detection,
     PipelineRun,
     PreprocessResult,
+    SolderJointCrop,
     utc_now_iso,
 )
 from .preprocessing import ImagePreprocessor
+from .solder import SolderJointCropper
 from .tiling import detect_with_adaptive_tiling
 
 
@@ -72,6 +74,7 @@ class AOIPipeline:
         )
         self.last_detection_metrics: dict[str, object] = {}
         self.cropper = ComponentCropper(self.config.crop)
+        self.solder_cropper = SolderJointCropper(self.config.solder)
         if classifier is not None and (
             classifier_model_path is not None or classifier_manifest_path is not None
         ):
@@ -233,6 +236,22 @@ class AOIPipeline:
 
         return self.cropper.extract(image, detections, output_dir)
 
+    def make_solder_crops(
+        self,
+        image: np.ndarray,
+        detections: Sequence[Detection],
+        output_dir: str | Path | None = None,
+    ) -> list[SolderJointCrop]:
+        """Step 5.5: derive solder-joint ROIs and cut them out.
+
+        Kept separate from :meth:`make_crops` on purpose. Step 6.1 was trained
+        on body-tight crops, so widening those to reveal the fillet would shift
+        the classifier's input distribution; joint inspection gets its own ROIs
+        instead.
+        """
+
+        return self.solder_cropper.extract(image, detections, output_dir)
+
     def classify_components(
         self, crops: Sequence[ComponentCrop]
     ) -> list[ComponentClassification]:
@@ -248,6 +267,7 @@ class AOIPipeline:
         reference: ImageSource | None = None,
         source_name: str | None = None,
         crop_dir: str | Path | None = None,
+        solder_crop_dir: str | Path | None = None,
     ) -> PipelineRun:
         """Execute steps 0-6.1 and retain all artifacts for the local UI/export."""
 
@@ -264,6 +284,7 @@ class AOIPipeline:
         board = self.detect_board(aligned.image)
         detections = self.detect_components(aligned.image, board)
         crops = self.make_crops(aligned.image, detections, crop_dir)
+        solder_crops = self.make_solder_crops(aligned.image, detections, solder_crop_dir)
         classifications = self.classify_components(crops)
 
         warnings = list(preprocessed.warnings)
@@ -279,6 +300,11 @@ class AOIPipeline:
             warnings.append(
                 "Step 6.1 was not run because best.onnx and model_manifest.json were not configured."
             )
+        if self.config.solder.enabled and detections and not solder_crops:
+            warnings.append(
+                "Step 5.5 derived no solder ROI; check that detections are larger "
+                "than the minimum ROI size."
+            )
 
         return PipelineRun(
             source_name=inferred_name,
@@ -288,6 +314,7 @@ class AOIPipeline:
             board_region=board,
             detections=detections,
             crops=crops,
+            solder_crops=solder_crops,
             classifications=classifications,
             started_at=started_at,
             finished_at=utc_now_iso(),

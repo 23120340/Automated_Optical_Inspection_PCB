@@ -75,6 +75,28 @@ class CropRecord:
 
 
 @dataclass
+class SolderCropRecord:
+    """One derived solder-joint ROI, ready to show or label for step 6.2."""
+
+    joint_id: str
+    detection_id: str
+    label: str
+    kind: str
+    position: str
+    terminal_geometry: str
+    image: np.ndarray
+    bbox: tuple[int, int, int, int]
+    confidence: float | None
+    pin_index: int | None = None
+    raw: Any = None
+
+
+@dataclass
+class SolderResult(StageResult):
+    crops: list[SolderCropRecord] = field(default_factory=list)
+
+
+@dataclass
 class ClassificationRecord:
     crop_id: str
     detection_id: str
@@ -573,6 +595,87 @@ class PipelineBridge:
                 )
             )
         return crops
+
+    def make_solder_crops(
+        self,
+        image: np.ndarray,
+        detections: Sequence[DetectionRecord],
+        output_dir: str | None = None,
+        **kwargs: Any,
+    ) -> SolderResult:
+        """Derive step-5.5 solder ROIs through the core pipeline.
+
+        There is deliberately no UI fallback here: the value of this stage is
+        the class-aware terminal geometry, and a naive box-padding substitute
+        would look like it worked while placing the ROIs in the wrong place.
+        """
+
+        started = time.perf_counter()
+        if self.engine is None or not hasattr(self.engine, "make_solder_crops"):
+            return SolderResult(
+                image=image,
+                mode="UNAVAILABLE",
+                message=(
+                    "Pipeline hiện tại chưa có bước 5.5; cập nhật aoi_pipeline để "
+                    "sinh ROI mối hàn."
+                ),
+            )
+        raw_detections = [item.raw if item.raw is not None else item for item in detections]
+        try:
+            raw_crops = _call_supported(
+                self.engine.make_solder_crops,
+                image,
+                raw_detections,
+                output_dir=output_dir,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"AOIPipeline solder ROI thất bại: {type(exc).__name__}: {exc}"
+            ) from exc
+        if not isinstance(raw_crops, Sequence):
+            raise RuntimeError("AOIPipeline.make_solder_crops phải trả về một sequence")
+
+        records: list[SolderCropRecord] = []
+        for index, raw_crop in enumerate(raw_crops):
+            crop_image = _extract_image(raw_crop, ("image", "crop", "output"))
+            joint = _attr(raw_crop, ("joint",), None)
+            if crop_image is None or joint is None:
+                continue
+            confidence = None
+            metadata = getattr(joint, "metadata", None)
+            if isinstance(metadata, dict) and "detector_confidence" in metadata:
+                confidence = float(metadata["detector_confidence"])
+            records.append(
+                SolderCropRecord(
+                    joint_id=str(getattr(joint, "joint_id", f"joint_{index:05d}")),
+                    detection_id=str(getattr(joint, "detection_id", "")),
+                    label=str(getattr(joint, "label", "component")),
+                    kind=str(getattr(joint, "kind", "joint")),
+                    position=str(getattr(joint, "position", "")),
+                    terminal_geometry=str(getattr(joint, "terminal_geometry", "")),
+                    image=crop_image,
+                    bbox=_extract_bbox(joint, image.shape),
+                    confidence=confidence,
+                    pin_index=getattr(joint, "pin_index", None),
+                    raw=raw_crop,
+                )
+            )
+        joints = sum(1 for item in records if item.kind == "joint")
+        return SolderResult(
+            image=image,
+            mode="MODEL",
+            message=(
+                f"Đã sinh {joints} ROI mối hàn từ {len(detections)} detection."
+                if joints
+                else "Không sinh được ROI mối hàn nào từ detection hiện tại."
+            ),
+            metrics={
+                "elapsed_ms": _elapsed_ms(started),
+                "joints": joints,
+                "total_rois": len(records),
+            },
+            crops=records,
+        )
 
     def classify_components(
         self,
