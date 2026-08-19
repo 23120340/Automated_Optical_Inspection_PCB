@@ -1370,11 +1370,24 @@ def _render_step_one() -> None:
         _render_empty("Thiếu ảnh đầu vào", "Quay lại bước 0 và import một ảnh PCB.")
         return
     config = st.session_state.config["preprocess"]
+    has_calibration = isinstance(config.get("calibration_profile"), dict)
+    if not has_calibration:
+        # A disabled checkbox with only a tooltip reads like a broken feature.
+        # It is not: undistort needs a profile measured from the real camera,
+        # and there is no honest default for that.
+        st.info(
+            "**Sửa méo ống kính đang tắt vì chưa có profile hiệu chỉnh** — đây là "
+            "trạng thái bình thường, không phải lỗi. Mọi tuỳ chọn còn lại của bước 1 "
+            "vẫn dùng được.\n\n"
+            "Để bật: chụp 15–25 ảnh bàn cờ bằng **đúng** camera/lens/tiêu cự sẽ dùng "
+            "cho AOI, chạy `scripts/calibrate_camera.py` để tạo file `.json`, rồi tải "
+            "file đó ở sidebar **Camera calibration**. Xem mục *Hiệu chỉnh méo ống "
+            "kính camera* trong README."
+        )
     control_col, preview_col = st.columns([0.85, 2.15], gap="large")
     with control_col:
         st.markdown("#### Recipe tiền xử lý")
         with st.form("preprocess_form"):
-            has_calibration = isinstance(config.get("calibration_profile"), dict)
             undistort = st.checkbox(
                 "Sửa méo ống kính",
                 value=bool(config.get("undistort", False) and has_calibration),
@@ -1457,25 +1470,38 @@ def _render_step_two() -> None:
     )
     config = st.session_state.config["alignment"]
     if st.session_state.reference_image is None:
-        st.warning("Chưa có Golden Image. Upload reference trong sidebar; nếu chạy nhanh, bước này sẽ được đánh dấu Bỏ qua.")
+        st.info(
+            "**Bước 2 cần một Golden Image thì nút căn chỉnh mới bật** — đây là "
+            "trạng thái bình thường, không phải lỗi, và **không cần camera**: bất kỳ "
+            "ảnh nào của một board đạt chuẩn cùng loại đều dùng được.\n\n"
+            "Tải ảnh đó ở sidebar **Golden Image / Reference**. Ảnh chuẩn phải chụp "
+            "cùng camera, lens và recipe ánh sáng với ảnh kiểm.\n\n"
+            "Không có Golden Image thì bấm **Bỏ qua căn chỉnh**: pipeline vẫn chạy "
+            "hết bước 3–6.1, chỉ là toạ độ không được đưa về hệ của board chuẩn."
+        )
     controls, preview = st.columns([0.85, 2.15], gap="large")
     with controls:
         st.markdown("#### Feature matching")
+        st.caption(
+            "Phương pháp: **ORB + homography**, ECC affine làm fallback. Đây là "
+            "phương pháp duy nhất được nối vào core nên không có gì để chọn; SIFT "
+            "chưa được nối."
+        )
         with st.form("alignment_form"):
-            st.selectbox(
-                "Phương pháp",
-                ["ORB + ECC fallback"],
-                disabled=True,
-                help="Core hiện hỗ trợ ORB/homography và ECC fallback; SIFT chưa được nối.",
-            )
             features = st.slider("Số feature tối đa", 500, 8000, int(config["features"]), 500)
             match_ratio = st.slider("Lowe ratio", 0.50, 0.95, float(config["match_ratio"]), 0.01)
             ransac = st.slider("RANSAC threshold", 1.0, 10.0, float(config["ransac_threshold"]), 0.5)
+            has_reference = st.session_state.reference_image is not None
             submitted = st.form_submit_button(
                 "Căn chỉnh với reference",
                 type="primary",
                 width="stretch",
-                disabled=st.session_state.reference_image is None,
+                disabled=not has_reference,
+                help=(
+                    None
+                    if has_reference
+                    else "Tải Golden Image ở sidebar để bật nút này."
+                ),
             )
         if submitted:
             config.update(

@@ -114,6 +114,14 @@ def test_bridge_applies_uploaded_profile_through_pipeline_config() -> None:
 def test_chessboard_calibration_records_quality_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Bookkeeping only, on the older OpenCV ``(N, 1, 2)`` corner shape.
+
+    Newer builds return ``(N, 2)`` instead; that shape is covered for real in
+    ``test_calibration_real_opencv.py``. Between the two, both contracts stay
+    exercised -- mocking the detector here is what let a crash on the newer
+    shape ship unnoticed.
+    """
+
     columns, rows = 3, 2
     corners = np.mgrid[0:columns, 0:rows].T.reshape(-1, 1, 2).astype(np.float32)
     matrix = np.array([[100.0, 0.0, 50.0], [0.0, 100.0, 40.0], [0.0, 0.0, 1.0]])

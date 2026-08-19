@@ -30,16 +30,54 @@ Set-ExecutionPolicy -Scope Process Bypass
 Sau đó mở địa chỉ Streamlit hiển thị trong terminal, mặc định là
 `http://127.0.0.1:8501`.
 
+## Vì sao bước 1 và bước 2 trông như bị khoá
+
+Cả hai bước đều **không hỏng và không thiếu thư viện**. Chúng bị khoá vì thiếu
+*file đầu vào* mà không thứ gì trong repo tạo thay được:
+
+| Chỗ bị khoá | Thiếu gì | Cần camera không? | Mở khoá bằng |
+|---|---|---|---|
+| Bước 1 · ô **Sửa méo ống kính** | Profile hiệu chỉnh `.json` | **Có** — phải chụp bàn cờ bằng đúng camera/lens/tiêu cự sẽ dùng | [Hiệu chỉnh méo ống kính camera](#hiệu-chỉnh-méo-ống-kính-camera) |
+| Bước 2 · nút **Căn chỉnh với reference** | Ảnh Golden Image | **Không** — dùng được ảnh board đạt chuẩn có sẵn | Sidebar → *Golden Image / Reference* |
+| Bước 2 · ô **Phương pháp** | — | — | Không mở được: ORB + ECC là phương pháp duy nhất được nối vào core, nên không có gì để chọn |
+
+Không có Golden Image thì bấm **Bỏ qua căn chỉnh**; pipeline vẫn chạy hết bước
+3–6.1, chỉ là toạ độ không được đưa về hệ của board chuẩn.
+
+Mọi tuỳ chọn còn lại của bước 1 (resize, khử nhiễu, white balance, CLAHE,
+normalize, sharpen) dùng được ngay mà không cần gì thêm.
+
+### Cài đặt: kiểm tra nhanh
+
+Nếu nghi thiếu thư viện, chạy lệnh này. Chỉ cần `requirements.txt` là bước 1 và 2
+chạy đủ; `requirements-model.txt` chỉ cần cho bước 4/6.1 khi nạp model.
+
+```powershell
+.\.venv\Scripts\python.exe -c "import cv2, numpy, pandas, streamlit; print('core OK', cv2.__version__)"
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Test chạy sạch nghĩa là phần calibration và alignment đã hoạt động; lúc đó thứ
+còn thiếu chắc chắn là file đầu vào, không phải cài đặt.
+
 ## Hiệu chỉnh méo ống kính camera
 
 Bước 1 hỗ trợ profile camera OpenCV để sửa méo radial/tangential **trước khi
 resize**. Đây là lớp xử lý khác với homography ở bước 2: undistort sửa méo lens,
 còn homography đưa mặt phẳng PCB về Golden Image.
 
-Chuẩn bị ít nhất 10 ảnh bàn cờ calibration ở đúng camera, lens, tiêu cự, focus và
-độ phân giải sẽ dùng khi chạy AOI. Nên chụp 15–25 ảnh với bàn cờ xuất hiện ở giữa,
-các góc, cạnh ảnh và nhiều góc nghiêng. `--columns`/`--rows` là số **giao điểm bên
-trong**, không phải số ô. Ví dụ bàn cờ 10×7 ô có 9×6 giao điểm trong:
+**Bước 0 — in bàn cờ.** Tải một mẫu chessboard bất kỳ (ví dụ 10×7 ô), in ra và
+dán phẳng lên bìa cứng. Bàn cờ cong sẽ làm sai toàn bộ phép hiệu chỉnh. Đo cạnh
+một ô bằng thước, đó là `--square-size`.
+
+**Bước 1 — chụp.** Cần ít nhất 10 ảnh dùng được, nên chụp 15–25 ảnh bằng **đúng**
+camera, lens, tiêu cự, focus và độ phân giải sẽ dùng khi chạy AOI. Đổi bất kỳ thứ
+nào trong số đó là profile hết giá trị. Cho bàn cờ xuất hiện ở giữa khung, ở bốn
+góc, sát cạnh ảnh, và nghiêng nhiều góc khác nhau — nghiêng là thứ tách được tiêu
+cự khỏi khoảng cách, chụp toàn ảnh chính diện sẽ ra profile kém.
+
+**Bước 2 — chạy script.** `--columns`/`--rows` là số **giao điểm bên trong**,
+không phải số ô. Bàn cờ 10×7 ô có 9×6 giao điểm trong:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\calibrate_camera.py `
@@ -52,11 +90,18 @@ trong**, không phải số ô. Ví dụ bàn cờ 10×7 ô có 9×6 giao điể
   --output camera_profiles\cam01_12mm.json
 ```
 
-Đơn vị `--square-size` có thể là mm hoặc đơn vị khác miễn nhất quán. Sau khi tạo
-profile:
+Đơn vị `--square-size` có thể là mm hoặc đơn vị khác miễn nhất quán.
+
+Script in ra số ảnh nhận/loại và reprojection error. **RMS dưới ~0.5 px là tốt,
+trên ~1.0 px thì nên chụp lại** — thường là do bàn cờ cong, ảnh mờ, hoặc thiếu
+góc nghiêng. Ảnh nào không tìm thấy bàn cờ sẽ được liệt kê ở mục Rejected; nếu
+loại quá nhiều thì kiểm tra lại `--columns`/`--rows` trước đã, đếm nhầm giao điểm
+là lỗi hay gặp nhất.
+
+**Bước 3 — dùng trong app:**
 
 1. Mở sidebar **Camera calibration** và tải file JSON.
-2. Ở bước 1 bật **Sửa méo ống kính**.
+2. Ở bước 1 bật **Sửa méo ống kính** (ô này chỉ bật lên sau khi có profile).
 3. Để `Giữ vùng biên sau undistort = 0` nếu muốn ít viền đen; tăng dần về `1` nếu
    cần giữ trường nhìn.
 4. Nếu dùng Golden Image, ảnh chuẩn phải là ảnh raw từ cùng camera/lens/recipe;
