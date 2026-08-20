@@ -8,6 +8,39 @@ build lại bằng `python scripts/build_notebook.py training/kaggle/pcb_solder_
 `/kaggle/working/pcb_solder_defect_artifacts.zip`. Tải về, nạp vào app ở sidebar
 **Model kiểm tra mối hàn 6.2**, không cần đổi gì khác.
 
+## Đã sửa: SolDef_AI đọc ra 0 record
+
+Lần chạy đầu trên Kaggle dừng ở cell "Ma trận phủ taxonomy" với:
+
+```
+SystemExit: Chỉ còn 0 lớp đủ dữ liệu ([]).
+```
+
+Nguyên nhân: `SolDef_AI/Labeled/` chứa 428 cặp `<tên>.jpg` + `<tên>.json` —
+sidecar **LabelMe** (đúng như bài báo mô tả: *"manually annotated using
+LabelMe... a JSON file containing all the created masks"*). Bộ đọc dataset ban
+đầu chỉ nhận 4 layout (folder-per-class, COCO, CSV, YOLO), không nhận dạng
+được LabelMe nên coi cả 428 ảnh là "unknown" và bỏ qua toàn bộ, kéo theo mọi
+lớp về 0 mẫu.
+
+Đã thêm bộ đọc LabelMe (nhận cả `rectangle`, `polygon`, `circle`) vào cả
+`aoi_pipeline/grading/datasets.py` và bản nhúng trong notebook. Đã kiểm chứng
+bằng fixture mô phỏng đúng cấu trúc `SolDef_AI/Labeled/*.json` +
+`Dataset/CS1..CS7`: notebook chạy trọn 12 cell, export ra `best.onnx` hợp lệ.
+
+**Một điều chưa chắc chắn còn lại:** nhãn chữ thật bên trong các file JSON đó
+(ví dụ có đúng là `"good"`/`"misalignment"` hay không) chưa quan sát trực tiếp
+được — trang Kaggle không fetch được lúc viết notebook. Bảng `LABEL_MAPS["soldef_ai"]`
+hiện dùng thuật ngữ của bài báo cộng từ đồng nghĩa gần, đánh dấu rõ là suy đoán.
+Cell "4. Ma trận phủ taxonomy" giờ sẽ **đọc được** dataset và in ra
+`report['unmapped_labels']` — nếu nhãn thật khác với bảng đoán, chúng sẽ hiện
+ở đó kèm số lượng thay vì bị nuốt mất. Bổ sung vào `LABEL_MAPS` theo cái thấy
+được trên Kaggle, đừng đoán tiếp lần hai.
+
+Thư mục `Dataset/CS1..CS7` vẫn chưa khám phá — có thể chứa thêm ảnh chưa được
+đưa vào. Nếu Run All cho thấy `soldef_ai` chỉ đọc được một phần nhỏ trong 428
+ảnh, đó là nơi cần nhìn tiếp.
+
 ## Trước tiên: không có dataset công khai nào đủ
 
 Khảo sát tháng 8/2026. Đây là kết luận trung thực, không phải lời mở đầu:

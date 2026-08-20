@@ -32,6 +32,7 @@ Two honesty rules are enforced rather than documented:
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -125,8 +126,20 @@ SOURCES: dict[str, DatasetSource] = {
         notes=(
             "1150 soldered SMT component images, three viewpoints each, from the "
             "MDPI JMMP 2024 paper (doi 10.3390/jmmp8030117). The only peer-reviewed "
-            "optical source found that labels component misalignment. Layout is "
-            "probed at load time because the Kaggle page could not be inspected."
+            "optical source found that labels component misalignment.\n"
+            "Real layout, confirmed on Kaggle: `Labeled/<name>.jpg` + "
+            "`<name>.json` LabelMe sidecars, 428 images -- matches the paper's "
+            "description ('manually annotated using LabelMe... a JSON file "
+            "containing all the created masks'). A second top-level folder, "
+            "`Dataset/CS1..CS7`, was seen but not explored; it may hold more "
+            "images, unannotated or under a different scheme.\n"
+            "The exact label strings inside the LabelMe JSONs were not directly "
+            "observed (the Kaggle listing could not be fetched, so the layout "
+            "was probed at load time instead), so the entries below are the "
+            "paper's own terminology plus close synonyms. Run "
+            "load_source once and read report['unmapped_labels'] -- it prints "
+            "every raw label this map did not catch -- then extend this dict "
+            "with whatever shows up instead of guessing further."
         ),
         label_map={
             "good": "good",
@@ -135,21 +148,36 @@ SOURCES: dict[str, DatasetSource] = {
             "non_defective": "good",
             "defect_free": "good",
             "correct": "good",
+            "correct_position": "good",
+            "correct_placement": "good",
+            "solder_ok": "good",
+            "solder_good": "good",
+            "assembly_ok": "good",
+            "position_ok": "good",
             "misalignment": "shift_component",
+            "mis_alignment": "shift_component",
             "misaligned": "shift_component",
+            "misalign": "shift_component",
             "shift": "shift_component",
             "shifted": "shift_component",
             "displacement": "shift_component",
+            "displaced": "shift_component",
+            "offset": "shift_component",
             "wrong_position": "shift_component",
             "incorrect_position": "shift_component",
+            "wrong_placement": "shift_component",
+            "component_shift": "shift_component",
             "excess": "excess",
+            "excessive": "excess",
             "excessive_solder": "excess",
             "excess_solder": "excess",
             "too_much_solder": "excess",
+            "over_solder": "excess",
             "insufficient": "insufficient",
             "insufficient_solder": "insufficient",
             "less_solder": "insufficient",
             "lack_of_solder": "insufficient",
+            "under_solder": "insufficient",
         },
     ),
     "hf_soldering_boarding": DatasetSource(
@@ -311,8 +339,9 @@ def probe_layout(root: str | Path, max_depth: int = 4) -> LayoutProbe:
         return LayoutProbe(layout="missing", root=base, detail="path is not a directory")
 
     images = [p for p in _walk(base, max_depth) if p.suffix.lower() in IMAGE_EXTENSIONS]
-    coco = [p for p in _walk(base, max_depth)
-            if p.suffix.lower() == ".json" and _looks_like_coco(p)]
+    all_json = [p for p in _walk(base, max_depth) if p.suffix.lower() == ".json"]
+    coco = [p for p in all_json if _looks_like_coco(p)]
+    labelme = [p for p in all_json if p not in coco and _looks_like_labelme(p)]
     csvs = [p for p in _walk(base, max_depth) if p.suffix.lower() == ".csv"]
     yolo_labels = [p for p in _walk(base, max_depth) if p.suffix.lower() == ".txt"
                    and p.parent.name.lower() in {"labels", "label"}]
@@ -320,6 +349,13 @@ def probe_layout(root: str | Path, max_depth: int = 4) -> LayoutProbe:
     if coco:
         return LayoutProbe("coco", base, "COCO json with segmentation or bbox",
                            annotation_files=coco, image_count=len(images))
+    if labelme:
+        # Checked ahead of folder_per_class: a LabelMe export is one JSON
+        # sidecar per image sitting flat in a directory, which is exactly the
+        # shape folder_per_class would otherwise misread as "no class folders
+        # here" and skip past.
+        return LayoutProbe("labelme", base, "LabelMe JSON sidecar per image",
+                           annotation_files=labelme, image_count=len(images))
     if yolo_labels:
         return LayoutProbe("yolo", base, "YOLO txt label files beside an images/ dir",
                            annotation_files=yolo_labels, image_count=len(images))
@@ -362,6 +398,25 @@ def _looks_like_coco(path: Path) -> bool:
     except OSError:
         return False
     return '"annotations"' in head and '"images"' in head
+
+
+def _looks_like_labelme(path: Path) -> bool:
+    """A LabelMe annotation: one JSON per image, with a top-level ``shapes`` list.
+
+    This is the format the SolDef_AI paper describes -- "manually annotated
+    using LabelMe... a JSON file containing all the created masks for each
+    instance" -- and it is common enough elsewhere that detecting it generally,
+    rather than special-casing one dataset, is worth doing once.
+    """
+
+    try:
+        if path.stat().st_size > 50 * 1024 * 1024:
+            return False
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            head = handle.read(4096)
+    except OSError:
+        return False
+    return '"shapes"' in head and ('"imagePath"' in head or '"imageHeight"' in head)
 
 
 def _looks_like_label_csv(path: Path) -> bool:
@@ -442,6 +497,8 @@ def load_source(
         raw = _read_folder_per_class(probe)
     elif probe.layout == "coco":
         raw = _read_coco(probe)
+    elif probe.layout == "labelme":
+        raw = _read_labelme(probe)
     elif probe.layout == "csv":
         raw = _read_csv(probe)
     elif probe.layout == "yolo":
@@ -535,6 +592,84 @@ def _read_coco(probe: LayoutProbe) -> list[dict[str, Any]]:
                 "bbox": box,
             })
     return items
+
+
+def _read_labelme(probe: LayoutProbe) -> list[dict[str, Any]]:
+    """Read LabelMe sidecar JSONs into bounding boxes.
+
+    A shape's box is the min/max of its own points, which is correct for a
+    LabelMe ``rectangle`` (two opposite corners) and a reasonable, honest
+    approximation for a ``polygon`` (the shape's extent, not its exact outline
+    -- which is what every other reader here stores too). A ``circle`` is the
+    one shape LabelMe stores as two points that are *not* the bounding corners
+    (centre and one point on the rim), so it gets its own reconstruction
+    instead of silently producing a sliver box.
+    """
+
+    items: list[dict[str, Any]] = []
+    for annotation_file in probe.annotation_files:
+        try:
+            payload = json.loads(annotation_file.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        shapes = payload.get("shapes")
+        if not isinstance(shapes, list) or not shapes:
+            continue
+
+        search_roots = [annotation_file.parent, probe.root]
+        image_path = _find_image(str(payload.get("imagePath") or ""), search_roots)
+        if image_path is None:
+            # imagePath missing or stale (LabelMe stores it relative to wherever
+            # the annotator's machine had the file); fall back to same-stem
+            # image next to the json, which is how these exports are shipped.
+            image_path = _sibling_image_any_ext(annotation_file)
+        if image_path is None:
+            continue
+
+        for shape in shapes:
+            label = shape.get("label")
+            points = shape.get("points")
+            if not label or not isinstance(points, list) or len(points) < 2:
+                continue
+            shape_type = str(shape.get("shape_type") or "polygon")
+            box = _labelme_bbox(points, shape_type)
+            if box is None:
+                continue
+            items.append({
+                "image_path": image_path,
+                "label": label,
+                "group": image_path.stem,
+                "bbox": box,
+                "metadata": {"shape_type": shape_type},
+            })
+    return items
+
+
+def _labelme_bbox(points: list, shape_type: str) -> tuple[int, int, int, int] | None:
+    try:
+        xs = [float(p[0]) for p in points]
+        ys = [float(p[1]) for p in points]
+    except (TypeError, ValueError, IndexError):
+        return None
+    if shape_type == "circle" and len(points) == 2:
+        # LabelMe stores a circle as [centre, one point on the rim].
+        cx, cy = xs[0], ys[0]
+        radius = math.hypot(xs[1] - cx, ys[1] - cy)
+        if radius <= 0:
+            return None
+        return (int(cx - radius), int(cy - radius), int(cx + radius), int(cy + radius))
+    x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return (int(x1), int(y1), int(x2), int(y2))
+
+
+def _sibling_image_any_ext(annotation_file: Path) -> Path | None:
+    for extension in IMAGE_EXTENSIONS:
+        candidate = annotation_file.with_suffix(extension)
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _read_csv(probe: LayoutProbe) -> list[dict[str, Any]]:

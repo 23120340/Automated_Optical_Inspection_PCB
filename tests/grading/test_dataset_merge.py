@@ -64,6 +64,105 @@ def test_coco_is_recognised(tmp_path: Path) -> None:
     assert probe_layout(tmp_path).layout == "coco"
 
 
+def _labelme_pair(directory: Path, name: str, shapes: list[dict]) -> None:
+    """One LabelMe-style image + JSON sidecar, matching SolDef_AI's real layout
+    (`Labeled/<name>.jpg` + `<name>.json`, confirmed by inspecting a run)."""
+
+    _image(directory / f"{name}.jpg")
+    payload = {
+        "version": "5.3.1", "flags": {}, "shapes": shapes,
+        "imagePath": f"{name}.jpg", "imageData": None,
+        "imageHeight": 24, "imageWidth": 24,
+    }
+    (directory / f"{name}.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_labelme_sidecars_are_recognised_not_folder_per_class(tmp_path: Path) -> None:
+    """This is the exact bug found in a real Kaggle run: a flat folder of
+    image+json pairs was misread as folder_per_class (0 class subfolders found)
+    and fell through to 'unknown', silently dropping all 428 images to 0
+    records. Confirm the layout is identified as its own kind now."""
+
+    labeled = tmp_path / "SolDef_AI" / "Labeled"
+    _labelme_pair(labeled, "a", [{"label": "good", "points": [[2, 2], [20, 20]], "shape_type": "rectangle"}])
+    _labelme_pair(labeled, "b", [{"label": "misalignment", "points": [[2, 2], [20, 20]], "shape_type": "rectangle"}])
+    # The dataset's second top-level folder, unexplored -- must not confuse
+    # detection of the Labeled/ layout.
+    (tmp_path / "SolDef_AI" / "Dataset" / "CS1").mkdir(parents=True)
+
+    probe = probe_layout(tmp_path / "SolDef_AI")
+    assert probe.layout == "labelme"
+    assert probe.image_count == 2
+    assert len(probe.annotation_files) == 2
+
+
+def test_labelme_rectangle_and_polygon_shapes_become_bboxes(tmp_path: Path) -> None:
+    _labelme_pair(tmp_path, "rect", [
+        {"label": "good", "points": [[10, 10], [50, 40]], "shape_type": "rectangle"},
+    ])
+    _labelme_pair(tmp_path, "poly", [
+        {"label": "misalignment", "points": [[5, 5], [30, 5], [32, 45], [3, 48]], "shape_type": "polygon"},
+    ])
+    records, report = load_source(SOURCES["soldef_ai"], tmp_path)
+    by_group = {record.group: record for record in records}
+
+    assert by_group["rect"].label == "good"
+    assert by_group["rect"].bbox == (10, 10, 50, 40)
+
+    # A polygon's box is its own extent (min/max over its points), the same
+    # approximation every other reader in this module makes for a shape.
+    assert by_group["poly"].label == "shift_component"
+    assert by_group["poly"].bbox == (3, 5, 32, 48)
+    assert report["layout"] == "labelme"
+
+
+def test_labelme_circle_reconstructs_a_bbox_from_centre_and_radius(tmp_path: Path) -> None:
+    """A LabelMe circle stores [centre, one point on the rim] -- NOT two
+    corners -- so treating it like a rectangle would collapse it to a sliver."""
+
+    _labelme_pair(tmp_path, "c", [
+        {"label": "good", "points": [[50, 50], [80, 50]], "shape_type": "circle"},
+    ])
+    records, _ = load_source(SOURCES["soldef_ai"], tmp_path)
+    assert len(records) == 1
+    assert records[0].bbox == (20, 20, 80, 80)
+
+
+def test_labelme_falls_back_to_the_sibling_image_when_imagepath_is_stale(tmp_path: Path) -> None:
+    """LabelMe stores imagePath relative to wherever the annotator's own
+    machine had the file, which is routinely wrong once the export moves."""
+
+    _image(tmp_path / "x.jpg")
+    payload = {
+        "shapes": [{"label": "good", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"}],
+        "imagePath": "C:\\Users\\someone\\Desktop\\old_location\\x.jpg",
+        "imageHeight": 24, "imageWidth": 24,
+    }
+    (tmp_path / "x.json").write_text(json.dumps(payload), encoding="utf-8")
+    records, _ = load_source(SOURCES["soldef_ai"], tmp_path)
+    assert len(records) == 1
+    assert records[0].image_path.name == "x.jpg"
+
+
+def test_labelme_json_with_no_shapes_key_is_not_mistaken_for_labelme(tmp_path: Path) -> None:
+    """A JSON that happens to sit next to an image but is not a LabelMe file
+    (no 'shapes') must not be swept into this reader."""
+
+    _image(tmp_path / "y.jpg")
+    (tmp_path / "y.json").write_text(json.dumps({"note": "unrelated metadata"}), encoding="utf-8")
+    assert probe_layout(tmp_path).layout == "unknown"
+
+
+def test_labelme_unmapped_shape_labels_are_reported_not_guessed(tmp_path: Path) -> None:
+    _labelme_pair(tmp_path, "a", [
+        {"label": "good", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"},
+        {"label": "some_new_defect_nobody_mapped", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"},
+    ])
+    records, report = load_source(SOURCES["soldef_ai"], tmp_path)
+    assert len(records) == 1
+    assert report["unmapped_labels"] == {"some_new_defect_nobody_mapped": 1}
+
+
 def test_an_unreadable_layout_is_reported_not_guessed(tmp_path: Path) -> None:
     """Guessing a layout would attach labels that were never in the data."""
 

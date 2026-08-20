@@ -3,7 +3,7 @@
 Hai notebook v2:
 
 - [pcb_detector_v2_kaggle.ipynb](pcb_detector_v2_kaggle.ipynb) — detector thân linh kiện **và** chân/pad
-- [pcb_classifier_v2_kaggle.ipynb](pcb_classifier_v2_kaggle.ipynb) — phân loại family, EfficientNetV2-S
+- [pcb_classifier_v2_kaggle.ipynb](pcb_classifier_v2_kaggle.ipynb) — phân loại family, ConvNeXt-Base
 
 Nguồn percent-format là hai file `.py` cùng tên; sửa `.py` rồi chạy
 `python scripts/build_notebook.py --all`.
@@ -28,6 +28,22 @@ Nên notebook detector không hứa điều nó không làm được. Nó tấn 
 sự sửa được: **mất cân bằng cực đoan**.
 
 ---
+
+## Trước tiên: chọn đúng accelerator
+
+**Không dùng GPU P100.** Wheel PyTorch trên Kaggle đã bỏ kernel cho `sm_60`, nên
+P100 sẽ chạy bình thường tới lúc model được đẩy lên GPU rồi nổ:
+
+```
+AcceleratorError: CUDA error: no kernel image is available for execution on the device
+```
+
+Traceback rơi sâu trong `trainer._setup_train()` nên trông như lỗi Ultralytics,
+nhưng nguyên nhân chỉ là lựa chọn accelerator.
+
+**Chọn: GPU T4 x2** (hoặc L4 / A100). Cả hai notebook v2 có cell preflight kiểm
+tra ngay từ đầu và dừng kèm hướng dẫn, thay vì để bạn tốn thời gian setup rồi mới
+biết.
 
 ## Detector v2
 
@@ -76,17 +92,30 @@ Notebook sẽ in ra, nhưng tóm tắt ở đây theo thứ tự chi phí:
 
 ## Classifier v2
 
-### Đổi backbone
+### Backbone: tối ưu cho độ chính xác
 
-| Backbone | Nhận xét |
-|---|---|
-| EfficientNet-B0 (v1) | Ổn, nhưng hội tụ chậm trên tập nhỏ |
-| **EfficientNetV2-S** ✅ mặc định | Fine-tune tốt trên tập nhỏ/vừa, cân bằng accuracy–latency, ONNX export sạch |
-| ConvNeXt-V2 Tiny | Accuracy tốt, nặng hơn đáng kể trên CPU ARM |
-| MobileNetV4-Conv-S | **Chậm hơn MobileNetV3-Small ~59%** một luồng CPU — không đáng đổi |
-| MobileNetV3-Small | Nhanh nhất CPU; dùng nếu Raspberry Pi không kham nổi V2-S |
+Không còn ràng buộc Raspberry Pi, nên chọn theo accuracy thuần. Đo được trên cùng
+dữ liệu, cùng số epoch:
 
-Đổi bằng `CONFIG["model_name"]`, không phải sửa gì khác.
+| Backbone | Params | TEST macro recall |
+|---|---:|---:|
+| EfficientNetV2-S | 20.2M | 0.883 |
+| **ConvNeXt-Base** ✅ mặc định | 87.6M | **0.929** |
+| ConvNeXt-Base + TTA | — | **0.942** |
+
+Notebook hỗ trợ 8 backbone qua `CONFIG["model_name"]`: `convnext_base`,
+`convnext_small`, `convnext_tiny`, `efficientnet_v2_m`, `efficientnet_v2_s`,
+`efficientnet_b0`, `swin_t`, `mobilenet_v3_small`. Đã kiểm cả 8 dựng được,
+forward đúng, và cho 9–14 param group phân tầng.
+
+**Cảnh báo:** model to hơn ≠ chính xác hơn khi dữ liệu ít. Trong khảo sát 7
+dataset, **ConvNeXt-Tiny thắng mọi model khác ở hầu hết dataset ảnh tự nhiên**.
+Với vài nghìn crop, Base (87.6M) rất dễ overfit. Notebook ghi `best_macro_recall`
+vào manifest nên **so được giữa các lần chạy** — chạy Base/Small/Tiny rồi chọn
+theo số đo, đừng chọn theo tên.
+
+Hai đòn bẩy khác đã bật sẵn: **input 288px** (crop nhỏ, fine-grained nên độ phân
+giải giúp nhiều) và **TTA khi đánh giá** (+1.25 điểm đo được).
 
 ### Công thức train
 
@@ -100,6 +129,7 @@ Notebook sẽ in ra, nhưng tóm tắt ở đây theo thứ tự chi phí:
 | **Class-balanced sampler** | Không cân thì class hiếm bị capacitor/resistor nhấn chìm |
 | **Macro recall để chọn model** | Accuracy tổng bị class đa số che; macro recall không |
 | **Calibration tách riêng** | Ngưỡng đo trên tập đã dùng chọn model luôn lạc quan |
+| **Cảnh báo temperature chạm biên** | Chạm mép dải quét nghĩa là tối ưu nằm ngoài dải; ghi số đó vào manifest là làm lệch mọi xác suất sau này |
 
 ### Ràng buộc phải giữ
 

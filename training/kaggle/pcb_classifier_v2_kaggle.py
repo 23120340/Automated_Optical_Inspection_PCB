@@ -100,6 +100,72 @@ for _stream in (sys.stdout, sys.stderr):
 print("backbone:", CONFIG["model_name"], "| input:", CONFIG["input_size"])
 
 # %% [markdown]
+# ## 0. Kiểm tra accelerator trước khi tốn thời gian
+#
+# Wheel PyTorch trên Kaggle **không còn biên dịch kernel cho `sm_60`**, tức GPU
+# **P100**. Chọn nhầm P100 thì mọi thứ chạy bình thường cho tới khi model được
+# đẩy lên GPU, rồi nổ:
+#
+# ```
+# AcceleratorError: CUDA error: no kernel image is available for execution on the device
+# ```
+#
+# Traceback rơi sâu trong `trainer._setup_train()` nên nhìn như lỗi Ultralytics,
+# nhưng thực ra chỉ là sai lựa chọn accelerator. Cell dưới bắt nó ngay từ đầu.
+#
+# **Sửa:** Settings → Accelerator → **GPU T4 x2** (hoặc L4/A100), rồi Run All lại.
+
+# %%
+def check_accelerator():
+    """Dừng ngay nếu GPU không nằm trong danh sách kiến trúc wheel hỗ trợ.
+
+    Rẻ hơn nhiều so với để lỗi nổ sau khi đã cài package, quét dataset và dựng
+    dataloader — lúc đó traceback lại trỏ vào Ultralytics chứ không trỏ vào
+    nguyên nhân thật là lựa chọn accelerator.
+    """
+    import torch
+
+    if not torch.cuda.is_available():
+        print("!! Không thấy GPU. Notebook sẽ chạy trên CPU và sẽ RẤT chậm.")
+        print("   Settings -> Accelerator -> GPU T4 x2 rồi Run All lại.")
+        return "cpu"
+
+    name = torch.cuda.get_device_name(0)
+    major, minor = torch.cuda.get_device_capability(0)
+    device_arch = f"sm_{major}{minor}"
+    supported = torch.cuda.get_arch_list()
+    print(f"GPU: {name} ({device_arch})")
+    print(f"torch {torch.__version__} · CUDA {torch.version.cuda}")
+    print(f"Kiến trúc wheel hỗ trợ: {supported}")
+
+    # PTX của một kiến trúc thấp hơn vẫn JIT được lên đời sau, nhưng không lùi
+    # được xuống đời trước — nên chỉ chấp nhận khi có sm khớp, hoặc có compute_
+    # nhỏ hơn/bằng để JIT.
+    exact = device_arch in supported
+    jit = any(
+        item.startswith("compute_") and int(item.split("_")[1]) <= major * 10 + minor
+        for item in supported
+    )
+    if not exact and not jit:
+        raise SystemExit(
+            f"GPU {name} ({device_arch}) KHÔNG nằm trong danh sách kiến trúc mà "
+            f"wheel PyTorch này hỗ trợ ({supported}).\n"
+            "Train sẽ nổ 'no kernel image is available for execution on the "
+            "device' ngay khi model được đẩy lên GPU.\n\n"
+            "SỬA: Settings -> Accelerator -> GPU T4 x2 (hoặc L4 / A100), "
+            "rồi Run All lại. P100 (sm_60) không còn được wheel hỗ trợ."
+        )
+    if not exact:
+        print(f"!! {device_arch} không có kernel dựng sẵn; sẽ JIT từ PTX "
+              "(lần chạy đầu sẽ chậm hơn).")
+    torch.zeros(8, device="cuda") @ torch.zeros(8, 8, device="cuda")
+    print("Kiểm tra phép nhân ma trận trên GPU: OK")
+    return "cuda"
+
+
+ACCELERATOR = check_accelerator()
+
+# %% [markdown]
 # ## 1. Cắt crop từ box YOLO
 #
 # Dataset là ảnh board + box YOLO. Crop được cắt theo **đúng công thức app dùng**

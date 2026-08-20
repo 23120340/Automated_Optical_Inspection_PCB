@@ -21,6 +21,15 @@
 # toán hoàn toàn khác, không có mối hàn nào trong đó. **AXI_PCB** là ảnh X-quang.
 # **PCBSPDefect** chưa phát hành.
 #
+# **Cấu trúc SolDef_AI đã xác nhận trên Kaggle:** `Labeled/<tên>.jpg` +
+# `<tên>.json` — sidecar **LabelMe**, 428 ảnh (khớp mô tả trong bài báo: *"manually
+# annotated using LabelMe... a JSON file containing all the created masks"*).
+# Còn một thư mục `Dataset/CS1..CS7` chưa khám phá, có thể chứa thêm ảnh. Notebook
+# đọc được cả rectangle, polygon lẫn circle của LabelMe; nhãn chữ bên trong các
+# file JSON đó chưa quan sát trực tiếp được nên bảng ánh xạ ở cell dưới là suy ra
+# từ thuật ngữ bài báo — cell "Ma trận phủ taxonomy" sẽ in `unmapped_labels` nếu
+# nhãn thật khác đi.
+#
 # ## Ba nguyên tắc notebook này cưỡng chế
 #
 # 1. **Nhãn không map được thì bỏ và đếm, không đoán.** Gộp bừa `solder_ball`
@@ -141,17 +150,29 @@ print("Taxonomy đích:", ALLOWED)
 # %%
 # Bảng ánh xạ nhãn — giống hệt aoi_pipeline/grading/datasets.py
 LABEL_MAPS = {
+    # Nhãn thật bên trong SolDef_AI/Labeled/*.json (LabelMe) chưa quan sát trực
+    # tiếp được (trang Kaggle không fetch được lúc viết notebook). Bảng dưới là
+    # thuật ngữ của bài báo cộng từ đồng nghĩa gần, KHÔNG phải quan sát thật.
+    # Cell dò dữ liệu sẽ in report['unmapped_labels'] — nhãn nào không khớp sẽ
+    # hiện ra ở đó kèm số lượng; bổ sung vào đây theo cái thấy được, đừng đoán
+    # tiếp lần hai.
     "soldef_ai": {
         "good": "good", "ok": "good", "no_defect": "good", "non_defective": "good",
-        "defect_free": "good", "correct": "good",
-        "misalignment": "shift_component", "misaligned": "shift_component",
+        "defect_free": "good", "correct": "good", "correct_position": "good",
+        "correct_placement": "good", "solder_ok": "good", "solder_good": "good",
+        "assembly_ok": "good", "position_ok": "good",
+        "misalignment": "shift_component", "mis_alignment": "shift_component",
+        "misaligned": "shift_component", "misalign": "shift_component",
         "shift": "shift_component", "shifted": "shift_component",
-        "displacement": "shift_component", "wrong_position": "shift_component",
-        "incorrect_position": "shift_component",
-        "excess": "excess", "excessive_solder": "excess", "excess_solder": "excess",
-        "too_much_solder": "excess",
+        "displacement": "shift_component", "displaced": "shift_component",
+        "offset": "shift_component", "wrong_position": "shift_component",
+        "incorrect_position": "shift_component", "wrong_placement": "shift_component",
+        "component_shift": "shift_component",
+        "excess": "excess", "excessive": "excess", "excessive_solder": "excess",
+        "excess_solder": "excess", "too_much_solder": "excess", "over_solder": "excess",
         "insufficient": "insufficient", "insufficient_solder": "insufficient",
         "less_solder": "insufficient", "lack_of_solder": "insufficient",
+        "under_solder": "insufficient",
     },
     "roboflow_soldering": {
         "cold_solder": "cold", "cold": "cold", "cold_joint": "cold", "poor_wetting": "cold",
@@ -232,6 +253,26 @@ def looks_like_coco(path):
     return '"annotations"' in head and '"images"' in head
 
 
+def looks_like_labelme(path):
+    """Một annotation LabelMe: một JSON mỗi ảnh, có khoá `shapes` ở gốc.
+
+    Đây chính là định dạng SolDef_AI dùng — bài báo ghi rõ "manually annotated
+    using LabelMe... a JSON file containing all the created masks" — và JSON đó
+    KHÔNG có khoá "annotations"/"images" như COCO nên `looks_like_coco` bỏ qua
+    nó, còn nó cũng không nằm trong một thư mục-theo-class nên
+    `class_directories` cũng bỏ qua. Không có nhánh nào bắt được nó trước khi
+    thêm hàm này — đó chính là lý do 428 ảnh SolDef_AI đọc ra 0 record.
+    """
+    try:
+        if path.stat().st_size > 50 * 1024 * 1024:
+            return False
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            head = handle.read(4096)
+    except OSError:
+        return False
+    return '"shapes"' in head and ('"imagePath"' in head or '"imageHeight"' in head)
+
+
 def looks_like_label_csv(path):
     try:
         with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
@@ -242,9 +283,18 @@ def looks_like_label_csv(path):
             and any(k in header for k in ("image", "file", "path", "crop")))
 
 
+# Tên thư mục nghĩa là "split", không phải "class". Hai thư mục train/test là
+# một split; hai thư mục good/bad là hai class. Đếm số thư mục không phân biệt
+# được hai trường hợp, phải nhìn tên.
+SPLIT_DIR_NAMES = {
+    "train", "training", "test", "testing", "val", "valid", "validation",
+    "eval", "dev", "holdout", "images", "data",
+}
+
+
 def class_directories(base):
     base = Path(base)
-    for parent in [base, *[p for p in base.iterdir() if p.is_dir()]]:
+    for parent in [base, *sorted(p for p in base.iterdir() if p.is_dir())]:
         if not parent.is_dir():
             continue
         children = [p for p in parent.iterdir() if p.is_dir()]
@@ -252,8 +302,13 @@ def class_directories(base):
             child for child in children
             if any(i.suffix.lower() in IMAGE_EXTENSIONS for i in child.iterdir() if i.is_file())
         ]
-        if len(with_images) >= 3:
-            return sorted(with_images)
+        if not with_images:
+            continue
+        named_as_split = [c for c in with_images if c.name.strip().lower() in SPLIT_DIR_NAMES]
+        if len(named_as_split) == len(with_images):
+            continue
+        if len(with_images) >= 2:
+            return sorted(c for c in with_images if c.name.strip().lower() not in SPLIT_DIR_NAMES)
     return []
 
 
@@ -263,12 +318,19 @@ def probe_layout(root):
         return {"layout": "missing", "root": str(base), "detail": "không phải thư mục"}
     files = list(walk_files(base))
     images = [p for p in files if p.suffix.lower() in IMAGE_EXTENSIONS]
-    coco = [p for p in files if p.suffix.lower() == ".json" and looks_like_coco(p)]
+    all_json = [p for p in files if p.suffix.lower() == ".json"]
+    coco = [p for p in all_json if looks_like_coco(p)]
+    labelme = [p for p in all_json if p not in coco and looks_like_labelme(p)]
     csvs = [p for p in files if p.suffix.lower() == ".csv" and looks_like_label_csv(p)]
     yolo = [p for p in files if p.suffix.lower() == ".txt" and p.parent.name.lower() in {"labels", "label"}]
 
     if coco:
         return {"layout": "coco", "root": str(base), "ann": coco, "images": len(images)}
+    if labelme:
+        # Kiểm trước folder_per_class: một export LabelMe là JSON kèm ảnh nằm
+        # phẳng trong một thư mục, đúng dạng mà class_directories() đọc thành
+        # "không có thư mục con nào ra hồn" rồi bỏ qua.
+        return {"layout": "labelme", "root": str(base), "ann": labelme, "images": len(images)}
     if yolo:
         return {"layout": "yolo", "root": str(base), "ann": yolo, "images": len(images)}
     if csvs:
@@ -312,6 +374,9 @@ for source in SOURCES:
         show_tree(source["root"])
     elif probe["layout"] == "folder_per_class":
         print(f"  thư mục lớp: {[p.name for p in probe['class_dirs']]}")
+    elif probe["layout"] == "labelme":
+        print(f"  {len(probe['ann'])} cặp ảnh+json LabelMe")
+        print(f"  ví dụ: {[Path(p).name for p in probe['ann'][:5]]}")
     else:
         print(f"  file nhãn: {[Path(p).name for p in probe['ann'][:5]]}")
 
@@ -455,9 +520,74 @@ def read_yolo(probe):
     return items
 
 
+def read_labelme(probe):
+    """Đọc sidecar LabelMe (một JSON mỗi ảnh, khoá `shapes` ở gốc).
+
+    Box của một shape là min/max các điểm của nó — đúng cho `rectangle` (hai
+    góc đối), và là xấp xỉ hợp lý cho `polygon` (phần bao ngoài, không phải
+    đường viền chính xác — cùng cách mọi reader khác trong notebook này lưu
+    một shape). Riêng `circle` LabelMe lưu [tâm, một điểm trên đường tròn] chứ
+    KHÔNG phải hai góc, nên phải dựng lại bbox từ bán kính thay vì lấy min/max
+    thô sẽ ra một hình rất dẹt.
+    """
+    items = []
+    for annotation_file in probe["ann"]:
+        annotation_file = Path(annotation_file)
+        try:
+            payload = json.loads(annotation_file.read_text(encoding="utf-8", errors="replace"))
+        except Exception as exc:
+            print(f"  bỏ qua {annotation_file.name}: {exc}")
+            continue
+        shapes = payload.get("shapes")
+        if not isinstance(shapes, list) or not shapes:
+            continue
+
+        roots = [annotation_file.parent, Path(probe["root"])]
+        image_path = find_image(str(payload.get("imagePath") or ""), roots)
+        if image_path is None:
+            # imagePath thường là đường dẫn tuyệt đối trên máy người gán nhãn,
+            # đã lỗi thời ngay khi export chuyển máy. Dự phòng bằng ảnh cùng
+            # tên nằm cạnh file json — đúng cách bộ này được đóng gói.
+            for extension in IMAGE_EXTENSIONS:
+                candidate = annotation_file.with_suffix(extension)
+                if candidate.is_file():
+                    image_path = candidate
+                    break
+        if image_path is None:
+            continue
+
+        for shape in shapes:
+            label = shape.get("label")
+            points = shape.get("points")
+            if not label or not isinstance(points, list) or len(points) < 2:
+                continue
+            shape_type = str(shape.get("shape_type") or "polygon")
+            try:
+                xs = [float(p[0]) for p in points]
+                ys = [float(p[1]) for p in points]
+            except (TypeError, ValueError, IndexError):
+                continue
+            if shape_type == "circle" and len(points) == 2:
+                cx, cy = xs[0], ys[0]
+                radius = ((xs[1] - cx) ** 2 + (ys[1] - cy) ** 2) ** 0.5
+                if radius <= 0:
+                    continue
+                x1, y1, x2, y2 = cx - radius, cy - radius, cx + radius, cy + radius
+            else:
+                x1, y1, x2, y2 = min(xs), min(ys), max(xs), max(ys)
+            if x2 <= x1 or y2 <= y1:
+                continue
+            items.append({
+                "image": image_path, "label": label, "group": image_path.stem,
+                "bbox": (int(x1), int(y1), int(x2), int(y2)),
+            })
+    return items
+
+
 READERS = {
     "folder_per_class": read_folder_per_class,
     "coco": read_coco,
+    "labelme": read_labelme,
     "csv": read_csv_manifest,
     "yolo": read_yolo,
 }
