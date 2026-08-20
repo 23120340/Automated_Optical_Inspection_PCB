@@ -170,6 +170,14 @@ LABEL_MAPS = {
         "component_shift": "shift_component",
         "excess": "excess", "excessive": "excess", "excessive_solder": "excess",
         "excess_solder": "excess", "too_much_solder": "excess", "over_solder": "excess",
+        # Quan sát được trên một lần chạy Kaggle thật (2026-08): "exc_solder" là
+        # viết tắt không mơ hồ, đã có sẵn đồng nghĩa ở trên.
+        "exc_solder": "excess",
+        # "spike"/"icicle" là thuật ngữ hàn chuẩn cho một đỉnh thiếc bị kéo lên
+        # khi hàn/rút mỏ hàn -- một biến thể HÌNH DẠNG của thừa thiếc, không
+        # phải lỗi vật lý riêng. Tự tin theo thuật ngữ ngành, không phải theo
+        # đã nhìn thấy ảnh thật.
+        "spike": "excess",
         "insufficient": "insufficient", "insufficient_solder": "insufficient",
         "less_solder": "insufficient", "lack_of_solder": "insufficient",
         "under_solder": "insufficient",
@@ -195,6 +203,17 @@ LABEL_MAPS = {
 }
 
 # Nhãn cố tình bỏ, kèm lý do. Ghi rõ để người đọc sau không tưởng là quên.
+#
+# soldef_ai KHÔNG có mục ở đây cho "no_good"/"poor_solder" dù đã thấy trên
+# Kaggle thật -- cố ý. Bỏ vào IGNORE nghĩa là lặng lẽ loại, không còn cơ hội
+# xem lại. Để chúng nằm ngoài cả LABEL_MAPS lẫn IGNORE thì chúng vẫn hiện ở
+# "!! KHÔNG ÁNH XẠ ĐƯỢC" kèm số lượng, và cell "Xem mẫu ảnh" ngay sau đây tự
+# vẽ vài ảnh mẫu cho từng nhãn đó -- quyết định bằng cách nhìn ảnh, không phải
+# đoán từ chuỗi chữ. "no_good" (114/353, nhóm lớn nhất) đọc như nhãn "không
+# đạt" chung chung, có thể trộn nhiều loại lỗi khác nhau dưới một tên;
+# "poor_solder" (31) mơ hồ giữa insufficient và cold (IPC gọi cả hai là "poor
+# wetting"). Xem thêm ở notes của DatasetSource tương ứng trong
+# aoi_pipeline/grading/datasets.py.
 IGNORE = {
     "roboflow_soldering": {
         "solder_ball": "Lỗi thật nhưng không có trong taxonomy; gộp vào excess là giấu nó.",
@@ -593,6 +612,10 @@ READERS = {
 }
 
 records = []
+# Vài mẫu ảnh thật cho mỗi nhãn chưa map được -- để cell sau hiển thị, thay vì
+# đoán tên lớp chỉ từ chuỗi chữ. Khoá là "nguồn:nhãn thô".
+MAX_EXAMPLES_PER_LABEL = 6
+unmapped_examples: dict[str, list[dict]] = {}
 for source in SOURCES:
     if not source["enabled"] or not source.get("probe"):
         continue
@@ -613,6 +636,10 @@ for source in SOURCES:
         mapped = label_map.get(key)
         if mapped is None or mapped not in ALLOWED:
             unmapped[item["label"]] += 1
+            example_key = f"{source['name']}:{item['label']}"
+            bucket = unmapped_examples.setdefault(example_key, [])
+            if len(bucket) < MAX_EXAMPLES_PER_LABEL:
+                bucket.append(item)
             continue
         kept.append({**item, "mapped": mapped, "source": source["name"],
                      "group": f"{source['name']}/{item['group']}"})
@@ -629,6 +656,58 @@ for source in SOURCES:
         print("     Thêm vào LABEL_MAPS hoặc IGNORE kèm lý do rồi chạy lại.")
 
 print(f"\nTổng: {len(records)} record từ {len({r['source'] for r in records})} nguồn")
+
+# %% [markdown]
+# ### Xem mẫu ảnh cho nhãn chưa map được
+#
+# Đừng đoán nhãn chỉ từ chuỗi chữ — nhìn ảnh thật. Cell dưới cắt đúng theo bbox
+# đã đọc được (kể cả polygon/circle của LabelMe) và hiển thị vài mẫu cho mỗi
+# nhãn đang bị `!! KHÔNG ÁNH XẠ ĐƯỢC` ở trên. Không có nhãn nào chưa map thì
+# cell chỉ in một dòng, không có gì để xem.
+
+# %%
+import cv2
+import matplotlib.pyplot as plt
+
+
+def _load_example_crop(item, pad=0.15, max_side=320):
+    image = cv2.imread(str(item["image"]))
+    if image is None:
+        return None
+    height, width = image.shape[:2]
+    bbox = item.get("bbox")
+    x1, y1, x2, y2 = bbox if bbox is not None else (0, 0, width, height)
+    pad_x, pad_y = int((x2 - x1) * pad), int((y2 - y1) * pad)
+    x1, y1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
+    x2, y2 = min(width, x2 + pad_x), min(height, y2 + pad_y)
+    crop = image[y1:y2, x1:x2]
+    if crop.size == 0:
+        return None
+    scale = max_side / max(crop.shape[:2])
+    if scale < 1:
+        crop = cv2.resize(crop, (int(crop.shape[1] * scale), int(crop.shape[0] * scale)))
+    return cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+
+
+if not unmapped_examples:
+    print("Không có nhãn nào chưa map được -- không có gì để xem.")
+else:
+    for example_key, items in unmapped_examples.items():
+        crops = [c for c in (_load_example_crop(item) for item in items) if c is not None]
+        if not crops:
+            print(f"{example_key}: không đọc được ảnh mẫu nào.")
+            continue
+        fig, axes = plt.subplots(1, len(crops), figsize=(3 * len(crops), 3))
+        axes = [axes] if len(crops) == 1 else axes
+        for ax, crop in zip(axes, crops):
+            ax.imshow(crop)
+            ax.axis("off")
+        fig.suptitle(f"{example_key}  ({len(crops)} mẫu, có thể còn nhiều hơn trong dữ liệu)")
+        plt.show()
+    print(
+        "\nSau khi xem: thêm nhãn vào LABEL_MAPS (map vào lớp đúng) hoặc IGNORE "
+        "(bỏ kèm lý do) ở cell trước đó, rồi chạy lại từ cell đó."
+    )
 
 # %% [markdown]
 # ## 4. Ma trận phủ taxonomy

@@ -28,14 +28,37 @@ lớp về 0 mẫu.
 bằng fixture mô phỏng đúng cấu trúc `SolDef_AI/Labeled/*.json` +
 `Dataset/CS1..CS7`: notebook chạy trọn 12 cell, export ra `best.onnx` hợp lệ.
 
-**Một điều chưa chắc chắn còn lại:** nhãn chữ thật bên trong các file JSON đó
-(ví dụ có đúng là `"good"`/`"misalignment"` hay không) chưa quan sát trực tiếp
-được — trang Kaggle không fetch được lúc viết notebook. Bảng `LABEL_MAPS["soldef_ai"]`
-hiện dùng thuật ngữ của bài báo cộng từ đồng nghĩa gần, đánh dấu rõ là suy đoán.
-Cell "4. Ma trận phủ taxonomy" giờ sẽ **đọc được** dataset và in ra
-`report['unmapped_labels']` — nếu nhãn thật khác với bảng đoán, chúng sẽ hiện
-ở đó kèm số lượng thay vì bị nuốt mất. Bổ sung vào `LABEL_MAPS` theo cái thấy
-được trên Kaggle, đừng đoán tiếp lần hai.
+**Cập nhật (2026-08): nhãn chữ thật đã quan sát được trên một lần Run All
+thật**, khác hẳn suy đoán ban đầu từ thuật ngữ bài báo:
+
+| Nhãn thô trong JSON | Số mẫu | Map vào |
+|---|---:|---|
+| `good` | 136 | `good` |
+| `no_good` | 114 | **chưa map** — xem lý do dưới |
+| `poor_solder` | 31 | **chưa map** — xem lý do dưới |
+| `spike` | 29 | `excess` |
+| `exc_solder` | 43 | `excess` |
+
+`misalignment` chưa từng xuất hiện trong 353 annotation đọc được, nên
+`shift_component` hiện có 0 mẫu từ nguồn này dù `LABEL_MAPS` có sẵn đồng nghĩa
+— không phải lỗi, chỉ là annotator không dùng thuật ngữ đó (hoặc lệch vị trí
+không nằm trong 428 ảnh này).
+
+`no_good` (nhóm lớn nhất) và `poor_solder` **cố tình chưa map**: `no_good` đọc
+như nhãn "không đạt" chung chung — rất có thể được dùng cho bất kỳ lỗi nào
+không khớp cụ thể `poor_solder`/`spike`/`exc_solder`, tức là hỗn hợp nhiều loại
+lỗi khác nhau trộn dưới một tên chứ không phải một lỗi riêng; map bừa vào một
+lớp sẽ làm bẩn chính lớp đó. `poor_solder` mơ hồ giữa `insufficient` và `cold`
+(IPC gọi cả hai là "poor wetting"). Notebook giờ có cell mới **"Xem mẫu ảnh
+cho nhãn chưa map được"** ngay sau bước đọc dataset — tự cắt theo đúng bbox
+(kể cả polygon/circle của LabelMe) và vẽ vài ảnh mẫu cho mỗi nhãn này. Nhìn
+ảnh rồi quyết định map vào đâu, sau đó thêm vào `LABEL_MAPS["soldef_ai"]` ở
+cell trước và chạy lại — đừng đoán tiếp từ tên nhãn.
+
+Với 2 lớp map được (`good` 136 + `excess` 72), pipeline chạy trót lọt hết 12
+cell tới `best.onnx` hợp lệ — trước đây bị chặn ở cell "Ma trận phủ taxonomy"
+vì chỉ có 1 lớp `good` đủ dữ liệu. Nếu bạn giải quyết được `no_good`/`poor_solder`,
+tổng dữ liệu train tăng đáng kể (thêm tới 145 mẫu, gần gấp đôi hiện tại).
 
 Thư mục `Dataset/CS1..CS7` vẫn chưa khám phá — có thể chứa thêm ảnh chưa được
 đưa vào. Nếu Run All cho thấy `soldef_ai` chỉ đọc được một phần nhỏ trong 428

@@ -132,14 +132,25 @@ SOURCES: dict[str, DatasetSource] = {
             "description ('manually annotated using LabelMe... a JSON file "
             "containing all the created masks'). A second top-level folder, "
             "`Dataset/CS1..CS7`, was seen but not explored; it may hold more "
-            "images, unannotated or under a different scheme.\n"
-            "The exact label strings inside the LabelMe JSONs were not directly "
-            "observed (the Kaggle listing could not be fetched, so the layout "
-            "was probed at load time instead), so the entries below are the "
-            "paper's own terminology plus close synonyms. Run "
-            "load_source once and read report['unmapped_labels'] -- it prints "
-            "every raw label this map did not catch -- then extend this dict "
-            "with whatever shows up instead of guessing further."
+            "images, unannotated or under a different scheme -- so this stays "
+            "`verified=False` and the loader still probed at load time rather "
+            "than trusting this description blindly.\n"
+            "Real labels observed on a Kaggle run (2026-08): good, no_good, "
+            "poor_solder, spike, exc_solder -- a plainer, more informal "
+            "vocabulary than the paper's own class names (good/insufficient/"
+            "excess/shift_component), and 'misalignment' never actually showed "
+            "up, so shift_component currently has 0 samples from this source "
+            "despite the synonyms below. exc_solder/spike are mapped to excess.\n"
+            "no_good (114/353, the largest bucket) and poor_solder (31) are "
+            "deliberately left OUT of label_map entirely -- not guessed, not "
+            "ignored. 'no_good' reads as a generic reject label an annotator "
+            "could use for any defect that didn't fit the more specific "
+            "poor_solder/spike/exc_solder, which would make it a mix of several "
+            "different defects rather than one; 'poor_solder' sits ambiguously "
+            "between insufficient and cold (IPC calls both 'poor wetting'). "
+            "Both stay visible in report['unmapped_labels'] with counts, and "
+            "the Kaggle notebook renders sample crops for each so the mapping "
+            "gets decided by looking at the images, not the string."
         ),
         label_map={
             "good": "good",
@@ -173,12 +184,28 @@ SOURCES: dict[str, DatasetSource] = {
             "excess_solder": "excess",
             "too_much_solder": "excess",
             "over_solder": "excess",
+            # Observed on a real Kaggle run (see notes): "exc_solder" is an
+            # unambiguous abbreviation already covered by the synonyms above.
+            "exc_solder": "excess",
+            # "spike"/"icicle" is standard soldering terminology for a solder
+            # peak pulled up during reflow/wave/iron removal -- a shape variant
+            # of too much solder, not a distinct physical defect. Confident by
+            # terminology, not by having seen the actual image.
+            "spike": "excess",
             "insufficient": "insufficient",
             "insufficient_solder": "insufficient",
             "less_solder": "insufficient",
             "lack_of_solder": "insufficient",
             "under_solder": "insufficient",
         },
+        # "no_good" (114 instances -- the single largest raw bucket) and
+        # "poor_solder" (31) are deliberately absent from BOTH label_map and
+        # ignore, not an oversight: putting them in `ignore` would silently
+        # skip them with no way to revisit the call. Leaving them unmapped
+        # means they surface in report['unmapped_labels'] with counts and
+        # (in the Kaggle notebook) rendered sample crops, so the mapping gets
+        # decided by looking at the images, not by guessing from the string.
+        # See the source notes above for why each is ambiguous.
     ),
     "hf_soldering_boarding": DatasetSource(
         name="hf_soldering_boarding",
