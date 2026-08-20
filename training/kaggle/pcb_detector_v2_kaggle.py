@@ -58,6 +58,13 @@ CONFIG = {
     "artifact_dir": "/kaggle/working/pcb_detector_v2_artifacts",
 
     "model": "yolo26s.pt",
+    # Đặt đường dẫn tới last.pt (đã Add Input làm dataset riêng) để TIẾP TỤC
+    # một lần train bị đứt giữa chừng (mất mạng, session Kaggle bị đóng...)
+    # thay vì train lại từ epoch 0. ``None`` = train mới bình thường. Xem cell
+    # "3. Train" bên dưới -- khi resume, mọi tham số epoch/imgsz/augmentation
+    # ở CONFIG bị bỏ qua, Ultralytics tự đọc lại đúng cấu hình đã lưu trong
+    # chính file checkpoint.
+    "resume_from": None,  # vd: "/kaggle/input/pcb-detector-v2-checkpoint/last.pt"
     # 1536 thay vì 1280. Đây là đòn bẩy lớn nhất cho vật thể nhỏ, và cũng là
     # thứ tốn VRAM nhất — hạ xuống 1280 nếu OOM.
     "imgsz": 1536,
@@ -340,6 +347,14 @@ print(f"data yaml: {training_yaml}")
 # `close_mosaic` để muộn (25 epoch cuối) vì class hiếm cần nhiều epoch có mosaic
 # mới gặp đủ biến thể. `copy_paste` dán vật thể hiếm sang ảnh khác — đòn bẩy
 # trực tiếp nhất cho mất cân bằng ở mức instance.
+#
+# Ultralytics tự lưu `last.pt`/`best.pt` sau **mỗi epoch** (không cần cấu hình
+# gì thêm), nên một lần train bị đứt giữa chừng không mất hết: tải `last.pt`
+# về, Add Input lại thành dataset, đặt `CONFIG["resume_from"]` trỏ vào nó rồi
+# Run All. Cell dưới tự rẽ nhánh: có `resume_from` thì tiếp tục đúng epoch,
+# optimizer state và mọi hyperparameter đã lưu trong chính checkpoint (mọi
+# tham số augmentation/epoch ở CONFIG bị bỏ qua lúc đó); không có thì train
+# mới như bình thường.
 
 # %%
 import subprocess
@@ -350,35 +365,47 @@ except ImportError:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "ultralytics"], check=True)
     from ultralytics import YOLO
 
-model = YOLO(CONFIG["model"])
-results = model.train(
-    data=str(training_yaml),
-    imgsz=CONFIG["imgsz"],
-    epochs=CONFIG["epochs"],
-    patience=CONFIG["patience"],
-    batch=CONFIG["batch"],
-    seed=CONFIG["seed"],
-    deterministic=True,
-    close_mosaic=CONFIG["close_mosaic"],
-    copy_paste=CONFIG["copy_paste"],
-    mosaic=CONFIG["mosaic"],
-    scale=CONFIG["scale"],
-    degrees=CONFIG["degrees"],
-    flipud=CONFIG["flipud"],
-    fliplr=CONFIG["fliplr"],
-    hsv_h=CONFIG["hsv_h"],
-    hsv_s=CONFIG["hsv_s"],
-    hsv_v=CONFIG["hsv_v"],
-    erasing=CONFIG["erasing"],
-    max_det=CONFIG["max_det"],
-    iou=CONFIG["iou"],
-    project=str(work / "runs"),
-    name="detector_v2",
-    exist_ok=True,
-    plots=True,
-    val=True,
-)
-print("Train xong.")
+if CONFIG["resume_from"]:
+    checkpoint = Path(CONFIG["resume_from"])
+    if not checkpoint.is_file():
+        raise SystemExit(
+            f"resume_from trỏ vào file không tồn tại: {checkpoint}. "
+            "Add Input dataset chứa last.pt rồi sửa lại đường dẫn."
+        )
+    print(f"Resume từ checkpoint: {checkpoint}")
+    model = YOLO(str(checkpoint))
+    results = model.train(resume=True)
+    print("Resume xong.")
+else:
+    model = YOLO(CONFIG["model"])
+    results = model.train(
+        data=str(training_yaml),
+        imgsz=CONFIG["imgsz"],
+        epochs=CONFIG["epochs"],
+        patience=CONFIG["patience"],
+        batch=CONFIG["batch"],
+        seed=CONFIG["seed"],
+        deterministic=True,
+        close_mosaic=CONFIG["close_mosaic"],
+        copy_paste=CONFIG["copy_paste"],
+        mosaic=CONFIG["mosaic"],
+        scale=CONFIG["scale"],
+        degrees=CONFIG["degrees"],
+        flipud=CONFIG["flipud"],
+        fliplr=CONFIG["fliplr"],
+        hsv_h=CONFIG["hsv_h"],
+        hsv_s=CONFIG["hsv_s"],
+        hsv_v=CONFIG["hsv_v"],
+        erasing=CONFIG["erasing"],
+        max_det=CONFIG["max_det"],
+        iou=CONFIG["iou"],
+        project=str(work / "runs"),
+        name="detector_v2",
+        exist_ok=True,
+        plots=True,
+        val=True,
+    )
+    print("Train xong.")
 
 # %% [markdown]
 # ## 4. Metric theo class — đây mới là phần cần đọc

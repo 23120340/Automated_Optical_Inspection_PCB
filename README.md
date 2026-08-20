@@ -638,6 +638,67 @@ Nguồn dữ liệu giá trị nhất vẫn là board của chính bạn — nó
 camera, ống kính và ánh sáng thật. `scripts/export_solder_dataset.py --overlays`
 sinh sẵn ROI ứng viên để người **sửa** thay vì vẽ từ đầu.
 
+## Tăng độ chính xác không cần train lại
+
+Rà lại toàn bộ khung (tiền xử lý bước 1, detector, hai classifier) trong lúc chờ
+model train trên Kaggle. Hai việc thật, không phải lý thuyết:
+
+### 1. Nghi vấn: tiền xử lý bước 1 có thể đang lệch miền so với model đã train
+
+`ImagePreprocessor` ([aoi_pipeline/imaging/preprocessing.py](aoi_pipeline/imaging/preprocessing.py))
+mặc định bật cả 5 bước: denoise, white-balance, CLAHE, normalize luminance,
+unsharp mask — chạy trên **mọi** ảnh trước khi đưa vào cả detector lẫn crop cho
+hai classifier. Đã kiểm tra cả 3 notebook train (detector v1/v2, classifier v2,
+solder v2): **không notebook nào áp dụng chuỗi này lên ảnh train** — chúng train
+trên ảnh thô của dataset cộng augmentation chuẩn (mosaic/HSV cho YOLO,
+RandAugment cho classifier). Nghĩa là ảnh đưa vào model lúc suy luận có thể khác
+thống kê pixel so với ảnh model từng thấy lúc train — đặc biệt CLAHE (viết lại
+tương phản cục bộ) và unsharp mask (khuếch đại biên) là hai phép biến đổi mà một
+CNN/detector backbone rất nhạy.
+
+**Chưa đo được trên ảnh board thật** — repo này không có sẵn ảnh board thật nào
+(chỉ có fixture tổng hợp), nên chưa thể kết luận chiều nào đúng, chỉ nêu đúng
+mức độ rủi ro đã xác minh được qua code. Dùng script mới
+[`scripts/compare_preprocessing_ab.py`](scripts/compare_preprocessing_ab.py) để
+tự đo trên board thật của bạn ngay khi có model:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\compare_preprocessing_ab.py D:\anh_board `
+  --model models\detector\kaggle\best.onnx --isolate
+```
+
+So khớp detection giữa "ảnh thô" và "ảnh đã tiền xử lý" theo IoU+class, báo số
+box mất/thêm và độ lệch confidence trung bình. Cờ `--isolate` bật lần lượt từng
+bước (denoise/white_balance/clahe/normalize/sharpen) để biết chính xác bước nào
+là thủ phạm nếu có, thay vì đổ cho "tiền xử lý" nói chung. Nếu kết quả cho thấy
+mất detection/giảm confidence rõ rệt: tắt bớt trong `PreprocessConfig`, hoặc để
+lâu dài thì train lại trên ảnh đã qua đúng chuỗi tiền xử lý này.
+
+### 2. Đã thêm: TTA (test-time augmentation) lúc suy luận
+
+Ba "helper" chạy model — `ONNXComponentClassifier`, `ONNXSolderClassifier`,
+`UltralyticsDetector` — trước đó chỉ chạy đúng 1 lượt forward mỗi ảnh dù notebook
+train bước 6.1 đã **đo được** lợi ích của việc trung bình 4 góc nhìn (gốc + lật
+ngang + lật dọc + lật cả hai): macro recall 0.9292 → 0.9417 trên cùng một bộ
+trọng số. Đó là lợi ích miễn phí bị bỏ lại ở lúc deploy — không cần train lại.
+
+Đã bật tuỳ chọn (mặc định **tắt**, vì tăng ~4x thời gian suy luận của bước đó):
+
+```python
+config.classification.tta = True     # bước 6.1, đã đo lợi ích ở trên
+config.solder_grading.tta = True     # bước 6.2, cùng kỹ thuật nhưng chưa đo trên model này
+config.model_detector.tta = True     # bước 4, augment=True có sẵn của Ultralytics
+```
+
+`classification.tta`/`solder_grading.tta` trung bình softmax qua đúng 4 view mà
+notebook 6.1 đã kiểm chứng. `model_detector.tta` bật `augment=True` tích hợp sẵn
+của Ultralytics (đa tỉ lệ + lật, tự hợp nhất trước NMS) — kỹ thuật chuẩn, thường
++0.5–2 mAP, chưa đo riêng trên model của dự án này. Test ở
+[tests/test_classification.py](tests/test_classification.py),
+[tests/grading/test_solder_grading.py](tests/grading/test_solder_grading.py),
+[tests/detection/test_detectors.py](tests/detection/test_detectors.py) kiểm cả
+việc 4 view thật sự được lật đúng chiều lẫn xác suất được trung bình đúng.
+
 ## Cấu trúc dự án
 
 ```text

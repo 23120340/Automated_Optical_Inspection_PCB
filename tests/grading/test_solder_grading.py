@@ -391,6 +391,73 @@ def test_a_valid_manifest_drives_the_runtime() -> None:
     assert prediction[0].probability > 0.9
 
 
+class _TTASession:
+    """Returns distinct, known logits per one of the 4 flip views so the
+    caller's averaging can be checked exactly, not just its shape."""
+
+    PER_VIEW_LOGITS = np.array(
+        [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0], [1.0, 1.0, 1.0]],
+        dtype=np.float32,
+    )
+
+    def __init__(self) -> None:
+        self.feed: np.ndarray | None = None
+
+    def get_inputs(self):
+        return [type("I", (), {"name": "input"})()]
+
+    def get_outputs(self):
+        return [type("O", (), {"name": "logits"})()]
+
+    def run(self, names, feeds):
+        self.feed = next(iter(feeds.values()))
+        batch = self.feed.shape[0] // 4
+        return [np.repeat(self.PER_VIEW_LOGITS, batch, axis=0)]
+
+
+def _asymmetric_roi() -> np.ndarray:
+    image = np.zeros((20, 20, 3), np.uint8)
+    image[:, :10, 2] = 255
+    image[10:, :, 1] = 200
+    return image
+
+
+def test_solder_tta_off_sends_a_single_view() -> None:
+    session = _Session(np.array([3.0, 0.0, 0.0], np.float32))
+    classifier = ONNXSolderClassifier(
+        "unused.onnx", _manifest(), SolderGradingConfig(tta=False), session=session
+    )
+    predictions = classifier.predict([_asymmetric_roi(), _asymmetric_roi()])
+    # No TTA batching blow-up: one prediction per ROI, not four.
+    assert len(predictions) == 2
+    assert predictions[0][0].label == "good"
+
+
+def test_solder_tta_on_stacks_four_flip_views_and_averages() -> None:
+    session = _TTASession()
+    classifier = ONNXSolderClassifier(
+        "unused.onnx", _manifest(), SolderGradingConfig(tta=True), session=session
+    )
+    roi = _asymmetric_roi()
+    base = classifier._preprocess(roi)
+    predictions = classifier.predict([roi])[0]
+
+    assert session.feed.shape == (4, 3, 128, 128)
+    np.testing.assert_array_equal(session.feed[0], base)
+    np.testing.assert_array_equal(session.feed[1], base[:, :, ::-1])
+    np.testing.assert_array_equal(session.feed[2], base[:, ::-1, :])
+    np.testing.assert_array_equal(session.feed[3], base[:, ::-1, ::-1])
+
+    exponentials = np.exp(
+        _TTASession.PER_VIEW_LOGITS - _TTASession.PER_VIEW_LOGITS.max(axis=1, keepdims=True)
+    )
+    per_view_probs = exponentials / exponentials.sum(axis=1, keepdims=True)
+    expected = per_view_probs.mean(axis=0)
+    by_label = {item.label: item.probability for item in predictions}
+    for label, index in (("good", 0), ("insufficient", 1), ("cold", 2)):
+        assert by_label[label] == pytest.approx(float(expected[index]), rel=1e-5)
+
+
 @pytest.mark.parametrize(
     "override,message",
     [

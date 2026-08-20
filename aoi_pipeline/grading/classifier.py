@@ -115,16 +115,8 @@ class ONNXSolderClassifier:
         results: list[list[ClassProbability]] = []
         for start in range(0, len(images), batch_size):
             batch = images[start : start + batch_size]
-            tensor = np.stack([self._preprocess(image) for image in batch])
-            output = session.run([self._output_name], {self._input_name: tensor})[0]
-            logits = np.asarray(output, dtype=np.float32)
-            expected = (len(batch), len(self.class_names))
-            if logits.ndim != 2 or logits.shape != expected:
-                raise ClassifierConfigurationError(
-                    "Solder model output must be [batch, classes]; "
-                    f"received {tuple(logits.shape)}, expected {expected}"
-                )
-            probabilities = _softmax(logits / self.temperature)
+            base = np.stack([self._preprocess(image) for image in batch])
+            probabilities = self._infer_probabilities(session, base)
             for row in probabilities:
                 order = np.argsort(-row, kind="stable")
                 results.append(
@@ -137,6 +129,38 @@ class ONNXSolderClassifier:
 
     def accept_threshold_for(self, label: str) -> float:
         return self.accept_by_class.get(label, self.accept_threshold)
+
+    def _infer_probabilities(self, session: Any, base: np.ndarray) -> np.ndarray:
+        """Run the model, averaging over 4 flip views when ``config.tta`` is set.
+
+        Same identity/horizontal/vertical/both averaging as the step-6.1
+        classifier. Solder joints have no canonical orientation, so this is
+        expected to help by the same reasoning, but -- unlike step 6.1 -- it
+        has not been measured against this specific trained model.
+        """
+
+        batch_count = base.shape[0]
+        if self.config.tta:
+            views = np.concatenate(
+                [base, base[:, :, :, ::-1], base[:, :, ::-1, :], base[:, :, ::-1, ::-1]],
+                axis=0,
+            )
+            tensor = np.ascontiguousarray(views)
+        else:
+            tensor = base
+        output = session.run([self._output_name], {self._input_name: tensor})[0]
+        logits = np.asarray(output, dtype=np.float32)
+        view_count = 4 if self.config.tta else 1
+        expected = (batch_count * view_count, len(self.class_names))
+        if logits.ndim != 2 or logits.shape != expected:
+            raise ClassifierConfigurationError(
+                "Solder model output must be [batch, classes]; "
+                f"received {tuple(logits.shape)}, expected {expected}"
+            )
+        probabilities = _softmax(logits / self.temperature)
+        if self.config.tta:
+            probabilities = probabilities.reshape(view_count, batch_count, -1).mean(axis=0)
+        return probabilities
 
     def _preprocess(self, image: np.ndarray) -> np.ndarray:
         rgb = cv2.cvtColor(ensure_bgr(image), cv2.COLOR_BGR2RGB)

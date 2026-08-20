@@ -79,6 +79,24 @@ def test_ultralytics_adapter_can_pin_kaggle_one_to_many_head(tmp_path: Path) -> 
     assert model.last_predict_kwargs["end2end"] is False
 
 
+def test_ultralytics_adapter_leaves_augment_unset_by_default(tmp_path: Path) -> None:
+    model = _FakeModel()
+    detector = UltralyticsDetector(tmp_path / "model.pt", model=model)
+    detector.detect(np.zeros((80, 100, 3), dtype=np.uint8))
+    assert "augment" not in model.last_predict_kwargs
+
+
+def test_ultralytics_adapter_can_enable_inference_time_tta(tmp_path: Path) -> None:
+    model = _FakeModel()
+    detector = UltralyticsDetector(
+        tmp_path / "model.pt",
+        ModelDetectorConfig(tta=True),
+        model=model,
+    )
+    detector.detect(np.zeros((80, 100, 3), dtype=np.uint8))
+    assert model.last_predict_kwargs["augment"] is True
+
+
 def test_ultralytics_adapter_accepts_detail_confidence_override(tmp_path: Path) -> None:
     model = _FakeModel()
     detector = UltralyticsDetector(

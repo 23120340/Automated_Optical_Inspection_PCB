@@ -103,16 +103,8 @@ class ONNXComponentClassifier:
         results: list[ComponentClassification] = []
         for start in range(0, len(crops), batch_size):
             batch_crops = crops[start : start + batch_size]
-            tensor = np.stack([self._preprocess(item.image) for item in batch_crops])
-            output = session.run([self._output_name], {self._input_name: tensor})[0]
-            logits = np.asarray(output, dtype=np.float32)
-            expected_shape = (len(batch_crops), len(self.class_names))
-            if logits.ndim != 2 or logits.shape != expected_shape:
-                raise ClassifierConfigurationError(
-                    "Classifier output must be [batch, classes]; "
-                    f"received {tuple(logits.shape)}, expected {expected_shape}"
-                )
-            probabilities = _softmax(logits / self.temperature)
+            base = np.stack([self._preprocess(item.image) for item in batch_crops])
+            probabilities = self._infer_probabilities(session, base)
             for offset, (crop, row) in enumerate(zip(batch_crops, probabilities)):
                 order = np.argsort(-row, kind="stable")[:top_k_count]
                 top_k = [
@@ -151,6 +143,37 @@ class ONNXComponentClassifier:
                     )
                 )
         return results
+
+    def _infer_probabilities(self, session: Any, base: np.ndarray) -> np.ndarray:
+        """Run the model, averaging over 4 flip views when ``config.tta`` is set.
+
+        Matches the flip-TTA the classifier training notebook validated
+        (identity, horizontal, vertical, both), which measured macro recall
+        0.9292 -> 0.9417 on the same trained weights.
+        """
+
+        batch_count = base.shape[0]
+        if self.config.tta:
+            views = np.concatenate(
+                [base, base[:, :, :, ::-1], base[:, :, ::-1, :], base[:, :, ::-1, ::-1]],
+                axis=0,
+            )
+            tensor = np.ascontiguousarray(views)
+        else:
+            tensor = base
+        output = session.run([self._output_name], {self._input_name: tensor})[0]
+        logits = np.asarray(output, dtype=np.float32)
+        view_count = 4 if self.config.tta else 1
+        expected_shape = (batch_count * view_count, len(self.class_names))
+        if logits.ndim != 2 or logits.shape != expected_shape:
+            raise ClassifierConfigurationError(
+                "Classifier output must be [batch, classes]; "
+                f"received {tuple(logits.shape)}, expected {expected_shape}"
+            )
+        probabilities = _softmax(logits / self.temperature)
+        if self.config.tta:
+            probabilities = probabilities.reshape(view_count, batch_count, -1).mean(axis=0)
+        return probabilities
 
     def _preprocess(self, image: np.ndarray) -> np.ndarray:
         bgr = ensure_bgr(image)

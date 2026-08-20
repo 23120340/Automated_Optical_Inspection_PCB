@@ -143,6 +143,13 @@ class ModelDetectorConfig:
     # ``None`` preserves the head declared by arbitrary Ultralytics artifacts.
     # The local UI explicitly sets False for its Kaggle one-to-many/NMS recipe.
     end2end: bool | None = None
+    # Ultralytics' built-in inference-time augmentation (multi-scale + flip,
+    # averaged internally before NMS). Off by default: it roughly doubles
+    # inference time and every tiling/confidence threshold in this project was
+    # tuned without it. Worth trying once a fresh model is trained -- it is a
+    # no-retrain accuracy lever, typically +0.5-2 mAP on small/occluded
+    # objects, which is exactly where this detector struggles (pads/pins).
+    tta: bool = False
 
 
 @dataclass(slots=True)
@@ -385,6 +392,12 @@ class ClassificationConfig:
     accept_threshold: float | None = None
     review_threshold: float | None = None
     temperature: float | None = None
+    # Average softmax over the same 4 flip views (identity, horizontal,
+    # vertical, both) the training notebook used to measure macro recall.
+    # Measured there: 0.9292 -> 0.9417 on the same weights, so this is a
+    # no-retrain accuracy gain, at the cost of 4x classifier inference time
+    # (crops are small, so this is still cheap in absolute terms).
+    tta: bool = False
 
 
 @dataclass(slots=True)
@@ -450,6 +463,12 @@ class SolderGradingConfig:
 
     # --- component rule thresholds -----------------------------------------
     missing_component_ratio: float = 0.02
+
+    # Same 4-flip-view averaging as ClassificationConfig.tta. The solder
+    # notebook only validated random-flip *training* augmentation, not this
+    # eval-time averaging, so treat the accuracy gain here as expected by the
+    # same reasoning rather than a number measured on this specific model.
+    tta: bool = False
 
     # --- fusion -------------------------------------------------------------
     # A model verdict below this is never accepted on its own.
