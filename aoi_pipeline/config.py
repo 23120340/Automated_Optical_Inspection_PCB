@@ -259,6 +259,30 @@ class SolderJointConfig:
     estimate_orientation: bool = False
     orientation_max_angle: float = 30.0
 
+    # --- tighten the ROI onto the metal actually inside it ------------------
+    # The ratios above say WHERE a terminal is; they cannot know how wide the
+    # land under it happens to be. Measuring that from the pixels raised mean
+    # IoU against known pad rectangles from 0.24 to 0.70 in the synthetic
+    # benchmark, and tightened 20 of 21 ROIs on a real board.
+    #
+    # Deliberately confined to the already-predicted ROI. Searching a wider
+    # neighbourhood finds every bright thing near the part -- traces, vias, a
+    # neighbour's pads -- and was measurably worse on real boards even though it
+    # scored the same on the synthetic one.
+    refine_to_metal: bool = True
+    # Same meaning as SolderGradingConfig.saturation_max: solder is bright and
+    # close to grey. Duplicated rather than shared because step 5.5 must be able
+    # to run with step 6.2 switched off entirely.
+    saturation_max: int = 110
+    # Ignore a metal blob smaller than this share of the ROI: below it the box
+    # would be shrinking onto a speck of silkscreen.
+    refine_min_metal_fraction: float = 0.02
+    # Refuse a refinement that shrinks the ROI below this share of its area.
+    # A joint with almost no solder must stay a big empty ROI, because that is
+    # the evidence step 6.2 needs; collapsing it onto the one bright pixel
+    # present would hide the defect.
+    refine_min_area_fraction: float = 0.10
+
     target_size: tuple[int, int] | None = (128, 128)
     letterbox_color: tuple[int, int, int] = (114, 114, 114)
     image_extension: Literal[".png", ".jpg"] = ".png"

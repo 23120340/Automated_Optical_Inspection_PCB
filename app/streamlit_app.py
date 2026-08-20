@@ -65,6 +65,11 @@ MAX_IMAGE_PIXELS = 50_000_000
 MIN_SOURCE_LONG_SIDE = 1280
 MIN_SOURCE_SHORT_SIDE = 960
 MIN_SOURCE_PIXELS = MIN_SOURCE_LONG_SIDE * MIN_SOURCE_SHORT_SIDE
+# The resolution figure is still measured and still shown; it just no longer
+# blocks the import. Set this back to True for a production line, where running
+# a board nobody can grade is worse than refusing it. During development it only
+# stops you from feeding the pipeline the images you have.
+ENFORCE_SOURCE_RESOLUTION = False
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 STEP_DEFINITIONS = (
     (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
@@ -298,7 +303,14 @@ def _decode_image(data: bytes) -> np.ndarray:
 
 
 def _source_resolution_issue(image: np.ndarray) -> str | None:
-    """Return a user-facing quality gate error for a complete-board import."""
+    """Describe how far a board image falls short of the recommended resolution.
+
+    Returns the description whether or not it is enforced, because the number
+    still matters: a fillet needs roughly ten pixels across it before its shape
+    is readable, so a low-resolution run can look clean while being unable to
+    see the defects it was meant to find. Whether that description blocks the
+    import is :data:`ENFORCE_SOURCE_RESOLUTION`'s business, not this function's.
+    """
 
     height, width = (int(value) for value in image.shape[:2])
     long_side, short_side = max(width, height), min(width, height)
@@ -308,17 +320,27 @@ def _source_resolution_issue(image: np.ndarray) -> str | None:
         or short_side < MIN_SOURCE_SHORT_SIDE
         or pixel_count < MIN_SOURCE_PIXELS
     ):
+        blocked = (
+            "Pipeline đã khóa để tránh bỏ sót linh kiện nhỏ."
+            if ENFORCE_SOURCE_RESOLUTION
+            else "Ảnh vẫn chạy được để thử nghiệm, nhưng linh kiện và mối hàn nhỏ "
+            "có thể bị bỏ sót — đừng lấy kết quả ở độ phân giải này làm căn cứ "
+            "đánh giá model."
+        )
         return (
             f"Ảnh {width} × {height}px ({pixel_count / 1_000_000:.2f} MP) không đạt "
-            f"ngưỡng ảnh toàn PCB tối thiểu {MIN_SOURCE_LONG_SIDE} × "
+            f"ngưỡng ảnh toàn PCB khuyến nghị {MIN_SOURCE_LONG_SIDE} × "
             f"{MIN_SOURCE_SHORT_SIDE}px ({MIN_SOURCE_PIXELS / 1_000_000:.2f} MP). "
-            "Pipeline đã khóa để tránh bỏ sót linh kiện nhỏ. Hãy chụp hoặc gửi "
-            "ảnh khác có độ phân giải cao hơn; không nội suy/upscale ảnh cũ."
+            f"{blocked}"
         )
     return None
 
 
 def _require_source_resolution(image: np.ndarray) -> None:
+    """Raise only when the gate is enforced; otherwise the caller warns instead."""
+
+    if not ENFORCE_SOURCE_RESOLUTION:
+        return
     issue = _source_resolution_issue(image)
     if issue:
         raise ValueError(issue)
@@ -1481,8 +1503,11 @@ def _render_step_zero() -> None:
                 st.metric("Kênh màu", "BGR · 8-bit")
                 resolution_issue = _source_resolution_issue(candidate)
                 if resolution_issue:
-                    st.error(resolution_issue)
-                elif st.button("Nạp ảnh này vào pipeline", type="primary", width="stretch"):
+                    (st.error if ENFORCE_SOURCE_RESOLUTION else st.warning)(resolution_issue)
+                blocked = bool(resolution_issue) and ENFORCE_SOURCE_RESOLUTION
+                if not blocked and st.button(
+                    "Nạp ảnh này vào pipeline", type="primary", width="stretch"
+                ):
                     _set_source(uploaded_file.name, payload)
                     st.toast("Đã nạp ảnh vào workspace.", icon="✅")
                     st.rerun()
@@ -1500,10 +1525,11 @@ def _render_step_zero() -> None:
             st.code(st.session_state.input_digest[:16], language=None)
             active_issue = _source_resolution_issue(st.session_state.input_image)
             if active_issue:
-                st.error(active_issue)
+                (st.error if ENFORCE_SOURCE_RESOLUTION else st.warning)(active_issue)
             else:
                 st.success("Ảnh đã sẵn sàng cho bước 1.")
-            if not active_issue and st.button("Đi đến bước 1 →", width="stretch"):
+            active_blocked = bool(active_issue) and ENFORCE_SOURCE_RESOLUTION
+            if not active_blocked and st.button("Đi đến bước 1 →", width="stretch"):
                 st.session_state.active_step = 1
                 st.session_state.pending_navigation = 1
                 st.rerun()

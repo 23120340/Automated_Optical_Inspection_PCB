@@ -176,10 +176,16 @@ một crop cụt ở mép. Sau same-class NMS, hai box khác class nhưng IoU tr
 coi là hai giả thuyết cho cùng vật thể và chỉ giữ box có ưu tiên cao hơn. Lưới debug
 vẽ cả cửa sổ inference và ownership để kiểm tra trực quan.
 
-Client chặn ảnh toàn PCB dưới **1280×960 px (1,23 MP)** ngay tại bước import và
-kiểm tra lại trước preprocessing. Thông báo yêu cầu chụp/gửi ảnh khác; upscale ảnh
-cũ không được coi là đạt chất lượng vì không tạo thêm chi tiết quang học. Ngưỡng
-này là gate ban đầu, cần tăng theo kích thước linh kiện nhỏ nhất của camera thật.
+Client **cảnh báo** khi ảnh toàn PCB dưới **1280×960 px (1,23 MP)** nhưng không
+chặn — bật lại chặn cứng bằng `ENFORCE_SOURCE_RESOLUTION = True` trong
+`app/streamlit_app.py`. Nên bật cho dây chuyền thật: chạy một board mà không ai
+chấm nổi còn tệ hơn là từ chối nó. Trong lúc phát triển thì nó chỉ ngăn bạn thử
+đúng những ảnh đang có.
+
+Con số vẫn được đo và hiện ra dù không chặn, vì nó vẫn quan trọng: fillet cần cỡ
+10 px ngang mới đọc được hình dạng, nên một lượt chạy ở độ phân giải thấp có thể
+trông sạch sẽ trong khi không hề nhìn thấy được lỗi nó đáng lẽ phải tìm. Upscale
+ảnh cũ không giúp gì vì không tạo thêm chi tiết quang học.
 
 Detector class trên overlay chỉ là gợi ý. Nếu một capacitor/LED có box nhưng bị
 gán thành resistor, tiling/NMS không thể sửa class một cách đáng tin cậy; bước 6.1
@@ -548,6 +554,27 @@ calibration để chọn ngưỡng.
 `mobilenet_v3_small` (nhanh nhất CPU, dùng nếu Pi không kham nổi), `convnext_tiny`,
 `efficientnet_b0`.
 
+### Siết ROI theo kim loại thật (đã đo)
+
+`SolderJointConfig.refine_to_metal` (mặc định bật). Các tỉ lệ hình học quyết định
+ROI nằm **ở đâu**; chúng không thể biết land dưới đó **rộng bao nhiêu**. Đo cái đó
+từ chính pixel bên trong ROI:
+
+| Cách | Mean IoU với pad thật | Định vị được (IoU≥0.5) |
+|---|---:|---:|
+| Hình học theo tỉ lệ | 0.236 | 2/26 (8%) |
+| Tìm kim loại trong **cả vùng quanh linh kiện** | 0.701 | 25/26 (96%) |
+| **Siết trong chính ROI đã dự đoán** ✅ | **0.701** | **26/26 (100%)** |
+
+Hai cách sau ngang nhau trên board tổng hợp, nhưng **cách giữa hỏng trên board
+thật**: nó bám vào đường mạch đồng, via và pad của linh kiện bên cạnh. Cách được
+chọn chỉ tìm trong ROI đã dự đoán, nên nhiễu ở xa không lọt vào được. Trên ảnh
+PCB thật nó siết 16/24 ROI và giảm **33% diện tích ROI trung vị**.
+
+Không siết khi bằng chứng yếu: ROI không có kim loại, hoặc đốm quá nhỏ. Mối hàn
+thiếu thiếc **phải giữ nguyên ROI rỗng lớn** — chính sự trống đó là bằng chứng
+bước 6.2 cần; co nó lại quanh vài pixel sáng là giấu mất lỗi.
+
 ### Kết hợp thuật toán và model ở bước 5.5
 
 [`aoi_pipeline/inspection/leads.py`](aoi_pipeline/inspection/leads.py) — **ưu tiên
@@ -568,6 +595,48 @@ thấy một đầu sẽ **âm thầm mất đầu kia** — thường đúng l�
 
 Sau khi nạp detector mới, chạy một board và xem cảnh báo *"dùng N ROI từ detection
 chân/pad thật và M ROI suy ra"*. N > 0 nghĩa là detector mới thực sự đóng góp.
+
+## Độ phủ dataset: đo được, và chưa đủ
+
+Số liệu thật từ `pcb_component_detector_artifacts/class_distribution.csv` —
+**21.160 instance train, 22 class**:
+
+| Nhóm | Số class | Class |
+|---|---:|---|
+| Đủ (≥2000) | **3** | capacitor 7775, resistor 7133, ic 2220 |
+| Mỏng (500–1999) | 4 | connector 889, transistor 572, diode 551, led 549 |
+| Rất mỏng (100–499) | 5 | switch 283, **pins 261**, inductor 213, **pads 186**, fuse 111 |
+| Không dùng được (<100) | **9** | clock 89, relay 66, display 63, button 56, potentiometer 50, buzzer 45, battery 42, heatsink 4, transformer 2 |
+| Rỗng | 1 | transducer (0 train, 4 test) |
+
+**Ba class chiếm 81% toàn bộ dữ liệu.** Và `heatsink`, `transformer`, `transducer`
+có **0 instance trong val** — recall của chúng về mặt kỹ thuật là không đo được,
+nên mọi con số báo cho chúng đều vô nghĩa.
+
+Kết luận thẳng: dataset này **phủ đúng 3 trên 22 class**. Với 9 class dưới 100
+instance, model không học mà chỉ ghi nhớ. Đây là lý do notebook v2 loại class
+dưới `min_per_class` khỏi `class_names` thay vì giả vờ train chúng.
+
+### Với bước 6.2 (mối hàn)
+
+| Lớp | Nguồn | Đủ chưa |
+|---|---|---|
+| good, insufficient, excess | SolDef_AI | Tạm được, nhưng khác camera/ánh sáng của bạn |
+| shift_component | SolDef_AI | Nguồn công khai duy nhất có |
+| bridge, missing_solder | HF (không license, nghi dữ liệu sinh) | **Không tin được cho production** |
+| **cold** | Roboflow, vài trăm ảnh | **Yếu nhất.** Và cold cần đèn RGB đa góc mới tách được — dataset không bù được quang học |
+| tombstone, wrong_polarity | không nguồn nào | **Không có** |
+
+### Cần bao nhiêu mới đủ
+
+Ước lượng thực tế cho AOI: **≥500 instance/class** để học được, **≥2000** để ổn
+định, và tối thiểu **50–100 instance/class trong val** mới đo được recall đáng
+tin. Chiếu vào bảng trên: cần thêm dữ liệu cho **19 trên 22 class** của detector,
+và cho gần như mọi lớp lỗi của 6.2.
+
+Nguồn dữ liệu giá trị nhất vẫn là board của chính bạn — nó là nguồn duy nhất khớp
+camera, ống kính và ánh sáng thật. `scripts/export_solder_dataset.py --overlays`
+sinh sẵn ROI ứng viên để người **sửa** thay vì vẽ từ đầu.
 
 ## Cấu trúc dự án
 

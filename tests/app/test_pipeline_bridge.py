@@ -261,7 +261,11 @@ def test_classifier_manifest_warns_for_low_quality_artifact() -> None:
     ) is None
 
 
-def test_source_resolution_gate_rejects_low_pixel_board_import() -> None:
+def test_low_resolution_board_import_is_still_measured_and_described() -> None:
+    """The number matters even when it no longer blocks: a fillet needs roughly
+    ten pixels across it, so a low-resolution run can look clean while being
+    unable to see the defects it was meant to find."""
+
     from app import streamlit_app as ui
 
     issue = ui._source_resolution_issue(np.zeros((750, 1000, 3), dtype=np.uint8))
@@ -270,8 +274,27 @@ def test_source_resolution_gate_rejects_low_pixel_board_import() -> None:
     assert "1000 × 750px" in issue
     assert "1280 × 960px" in issue
     assert ui._source_resolution_issue(np.zeros((960, 1280, 3), dtype=np.uint8)) is None
+
+
+def test_low_resolution_import_is_not_blocked_by_default() -> None:
+    """Development needs to run whatever images exist; the warning still shows."""
+
+    from app import streamlit_app as ui
+
+    assert ui.ENFORCE_SOURCE_RESOLUTION is False
+    # No exception: the caller displays the warning instead of refusing.
+    ui._require_source_resolution(np.zeros((900, 1280, 3), dtype=np.uint8))
+
+
+def test_the_gate_can_be_re_armed_for_a_production_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app import streamlit_app as ui
+
+    monkeypatch.setattr(ui, "ENFORCE_SOURCE_RESOLUTION", True)
     with pytest.raises(ValueError, match="không đạt"):
         ui._require_source_resolution(np.zeros((900, 1280, 3), dtype=np.uint8))
+    assert "đã khóa" in ui._source_resolution_issue(np.zeros((900, 1280, 3), dtype=np.uint8))
 
 
 def test_classification_csv_exports_decision_and_top_k(

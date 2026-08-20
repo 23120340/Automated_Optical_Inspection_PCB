@@ -4,19 +4,26 @@
 # Train lại classifier bước 6.1 với backbone mới và công thức mạnh hơn hẳn
 # notebook v1. Xuất đúng `best.onnx` + `model_manifest.json` mà app đang chờ.
 #
-# ## Đổi backbone: EfficientNetV2-S, và vì sao
+# ## Backbone: tối ưu cho ĐỘ CHÍNH XÁC
 #
-# | Backbone | Lý do chọn / bỏ |
-# |---|---|
-# | EfficientNet-B0 (v1 đang dùng) | Ổn nhưng train chậm hội tụ, và progressive-resize của V2 hợp dữ liệu nhỏ hơn |
-# | **EfficientNetV2-S** ✅ | Fine-tune tốt trên tập nhỏ/vừa, cân bằng accuracy–latency, ONNX export sạch |
-# | ConvNeXt-V2 Tiny | Accuracy tốt nhưng nặng hơn đáng kể trên CPU ARM |
-# | MobileNetV4-Conv-S | **Chậm hơn MobileNetV3-Small ~59%** một luồng trên CPU — không đáng đổi |
-# | MobileNetV3-Small | Nhanh nhất CPU; để làm phương án nếu Raspberry Pi không kham nổi V2-S |
+# Không còn ràng buộc Raspberry Pi, nên chọn theo accuracy thuần.
 #
-# Notebook cho chọn backbone ở `CONFIG["model_name"]`. Mặc định EfficientNetV2-S;
-# nếu latency trên Pi không đạt thì đổi sang `mobilenet_v3_small` và train lại —
-# mọi thứ khác giữ nguyên.
+# | Backbone | Params | Nhận xét |
+# |---|---:|---|
+# | **ConvNeXt-Base** ✅ mặc định | 89M | Nhánh CNN hiện đại mạnh nhất ở quy mô này; dễ train hơn ResNet, ngang Swin cùng compute |
+# | ConvNeXt-Small | 50M | Thường **thắng Base khi dữ liệu ít** — thử cả hai, đừng đoán |
+# | ConvNeXt-Tiny | 28M | Trong khảo sát 7 dataset, *thắng mọi model khác ở hầu hết dataset ảnh tự nhiên* |
+# | EfficientNetV2-M | 54M | Mạnh, hội tụ tốt trên tập nhỏ |
+# | EfficientNetV2-S | 21M | Nhẹ hơn, vẫn tốt ở 5/7 dataset trong cùng khảo sát |
+# | Swin-T / ViT | 28M+ | Accuracy cao nhưng cần pretrain lớn và nhiều dữ liệu hơn; latency cao |
+#
+# **Cảnh báo quan trọng:** model to hơn ≠ chính xác hơn khi dữ liệu ít. Với vài
+# nghìn crop, ConvNeXt-Base (89M) rất dễ overfit và Tiny/Small thường thắng.
+# Notebook ghi `best_macro_recall` vào manifest nên bạn **so được giữa các lần
+# chạy** — hãy chạy 2–3 backbone rồi chọn theo số đo, đừng chọn theo tên.
+#
+# Ngoài backbone, hai đòn bẩy accuracy khác đã bật sẵn: **input 288px** (crop nhỏ
+# và fine-grained nên độ phân giải giúp nhiều) và **TTA khi đánh giá**.
 #
 # ## Công thức train: những thứ thật sự dịch kim
 #
@@ -48,14 +55,18 @@ CONFIG = {
     "work_dir": "/kaggle/working/pcb_classifier_v2",
     "artifact_dir": "/kaggle/working/pcb_classifier_v2_artifacts",
 
-    # efficientnet_v2_s | mobilenet_v3_small | convnext_tiny | efficientnet_b0
-    "model_name": "efficientnet_v2_s",
-    "input_size": 224,
+    # convnext_base | convnext_small | convnext_tiny | efficientnet_v2_m
+    # | efficientnet_v2_s | swin_t | efficientnet_b0 | mobilenet_v3_small
+    "model_name": "convnext_base",
+    # 288 thay vì 224: crop linh kiện nhỏ và fine-grained, độ phân giải là đòn
+    # bẩy accuracy rẻ nhất. Hạ xuống 224 nếu OOM.
+    "input_size": 288,
     "letterbox_value": 114,
     # Phải khớp công thức crop của app: pad = 0.15 * max(w,h), không ép vuông.
     "crop_padding_ratio": 0.15,
 
-    "batch_size": 64,
+    # Batch nhỏ hơn vì model to hơn và ảnh lớn hơn.
+    "batch_size": 32,
     "epochs": 60,
     "freeze_epochs": 3,
     "patience": 12,
@@ -74,6 +85,9 @@ CONFIG = {
     "calibration_fraction": 0.30,  # tách từ val gốc của dataset
     "min_per_class": 40,
     "num_workers": 2,
+    # Test-time augmentation khi đánh giá cuối: lật ngang/dọc rồi trung bình
+    # xác suất. Gần như luôn dương vì mối hàn không có hướng chuẩn.
+    "tta": True,
     "opset": 18,
 }
 
@@ -343,25 +357,42 @@ test_loader = make_loader(test_records, False) if test_records else None
 
 # %%
 def build_model(name, num_classes):
-    if name == "efficientnet_v2_s":
-        model = torchvision.models.efficientnet_v2_s(weights="DEFAULT")
+    """Dựng backbone và nói rõ tên module nào là head.
+
+    Head phải tách được vì hai lý do: freeze giai đoạn đầu, và layer-wise LR
+    decay chỉ áp cho backbone.
+    """
+
+    convnext = {
+        "convnext_base": torchvision.models.convnext_base,
+        "convnext_small": torchvision.models.convnext_small,
+        "convnext_tiny": torchvision.models.convnext_tiny,
+    }
+    efficientnet = {
+        "efficientnet_v2_m": torchvision.models.efficientnet_v2_m,
+        "efficientnet_v2_s": torchvision.models.efficientnet_v2_s,
+        "efficientnet_b0": torchvision.models.efficientnet_b0,
+    }
+
+    if name in convnext:
+        model = convnext[name](weights="DEFAULT")
+        model.classifier[2] = nn.Linear(model.classifier[2].in_features, num_classes)
+        return model, ["classifier"]
+    if name in efficientnet:
+        model = efficientnet[name](weights="DEFAULT")
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
-        head_names = ["classifier"]
-    elif name == "efficientnet_b0":
-        model = torchvision.models.efficientnet_b0(weights="DEFAULT")
-        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
-        head_names = ["classifier"]
-    elif name == "mobilenet_v3_small":
+        return model, ["classifier"]
+    if name == "mobilenet_v3_small":
         model = torchvision.models.mobilenet_v3_small(weights="DEFAULT")
         model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
-        head_names = ["classifier"]
-    elif name == "convnext_tiny":
-        model = torchvision.models.convnext_tiny(weights="DEFAULT")
-        model.classifier[2] = nn.Linear(model.classifier[2].in_features, num_classes)
-        head_names = ["classifier"]
-    else:
-        raise SystemExit(f"Backbone chưa hỗ trợ: {name}")
-    return model, head_names
+        return model, ["classifier"]
+    if name == "swin_t":
+        model = torchvision.models.swin_t(weights="DEFAULT")
+        model.head = nn.Linear(model.head.in_features, num_classes)
+        return model, ["head"]
+    raise SystemExit(
+        f"Backbone chưa hỗ trợ: {name}. Có: {sorted(list(convnext) + list(efficientnet) + ['swin_t', 'mobilenet_v3_small'])}"
+    )
 
 
 model, head_names = build_model(CONFIG["model_name"], len(CLASS_NAMES))
@@ -514,11 +545,24 @@ print(f"\nmacro recall tốt nhất: {best_score:.4f}")
 model_cpu = model.to("cpu").eval()
 
 
-def collect(loader):
+def collect(loader, tta=None):
+    """Logit trên toàn bộ loader, tuỳ chọn trung bình qua các phép lật.
+
+    Mối hàn và linh kiện SMD không có hướng chuẩn, nên lật ngang/dọc là biến đổi
+    hợp lệ và trung bình chúng gần như luôn cho kết quả tốt hơn một lượt đơn.
+    """
+    tta = CONFIG["tta"] if tta is None else tta
     logits_all, truths = [], []
     with torch.no_grad():
         for images, targets in loader:
-            logits_all.append(model_cpu(images).numpy())
+            if tta:
+                views = [images, torch.flip(images, [3]), torch.flip(images, [2]),
+                         torch.flip(images, [2, 3])]
+                stacked = torch.stack([model_cpu(v) for v in views])
+                logits = stacked.mean(0)
+            else:
+                logits = model_cpu(images)
+            logits_all.append(logits.numpy())
             truths.extend(targets.tolist())
     return (np.concatenate(logits_all) if logits_all else np.zeros((0, len(CLASS_NAMES))),
             np.asarray(truths))
@@ -576,7 +620,18 @@ print("\nChọn ngưỡng: accept cao thì ít sai nhưng nhiều crop rơi vào
 # %%
 if test_loader is not None:
     accuracy, macro_recall = evaluate(model_cpu, test_loader)
-    print(f"TEST accuracy {accuracy:.4f} | macro recall {macro_recall:.4f}")
+    print(f"TEST accuracy {accuracy:.4f} | macro recall {macro_recall:.4f}  (không TTA)")
+    if CONFIG["tta"]:
+        plain_logits, plain_truths = collect(test_loader, tta=False)
+        tta_logits, _ = collect(test_loader, tta=True)
+        for label, logits in (("không TTA", plain_logits), ("có TTA", tta_logits)):
+            predicted = logits.argmax(1)
+            per_class = [
+                float((predicted[plain_truths == i] == i).mean())
+                for i in range(len(CLASS_NAMES)) if (plain_truths == i).any()
+            ]
+            print(f"  {label:9s} accuracy {float((predicted == plain_truths).mean()):.4f} "
+                  f"| macro recall {float(np.mean(per_class)):.4f}")
     test_logits, test_truths = collect(test_loader)
     matrix = np.zeros((len(CLASS_NAMES), len(CLASS_NAMES)), int)
     for truth, prediction in zip(test_truths, test_logits.argmax(1)):
@@ -677,6 +732,8 @@ manifest = {
         "classes_dropped": dropped,
         "best_macro_recall": best_score,
         "threshold_sweep": sweep,
+        "input_size": CONFIG["input_size"],
+        "tta": CONFIG["tta"],
         "epochs_run": len(history),
         "seed": SEED,
     },

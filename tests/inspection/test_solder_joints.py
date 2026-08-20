@@ -367,3 +367,80 @@ def test_ui_overlay_is_non_destructive_and_honours_the_body_toggle() -> None:
     assert image.sum() == 0
     assert not np.array_equal(with_body, image)
     assert not np.array_equal(with_body, without_body)
+
+
+# --------------------------------------------------------------------------- #
+# Tightening the ROI onto the metal actually inside it
+# --------------------------------------------------------------------------- #
+
+
+def _bare_joint(bbox: BoundingBox, kind: str = "joint", position: str = "terminal_a"):
+    from aoi_pipeline.core.models import SolderJoint
+
+    return SolderJoint(
+        detection_id="det_1",
+        joint_id="det_1_joint00",
+        label="resistor",
+        kind=kind,
+        bbox=bbox,
+        terminal_geometry="two_terminal",
+        position=position,
+    )
+
+
+def test_refinement_shrinks_a_roi_onto_its_land() -> None:
+    """Ratios place the ROI; only the pixels know how wide the land is."""
+
+    from aoi_pipeline.inspection.solder import refine_joint_to_metal
+
+    image = _blank_board()
+    cv2.rectangle(image, (40, 40), (60, 60), (215, 215, 215), -1)
+    joint = _bare_joint(BoundingBox(20, 20, 80, 80))
+    refined = refine_joint_to_metal(joint, image, SolderJointConfig())
+
+    assert refined.metadata.get("refined_to_metal") is True
+    assert refined.bbox.area < joint.bbox.area
+    # The refined box should sit on the metal, not on the board around it.
+    assert refined.bbox.x1 >= 35 and refined.bbox.x2 <= 65
+
+
+def test_refinement_leaves_an_empty_roi_alone() -> None:
+    """A land with no solder must stay a big empty ROI -- that emptiness is the
+    evidence step 6.2 needs, and collapsing it would hide the defect."""
+
+    from aoi_pipeline.inspection.solder import refine_joint_to_metal
+
+    joint = _bare_joint(BoundingBox(20, 20, 80, 80))
+    refined = refine_joint_to_metal(joint, _blank_board(), SolderJointConfig())
+    assert refined.bbox.as_xyxy() == joint.bbox.as_xyxy()
+    assert "refined_to_metal" not in refined.metadata
+
+
+def test_refinement_ignores_a_speck() -> None:
+    from aoi_pipeline.inspection.solder import refine_joint_to_metal
+
+    image = _blank_board()
+    image[50, 50] = (240, 240, 240)
+    joint = _bare_joint(BoundingBox(20, 20, 80, 80))
+    refined = refine_joint_to_metal(joint, image, SolderJointConfig())
+    assert refined.bbox.as_xyxy() == joint.bbox.as_xyxy()
+
+
+def test_refinement_never_touches_the_body_view() -> None:
+    from aoi_pipeline.inspection.solder import refine_joint_to_metal
+
+    image = _blank_board()
+    cv2.rectangle(image, (40, 40), (60, 60), (215, 215, 215), -1)
+    body = _bare_joint(BoundingBox(20, 20, 80, 80), kind="body", position="body")
+    refined = refine_joint_to_metal(body, image, SolderJointConfig())
+    assert refined.bbox.as_xyxy() == body.bbox.as_xyxy()
+
+
+def test_refinement_can_be_switched_off() -> None:
+    image, detection = _chip_board()
+    on = SolderJointCropper(SolderJointConfig(refine_to_metal=True)).derive(image, [detection])
+    off = SolderJointCropper(SolderJointConfig(refine_to_metal=False)).derive(image, [detection])
+    on_area = sum(j.bbox.area for j in on if j.kind == "joint")
+    off_area = sum(j.bbox.area for j in off if j.kind == "joint")
+    assert on_area < off_area
+    assert all("refined_to_metal" not in j.metadata for j in off)
