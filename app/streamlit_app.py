@@ -212,7 +212,11 @@ def _default_config() -> dict[str, Any]:
 
 
 def _init_state() -> None:
-    local_detector = PROJECT_ROOT / "models" / "detector" / "best.onnx"
+    # No model is seeded from disk, the detector included. Every artifact enters
+    # through the sidebar uploader, which is the only thing that records a
+    # digest and that decides ``pt_model_trusted``; a path planted here would
+    # skip both, could not be restored after "Gỡ model", and named a file the
+    # repo no longer has now that the detectors live under kaggle/ver*.
     defaults: dict[str, Any] = {
         "workspace_mode": "golden_inspection",
         "active_step": 0,
@@ -228,8 +232,8 @@ def _init_state() -> None:
         "board_model_path": None,
         "board_model_name": None,
         "board_model_digest": None,
-        "component_model_path": str(local_detector) if local_detector.is_file() else None,
-        "component_model_name": local_detector.name if local_detector.is_file() else None,
+        "component_model_path": None,
+        "component_model_name": None,
         "component_model_digest": None,
         "classifier_model_path": None,
         "classifier_model_name": None,
@@ -981,7 +985,10 @@ def _render_inspection_sidebar_resources() -> None:
             "Detector (.onnx/.pt)",
             type=["onnx", "pt"],
             key="inspection_component_model_uploader",
-            help="Mặc định dùng models/detector/best.onnx có sẵn trong repo.",
+            help=(
+                "Chưa nạp thì Golden Inspection dùng CV demo. Detector đã train "
+                "nằm ở models/detector/kaggle/ver2/best.onnx."
+            ),
         )
         if upload is not None:
             _set_model(upload, "component")

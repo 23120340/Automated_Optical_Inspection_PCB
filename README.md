@@ -42,8 +42,9 @@ Workspace mặc định của UI là **Golden Inspection**:
 
 1. Nạp Golden Image ở sidebar. Ảnh JPEG đầu vào demo được chấp nhận, nhưng
    recipe luôn lưu lại Golden, anchor, template và mask dưới dạng PNG lossless.
-2. Nạp ảnh board cần kiểm tra và dùng `models/detector/best.onnx` có sẵn, hoặc
-   chọn detector khác trong sidebar.
+2. Nạp ảnh board cần kiểm tra. Detector nạp ở sidebar; bản mới nhất là
+   `models/detector/kaggle/ver2/best.onnx`. Chưa nạp thì UI chạy CV demo và
+   nói rõ đó không phải nhận dạng đáng tin cậy.
 3. Trong tab **Build Recipe**, nhập `Board ID`, chọn `top`/`bottom`, đặt
    calibration/tolerance rồi tạo fixed slot ROI và strict-alignment anchors.
 4. Trong tab **Inspect Board**, chạy core inspector. UI hiển thị Alignment,

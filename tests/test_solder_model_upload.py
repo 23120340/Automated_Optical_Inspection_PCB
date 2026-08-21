@@ -266,3 +266,26 @@ def test_step_seven_renders_once_when_a_model_is_loaded(tmp_path: Path) -> None:
     assert "GRADED_BY_MODEL `True`" == _written(harness, "GRADED_BY_MODEL")
     # One grading panel, not two: the four-metric verdict row appears once.
     assert [metric.label for metric in harness.metric].count("Đạt") == 1
+
+
+def test_no_model_artifact_is_seeded_from_disk() -> None:
+    """One way in for every model: the sidebar uploader.
+
+    ``_init_state`` used to plant ``models/detector/best.onnx`` into
+    ``component_model_path``. That path is the only one no uploader wrote, so it
+    carried no digest, never ran the ``.pt`` trust check, could not be restored
+    after "Gỡ model" — and named a file the repo stopped having once the
+    detectors moved under ``kaggle/ver*``.
+    """
+
+    import inspect
+    import re
+
+    source = inspect.getsource(ui._init_state)
+    seeded = [
+        line.strip()
+        for line in source.splitlines()
+        if re.match(r'\s*"\w*_(model|manifest)_(path|name)":', line)
+        and not line.strip().endswith("None,")
+    ]
+    assert seeded == [], f"artifact được gán sẵn thay vì nạp từ sidebar: {seeded}"
