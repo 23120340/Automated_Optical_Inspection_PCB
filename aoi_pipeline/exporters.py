@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,11 @@ import numpy as np
 from .exceptions import ExportError
 from .image_io import encode_image
 from .models import PipelineRun
+from .overlays import (
+    render_annotations,
+    render_solder_overlay,
+    render_verdict_overlay,
+)
 
 
 def export_json(run: PipelineRun, path: str | Path) -> Path:
@@ -32,6 +39,7 @@ def export_zip(
     include_input: bool = True,
     include_intermediate: bool = True,
     include_crops: bool = True,
+    include_solder_crops: bool = True,
 ) -> Path:
     destination = Path(path).expanduser().resolve()
     if destination.suffix.lower() != ".zip":
@@ -48,6 +56,16 @@ def export_zip(
                 )
                 archive.writestr("images/02_aligned.png", encode_image(run.alignment_result.image))
                 archive.writestr("images/03_annotated.png", encode_image(render_annotations(run)))
+                if run.solder_crops:
+                    archive.writestr(
+                        "images/05_solder_rois.png",
+                        encode_image(
+                            render_solder_overlay(
+                                run.final_image,
+                                [crop.joint for crop in run.solder_crops],
+                            )
+                        ),
+                    )
                 if run.board_region.mask is not None:
                     mask_bgr = cv2.cvtColor(run.board_region.mask, cv2.COLOR_GRAY2BGR)
                     archive.writestr("images/03_board_mask.png", encode_image(mask_bgr))
@@ -57,34 +75,222 @@ def export_zip(
                     archive.writestr(
                         f"crops/{crop.filename}", encode_image(crop.image, extension)
                     )
+            if include_solder_crops and run.solder_crops:
+                for crop in run.solder_crops:
+                    extension = Path(crop.filename).suffix or ".png"
+                    folder = "body_views" if crop.joint.kind == "body" else "joints"
+                    archive.writestr(
+                        f"solder_joints/{folder}/{crop.filename}",
+                        encode_image(crop.image, extension),
+                    )
+                archive.writestr(
+                    "solder_joints/solder_joints.csv", solder_joints_csv(run)
+                )
+            if run.solder_verdicts:
+                archive.writestr(
+                    "solder_joints/solder_verdicts.csv", solder_verdicts_csv(run)
+                )
+                archive.writestr(
+                    "images/06_solder_verdicts.png",
+                    encode_image(render_verdict_overlay(run)),
+                )
+            if run.fusion is not None and getattr(run.fusion, "used_cad", False):
+                archive.writestr("cad/cad_findings.csv", cad_findings_csv(run))
+                archive.writestr(
+                    "cad/registration.json",
+                    json.dumps(
+                        run.fusion.to_dict(), ensure_ascii=False, indent=2,
+                        default=_json_default,
+                    ),
+                )
     except (OSError, TypeError, ValueError) as exc:
         raise ExportError(f"Could not export ZIP to {destination}: {exc}") from exc
     return destination
 
 
-def render_annotations(run: PipelineRun) -> np.ndarray:
-    """Render board and component boxes without mutating the run image."""
+SOLDER_CSV_COLUMNS = (
+    "joint_id",
+    "detection_id",
+    "label",
+    "kind",
+    "position",
+    "pin_index",
+    "terminal_geometry",
+    "angle",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "detector_confidence",
+    # Provenance, empty until a CAD board is loaded. ``source`` says whether the
+    # ROI came from the detector geometry, registered CAD lands, or both
+    # agreeing, which is what lets a training set be filtered by trust.
+    "source",
+    "designator",
+    "pin",
+    "net",
+    "filename",
+    "defect_class",
+)
 
-    canvas = run.final_image.copy()
-    board_points = np.asarray(run.board_region.polygon, dtype=np.int32).reshape(-1, 1, 2)
-    if len(board_points) >= 3:
-        cv2.polylines(canvas, [board_points], True, (0, 220, 255), 2, cv2.LINE_AA)
-    for detection in run.detections:
-        x1, y1, x2, y2 = detection.bbox.to_int()
-        cv2.rectangle(canvas, (x1, y1), (x2, y2), (60, 220, 60), 2)
-        caption = f"{detection.label} {detection.confidence:.2f}"
-        text_y = max(14, y1 - 5)
-        cv2.putText(
-            canvas,
-            caption,
-            (x1, text_y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.42,
-            (60, 220, 60),
-            1,
-            cv2.LINE_AA,
+SOLDER_VERDICT_COLUMNS = (
+    "joint_id",
+    "detection_id",
+    "designator",
+    "pin",
+    "component_label",
+    "scope",
+    "label",
+    "decision",
+    "source",
+    "probability",
+    "rule_label",
+    "model_label",
+    "model_probability",
+    "solder_ratio",
+    "span_ratio",
+    "specular_ratio",
+    "contrast",
+    "centroid_offset_ratio",
+    "roi_width_px",
+    "roi_height_px",
+    "model_version",
+    "reasons",
+)
+
+
+def solder_verdicts_csv(run: PipelineRun) -> str:
+    """One row per graded ROI, with the measurement that drove the call.
+
+    The numbers ride along with the verdict on purpose: a review station that
+    only shows a label cannot settle an argument about whether the threshold
+    was wrong or the joint was.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(SOLDER_VERDICT_COLUMNS)
+    for verdict in run.solder_verdicts:
+        features = verdict.features
+        writer.writerow(
+            [
+                verdict.joint_id,
+                verdict.detection_id,
+                verdict.designator or "",
+                verdict.pin or "",
+                verdict.component_label,
+                verdict.scope,
+                verdict.label,
+                verdict.decision,
+                verdict.source,
+                f"{verdict.probability:.4f}",
+                verdict.rule_label or "",
+                verdict.model_label or "",
+                (
+                    ""
+                    if verdict.model_probability is None
+                    else f"{verdict.model_probability:.4f}"
+                ),
+                "" if features is None else f"{features.solder_ratio:.4f}",
+                "" if features is None else f"{features.span_ratio:.4f}",
+                "" if features is None else f"{features.specular_ratio:.4f}",
+                "" if features is None else f"{features.contrast:.4f}",
+                "" if features is None else f"{features.centroid_offset_ratio:.4f}",
+                verdict.metadata.get("roi_width_px", ""),
+                verdict.metadata.get("roi_height_px", ""),
+                verdict.model_version,
+                " | ".join(verdict.reasons),
+            ]
         )
-    return canvas
+    return buffer.getvalue()
+
+
+CAD_FINDING_COLUMNS = (
+    "kind",
+    "severity",
+    "designator",
+    "detection_id",
+    "expected_class",
+    "observed_class",
+    "shift_mm",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "message",
+)
+
+
+def solder_joints_csv(run: PipelineRun) -> str:
+    """One row per derived ROI, with an empty ``defect_class`` to fill in.
+
+    This is the labelling sheet for step 6.2: the geometry is already resolved,
+    so annotation is a per-row verdict rather than a boxing job.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(SOLDER_CSV_COLUMNS)
+    for crop in run.solder_crops:
+        joint = crop.joint
+        folder = "body_views" if joint.kind == "body" else "joints"
+        writer.writerow(
+            [
+                joint.joint_id,
+                joint.detection_id,
+                joint.label,
+                joint.kind,
+                joint.position,
+                "" if joint.pin_index is None else joint.pin_index,
+                joint.terminal_geometry,
+                f"{joint.angle:.2f}",
+                f"{joint.bbox.x1:.2f}",
+                f"{joint.bbox.y1:.2f}",
+                f"{joint.bbox.x2:.2f}",
+                f"{joint.bbox.y2:.2f}",
+                f"{float(joint.metadata.get('detector_confidence', 0.0)):.4f}",
+                joint.source,
+                joint.designator or "",
+                joint.pin or "",
+                joint.net or "",
+                f"{folder}/{crop.filename}",
+                "",
+            ]
+        )
+    return buffer.getvalue()
+
+
+def cad_findings_csv(run: PipelineRun) -> str:
+    """Board-level disagreements between CAD and what the camera saw.
+
+    Missing, shifted and unexpected components are defects in their own right,
+    found by comparison rather than by any model, so they ship next to the ROI
+    table instead of inside it.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(CAD_FINDING_COLUMNS)
+    findings = getattr(run.fusion, "findings", None) or []
+    for finding in findings:
+        bbox = finding.bbox
+        writer.writerow(
+            [
+                finding.kind,
+                finding.severity,
+                finding.designator or "",
+                finding.detection_id or "",
+                finding.expected_class or "",
+                finding.observed_class or "",
+                "" if finding.shift_mm is None else f"{finding.shift_mm:.3f}",
+                "" if bbox is None else f"{bbox.x1:.2f}",
+                "" if bbox is None else f"{bbox.y1:.2f}",
+                "" if bbox is None else f"{bbox.x2:.2f}",
+                "" if bbox is None else f"{bbox.y2:.2f}",
+                finding.message,
+            ]
+        )
+    return buffer.getvalue()
 
 
 def _manifest_json(run: PipelineRun) -> str:

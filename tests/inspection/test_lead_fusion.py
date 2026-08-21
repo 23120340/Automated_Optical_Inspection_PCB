@@ -14,9 +14,9 @@ from aoi_pipeline import (
     fuse_detected_leads,
     split_lead_detections,
 )
-from aoi_pipeline.detection.detectors import MockComponentDetector
-from aoi_pipeline.inspection.leads import assign_leads_to_components
-from aoi_pipeline.inspection.solder import SolderJointCropper
+from aoi_pipeline.detectors import MockComponentDetector
+from aoi_pipeline.leads import assign_leads_to_components
+from aoi_pipeline.solder import SolderJointCropper
 
 
 def _board() -> np.ndarray:

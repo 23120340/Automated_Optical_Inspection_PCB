@@ -356,8 +356,25 @@ def calibrate_from_chessboards(
         translation_vectors,
     ):
         projected, _ = cv2.projectPoints(object_row, rotation, translation, matrix, distortion)
-        error = cv2.norm(image_row, projected, cv2.NORM_L2) / max(1, len(projected))
-        per_view_errors.append(float(error))
+        # Both arrays are flattened to (N, 2) first. OpenCV builds disagree on
+        # the corner-detector output shape -- 4.x returns (N, 1, 2) while newer
+        # builds return (N, 2) -- and ``projectPoints`` always returns
+        # (N, 1, 2), so comparing them as-is raises a type mismatch on the
+        # newer builds and takes the whole calibration script down.
+        observed = np.asarray(image_row, dtype=np.float64).reshape(-1, 2)
+        expected = np.asarray(projected, dtype=np.float64).reshape(-1, 2)
+        if observed.shape != expected.shape:
+            raise CalibrationProfileError(
+                "Corner count does not match the reprojected pattern "
+                f"({observed.shape[0]} vs {expected.shape[0]})."
+            )
+        # RMS distance in pixels between each detected corner and where the
+        # fitted model says it should be. The OpenCV tutorial divides the L2
+        # norm by the corner count, which is not a pixel distance at all: it
+        # under-reports by sqrt(N), so a 54-corner board looks 7x better than
+        # it is and a poor calibration passes review.
+        distances = np.linalg.norm(observed - expected, axis=1)
+        per_view_errors.append(float(np.sqrt(np.mean(distances**2))))
     profile = CameraCalibrationProfile(
         camera_matrix=matrix,
         distortion_coefficients=distortion,

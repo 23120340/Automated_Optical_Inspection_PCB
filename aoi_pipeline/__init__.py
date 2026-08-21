@@ -19,13 +19,20 @@ from .calibration import (
 from .config import (
     AlignmentConfig,
     BoardConfig,
+    CadConfig,
     ClassificationConfig,
     CropConfig,
     CVDetectorConfig,
+    FusionConfig,
+    LeadFusionConfig,
     ModelDetectorConfig,
+    PadProfile,
     PipelineConfig,
     PreprocessConfig,
+    SolderGradingConfig,
+    SolderJointConfig,
     TilingConfig,
+    terminal_geometry,
 )
 from .cropping import ComponentCropper
 from .detectors import (
@@ -47,9 +54,61 @@ from .exceptions import (
     ModelDependencyError,
     RecipeValidationError,
 )
-from .exporters import export_json, export_zip, render_annotations
+from .exporters import (
+    cad_findings_csv,
+    export_json,
+    export_zip,
+    solder_joints_csv,
+    solder_verdicts_csv,
+)
+from .overlays import (
+    render_annotations,
+    render_solder_overlay,
+    render_verdict_overlay,
+)
 from .golden_compare import GoldenComparator, GoldenCompareConfig, GoldenCompareResult
-from .image_io import encode_image, ensure_bgr, load_image
+from .image_io import encode_image, ensure_bgr, letterbox_normalize, load_image
+from .cad import (
+    CAD_LOADERS,
+    BoardCad,
+    CadComponent,
+    CadError,
+    CadPad,
+    CadRegistration,
+    classes_agree,
+    designator_to_class,
+    is_informative_label,
+    load_cad,
+    register_cad,
+    register_from_fiducials,
+    save_cad_json,
+)
+from .cad_fusion import CadFinding, FusionResult, fuse_solder_joints
+from .leads import (
+    LEAD_CLASSES,
+    LeadFusionResult,
+    fuse_detected_leads,
+    split_lead_detections,
+)
+from .solder import (
+    ComponentFrame,
+    SolderJointCropper,
+    derive_solder_joints,
+    estimate_component_angle,
+)
+from .grading.classifier import (
+    MANIFEST_SCHEMA as SOLDER_MANIFEST_SCHEMA,
+    ONNXSolderClassifier,
+    create_solder_classifier,
+)
+from .grading.features import measure_solder, segment_solder
+from .grading.inspector import SolderInspector
+from .grading.rules import (
+    COMPONENT_CLASSES,
+    JOINT_CLASSES,
+    grade_component_by_rules,
+    grade_joint_by_rules,
+)
 from .inspection import (
     AOIInspector,
     DetectionSummary,
@@ -59,6 +118,10 @@ from .inspection import (
     render_inspection_overlay,
 )
 from .models import (
+    SolderFeatures,
+    SolderJoint,
+    SolderJointCrop,
+    SolderVerdict,
     AlignmentResult,
     BoardRegion,
     BoundingBox,
@@ -196,6 +259,57 @@ __all__ = [
     "save_calibration_profile",
     "validate_recipe_assets",
     "GOLDEN_COORDINATE_SPACE",
+    "BoardCad",
+    "CAD_LOADERS",
+    "COMPONENT_CLASSES",
+    "CadComponent",
+    "CadConfig",
+    "CadError",
+    "CadFinding",
+    "CadPad",
+    "CadRegistration",
+    "ComponentFrame",
+    "FusionConfig",
+    "FusionResult",
+    "JOINT_CLASSES",
+    "LEAD_CLASSES",
+    "LeadFusionConfig",
+    "LeadFusionResult",
+    "ONNXSolderClassifier",
+    "PadProfile",
+    "SOLDER_MANIFEST_SCHEMA",
+    "SolderFeatures",
+    "SolderGradingConfig",
+    "SolderInspector",
+    "SolderJoint",
+    "SolderJointConfig",
+    "SolderJointCrop",
+    "SolderJointCropper",
+    "SolderVerdict",
+    "cad_findings_csv",
+    "classes_agree",
+    "create_solder_classifier",
+    "derive_solder_joints",
+    "designator_to_class",
+    "estimate_component_angle",
+    "fuse_detected_leads",
+    "fuse_solder_joints",
+    "grade_component_by_rules",
+    "grade_joint_by_rules",
+    "is_informative_label",
+    "letterbox_normalize",
+    "load_cad",
+    "measure_solder",
+    "register_cad",
+    "register_from_fiducials",
+    "render_solder_overlay",
+    "render_verdict_overlay",
+    "save_cad_json",
+    "segment_solder",
+    "solder_joints_csv",
+    "solder_verdicts_csv",
+    "split_lead_detections",
+    "terminal_geometry",
 ]
 
 __version__ = "0.2.0"

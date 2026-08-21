@@ -44,6 +44,9 @@ from app.pipeline_bridge import (  # noqa: E402
     InspectionRecipeRecord,
     InspectionResult,
     PipelineBridge,
+    SolderCropRecord,
+    SolderResult,
+    SolderVerdictRecord,
     StageResult,
 )
 
@@ -64,7 +67,31 @@ STEP_DEFINITIONS = (
     (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI"),
     (5, "Cắt linh kiện", "Crop + normalize + export", "CUT"),
     (6, "6.1 Phân loại linh kiện", "Family + accept/review/unknown", "CLS"),
+    (7, "6.2 Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD"),
 )
+SOLDER_ROI_COLORS = {
+    "joint": (0, 200, 255),  # BGR amber
+    "body": (255, 170, 0),   # BGR blue
+}
+
+SOLDER_SOURCE_COLORS = {
+    "cad+derived": (80, 220, 80),   # BGR green: both sources agreed
+    "cad": (255, 120, 255),         # BGR magenta: CAD only
+    "derived": (0, 200, 255),       # BGR amber: detector geometry only
+}
+
+CAD_SEVERITY_ICONS = {"defect": "🔴", "review": "🟠", "info": "🔵"}
+
+SOLDER_MIN_READABLE_PX = 24
+
+VERDICT_DECISION_COLORS = {
+    "accept": (80, 200, 80),   # BGR green
+    "review": (0, 170, 255),   # BGR orange
+    "reject": (40, 40, 230),   # BGR red
+}
+
+VERDICT_DECISION_ICONS = {"accept": "🟢", "review": "🟠", "reject": "🔴"}
+
 STATUS_LABELS = {
     "pending": "Chờ chạy",
     "running": "Đang chạy",
@@ -2644,6 +2671,561 @@ def _render_footer() -> None:
     )
 
 
+def _set_solder_model(upload: Any) -> None:
+    """Accept the step-6.2 ONNX. Validation waits for the manifest.
+
+    The two are only meaningful together: an ONNX whose class order is unknown
+    cannot be checked, and guessing that order maps every defect onto a pass.
+    """
+
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 256 * 1024 * 1024:
+        raise ValueError("File model rỗng hoặc vượt quá 256 MB.")
+    digest = _digest(data)
+    if digest in (
+        st.session_state.ignored_uploads.get("solder_model"),
+        st.session_state.solder_model_digest,
+    ):
+        return
+    path = _materialize_upload(upload.name, data)
+    st.session_state.solder_model_path = path
+    st.session_state.solder_model_name = upload.name
+    st.session_state.solder_model_digest = digest
+    st.session_state.config["solder_grading"]["model_path"] = path
+    st.session_state.ignored_uploads["solder_model"] = None
+    _invalidate_after(5)
+    st.session_state.messages.append(f"Đã nạp model 6.2: {upload.name}")
+
+
+def _set_solder_manifest(upload: Any) -> None:
+    """Accept and validate the step-6.2 contract before the run needs it."""
+
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 1024 * 1024:
+        raise ValueError("model_manifest.json rỗng hoặc vượt quá 1 MB.")
+    digest = _digest(data)
+    if digest in (
+        st.session_state.ignored_uploads.get("solder_manifest"),
+        st.session_state.solder_manifest_digest,
+    ):
+        return
+    try:
+        manifest = json.loads(data.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        st.session_state.ignored_uploads["solder_manifest"] = digest
+        raise ValueError(f"model_manifest.json không hợp lệ: {exc}") from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != SOLDER_MANIFEST_SCHEMA
+    ):
+        st.session_state.ignored_uploads["solder_manifest"] = digest
+        raise ValueError(
+            f"Manifest không đúng schema {SOLDER_MANIFEST_SCHEMA} của bước 6.2."
+        )
+    path = _materialize_upload(upload.name, data)
+    st.session_state.solder_manifest_path = path
+    st.session_state.solder_manifest_name = upload.name
+    st.session_state.solder_manifest_digest = digest
+    st.session_state.config["solder_grading"]["manifest_path"] = path
+    st.session_state.ignored_uploads["solder_manifest"] = None
+    _invalidate_after(5)
+    st.session_state.messages.append(f"Đã nạp manifest 6.2: {upload.name}")
+
+
+def _remove_solder_model() -> None:
+    for key in (
+        "solder_model_path", "solder_model_name", "solder_model_digest",
+        "solder_manifest_path", "solder_manifest_name", "solder_manifest_digest",
+    ):
+        st.session_state[key] = None
+    st.session_state.config["solder_grading"]["model_path"] = None
+    st.session_state.config["solder_grading"]["manifest_path"] = None
+    _invalidate_after(5)
+    st.session_state.messages.append(
+        "Đã gỡ model 6.2; bước này quay về chấm bằng luật đo."
+    )
+
+
+def _render_solder_settings() -> None:
+    """Controls for step 5.5. The bridge is cached on the config JSON, so
+    writing the new values is enough to rebuild the engine on the next call."""
+
+    config = st.session_state.config.setdefault("solder", {})
+    st.markdown("#### ROI mối hàn")
+    st.caption(
+        "Box của detector chỉ ôm thân linh kiện. Các ROI dưới đây được suy ra từ "
+        "box cộng topology chân của class, không phải do detector tìm ra."
+    )
+    with st.form("solder_form"):
+        enabled = st.checkbox("Bật bước 5.5", value=bool(config.get("enabled", True)))
+        split_pins = st.checkbox(
+            "Tách từng chân (IC/connector)",
+            value=bool(config.get("split_pins", False)),
+            help=(
+                "Tắt thì mỗi cạnh là một ROI dải. Lỗi bridge nằm giữa hai chân nên "
+                "ROI dải thường là đơn vị kiểm tra tốt hơn."
+            ),
+        )
+        include_body = st.checkbox(
+            "Kèm ảnh toàn linh kiện + chân",
+            value=bool(config.get("include_body_view", True)),
+        )
+        terminal_outer = st.slider(
+            "Nới đầu trục dài (nhân cạnh dài)",
+            0.10,
+            0.80,
+            float(config.get("terminal_outer_ratio", 0.45)),
+            0.05,
+            help="Tăng nếu ROI chưa với tới hết pad của điện trở/tụ.",
+        )
+        lead_outer = st.slider(
+            "Nới cạnh nhiều chân (nhân cạnh ngắn)",
+            0.10,
+            0.60,
+            float(config.get("lead_outer_ratio", 0.26)),
+            0.02,
+        )
+        current_size = int(config.get("target_size", 128))
+        size_options = [64, 96, 128, 160, 224]
+        size_index = (
+            size_options.index(current_size) if current_size in size_options else 2
+        )
+        joint_size = st.selectbox("Kích thước crop", size_options, index=size_index)
+        submitted = st.form_submit_button(
+            "Tạo lại ROI", type="primary", width="stretch"
+        )
+    if submitted:
+        config.update(
+            {
+                "enabled": enabled,
+                "split_pins": split_pins,
+                "include_body_view": include_body,
+                "terminal_outer_ratio": terminal_outer,
+                "lead_outer_ratio": lead_outer,
+                "target_size": joint_size,
+            }
+        )
+        _execute_solder(_get_bridge())
+        st.rerun()
+
+
+def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
+    """Step 5.5: derive the solder-joint ROIs that step 6.2 needs.
+
+    Failure here must not invalidate the component crops, which are the input
+    to step 6.1; it is reported and the run continues.
+    """
+
+    source = _analysis_image()
+    detection_result = st.session_state.detection_result
+    if source is None or not isinstance(detection_result, DetectionResult):
+        return None
+    if not st.session_state.config.get("solder", {}).get("enabled", True):
+        st.session_state.solder_result = None
+        return None
+    try:
+        result = bridge.make_solder_crops(source, detection_result.detections)
+    except Exception as exc:
+        st.session_state.solder_result = None
+        st.session_state.messages.append(
+            f"Bước 5.5 lỗi: {type(exc).__name__}: {exc}"
+        )
+        return None
+    st.session_state.solder_result = result
+    st.session_state.messages.append(f"Bước 5.5: {result.message}")
+    return result
+
+
+def _draw_solder_overlay(
+    image: np.ndarray,
+    crops: list[SolderCropRecord],
+    show_body: bool,
+    by_source: bool = False,
+) -> np.ndarray:
+    overlay = image.copy()
+    for crop in crops:
+        if crop.kind == "body" and not show_body:
+            continue
+        x1, y1, x2, y2 = crop.bbox
+        if by_source:
+            color = SOLDER_SOURCE_COLORS.get(crop.source, (200, 200, 200))
+        else:
+            color = SOLDER_ROI_COLORS.get(crop.kind, (200, 200, 200))
+        thickness = 1 if crop.kind == "body" else 2
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, thickness)
+    return overlay
+
+
+def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "joint_id": crop.joint_id,
+                "detection_id": crop.detection_id,
+                "component_label": crop.label,
+                "kind": crop.kind,
+                "position": crop.position,
+                "pin_index": crop.pin_index,
+                "terminal_geometry": crop.terminal_geometry,
+                "x1": crop.bbox[0],
+                "y1": crop.bbox[1],
+                "x2": crop.bbox[2],
+                "y2": crop.bbox[3],
+                "roi_width_px": crop.bbox[2] - crop.bbox[0],
+                "roi_height_px": crop.bbox[3] - crop.bbox[1],
+                "detector_confidence": crop.confidence,
+                "source": crop.source,
+                "designator": crop.designator or "",
+                "pin": crop.pin or "",
+                "net": crop.net or "",
+                "defect_class": "",
+            }
+            for crop in crops
+        ]
+    )
+
+
+def _render_solder_grading(result: SolderResult) -> None:
+    """Step 6.2: what each ROI was called, and on what evidence."""
+
+    verdicts = result.verdicts
+    if not verdicts:
+        _render_empty(
+            "Chưa chấm được mối hàn",
+            "Bước 6.2 chạy cùng bước 5.5. Nếu trống, hãy chạy lại bước 5.",
+        )
+        return
+
+    if result.graded_by_model:
+        st.success(
+            f"Đang chấm bằng **model + luật đo** (model: "
+            f"{verdicts[0].model_version}). Bất đồng giữa hai tầng được đưa vào "
+            "hàng đợi kiểm tra thay vì chọn bên nào thắng."
+        )
+    else:
+        st.info(
+            "**Đang chấm bằng luật đo hình học, chưa có model** — đây là trạng "
+            "thái bình thường, không phải lỗi. Nạp `.onnx` + `model_manifest.json` "
+            "ở sidebar **Model kiểm tra mối hàn 6.2** để bật thêm tầng phân loại.\n\n"
+            "Ngưỡng mặc định chỉ là số khởi đầu. Chạy "
+            "`scripts/calibrate_solder_thresholds.py` trên các board bạn đã chấp "
+            "nhận để đo ngưỡng từ chính dây chuyền của bạn."
+        )
+
+    joints = [item for item in verdicts if item.scope == "joint"]
+    counts = collections.Counter(item.decision for item in joints)
+    columns = st.columns(4)
+    columns[0].metric("ROI mối hàn", len(joints))
+    columns[1].metric("Đạt", counts.get("accept", 0))
+    columns[2].metric("Cần kiểm tra", counts.get("review", 0))
+    columns[3].metric("Loại", counts.get("reject", 0))
+
+    conflicts = [item for item in joints if item.source == "conflict"]
+    guarded = [item for item in joints if item.source == "escape_guard"]
+    if conflicts:
+        st.warning(
+            f"{len(conflicts)} ROI có model và luật bất đồng. Đây chính là chỗ "
+            "đáng xem trước tiên khi hiệu chỉnh ngưỡng hoặc đánh giá model."
+        )
+    if guarded:
+        st.error(
+            f"{len(guarded)} ROI bị chốt chặn giữ lại: model kết luận đạt nhưng "
+            "lượng thiếc đo được dưới sàn vật lý."
+        )
+
+    source = _analysis_image()
+    overlay_tab, table_tab, detail_tab = st.tabs(
+        ["Verdict overlay", "Bảng kết quả", "Chi tiết theo ROI"]
+    )
+    with overlay_tab:
+        if source is None:
+            _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
+        else:
+            show_component = st.checkbox(
+                "Hiện cả ROI mức linh kiện", value=False, key="verdict_show_component"
+            )
+            _show_image(
+                _draw_verdict_overlay(source, verdicts, show_component),
+                "Xanh: đạt · Cam: cần kiểm tra · Đỏ: loại",
+            )
+    with table_tab:
+        frame = _verdict_frame(verdicts)
+        st.dataframe(frame, width="stretch", height=340)
+        st.download_button(
+            "Tải solder_verdicts.csv",
+            frame.to_csv(index=False).encode("utf-8-sig"),
+            file_name="solder_verdicts.csv",
+            mime="text/csv",
+        )
+    with detail_tab:
+        flagged = [item for item in joints if item.decision != "accept"]
+        pool = flagged or joints
+        st.caption(
+            f"{len(flagged)} ROI cần chú ý trong tổng {len(joints)}."
+            if flagged
+            else "Không ROI nào bị gắn cờ; hiển thị toàn bộ."
+        )
+        for item in pool[:40]:
+            icon = VERDICT_DECISION_ICONS.get(item.decision, "·")
+            title = f"{icon} {item.label} — {item.designator or item.component_label}"
+            with st.expander(f"{title} ({item.joint_id})", expanded=False):
+                st.markdown(
+                    f"**Quyết định:** {item.decision} · **Nguồn:** {item.source}  \n"
+                    f"**Luật:** {item.rule_label or '—'} · **Model:** "
+                    f"{item.model_label or '—'}"
+                    + (
+                        f" ({item.model_probability:.2f})"
+                        if item.model_probability is not None
+                        else ""
+                    )
+                )
+                for reason in item.reasons:
+                    st.markdown(f"- {reason}")
+                if item.features:
+                    st.json(item.features, expanded=False)
+
+
+def _render_solder_rois() -> None:
+    """Step 5.5 view: the ROIs that make solder joints visible for step 6.2.
+
+    The detector box stops at the component body, so these ROIs are derived
+    from that box plus the class terminal topology rather than detected.
+    """
+
+    source = _analysis_image()
+    settings, content = st.columns([0.75, 2.25], gap="large")
+    with settings:
+        _render_solder_settings()
+
+    result = st.session_state.solder_result
+    with content:
+        if not isinstance(result, SolderResult):
+            _render_empty(
+                "Chưa có ROI mối hàn",
+                "Chạy lại bước 5 hoặc bấm Tạo lại ROI để sinh vùng kiểm tra mối hàn.",
+            )
+            return
+        if result.mode == "UNAVAILABLE" or not result.crops:
+            _render_empty("Chưa sinh được ROI", result.message)
+            return
+
+        joints = [crop for crop in result.crops if crop.kind == "joint"]
+        bodies = [crop for crop in result.crops if crop.kind == "body"]
+        metric_a, metric_b, metric_c = st.columns(3)
+        metric_a.metric("ROI mối hàn", len(joints))
+        metric_b.metric("Ảnh linh kiện kèm chân", len(bodies))
+        smallest = min(
+            (
+                min(crop.bbox[2] - crop.bbox[0], crop.bbox[3] - crop.bbox[1])
+                for crop in joints
+            ),
+            default=0,
+        )
+        metric_c.metric("ROI nhỏ nhất (px)", smallest)
+        if joints and smallest < SOLDER_MIN_READABLE_PX:
+            st.warning(
+                f"ROI nhỏ nhất chỉ {smallest} px ở cạnh ngắn. Ở kích thước đó không "
+                "đọc được hình dạng fillet; cần chụp độ phân giải cao hơn hoặc thu "
+                "hẹp trường nhìn trước khi gán nhãn 6.2."
+            )
+
+        overlay_tab, gallery_tab, grade_tab, table_tab, cad_tab = st.tabs(
+            [
+                "ROI overlay",
+                "Joint gallery",
+                "Chấm mối hàn (6.2)",
+                "Bảng nhãn 6.2",
+                "Đối chiếu CAD",
+            ]
+        )
+        with overlay_tab:
+            if source is None:
+                _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
+            else:
+                show_body = st.checkbox("Hiện khung toàn linh kiện", value=True)
+                by_source = False
+                if result.used_cad:
+                    by_source = st.checkbox(
+                        "Tô màu theo nguồn ROI",
+                        value=True,
+                        help="Xanh lá: CAD và detector cùng đồng ý · Hồng: chỉ CAD · "
+                        "Vàng: chỉ suy ra từ detector.",
+                    )
+                _show_image(
+                    _draw_solder_overlay(source, result.crops, show_body, by_source),
+                    (
+                        "Xanh lá: CAD + detector - Hồng: chỉ CAD - Vàng: chỉ suy ra"
+                        if by_source
+                        else "Vàng: ROI mối hàn - Xanh: linh kiện kèm chân"
+                    ),
+                )
+        with gallery_tab:
+            kind = st.radio("Loại ROI", ["Mối hàn", "Linh kiện kèm chân"], horizontal=True)
+            selected = joints if kind == "Mối hàn" else bodies
+            st.caption(
+                f"Hiển thị {min(len(selected), 60)}/{len(selected)} ROI "
+                "(giới hạn 60 để UI mượt)."
+            )
+            for offset in range(0, min(len(selected), 60), 6):
+                columns = st.columns(6)
+                for column, crop in zip(columns, selected[offset : offset + 6]):
+                    with column:
+                        _show_image(crop.image)
+                        tag = f" · {crop.designator}" if crop.designator else ""
+                        st.caption(f"**{crop.label}**{tag}\n\n{crop.position}")
+        with table_tab:
+            frame = _solder_frame(result.crops)
+            st.dataframe(frame, width="stretch", height=320)
+            st.caption(
+                "Cột defect_class để trống chính là chỗ gán nhãn cho bước 6.2. "
+                "Hình học đã giải quyết xong nên gán nhãn chỉ còn là phán quyết "
+                "theo từng dòng."
+            )
+            st.download_button(
+                "Tải solder_joints.csv",
+                frame.to_csv(index=False).encode("utf-8-sig"),
+                file_name="solder_joints.csv",
+                mime="text/csv",
+            )
+        with grade_tab:
+            _render_solder_grading(result)
+        with cad_tab:
+            _render_cad_panel(result)
+
+
+def _findings_frame(findings: list[dict[str, Any]]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "kind": item.get("kind"),
+                "severity": item.get("severity"),
+                "designator": item.get("designator") or "",
+                "expected_class": item.get("expected_class") or "",
+                "observed_class": item.get("observed_class") or "",
+                "shift_mm": item.get("shift_mm"),
+                "message": item.get("message"),
+            }
+            for item in findings
+        ]
+    )
+
+
+VERDICT_DECISION_COLORS = {
+    "accept": (80, 200, 80),   # BGR green
+    "review": (0, 170, 255),   # BGR orange
+    "reject": (40, 40, 230),   # BGR red
+}
+
+VERDICT_DECISION_ICONS = {"accept": "🟢", "review": "🟠", "reject": "🔴"}
+
+
+def _render_cad_panel(result: SolderResult) -> None:
+    """What the CAD comparison found, and how far to trust the alignment."""
+
+    if not st.session_state.cad_summary:
+        st.info(
+            "Chưa nạp sơ đồ CAD. ROI hiện tại được suy ra từ box của detector cộng "
+            "topology chân của class. Nạp file CAD ở sidebar để hợp nhất với toạ độ "
+            "land thật; pipeline không đổi gì khác."
+        )
+        return
+    if not result.used_cad:
+        st.warning(
+            "Đã nạp CAD nhưng chưa áp dụng được cho ảnh này; bước 5.5 dùng ROI suy ra."
+        )
+        for warning in result.cad_warnings:
+            st.caption(f"· {warning}")
+        return
+
+    registration = result.registration or {}
+    stats = result.cad_stats or {}
+    if registration.get("ambiguous"):
+        st.error(
+            "Căn CAD **mơ hồ**: có phép căn khác khớp không kém. Kiểm tra overlay "
+            "trước khi dùng crop, hoặc chốt bằng fiducial / file registration."
+        )
+    for warning in result.cad_warnings:
+        st.warning(warning)
+
+    columns = st.columns(4)
+    columns[0].metric(
+        "Khớp CAD", f"{stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
+    )
+    columns[1].metric("Thiếu linh kiện", stats.get("missing", 0))
+    columns[2].metric("Lệch vị trí", stats.get("shifted", 0))
+    columns[3].metric("px / mm", f"{registration.get('scale_px_per_mm', 0.0):.2f}")
+    st.caption(
+        f"Phương pháp: {registration.get('method', '—')} · "
+        f"residual {registration.get('residual_px', 0.0):.2f} px · "
+        f"inlier {registration.get('inlier_ratio', 0.0):.0%} · "
+        f"class khớp {stats.get('class_agreements', 0)}/{stats.get('class_comparable', 0)}"
+    )
+
+    if result.findings:
+        for item in sorted(
+            result.findings,
+            key=lambda entry: {"defect": 0, "review": 1}.get(entry.get("severity"), 2),
+        )[:6]:
+            icon = CAD_SEVERITY_ICONS.get(item.get("severity"), "·")
+            st.markdown(f"{icon} {item.get('message')}")
+        frame = _findings_frame(result.findings)
+        st.dataframe(frame, width="stretch", height=220)
+        st.download_button(
+            "Tải cad_findings.csv",
+            frame.to_csv(index=False).encode("utf-8-sig"),
+            file_name="cad_findings.csv",
+            mime="text/csv",
+        )
+    else:
+        st.success("CAD và ảnh khớp nhau: không có linh kiện thiếu, thừa hay lệch.")
+
+    if registration:
+        st.download_button(
+            "Tải registration.json",
+            json.dumps(registration, indent=2).encode("utf-8"),
+            file_name="cad_registration.json",
+            mime="application/json",
+            help="Nạp lại ở sidebar để mọi lần chạy sau dùng đúng phép căn này.",
+        )
+
+
+def _render_step_seven() -> None:
+    """Step 6.2 as a section of its own, not a tab tucked inside step 4.
+
+    Solder inspection has its own ROIs, its own model contract and its own
+    verdict vocabulary; burying it under component detection made it look like
+    a detail of that stage rather than the stage that decides whether a board
+    ships. The two halves stay together here because they are one question --
+    where the joints are (5.5) and what they are (6.2).
+    """
+
+    _render_step_heading(7)
+    crops: list[CropRecord] = st.session_state.crops
+    if not crops and not isinstance(st.session_state.solder_result, SolderResult):
+        _render_empty(
+            "Chưa có dữ liệu mối hàn",
+            "Chạy tới bước 5 trước; ROI mối hàn được suy ra từ box linh kiện.",
+        )
+        return
+
+    roi_tab, grading_tab = st.tabs(["5.5 · ROI chân hàn", "6.2 · Chấm lỗi hàn"])
+    with roi_tab:
+        _render_solder_rois()
+    with grading_tab:
+        result = st.session_state.solder_result
+        if not isinstance(result, SolderResult):
+            _render_empty(
+                "Chưa có ROI để chấm",
+                "Tạo ROI ở tab 5.5 trước khi chấm lỗi mối hàn.",
+            )
+        else:
+            _render_solder_grading(result)
+
+
 def main() -> None:
     _init_state()
     _load_css()
@@ -2665,6 +3247,7 @@ def main() -> None:
         4: _render_step_four,
         5: _render_step_five,
         6: _render_step_six,
+        7: _render_step_seven,
     }
     renderers[st.session_state.active_step]()
     _render_activity_log()

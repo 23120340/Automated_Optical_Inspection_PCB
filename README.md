@@ -206,7 +206,6 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 - [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
 - [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach_pretrain_6_1_classification.md).
 
-<<<<<<< HEAD
 ## Bước 6.2 — Kiểm tra mối hàn
 
 Chấm từng ROI do bước 5.5 sinh ra. **Chạy được ngay khi chưa có model.**
@@ -215,9 +214,9 @@ Chấm từng ROI do bước 5.5 sinh ra. **Chạy được ngay khi chưa có m
 
 | Tầng | Là gì | Cần train? | Vai trò |
 |---|---|---|---|
-| A · `grading/features.py` + `rules.py` | Đo đặc trưng vật lý rồi phán quyết theo ngưỡng | Không | Chạy từ ngày đầu, giải thích được, sinh nhãn mồi |
-| B · `grading/classifier.py` | CNN trên crop mối hàn (ONNX) | Có | Bắt cái ngưỡng không bắt được: mối hàn nguội, hình dạng tinh vi |
-| C · `grading/inspector.py` | Hợp nhất A và B | — | Quyết định cuối, kèm chốt chặn |
+| A · `aoi_pipeline/grading/features.py` + `rules.py` | Đo đặc trưng vật lý rồi phán quyết theo ngưỡng | Không | Chạy từ ngày đầu, giải thích được, sinh nhãn mồi |
+| B · `aoi_pipeline/grading/classifier.py` | CNN trên crop mối hàn (ONNX) | Có | Bắt cái ngưỡng không bắt được: mối hàn nguội, hình dạng tinh vi |
+| C · `aoi_pipeline/grading/inspector.py` | Hợp nhất A và B | — | Quyết định cuối, kèm chốt chặn |
 
 Vì sao không nhảy thẳng vào CNN: tầng A chạy khi chưa có nhãn nào, biến việc gán
 nhãn thành *xác nhận/sửa* thay vì gán từ đầu, và ở lại làm chốt chặn. Một call
@@ -503,7 +502,7 @@ bước 6.2 cần; co nó lại quanh vài pixel sáng là giấu mất lỗi.
 
 ### Kết hợp thuật toán và model ở bước 5.5
 
-[`aoi_pipeline/inspection/leads.py`](aoi_pipeline/inspection/leads.py) — **ưu tiên
+[`aoi_pipeline/leads.py`](aoi_pipeline/leads.py) — **ưu tiên
 detection thật, quay về hình học suy ra ở chỗ không có**, và chọn **theo từng
 chân, không theo từng linh kiện**:
 
@@ -579,7 +578,7 @@ model train trên Kaggle. Hai việc thật, không phải lý thuyết:
 
 ### 1. Nghi vấn: tiền xử lý bước 1 có thể đang lệch miền so với model đã train
 
-`ImagePreprocessor` ([aoi_pipeline/imaging/preprocessing.py](aoi_pipeline/imaging/preprocessing.py))
+`ImagePreprocessor` ([aoi_pipeline/preprocessing.py](aoi_pipeline/preprocessing.py))
 mặc định bật cả 5 bước: denoise, white-balance, CLAHE, normalize luminance,
 unsharp mask — chạy trên **mọi** ảnh trước khi đưa vào cả detector lẫn crop cho
 hai classifier. Đã kiểm tra cả 3 notebook train (detector v1/v2, classifier v2,
@@ -630,11 +629,9 @@ của Ultralytics (đa tỉ lệ + lật, tự hợp nhất trước NMS) — k�
 +0.5–2 mAP, chưa đo riêng trên model của dự án này. Test ở
 [tests/test_classification.py](tests/test_classification.py),
 [tests/grading/test_solder_grading.py](tests/grading/test_solder_grading.py),
-[tests/detection/test_detectors.py](tests/detection/test_detectors.py) kiểm cả
+[tests/test_detectors.py](tests/test_detectors.py) kiểm cả
 việc 4 view thật sự được lật đúng chiều lẫn xác suất được trung bình đúng.
 
-=======
->>>>>>> 4f1691c6e6ac3841aecc56f290b647f755d40bec
 ## Cấu trúc dự án
 
 ```text

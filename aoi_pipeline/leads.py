@@ -23,8 +23,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
-from ..config import LeadFusionConfig
-from ..core.models import BoundingBox, Detection, SolderJoint
+from .config import LeadFusionConfig
+from .models import BoundingBox, Detection, SolderJoint
 
 __all__ = [
     "LEAD_CLASSES",

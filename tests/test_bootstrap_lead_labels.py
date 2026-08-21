@@ -24,7 +24,7 @@ if str(SCRIPTS) not in sys.path:
 
 import bootstrap_lead_labels as bootstrap  # noqa: E402
 
-from aoi_pipeline.core.models import BoundingBox, SolderJoint  # noqa: E402
+from aoi_pipeline.models import BoundingBox, SolderJoint  # noqa: E402
 
 
 def _board(path: Path, width: int = 700, height: int = 500) -> None:

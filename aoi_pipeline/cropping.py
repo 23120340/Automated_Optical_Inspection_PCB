@@ -6,11 +6,10 @@ import re
 from pathlib import Path
 from typing import Sequence
 
-import cv2
 import numpy as np
 
-from .config import CropConfig
-from .image_io import encode_image, ensure_bgr
+from .config import CropConfig, terminal_geometry
+from .image_io import encode_image, ensure_bgr, letterbox_normalize
 from .models import BoundingBox, ComponentCrop, Detection
 
 
@@ -33,7 +32,9 @@ class ComponentCropper:
         crops: list[ComponentCrop] = []
         for index, detection in enumerate(detections):
             source_bbox = detection.bbox.clamp(width, height)
-            crop_bbox = _expanded_box(source_bbox, width, height, self.config)
+            crop_bbox = _expanded_box(
+                source_bbox, width, height, self.config, detection.label
+            )
             x1, y1, x2, y2 = crop_bbox.to_int()
             raw_crop = bgr[y1:y2, x1:x2]
             if raw_crop.size == 0:
@@ -82,10 +83,17 @@ def _expanded_box(
     image_width: int,
     image_height: int,
     config: CropConfig,
+    label: str = "",
 ) -> BoundingBox:
-    pad = max(config.padding_pixels, int(round(max(bbox.width, bbox.height) * config.padding_ratio)))
-    width = bbox.width + 2 * pad
-    height = bbox.height + 2 * pad
+    if config.solder_aware_padding:
+        pad_x, pad_y = _axis_padding(bbox, config, label)
+    else:
+        pad_x = pad_y = max(
+            config.padding_pixels,
+            int(round(max(bbox.width, bbox.height) * config.padding_ratio)),
+        )
+    width = bbox.width + 2 * pad_x
+    height = bbox.height + 2 * pad_y
     if config.square:
         width = height = max(width, height)
     center_x = (bbox.x1 + bbox.x2) / 2.0
@@ -99,27 +107,34 @@ def _expanded_box(
     return expanded.clamp(image_width, image_height)
 
 
+def _axis_padding(
+    bbox: BoundingBox, config: CropConfig, label: str
+) -> tuple[int, int]:
+    """Per-axis margin so a crop can contain the terminals, not just the body.
+
+    The long axis carries the terminals of a two-lead part, so it needs a much
+    larger margin than the short axis. ``max(w, h)`` scaling is deliberately
+    not used here: it over-pads the short side of a long thin chip and pulls in
+    the neighbouring components.
+    """
+
+    profile = config.pad_profiles.get(terminal_geometry(label))
+    if profile is None:
+        pad = max(
+            config.padding_pixels,
+            int(round(max(bbox.width, bbox.height) * config.padding_ratio)),
+        )
+        return (pad, pad)
+    horizontal_is_long = bbox.width >= bbox.height
+    ratio_x = profile.long_axis if horizontal_is_long else profile.short_axis
+    ratio_y = profile.short_axis if horizontal_is_long else profile.long_axis
+    pad_x = max(config.padding_pixels, int(round(bbox.width * ratio_x)))
+    pad_y = max(config.padding_pixels, int(round(bbox.height * ratio_y)))
+    return (pad_x, pad_y)
+
+
 def _normalize_crop(crop: np.ndarray, config: CropConfig) -> np.ndarray:
-    if config.target_size is None:
-        return np.ascontiguousarray(crop.copy())
-    target_width, target_height = (int(value) for value in config.target_size)
-    if target_width <= 0 or target_height <= 0:
-        raise ValueError("Crop target_size values must be positive")
-    source_height, source_width = crop.shape[:2]
-    scale = min(target_width / source_width, target_height / source_height)
-    resized_width = max(1, int(round(source_width * scale)))
-    resized_height = max(1, int(round(source_height * scale)))
-    interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
-    resized = cv2.resize(crop, (resized_width, resized_height), interpolation=interpolation)
-    canvas = np.full(
-        (target_height, target_width, 3),
-        tuple(int(np.clip(value, 0, 255)) for value in config.letterbox_color),
-        dtype=np.uint8,
-    )
-    x = (target_width - resized_width) // 2
-    y = (target_height - resized_height) // 2
-    canvas[y : y + resized_height, x : x + resized_width] = resized
-    return canvas
+    return letterbox_normalize(crop, config.target_size, config.letterbox_color)
 
 
 def _safe_filename_part(value: str) -> str:

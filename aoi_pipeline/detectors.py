@@ -164,6 +164,8 @@ class UltralyticsDetector(ComponentDetector):
             kwargs["device"] = self.config.device
         if self.config.end2end is not None:
             kwargs["end2end"] = bool(self.config.end2end)
+        if self.config.tta:
+            kwargs["augment"] = True
         try:
             results = model.predict(**kwargs)
         except Exception as exc:

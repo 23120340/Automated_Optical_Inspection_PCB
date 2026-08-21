@@ -46,7 +46,7 @@ import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
 from aoi_pipeline import AOIPipeline, AOIPipelineError, PipelineConfig, load_image  # noqa: E402
-from aoi_pipeline.core.image_io import encode_image  # noqa: E402
+from aoi_pipeline.image_io import encode_image  # noqa: E402
 
 IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
 
