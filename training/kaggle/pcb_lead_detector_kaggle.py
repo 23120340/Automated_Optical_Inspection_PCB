@@ -81,12 +81,26 @@ CONFIG = {
     "max_empty_crop_ratio": 0.15,
 
     # --- model -----------------------------------------------------------
-    # yolo11s là đủ: crop chỉ có một linh kiện, và lượt 2 chạy MỘT LẦN CHO MỖI
-    # LINH KIỆN — cỡ 1000 forward pass mỗi board — nên tốc độ quan trọng hơn
-    # sức mạnh. Đổi sang yolo11n nếu thời gian chu kỳ căng, yolo11m nếu đã có
-    # nhiều dữ liệu và cần thêm điểm.
-    "model": "yolo11s.pt",
-    "imgsz": 640,
+    # yolo11n, không phải s. Với 10–20 board tự gán nhãn bạn có ~10–20k crop
+    # nhưng chỉ 10–20 CẢNH độc lập. 2.6M tham số đã thừa cho hai lớp vật thể
+    # dạng đốm; model to hơn sẽ học thuộc danh tính board thay vì hình dạng pad.
+    "model": "yolo11n.pt",
+
+    # imgsz=256, đã đo trên board thật (36 linh kiện, ảnh 1832×2560):
+    #
+    #   imgsz   crop bị thu nhỏ   pad tụt dưới 8 px   thời gian/crop
+    #     128        4/36                 1              ~
+    #     256        2/36                 0             19.6 ms
+    #     640        0/36                 0            123.8 ms
+    #
+    # Cạnh dài của crop trải từ 25 px đến 462 px — trung vị 48, p90 168. Nên
+    # con số này KHÔNG chọn theo trung vị: imgsz nhỏ thì phóng to crop bé (vô
+    # hại, chỉ phí tính toán) nhưng THU NHỎ crop lớn, mà crop lớn chính là IC
+    # và connector — những thứ nhiều chân nhất. 256 là mức nhỏ nhất còn giữ
+    # được mọi pad trên 8 px, và nhanh hơn 640 khoảng 5 lần.
+    #
+    # Phải chia hết cho 32 (YOLO detect ở stride 8/16/32).
+    "imgsz": 256,
     "epochs": 120,
     "batch": 16,
     "patience": 30,

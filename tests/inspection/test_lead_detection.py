@@ -279,3 +279,139 @@ def test_detected_leads_reach_the_fusion_stage() -> None:
     assert matched, "ít nhất một ROI phải đến từ chân đo được"
     box = matched[0].joint.bbox
     assert abs(box.x1 - 174) <= 2 and abs(box.y1 - 156) <= 2
+
+
+# --------------------------------------------------------------------------
+# Gom lô. Đo được trên máy này, yolo11n @ imgsz 256, 64 crop:
+#   từng cái 28.9 ms/crop · lô 4 19.6 ms · lô 16 28.6 ms · lô 64 33.2 ms
+# Nên lô nhỏ có lợi thật, nhưng lô lớn thì hại. Cái đáng test không phải tốc
+# độ mà là HỢP ĐỒNG VỊ TRÍ: kết quả thứ i phải thuộc về crop thứ i, vì lệch
+# một bậc là gán chân của linh kiện này sang linh kiện khác mà không báo lỗi.
+# --------------------------------------------------------------------------
+
+
+class _BatchDetector:
+    """Ghi lại kích thước từng lô, trả về một box mang dấu vết crop."""
+
+    def __init__(self, *, batch_returns=None):
+        self.batch_sizes: list[int] = []
+        self.single_calls = 0
+        self._batch_returns = batch_returns
+
+    def _one(self, image):
+        # Nhãn mang chiều rộng crop, để test truy được kết quả về đúng crop.
+        return [Detection(label=f"w{image.shape[1]}", confidence=0.9,
+                          bbox=BoundingBox(1.0, 1.0, 9.0, 9.0))]
+
+    def detect(self, image):
+        self.single_calls += 1
+        return self._one(image)
+
+    def detect_batch(self, images):
+        self.batch_sizes.append(len(images))
+        if self._batch_returns is not None:
+            return self._batch_returns(images)
+        return [self._one(image) for image in images]
+
+
+def _board_with_components(count: int):
+    """Một khung ảnh và ``count`` linh kiện, mỗi cái rộng khác nhau."""
+
+    frame = np.zeros((200, 60 * count + 80, 3), dtype=np.uint8)
+    detections = [
+        Detection(
+            label="resistor", confidence=0.9,
+            bbox=BoundingBox(20.0 + 60 * index, 40.0,
+                             20.0 + 60 * index + 24.0 + index, 80.0),
+            detection_id=f"d{index}",
+        )
+        for index in range(count)
+    ]
+    return frame, detections
+
+
+def test_crops_go_through_detect_batch_in_chunks_of_the_configured_size() -> None:
+    frame, detections = _board_with_components(10)
+    detector = _BatchDetector()
+
+    detect_leads_in_components(frame, detections, detector,
+                               LeadDetectionConfig(batch_size=4))
+
+    assert detector.batch_sizes == [4, 4, 2]
+    assert detector.single_calls == 0
+
+
+def test_each_result_lands_on_the_component_its_crop_came_from() -> None:
+    """Lệch một bậc ở đây là gán chân sai linh kiện, và không có gì báo lỗi."""
+
+    frame, detections = _board_with_components(7)
+    detector = _BatchDetector()
+
+    leads = detect_leads_in_components(frame, detections, detector,
+                                       LeadDetectionConfig(batch_size=3))
+
+    assert len(leads) == 7
+    for lead in leads:
+        parent = lead.metadata["parent_detection_id"]
+        window = lead.metadata["crop_window"]
+        crop_width = window[2] - window[0]
+        # Nhãn do detector đặt theo chiều rộng crop nó THỰC SỰ nhận được.
+        assert lead.label == f"w{crop_width}", (
+            f"{parent} nhận kết quả của crop rộng {lead.label[1:]}, "
+            f"nhưng crop của nó rộng {crop_width}"
+        )
+
+
+def test_a_detector_without_detect_batch_still_works_one_crop_at_a_time() -> None:
+    frame, detections = _board_with_components(5)
+
+    class _SingleOnly:
+        def __init__(self):
+            self.calls = 0
+
+        def detect(self, image):
+            self.calls += 1
+            return [Detection(label="pads", confidence=0.9,
+                              bbox=BoundingBox(1.0, 1.0, 9.0, 9.0))]
+
+    detector = _SingleOnly()
+    leads = detect_leads_in_components(frame, detections, detector,
+                                       LeadDetectionConfig(batch_size=4))
+
+    assert detector.calls == 5
+    assert len(leads) == 5
+
+
+def test_a_batch_that_returns_the_wrong_count_falls_back_instead_of_guessing() -> None:
+    """Trả về ít kết quả hơn số crop là phá hợp đồng vị trí. Ghép theo may
+    rủi sẽ đặt chân lên nhầm linh kiện, nên phải quay về gọi từng cái."""
+
+    frame, detections = _board_with_components(6)
+    detector = _BatchDetector(batch_returns=lambda images: [[]])   # 1 thay vì 4
+
+    leads = detect_leads_in_components(frame, detections, detector,
+                                       LeadDetectionConfig(batch_size=4))
+
+    assert detector.single_calls == 6, "phải quay về gọi từng crop"
+    assert len(leads) == 6
+    for lead in leads:
+        window = lead.metadata["crop_window"]
+        assert lead.label == f"w{window[2] - window[0]}"
+
+
+def test_a_batch_that_raises_skips_only_that_batch() -> None:
+    """Một lô hỏng không được làm hỏng cả board: lượt 1 đã cho box dùng được
+    và bước 5.5 vẫn suy ra được hình học cho phần còn lại."""
+
+    frame, detections = _board_with_components(6)
+
+    class _RaisesAlways:
+        def detect(self, image):
+            raise RuntimeError("model chết")
+
+        def detect_batch(self, images):
+            raise RuntimeError("model chết")
+
+    leads = detect_leads_in_components(frame, detections, _RaisesAlways(),
+                                       LeadDetectionConfig(batch_size=4))
+    assert leads == []

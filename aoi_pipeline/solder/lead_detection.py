@@ -45,10 +45,56 @@ class LeadDetector(Protocol):
 
     Deliberately structural: the Ultralytics wrapper already satisfies it, and
     so does a stub in a test, without either having to know about this module.
+
+    ``detect_batch`` is optional. A detector that offers it is handed several
+    crops at once; one that does not is called per crop, which costs about 1.47x
+    more but works. Both paths must return one sequence per input crop, in the
+    same order -- pass 2 matches results to components positionally, and a
+    detector that silently drops an empty result would shift every lead after it
+    onto the wrong component.
     """
 
     def detect(self, image: np.ndarray) -> Sequence[Detection]:  # pragma: no cover
         ...
+
+
+def _detect_in_batches(
+    detector: LeadDetector,
+    crops: list[np.ndarray],
+    batch_size: int,
+) -> list[Sequence[Detection] | None]:
+    """Results for each crop, ``None`` where the detector failed.
+
+    One unreadable part is not a bad board: pass 1 already produced a usable
+    box and step 5.5 can still derive that component's geometry. So a failure
+    is recorded against its own crops and the rest go on.
+    """
+
+    batched = getattr(detector, "detect_batch", None)
+    results: list[Sequence[Detection] | None] = []
+    for start in range(0, len(crops), max(1, batch_size)):
+        chunk = crops[start:start + max(1, batch_size)]
+        if batched is not None:
+            try:
+                found = list(batched(chunk))
+            except Exception:  # noqa: BLE001
+                found = [None] * len(chunk)
+            if len(found) != len(chunk):
+                # A detector that returns a different number of results has
+                # broken the positional contract. Guessing which crop each
+                # result belongs to would put leads on the wrong component, so
+                # fall back to one-at-a-time rather than align by luck.
+                found = [None] * len(chunk)
+                batched = None
+        if batched is None:
+            found = []
+            for crop in chunk:
+                try:
+                    found.append(detector.detect(crop))
+                except Exception:  # noqa: BLE001
+                    found.append(None)
+        results.extend(found)
+    return results
 
 
 def component_crop_window(
@@ -125,15 +171,29 @@ def detect_leads_in_components(
     height, width = frame.shape[:2]
     leads: list[Detection] = []
 
+    # Cut every crop first, then run them in batches. The crops are views'
+    # worth of pixels -- ~48x48 each, a few MB for a whole board -- so holding
+    # them briefly costs far less than the per-call setup they save.
+    windows: list[tuple[int, int, int, int]] = []
+    crops: list[np.ndarray] = []
+    kept: list[Detection] = []
     for detection in detections:
         window = component_crop_window(detection.bbox, width, height, config)
         x1, y1, x2, y2 = window
         if (x2 - x1) < config.min_crop_px or (y2 - y1) < config.min_crop_px:
             continue
-        crop = np.ascontiguousarray(frame[y1:y2, x1:x2])
-        try:
-            found = detector.detect(crop)
-        except Exception:  # noqa: BLE001 - one unreadable part is not a bad board
+        windows.append(window)
+        crops.append(np.ascontiguousarray(frame[y1:y2, x1:x2]))
+        kept.append(detection)
+
+    if not crops:
+        return []
+
+    outcomes = _detect_in_batches(detector, crops, config.batch_size)
+    del crops
+
+    for detection, window, found in zip(kept, windows, outcomes):
+        if found is None:
             continue
         for index, lead in enumerate(found or []):
             if float(lead.confidence) < config.confidence:

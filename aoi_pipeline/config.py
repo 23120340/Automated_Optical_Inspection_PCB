@@ -354,6 +354,18 @@ class LeadDetectionConfig:
     # A "lead" a few pixels across is noise, not a joint.
     min_lead_px: int = 3
 
+    # --- how many crops go in at once ---------------------------------------
+    # Four. Measured, not guessed: 64 crops through yolo11n at imgsz 256 on
+    # this machine's CPU took 28.9 ms/crop one at a time, 19.6 ms at batch 4,
+    # then got *worse* -- 28.6 ms at 16, 33.2 ms at 64. Small batches amortise
+    # the per-call setup; large ones lose more to memory traffic than they win,
+    # because a CPU backend already parallelises across threads within one
+    # image. The 1.47x at batch 4 is worth taking and is not the bottleneck:
+    # dropping imgsz from 640 to 256 was 5.2x on its own.
+    #
+    # A GPU would move this optimum a long way up. Re-measure before raising it.
+    batch_size: int = 4
+
 
 @dataclass(slots=True)
 class CadConfig:

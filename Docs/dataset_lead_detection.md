@@ -81,7 +81,6 @@ Ghi lại để bạn tự kiểm, tôi không xác minh được nội dung.
 
 | Nguồn | Mô tả theo tài liệu | Vì sao chưa kiểm chứng |
 |---|---|---|
-| [PCB-SAID (ICCVW 2025)](https://openaccess.thecvf.com/content/ICCV2025W/VISION'25/html/Mineo_PCB-SAID_A_Low-Cost_Camera-Based_Dataset_for_Few-Shot_SMD_Assembly_Inspection_ICCVW_2025_paper.html) | 175 ảnh RGB, 66 lớp chi tiết: hàn tốt / lệch / bong / xoay / thiếu / chập. Box + polygon, quy trình gán nhãn hai bước có chuyên gia. **"Low-cost camera"** gợi ý tỉ lệ gần với dự án hơn SolDef_AI | Trang openaccess trả HTTP 403 khi fetch tự động. Không tìm thấy link GitHub/Zenodo nào. **Bạn cần tự mở bài báo để lấy link dataset và giấy phép.** Đây là ứng viên đáng xem nhất |
 | [Roboflow Universe — lớp `solder`](https://universe.roboflow.com/search?q=class:solder) | Nhiều dataset cộng đồng có lớp liên quan mối hàn | Roboflow trả HTTP 403 khi fetch. Chỉ đọc được tiêu đề từ kết quả tìm kiếm |
 | [smd-component-detection (Roboflow)](https://universe.roboflow.com/marco-filippozzi-siwjn/smd-component-detection) | Detect linh kiện SMD | Như trên. Nhãn nhiều khả năng là **linh kiện**, không phải chân |
 | [PCBA-Dataset (GitHub)](https://github.com/ismh16/PCBA-Dataset) | Object detection cho lỗi PCBA | Chưa mở. Khảo sát cũ ghi PCBA-DET chủ yếu nhãn vít/quạt/dây/xước, không phải chân hàn |
@@ -103,10 +102,13 @@ Ghi lại để bạn tự kiểm, tôi không xác minh được nội dung.
    là thứ model cần học mà hình học không biết.
 2. **Nên làm:** pretrain trên tập con `pads`/`pins` của Consolidated (30 ảnh)
    rồi fine-tune trên board của bạn. Rẻ, và đúng tỉ lệ board.
-3. **Nên kiểm:** mở bài PCB-SAID, xem tỉ lệ chụp và đơn vị gán nhãn. Nếu nó gán
-   nhãn **từng mối hàn** ở tỉ lệ camera thường thì đây là nguồn công khai tốt
-   nhất hiện có.
+3. **Nên xin phép:** liên hệ tác giả Ulger để dùng 2.735 crop `normal` làm
+   nguồn **copy-paste augmentation** — dán lên nền board của bạn, box biết
+   trước chính là biên crop. Đây là cách duy nhất biến một dataset không có
+   box thành tín hiệu định vị. Repo không có LICENSE nên mặc định là giữ toàn
+   quyền; phải hỏi trước khi dùng thương mại.
 4. **Chưa cần:** SolDef_AI, cho tới khi có camera macro.
+5. **Đã loại, không cần quay lại:** PCB-SAID — xem mục 4 của bản cập nhật.
 
 ## Cần bao nhiêu board?
 
@@ -119,3 +121,176 @@ Nút thắt **không phải số crop mà là số board**. Crop từ cùng mộ
 
 Mốc thực tế để bắt đầu: **10–20 board khác nhau**, ưu tiên khác lô, khác loại
 board, khác điều kiện chiếu sáng — hơn là nhiều ảnh của cùng một board.
+
+---
+
+# Cập nhật 2026-08-22 — khảo sát vòng 2
+
+Kết luận cũ **giữ nguyên**: không có dataset công khai nào đủ dùng cho lượt 2,
+tự gán nhãn vẫn là đường duy nhất. Nhưng vòng này đóng được mục treo lớn nhất
+và tìm thêm một nguồn đáng giá.
+
+## 4. PCB-SAID — đã kiểm chứng, LOẠI HẲN
+
+Tải được PDF bằng `curl` kèm User-Agent trình duyệt (WebFetch bị 403, curl 200).
+Nguyên văn mục 3.1:
+
+> "PCB-SAID comprises 175 high-resolution RGB images **(native resolution
+> 640 × 480)** aggregated from multiple public sources, including **electronics
+> enthusiast forums, open-source hardware repositories, and automated web
+> crawls** filtered for PCB content."
+
+| Tiêu chí | Thực tế |
+|---|---|
+| Tỉ lệ chụp | **Không có camera setup nào.** Ảnh cào từ web, 640×480. Không có µm/px và không suy ra được |
+| Đơn vị gán nhãn | **Theo linh kiện.** 66 lớp = mỗi lớp một cặp (loại linh kiện, trạng thái lắp). Chỉ `Short Circuit` (56 instance) là box ở mức mối hàn |
+| Tải về | **Không link, không DOI, không giấy phép.** Bài ghi: *"will be made publicly available upon request"* |
+
+Đây là dataset **cùng loại với lượt 1**, không phải lượt 2. Khảo sát vòng 1 xếp
+nó là "ứng viên đáng xem nhất" — **sai**, và nay đã kiểm chứng là ngõ cụt.
+
+## 5. Ulger solder-joint-dataset — ĐÚNG TỈ LỆ, nhưng KHÔNG CÓ BOX
+
+`github.com/furkanulger/solder-joint-dataset` (bài IEEE TIM 2023, doc 10129988).
+Đã tải ảnh thật và **đo kích thước pixel**, không đọc mô tả:
+
+| Lớp | Số ảnh | Kích thước đo (n=12/lớp, min/trung vị/max) |
+|---|---|---|
+| `normal` | 2.735 `.tiff` | **11/29/39 px** — mỗi ảnh một mối hàn đơn |
+| `excessive_solder` | 92 | 43/66/147 × 66/90/155 |
+| `insufficient_solder` | 149 | 32/54/133 × 32/60/169 |
+| `shifted_component` | 114 | 77/**139**/198 × 44/**100**/159 — cả linh kiện |
+| `short` | 300 | 35/85/113 × 26/94/110 |
+| **Tổng** | **3.390** | khớp chính xác README |
+
+Crop `normal` trung vị **29 px** cho một mối hàn — cùng bậc với pad **23 px**
+đo được trên board của dự án. Crop linh kiện trung vị 139×100 px so với 62×58 px
+của dự án ⇒ board của họ mịn hơn khoảng 2 lần, suy ra **~20–25 µm/px**.
+
+**Đây là bằng chứng công khai đầu tiên cho thấy 46 µm/px không phải ngoại lệ dị
+thường** — có người khác đã làm bài toán mối hàn ở đúng dải này.
+
+**Vì sao vẫn không train lượt 2 được:** cấu trúc là thư mục-theo-lớp, **không có
+file nhãn nào** — không box, không mask, không toạ độ. Và **không có ảnh board
+gốc**, chỉ có crop đã cắt sẵn, nên không dựng lại box được. Ép dùng thì box =
+toàn bộ ảnh, model học được "vật thể luôn chiếm 100% khung", tức không học gì về
+định vị. Repo **không có LICENSE** (đã kiểm: HTTP 404) ⇒ mặc định giữ toàn quyền.
+
+**Dùng được vào:** pretrain backbone đúng tỉ lệ · nguồn copy-paste augmentation ·
+sau này làm bộ phân loại chất lượng mối hàn cho bước 6.2.
+
+## 6. Các nguồn khác
+
+| Nguồn | Vì sao không dùng |
+|---|---|
+| **PCB-AoI (KubeEdge-Ianvs)** | 1.271 ảnh **SPI** — bột hàn trên pad, **chưa gắn linh kiện**. Sai giai đoạn |
+| **PCB-Defect (Mendeley, DOI 10.17632/vdj74sngvn.1)** | ~15,9 µm/px (scanner 1600 dpi), CC BY 4.0 — đúng dải tỉ lệ, nhưng **bare board**. `missing pad` là *lỗi*, không phải *vị trí pad* |
+| **IEEE DataPort `10.21227/fped-0p25`** | Trang ghi nguyên văn *"Files have not been uploaded for this dataset"*. Bản ghi rỗng |
+| **HF `aimmifm/PCBA_Standard-to-Real`** | **VQA**, không phải detection. API trả 401 restricted |
+| **openAOI** | Chỉ có code + `yolov8s.pt`, **không có dataset** |
+| **Zenodo** | Truy vấn `"solder joint"` lọc `type=dataset` trả về **đúng 1 kết quả**, là dataset hồng ngoại công-tơ điện. Đã tra cạn |
+| **Papers-with-Code** | **Đã đóng cửa 24/07/2025**. Không còn là nguồn tra cứu |
+| **Roboflow Universe** | **Vẫn chưa kiểm chứng được.** WebFetch 403, curl 403 (Cloudflare "Just a moment…"), API 401 thiếu key. Đây là khoảng trống duy nhất còn lại |
+
+**Bẫy:** kết quả tìm kiếm mô tả "MF-PCBA là dataset phân cấp cho PCB defect ở
+mức pin/component/board" — **sai hoàn toàn**. MF-PCBA là dataset **hoá học**
+(Multi-Fidelity PubChem BioAssay). Đừng mất thời gian.
+
+### Nếu muốn tự kiểm Roboflow
+
+Cần một API key miễn phí, mất 2 phút:
+
+```
+curl "https://api.roboflow.com/<workspace>/<project>?api_key=<KEY>"
+```
+
+Trả về số ảnh, danh sách lớp, số instance mỗi lớp.
+
+## 7. Xác nhận kiến trúc — đáng giá hơn cả dataset
+
+Bài *"Deep learning-based solder joint defect detector"* (Int. J. Adv. Manuf.
+Technol. 137:5133–5147, 2025), open access tại `https://d-nb.info/1370145357/34`,
+mô tả **đúng kiến trúc lượt 2 của dự án**, đã chạy trên dây chuyền thật:
+
+> "the ROI cannot be exactly adjusted to the solder joint to absorb the position
+> uncertainties, which means that an additional step needs to be included: **the
+> finding of the solder joint bounding boxes in the cropped images**. […] since
+> **the search space is already restricted by an initial ROI, a lightweight NN
+> like YOLO V4 tiny is well-suited**."
+
+Ba điều rút ra:
+
+1. **"Hình học không biết chân nằm đâu" là vấn đề công nghiệp đã được thừa
+   nhận**, không phải đặc thù dự án này. Họ gọi box thô là *padded ROI*, box tinh
+   là *adjusted ROI* — đúng cặp khái niệm của bước 5.5.
+2. **Họ chọn model tí hon**, lý do y hệt: không gian tìm kiếm đã bị crop thu hẹp.
+3. Dataset của họ **không phát hành** (`Materials availability: Not applicable`).
+
+## 8. Chọn model cho lượt 2 — đã đo trên board thật
+
+> Mục này **sửa** đề xuất ban đầu của khảo sát (imgsz 128–160, gom lô 64–256).
+> Cả hai con số đó đều sai khi đem đo.
+
+### imgsz = 256
+
+Chạy detector lượt 1 lên board thật (1832×2560, 36 linh kiện), áp
+`component_crop_window`, rồi xem một `imgsz` cố định làm gì với pad 23 px:
+
+| imgsz | crop bị **thu nhỏ** | pad tụt dưới 8 px | ms/crop |
+|---|---|---|---|
+| 128 | 4/36 | **1** | — |
+| 160 | 4/36 | **1** | — |
+| **256** | **2/36** | **0** | **19.6** |
+| 640 | 0/36 | 0 | 123.8 |
+
+Cạnh dài của crop trải từ **25 px đến 462 px** — trung vị 48, p90 **168**, p99
+**428**. Vì thế **không được chọn imgsz theo trung vị**: imgsz nhỏ thì phóng to
+crop bé (vô hại, chỉ phí tính toán) nhưng **thu nhỏ crop lớn** — mà crop lớn
+chính là IC và connector, những thứ **nhiều chân nhất**. 256 là mức nhỏ nhất còn
+giữ mọi pad trên 8 px, và **nhanh hơn 640 khoảng 5,2 lần**.
+
+### Gom lô = 4, không phải 64
+
+64 crop qua yolo11n @ imgsz 256, CPU máy này:
+
+| Cỡ lô | ms/crop |
+|---|---|
+| 1 | 28.9 |
+| 2 | 22.6 |
+| **4** | **19.6** |
+| 8 | 23.5 |
+| 16 | 28.6 |
+| 32 | 31.1 |
+| 64 | 33.2 |
+
+Lô nhỏ khấu hao được chi phí thiết lập mỗi lần gọi; lô lớn mất vào lưu lượng bộ
+nhớ nhiều hơn phần thắng, vì backend CPU vốn đã chia luồng **bên trong** một
+ảnh. **Lô 64 là cấu hình tệ nhất đo được** — đúng thứ khảo sát ban đầu đề xuất.
+
+1,47× ở lô 4 đáng lấy, nhưng **không phải nút thắt**: hạ imgsz 640→256 một mình
+đã được 5,2×. GPU sẽ đẩy điểm tối ưu này lên cao nhiều; **phải đo lại** trước
+khi tăng.
+
+Đã cài: `LeadDetectionConfig.batch_size = 4`, `LeadDetector` nhận thêm
+`detect_batch` **tuỳ chọn**. Detector không có nó vẫn chạy từng crop.
+
+### yolo11n, không phải yolo11s
+
+Với 10–20 board tự gán nhãn: ~10–20k crop nhưng chỉ **10–20 cảnh độc lập**.
+2,6M tham số đã thừa cho hai lớp vật thể dạng đốm. Model lớn hơn sẽ học thuộc
+danh tính board thay vì hình dạng pad. Họ DETR đặc biệt sai chỗ: cần lịch train
+dài và dữ liệu lớn.
+
+**Không chọn:** YOLOv4-tiny (backbone cũ hơn, dù bài 2025 dùng) · YOLO11n-seg
+(mask fillet có ích cho *chấm điểm* 6.2 nhưng đắt gấp nhiều lần khi gán nhãn —
+định vị trước, phân đoạn sau) · bất kỳ model nào >5M tham số.
+
+**Phương án B nếu box mAP không lên:** model heatmap/keypoint nhỏ ở 96–128².
+Pad là đốm kích thước gần cố định khi đã biết lớp linh kiện từ lượt 1, nên dự
+đoán **tâm** + kích thước cố định thường tiết kiệm mẫu hơn hồi quy box kiểu
+anchor/DFL ở mức 23 px, và bỏ hẳn NMS. Nhược điểm: adapter Ultralytics không
+dùng được, phải viết code riêng.
+
+**Đòn bẩy rẻ:** lượt 1 đã biết lớp linh kiện. Dùng làm tiên nghiệm — một model
+chung + hậu xử lý theo **số pad kỳ vọng** suy từ topology lớp. Nên làm trước vì
+không nhân số nhãn phải gán.
