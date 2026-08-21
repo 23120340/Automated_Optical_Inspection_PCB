@@ -3018,9 +3018,25 @@ def _draw_solder_overlay(
     return overlay
 
 
-def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
+def _solder_frame(
+    crops: list[SolderCropRecord],
+    verdicts: list[SolderVerdictRecord] | None = None,
+) -> pd.DataFrame:
+    """One row per ROI, carrying what step 6.2 called it.
+
+    ``defect_class`` used to be hard-coded empty because this table doubled as
+    the labelling sheet. That made the panel look like step 6.2 had produced
+    nothing, when in fact every row already had a verdict. The machine's call
+    goes in ``defect_class`` where a reader expects it, and the blank column
+    for a human to fill is now named ``label_manual`` so the two are never
+    confused with each other.
+    """
+
+    by_joint = {item.joint_id: item for item in (verdicts or [])}
+    rows = []
+    for crop in crops:
+        verdict = by_joint.get(crop.joint_id)
+        rows.append(
             {
                 "joint_id": crop.joint_id,
                 "detection_id": crop.detection_id,
@@ -3040,11 +3056,19 @@ def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
                 "designator": crop.designator or "",
                 "pin": crop.pin or "",
                 "net": crop.net or "",
-                "defect_class": "",
+                # --- what step 6.2 decided -------------------------------
+                "defect_class": verdict.label if verdict else "",
+                "decision": verdict.decision if verdict else "",
+                "verdict_source": verdict.source if verdict else "",
+                "rule_label": (verdict.rule_label or "") if verdict else "",
+                "model_label": (verdict.model_label or "") if verdict else "",
+                "model_prob": verdict.model_probability if verdict else None,
+                "reasons": " | ".join(verdict.reasons) if verdict else "",
+                # --- and the column a person fills in --------------------
+                "label_manual": "",
             }
-            for crop in crops
-        ]
-    )
+        )
+    return pd.DataFrame(rows)
 
 
 def _draw_verdict_overlay(
@@ -3311,13 +3335,21 @@ def _render_solder_rois() -> None:
                         tag = f" · {crop.designator}" if crop.designator else ""
                         st.caption(f"**{crop.label}**{tag}\n\n{crop.position}")
         with table_tab:
-            frame = _solder_frame(result.crops)
+            frame = _solder_frame(result.crops, result.verdicts)
             st.dataframe(frame, width="stretch", height=320)
-            st.caption(
-                "Cột defect_class để trống chính là chỗ gán nhãn cho bước 6.2. "
-                "Hình học đã giải quyết xong nên gán nhãn chỉ còn là phán quyết "
-                "theo từng dòng."
-            )
+            if result.verdicts:
+                st.caption(
+                    "`defect_class` là kết luận của bước 6.2 cho từng ROI; "
+                    "`rule_label` và `model_label` cho thấy mỗi tầng nói gì, và "
+                    "`reasons` là số đo dẫn tới kết luận đó. Cột `label_manual` "
+                    "để trống là chỗ bạn gán nhãn thật khi xuất dữ liệu train."
+                )
+            else:
+                st.caption(
+                    "Chưa có kết luận 6.2 nên `defect_class` để trống. Cột "
+                    "`label_manual` là chỗ gán nhãn tay: hình học đã xong nên "
+                    "gán nhãn chỉ còn là phán quyết theo từng dòng."
+                )
             st.download_button(
                 "Tải solder_joints.csv",
                 frame.to_csv(index=False).encode("utf-8-sig"),

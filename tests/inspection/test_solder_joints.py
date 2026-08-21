@@ -349,13 +349,54 @@ def _ui_records():
     ]
 
 
-def test_ui_label_sheet_has_an_empty_defect_class_per_roi() -> None:
+def test_ui_roi_table_shows_what_step_6_2_called_each_roi() -> None:
+    """The table hard-coded ``defect_class`` to empty because it doubled as the
+    labelling sheet, so the panel looked like step 6.2 had produced nothing
+    while every row already had a verdict."""
+
+    from app.pipeline_bridge import SolderVerdictRecord
+    from app.streamlit_app import _solder_frame
+
+    records = _ui_records()
+    verdicts = [
+        SolderVerdictRecord(
+            joint_id=records[0].joint_id,
+            detection_id=records[0].detection_id,
+            scope="joint",
+            label="insufficient",
+            decision="review",
+            source="conflict",
+            probability=0.62,
+            rule_label="insufficient",
+            model_label="good",
+            model_probability=0.71,
+            designator=None,
+            pin=None,
+            component_label="resistor",
+            bbox=(0, 0, 16, 16),
+            reasons=["solder_ratio 0.11 < 0.18"],
+        )
+    ]
+
+    frame = _solder_frame(records, verdicts)
+    assert len(frame) == 2
+    assert list(frame["defect_class"]) == ["insufficient", ""]
+    assert list(frame["decision"]) == ["review", ""]
+    assert list(frame["rule_label"]) == ["insufficient", ""]
+    assert list(frame["model_label"]) == ["good", ""]
+    assert "solder_ratio" in frame["reasons"][0]
+    assert list(frame["roi_width_px"]) == [16, 22]
+
+
+def test_the_manual_label_column_stays_empty_for_the_person_to_fill() -> None:
+    """Filling the machine's call into the human's column would bias whoever
+    labels the export, so the two are separate columns."""
+
     from app.streamlit_app import _solder_frame
 
     frame = _solder_frame(_ui_records())
-    assert len(frame) == 2
-    assert list(frame["defect_class"]) == ["", ""]
-    assert list(frame["roi_width_px"]) == [16, 22]
+    assert list(frame["label_manual"]) == ["", ""]
+    assert list(frame["defect_class"]) == ["", ""], "chưa chấm thì không bịa nhãn"
 
 
 def test_ui_overlay_is_non_destructive_and_honours_the_body_toggle() -> None:
