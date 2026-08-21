@@ -261,7 +261,11 @@ class SolderJointConfig:
     # Grow each pin ROI along the band by this fraction of the lead pitch so
     # the gap to the neighbour is inside the crop; a bridge lives in that gap.
     pin_padding_ratio: float = 0.35
-    min_pins_per_band: int = 3
+    # Two, not three. A SOT-23, SOT-223 or DPAK puts two leads on one edge,
+    # and a floor of three meant that edge could never be split -- the two
+    # joints stayed inside one ROI, so one of them was never inspected on
+    # its own. Measured on a real board's D201/D202.
+    min_pins_per_band: int = 2
     max_pins_per_band: int = 64
 
     # --- pad-only geometry --------------------------------------------------

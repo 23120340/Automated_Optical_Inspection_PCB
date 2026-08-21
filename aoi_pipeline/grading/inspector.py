@@ -93,6 +93,10 @@ class SolderInspector:
         if not self.config.enabled or not crops:
             return []
 
+        # Per board, not per session: a warning left over from the previous
+        # board would be read as a problem with this one.
+        self.warnings = []
+
         joints = [crop.joint for crop in crops]
         features = [
             measure_solder(

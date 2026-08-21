@@ -528,6 +528,29 @@ def _band_patch(
     return patch if patch.size else None
 
 
+def _band_core_rect(rect: _LocalRect, frame: ComponentFrame) -> _LocalRect:
+    """The part of a perimeter band that belongs to it alone.
+
+    Bands deliberately run past the body corners so a corner pin is not
+    clipped, which means every band overlaps both of its neighbours at a
+    corner. A pin-free side therefore *borrows* the metal of the corner pins
+    next to it, and measured whole it looks almost as leaded as the side that
+    really has the pins. Clipping the band back to the body's own extent along
+    the direction it runs removes the shared corners and leaves the evidence
+    that is genuinely this band's.
+    """
+
+    if rect.position in ("lead_left", "lead_right"):
+        return _LocalRect(
+            rect.cx, rect.cy, rect.width, min(rect.height, frame.span),
+            rect.position, rect.kind, rect.pin_index,
+        )
+    return _LocalRect(
+        rect.cx, rect.cy, min(rect.width, frame.length), rect.height,
+        rect.position, rect.kind, rect.pin_index,
+    )
+
+
 def _filter_bands_by_energy(
     rects: Sequence[_LocalRect],
     image: np.ndarray,
@@ -538,26 +561,40 @@ def _filter_bands_by_energy(
 ) -> list[_LocalRect]:
     """Drop perimeter bands with no lead metal, e.g. the pin-free sides of a SOIC.
 
-    The threshold is relative to the strongest band of the same component, so it
-    adapts to exposure instead of assuming an absolute brightness.
+    Measured as the fraction of the band covered by solder-coloured metal, on
+    the band's own corner-free core, relative to the strongest band of the same
+    component -- so it adapts to exposure instead of assuming a brightness.
+
+    This used to be Laplacian energy, which answers "is anything textured here"
+    rather than "is there lead metal here". On the two SOT-23 parts of a real
+    board it kept all four bands (relative energies 0.75/0.74/1.00/0.77), so
+    both pin-free sides were inspected as if they held joints. Metal coverage
+    on the corner-free core separates them cleanly: 0.28/0.26 against
+    0.75/1.00, and the same 0.35 threshold then keeps exactly the two sides
+    that have pins.
     """
 
     if config.lead_band_energy_ratio is None:
         return list(rects)
     bgr = ensure_bgr(image)
-    energies: list[float] = []
+    coverage: list[float] = []
     for rect in rects:
-        patch = _band_patch(rect, bgr, frame, image_width, image_height)
-        if patch is None:
-            energies.append(0.0)
+        patch = _band_patch(
+            _band_core_rect(rect, frame), bgr, frame, image_width, image_height
+        )
+        if patch is None or patch.size == 0:
+            coverage.append(0.0)
             continue
-        gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
-        energies.append(float(np.mean(np.abs(cv2.Laplacian(gray, cv2.CV_32F)))))
-    peak = max(energies, default=0.0)
+        mask = segment_solder(patch, saturation_max=config.saturation_max)
+        if mask.size == 0:
+            coverage.append(0.0)
+            continue
+        coverage.append(float(np.count_nonzero(mask)) / float(mask.size))
+    peak = max(coverage, default=0.0)
     if peak <= 1e-6:
         return list(rects)
     threshold = config.lead_band_energy_ratio * peak
-    kept = [rect for rect, energy in zip(rects, energies) if energy >= threshold]
+    kept = [rect for rect, value in zip(rects, coverage) if value >= threshold]
     # Never return nothing: a component with no surviving band would silently
     # disappear from inspection.
     return kept or list(rects)

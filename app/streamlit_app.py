@@ -3110,6 +3110,10 @@ def _render_solder_grading(result: SolderResult) -> None:
             )
         return
 
+    if result.grading_error:
+        # The model can fail per board while staying loaded; say which board
+        # this was, rather than leaving the panel claiming a model verdict.
+        st.warning(f"Bước 6.2: {result.grading_error}")
     if result.graded_by_model:
         st.success(
             f"Đang chấm bằng **model + luật đo** (model: "

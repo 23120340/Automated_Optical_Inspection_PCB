@@ -668,3 +668,126 @@ def test_pins_of_the_same_component_are_allowed_to_stay_adjacent() -> None:
     assert [joint.bbox.to_dict() for joint in resolved] == [
         joint.bbox.to_dict() for joint in derived
     ]
+
+
+# --------------------------------------------------------------------------- #
+# Which perimeter bands actually hold leads
+# --------------------------------------------------------------------------- #
+
+
+def _speckled_board() -> np.ndarray:
+    """Green laminate with the gloss and speckle a real solder mask has.
+
+    Not decoration. ``segment_solder`` falls back to brightness alone when no
+    pixel passes its saturation test, and on a perfectly flat synthetic green
+    that fallback marks the bare board as metal -- which would make this test
+    pass or fail for a reason that has nothing to do with lead detection.
+    """
+
+    rng = np.random.default_rng(7)
+    image = np.full((*BOARD_SIZE, 3), (40, 90, 40), np.uint8)
+    noise = rng.normal(0, 6, image.shape)
+    image = np.clip(image.astype(float) + noise, 0, 255).astype(np.uint8)
+    for _ in range(400):
+        x = int(rng.integers(0, BOARD_SIZE[1]))
+        y = int(rng.integers(0, BOARD_SIZE[0]))
+        cv2.circle(image, (x, y), 1, (150, 155, 150), -1)
+    return image
+
+
+def _sot23_board():
+    """Three leads: two on the top edge, one centred on the bottom edge.
+
+    The package that broke this on the real board (D201/D202). The left and
+    right edges carry no lead at all, but they sit beside the corner pads, so a
+    band that runs past the corners borrows their metal.
+    """
+
+    image = _speckled_board()
+    body = BoundingBox(150, 150, 214, 197)
+    cv2.rectangle(image, (158, 136), (178, 152), (205, 205, 205), -1)
+    cv2.rectangle(image, (186, 136), (206, 152), (205, 205, 205), -1)
+    cv2.rectangle(image, (172, 195), (192, 211), (205, 205, 205), -1)
+    cv2.rectangle(image, (150, 150), (214, 197), (26, 26, 30), -1)
+    return image, Detection("ic", 0.9, body)
+
+
+def test_only_the_edges_that_carry_leads_become_rois() -> None:
+    """Measured on the real board before the fix: all four bands survived on
+    both SOT-23 parts, so the two lead-free sides were inspected as if they
+    held joints -- two wrong ROIs per part, which is exactly what the operator
+    reported seeing."""
+
+    image, detection = _sot23_board()
+    joints = _by_kind(_joints(detection, image), "joint")
+    assert {joint.position for joint in joints} == {"lead_top", "lead_bottom"}
+
+
+def test_the_lead_free_sides_are_not_saved_by_the_corner_pads() -> None:
+    """Bands deliberately run past the corners so a corner pin is not clipped,
+    which makes every band overlap its neighbours. Measured whole, a lead-free
+    side borrows the corner pads and looks nearly as leaded as the real ones
+    (0.47 against 1.00 on the real board). Measured on its corner-free core it
+    does not (0.26)."""
+
+    from aoi_pipeline.grading.features import segment_solder
+    from aoi_pipeline.solder import (
+        _band_core_rect,
+        _component_frame,
+        _local_rect_to_bbox,
+        _multi_pin_rects,
+    )
+
+    image, detection = _sot23_board()
+    config = SolderJointConfig()
+    frame = _component_frame(detection.bbox, config, image)
+
+    def coverage(rect) -> float:
+        bbox = _local_rect_to_bbox(rect, frame, BOARD_SIZE[1], BOARD_SIZE[0])
+        x1, y1, x2, y2 = bbox.to_int()
+        mask = segment_solder(image[y1:y2, x1:x2], saturation_max=config.saturation_max)
+        return float(np.count_nonzero(mask)) / max(1, mask.size)
+
+    rects = _multi_pin_rects(frame, config)
+    whole = {rect.position: coverage(rect) for rect in rects}
+    core = {rect.position: coverage(_band_core_rect(rect, frame)) for rect in rects}
+
+    def worst_lead_free(values: dict[str, float]) -> float:
+        peak = max(values.values()) or 1e-9
+        return max(values["lead_left"], values["lead_right"]) / peak
+
+    assert worst_lead_free(whole) > worst_lead_free(core), (
+        "cắt góc phải làm cạnh không chân yếu đi tương đối"
+    )
+    assert worst_lead_free(core) < 0.35
+
+
+def test_a_band_is_never_filtered_away_to_nothing() -> None:
+    """When no band has any metal there is nothing to rank, so all of them are
+    kept. Losing every band would drop the part out of inspection without ever
+    saying so, which is the one outcome this filter must never produce."""
+
+    image = _blank_board()
+    detection = Detection("ic", 0.9, BoundingBox(150, 150, 214, 197))
+    assert len(_by_kind(_joints(detection, image), "joint")) == 4
+
+
+def test_a_lead_free_component_still_keeps_at_least_one_roi() -> None:
+    """Even where the ranking does separate bands, the filter has to leave the
+    part inspectable."""
+
+    image = _speckled_board()
+    cv2.rectangle(image, (150, 150), (214, 197), (26, 26, 30), -1)
+    detection = Detection("ic", 0.9, BoundingBox(150, 150, 214, 197))
+    assert _by_kind(_joints(detection, image), "joint")
+
+
+def test_a_two_lead_edge_can_be_split_per_pin() -> None:
+    """``min_pins_per_band`` was 3, so the two-lead edge of a SOT-23, SOT-223 or
+    DPAK could never be split and its two joints stayed inside one ROI."""
+
+    image, detection = _sot23_board()
+    config = SolderJointConfig(include_body_view=False, split_pins=True)
+    joints = derive_solder_joints(detection, BOARD_SIZE[1], BOARD_SIZE[0], config, image=image)
+    top = [joint for joint in joints if joint.position.startswith("lead_top")]
+    assert len(top) >= 2, [joint.position for joint in joints]

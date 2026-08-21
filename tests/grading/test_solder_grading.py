@@ -7,6 +7,7 @@ import io
 import json
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -551,3 +552,86 @@ def test_measuring_uses_the_raw_roi_not_the_letterboxed_crop() -> None:
     frame_ratio = np.mean([v.features.solder_ratio for v in from_frame])
     crop_ratio = np.mean([v.features.solder_ratio for v in from_padded_crop])
     assert frame_ratio > crop_ratio
+
+
+# --------------------------------------------------------------------------- #
+# Saying so when the model did not actually grade
+# --------------------------------------------------------------------------- #
+
+
+class _BrokenClassifier:
+    """A loaded model whose inference call fails, as it does out of memory."""
+
+    scope = "joint"
+    class_names = ["good", "insufficient", "excess"]
+
+    def predict(self, images):
+        raise MemoryError("bad allocation")
+
+
+def _two_rois():
+    image = _roi([(6, 20, 34, 60)])
+    return [
+        _crop(
+            image,
+            _joint(
+                joint_id=f"det_1_joint{index:02d}",
+                position=position,
+                bbox=BoundingBox(index * 60, 0, index * 60 + 40, 80),
+            ),
+        )
+        for index, position in enumerate(("terminal_a", "terminal_b"))
+    ]
+
+
+def test_a_failed_model_degrades_to_rules_and_records_why() -> None:
+    """Rules-only is a supported mode, so a model failure must not delete the
+    verdicts. It must not be silent either: this exact failure -- the ONNX call
+    running out of memory -- turned a model-graded board into a rules-only one
+    with the UI still reporting a model verdict."""
+
+    inspector = SolderInspector(SolderGradingConfig(), classifier=_BrokenClassifier())
+    verdicts = inspector.inspect(_two_rois())
+
+    assert len(verdicts) == 2, "luật vẫn phải chấm được khi model hỏng"
+    assert all(verdict.model_label is None for verdict in verdicts)
+    assert inspector.warnings, "lỗi model phải được ghi lại"
+    assert "MemoryError" in inspector.warnings[0]
+
+
+def test_the_warning_belongs_to_the_board_that_produced_it() -> None:
+    """Warnings accumulated across every board in the session, so one bad board
+    made every later board look broken."""
+
+    inspector = SolderInspector(SolderGradingConfig(), classifier=_BrokenClassifier())
+    inspector.inspect(_two_rois())
+    assert len(inspector.warnings) == 1
+
+    inspector.classifier = None
+    inspector.inspect(_two_rois())
+    assert inspector.warnings == [], "cảnh báo của board trước không được bám sang"
+
+
+def test_the_bridge_reports_the_model_as_used_only_when_it_was() -> None:
+    """``has_model`` answers "is a model loaded", which is not the question the
+    UI asks. A board graded by rules after the model failed was being presented
+    as model-checked."""
+
+    from app.pipeline_bridge import PipelineBridge
+
+    image = np.full((200, 300, 3), BOARD_COLOR, np.uint8)
+    cv2.rectangle(image, (40, 90), (60, 110), SOLDER_COLOR, -1)
+    cv2.rectangle(image, (140, 90), (160, 110), SOLDER_COLOR, -1)
+    cv2.rectangle(image, (60, 85), (140, 115), (25, 25, 25), -1)
+    detections = [Detection("resistor", 0.9, BoundingBox(60, 85, 140, 115))]
+
+    bridge = PipelineBridge(config={"solder": {"enabled": True}})
+    bridge.engine.solder_inspector.classifier = _BrokenClassifier()
+
+    result = bridge.make_solder_crops(
+        image, [SimpleNamespace(raw=detection) for detection in detections]
+    )
+    assert result.verdicts, "luật vẫn chấm được"
+    assert result.graded_by_model is False
+    assert "MemoryError" in (result.grading_error or "")
+    assert "6.2" in result.message

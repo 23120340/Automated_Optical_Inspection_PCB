@@ -894,7 +894,13 @@ class PipelineBridge:
                 )
             )
         inspector = getattr(engine, "solder_inspector", None)
-        return (records, bool(getattr(inspector, "has_model", False)), None)
+        # "A model was loaded" is not "the model graded this board". The
+        # inspector degrades to rules when the ONNX call fails -- out of memory,
+        # a shape mismatch -- and reporting the model as active then makes a
+        # rules-only board look model-checked. Ask the verdicts instead.
+        used_model = any(getattr(item, "model_label", None) for item in raw_verdicts or [])
+        warnings = list(getattr(inspector, "warnings", None) or [])
+        return (records, used_model, "; ".join(warnings) or None)
 
     def classify_components(
         self,
