@@ -326,6 +326,36 @@ class SolderJointConfig:
 
 
 @dataclass(slots=True)
+class LeadDetectionConfig:
+    """Pass 2: run a detector inside each component crop to find its leads.
+
+    Off until a model exists. Pass 1 cannot learn ``pads``/``pins`` from the
+    public datasets -- 30 of 670 images carry the class and recall sits at
+    0.072 -- and the shipped detector, measured on component crops of a real
+    board, returned ``pads``/``pins`` in 0 of 24 configurations. So this stage
+    stays a no-op and step 5.5 keeps deriving geometry until someone trains a
+    model on their own boards.
+    """
+
+    enabled: bool = True
+
+    # --- what pass 2 is shown ------------------------------------------------
+    # The fillet lies OUTSIDE the component silhouette, so a crop that stops at
+    # the box hides the very thing pass 2 is looking for. The margin is a
+    # fraction of the box's longer side so one number works for an 0402 chip
+    # and for a connector.
+    crop_margin_ratio: float = 0.35
+    crop_margin_min_px: int = 6
+    # Below this the crop carries too few pixels to be worth a forward pass.
+    min_crop_px: int = 24
+
+    # --- what comes back is believed ----------------------------------------
+    confidence: float = 0.25
+    # A "lead" a few pixels across is noise, not a joint.
+    min_lead_px: int = 3
+
+
+@dataclass(slots=True)
 class CadConfig:
     """Where the board's CAD data comes from and how it is registered.
 
@@ -535,6 +565,9 @@ class PipelineConfig:
     crop: CropConfig = field(default_factory=CropConfig)
     solder: SolderJointConfig = field(default_factory=SolderJointConfig)
     lead_fusion: LeadFusionConfig = field(default_factory=LeadFusionConfig)
+    lead_detection: LeadDetectionConfig = field(
+        default_factory=LeadDetectionConfig
+    )
     cad: CadConfig = field(default_factory=CadConfig)
     fusion: FusionConfig = field(default_factory=FusionConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
@@ -565,6 +598,9 @@ class PipelineConfig:
         crop_values = _section(values, "crops", "crop")
         solder_values = _section(values, "solder", "solder_joints")
         lead_values = _section(values, "lead_fusion", "leads")
+        lead_detection_values = _section(
+            values, "lead_detection", "pass2", "second_pass"
+        )
         cad_values = _section(values, "cad", "board_cad")
         fusion_values = _section(values, "fusion", "cad_fusion")
         grading_values = _section(values, "solder_grading", "solder_inspection")
@@ -694,6 +730,13 @@ class PipelineConfig:
             values.get("leads"), Mapping
         ):
             _assign_known(config.lead_fusion, lead_values)
+        # Only when the caller supplied the section: the permissive whole-dict
+        # fallback would otherwise let unrelated keys reconfigure pass 2.
+        if any(
+            isinstance(values.get(name), Mapping)
+            for name in ("lead_detection", "pass2", "second_pass")
+        ):
+            _assign_known(config.lead_detection, lead_detection_values)
         if isinstance(values.get("solder_grading"), Mapping) or isinstance(
             values.get("solder_inspection"), Mapping
         ):

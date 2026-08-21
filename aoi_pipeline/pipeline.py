@@ -25,6 +25,7 @@ from .detectors import (
 from .exceptions import DetectorConfigurationError
 from .grading.inspector import SolderInspector
 from .cad_fusion import FusionResult, fuse_solder_joints
+from .lead_detection import detect_leads_in_components
 from .leads import fuse_detected_leads, split_lead_detections
 from .exporters import export_json as write_json
 from .exporters import export_zip as write_zip
@@ -63,6 +64,7 @@ class AOIPipeline:
         classifier_model_path: str | Path | None = None,
         classifier_manifest_path: str | Path | Mapping[str, object] | None = None,
         cad: BoardCad | str | Path | None = None,
+        lead_detector: object | None = None,
     ) -> None:
         self.config = (
             config
@@ -89,6 +91,9 @@ class AOIPipeline:
         self.cad_warnings: list[str] = []
         self.last_fusion: FusionResult = FusionResult()
         self.last_lead_fusion = None
+        # Pass 2 stays absent until someone hands the pipeline a model for it.
+        self.lead_detector = lead_detector
+        self.last_pass2_leads: list[Detection] = []
         self._load_cad(cad)
         if classifier is not None and (
             classifier_model_path is not None or classifier_manifest_path is not None
@@ -378,6 +383,14 @@ class AOIPipeline:
         # first so a pad box is never also treated as a component to derive
         # terminals around.
         bodies, leads = split_lead_detections(detections)
+        # Pass 2: look for the leads inside each component box. Returns nothing
+        # when no detector is configured, which leaves the derived geometry
+        # below exactly as it was.
+        pass2 = detect_leads_in_components(
+            image, bodies or detections, self.lead_detector, self.config.lead_detection
+        )
+        self.last_pass2_leads = pass2
+        leads = [*leads, *pass2]
         derived = self.solder_cropper.derive(image, bodies or detections)
         lead_result = fuse_detected_leads(
             bodies or detections, leads, derived, self.config.lead_fusion

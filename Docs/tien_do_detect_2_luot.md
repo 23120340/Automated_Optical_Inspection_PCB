@@ -78,16 +78,31 @@ hiển thị. Không phụ thuộc model nào, làm được ngay.
 Mục tiêu: có chỗ cắm model detect chân, chạy được ngay cả khi **chưa có model**
 (khi đó rơi về hình học suy ra như hiện nay).
 
-- `[~] ĐANG LÀM` **B1.** `LeadDetectionConfig`: bật/tắt, biên crop, ngưỡng
-  confidence, kích thước crop tối thiểu.
-- `[ ] CHƯA LÀM` **B2.** Hàm chạy detector lên crop từng linh kiện và **quy đổi
-  toạ độ về ảnh lớn** (`global = crop_origin + local`).
-- `[ ] CHƯA LÀM` **B3.** Nối vào `fuse_detected_leads` đã có sẵn — chân đo được
-  thắng hình học suy ra, theo **từng chân** chứ không theo cả linh kiện.
-- `[ ] CHƯA LÀM` **B4.** Không có model thì là no-op tuyệt đối: kết quả phải
-  giống hệt hiện tại, có test khẳng định điều đó.
-- `[ ] CHƯA LÀM` **B5.** Test bằng detector giả có toạ độ biết trước, khẳng định
-  phép quy đổi toạ độ đúng từng pixel.
+- `[x] HOÀN THÀNH` **B1.** `LeadDetectionConfig` trong `aoi_pipeline/config.py`:
+  `enabled`, `crop_margin_ratio` 0.35, `crop_margin_min_px` 6, `min_crop_px` 24,
+  `confidence` 0.25, `min_lead_px` 3. Chỉ đọc khi caller đưa section vào, không
+  để key lạ bật nhầm.
+- `[x] HOÀN THÀNH` **B2.** Module mới `aoi_pipeline/lead_detection.py`:
+  `component_crop_window` (crop kèm biên để lộ fillet ra ngoài thân),
+  `to_board_coordinates` (quy đổi), `detect_leads_in_components` (chạy cả loạt).
+  **Toàn bộ câu chuyện toạ độ chỉ là một phép cộng** — crop là cửa sổ cắt thẳng
+  từ ảnh phân tích, không resize, nên `global = local + crop_origin`. Không cần
+  hướng phân cấp.
+- `[x] HOÀN THÀNH` **B3.** Nối vào `AOIPipeline.make_solder_crops`: chân lượt 2
+  nhập chung với chân từ lượt 1 rồi đi qua `fuse_detected_leads` sẵn có. Có test
+  khẳng định chân đo được **thắng** hình học suy ra và ROI rơi đúng chỗ (±2 px).
+- `[x] HOÀN THÀNH` **B4.** Không model / tắt stage = no-op tuyệt đối. Test so
+  sánh từng ROI trước và sau khi thêm stage: giống hệt. Detector còn không được
+  gọi khi stage tắt.
+- `[x] HOÀN THÀNH` **B5.** 15 test, gồm: quy đổi đúng ở cả 4 góc crop; **cắt
+  crop và cắt board tại toạ độ đã quy đổi phải ra pixel giống hệt nhau**; biên
+  bị chặn ở mép ảnh; lead confidence thấp/quá nhỏ bị loại; một linh kiện lỗi
+  inference không làm mất các linh kiện còn lại.
+  Đã kiểm chứng test **bắt được lỗi thật**: ngắt dây nối ở pipeline thì
+  `test_detected_leads_reach_the_fusion_stage` fail đúng như mong đợi.
+- `[ ] CHƯA LÀM` **B6.** *(mới, phát sinh)* Chỗ nạp model lượt 2 trên sidebar +
+  đường truyền qua `PipelineBridge`. **Cố tình chưa làm**: chưa có model nào để
+  kiểm chứng, dựng UI lúc này là dựng thứ không test được.
 
 ## Giai đoạn C — Model cho lượt 2
 
@@ -157,3 +172,4 @@ nhiều. Dữ liệu mới là thứ quyết định.
 | 2026-08-21 | Lập kế hoạch, đo số nền | Ghi ở mục "Số đo nền" |
 | 2026-08-21 | D1 — yêu cầu phần cứng | `Docs/yeu_cau_phan_cung_camera.md` |
 | 2026-08-21 | Giai đoạn A xong (A1–A5) | 11.70 MB → 0.00 MB mỗi tile; 419/419 test pass |
+| 2026-08-21 | Giai đoạn B xong (B1–B5) | `lead_detection.py` + 15 test; 434/434 test pass |
