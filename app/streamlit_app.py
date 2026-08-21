@@ -10,7 +10,7 @@ All images in session state and at the pipeline boundary use OpenCV BGR order.
 from __future__ import annotations
 
 import collections
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import csv
 from datetime import datetime, timezone
 import hashlib
@@ -35,6 +35,12 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from aoi_pipeline.bom import (  # noqa: E402
+    BillOfMaterials,
+    BomError,
+    load_bom,
+    reconcile_bom,
+)
 from aoi_pipeline.model_registry import (  # noqa: E402
     ModelEntry,
     discover_models,
@@ -284,6 +290,10 @@ def _init_state() -> None:
             "solder_model": None,
             "solder_manifest": None,
         },
+        # BOM: hợp đồng lắp ráp. ``None`` = chưa nạp, và mọi đối chiếu bị bỏ qua.
+        "bom": None,
+        "bom_name": None,
+        "bom_complete": True,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -1079,6 +1089,44 @@ def _render_sidebar() -> bool:
         _render_stepper()
 
         st.markdown('<div class="sidebar-section-label">TÀI NGUYÊN</div>', unsafe_allow_html=True)
+        with st.expander("BOM — danh sách linh kiện", expanded=False):
+            bom_upload = st.file_uploader(
+                "File BOM (.csv)",
+                type=["csv"],
+                key="bom_uploader",
+                help=(
+                    "Nhận cả hai dạng: một dòng mỗi linh kiện kèm toạ độ và kích "
+                    "thước, hoặc một dòng mỗi loại với danh sách designator "
+                    '("R1, R2, R5") và cột Quantity.'
+                ),
+            )
+            complete = st.checkbox(
+                "BOM này liệt kê đủ mọi linh kiện của board",
+                key="bom_complete",
+                help=(
+                    "Bật (mặc định): linh kiện tìm thấy ở chỗ BOM không có sẽ bị "
+                    "báo LỖI — linh kiện thừa, đặt nhầm chỗ, hoặc vật lạ. Tắt nếu "
+                    "file chỉ liệt kê một phần; khi đó nó chỉ là ghi nhận."
+                ),
+            )
+            if bom_upload is not None:
+                try:
+                    _set_bom(bom_upload, complete)
+                except BomError as exc:
+                    st.error(str(exc))
+            bom = st.session_state.bom
+            if bom is not None:
+                st.success(f"{st.session_state.bom_name} · {len(bom)} linh kiện")
+                st.caption(
+                    ("có toạ độ" if bom.has_positions else "không có toạ độ")
+                    + (" · đủ board" if bom.complete else " · một phần")
+                )
+                for warning in bom.warnings[:3]:
+                    st.caption(f"⚠ {warning}")
+                if st.button("Gỡ BOM", width="stretch"):
+                    _remove_bom()
+                    st.rerun()
+
         with st.expander("Camera calibration", expanded=False):
             calibration_upload = st.file_uploader(
                 "Profile hiệu chỉnh (.json)",
@@ -1321,6 +1369,104 @@ def _render_model_picker(slot: str) -> bool:
         _use_model_entry(slot, entry)
         return True
     return False
+
+
+def _set_bom(upload: Any, complete: bool) -> None:
+    """Nạp BOM từ file người dùng tải lên."""
+
+    data = upload.getvalue()
+    if not data:
+        raise BomError("File BOM rỗng.")
+    path = Path(_materialize_upload(upload.name, data))
+    bom = load_bom(path, complete=complete)
+    st.session_state.bom = bom
+    st.session_state.bom_name = upload.name
+    st.session_state.messages.append(
+        f"Đã nạp BOM {upload.name}: {len(bom)} linh kiện"
+        + (", có toạ độ" if bom.has_positions else ", KHÔNG có toạ độ")
+    )
+
+
+def _remove_bom() -> None:
+    st.session_state.bom = None
+    st.session_state.bom_name = None
+
+
+def _bom_projection() -> Any | None:
+    """Phép chiếu mm -> pixel cho BOM, lấy từ registration CAD nếu đã có.
+
+    Không có registration thì trả None, và đối chiếu tự chuyển sang đếm theo
+    lớp. Ghép theo toạ độ mà không biết board nằm đâu trong ảnh sẽ cho ra một
+    bảng kết quả trông rất thuyết phục và sai toàn bộ.
+    """
+
+    registration = st.session_state.get("cad_registration")
+    if registration is None:
+        return None
+    return getattr(registration, "project", None)
+
+
+def _bom_findings_frame(findings: Sequence[Any]) -> "pd.DataFrame":
+    severity_order = {"error": 0, "warning": 1, "info": 2}
+    rows = [
+        {
+            "mức": {"error": "LỖI", "warning": "cảnh báo", "info": "ghi nhận"}.get(
+                item.severity, item.severity),
+            "loại": {
+                "missing": "thiếu linh kiện",
+                "unexpected": "không có trong BOM",
+                "class_mismatch": "sai loại",
+                "bom_inconsistent": "BOM tự mâu thuẫn",
+            }.get(item.kind, item.kind),
+            "designator": item.designator or "—",
+            "BOM ghi": item.expected_class or "—",
+            "camera thấy": item.observed_class or "—",
+            "chi tiết": item.message,
+        }
+        for item in sorted(findings, key=lambda f: severity_order.get(f.severity, 9))
+    ]
+    return pd.DataFrame(rows)
+
+
+def _render_bom_reconciliation(detections: Sequence[Any]) -> None:
+    """Bảng đối chiếu BOM cho bước 4."""
+
+    bom = st.session_state.bom
+    if bom is None:
+        _render_empty(
+            "Chưa nạp BOM",
+            "Tải file BOM ở sidebar để đối chiếu linh kiện tìm được với danh "
+            "sách linh kiện board phải có.",
+        )
+        return
+    if not detections:
+        _render_empty("Chưa có detection", "Chạy detector trước khi đối chiếu.")
+        return
+
+    project = _bom_projection()
+    result = reconcile_bom(bom, detections, project)
+
+    if project is None and bom.has_positions:
+        st.info(
+            "BOM có toạ độ nhưng chưa đăng ký được board vào ảnh, nên đang đối "
+            "chiếu bằng cách **đếm theo lớp**. Nạp CAD và đăng ký ở bước 5.5 để "
+            "chỉ đích danh từng linh kiện."
+        )
+
+    columns = st.columns(4)
+    columns[0].metric("BOM", len(bom))
+    columns[1].metric("Khớp", result.stats["matched"])
+    columns[2].metric("Thiếu", result.stats["missing"])
+    columns[3].metric("Không có trong BOM", result.stats["unexpected"])
+
+    if result.passed:
+        st.success("Board khớp BOM: không thiếu linh kiện, không có linh kiện lạ.")
+    else:
+        st.error(f"{len(result.errors)} lỗi so với BOM.")
+
+    if result.findings:
+        st.dataframe(_bom_findings_frame(result.findings),
+                     hide_index=True, width="stretch")
 
 
 def _render_model_asset(kind: str) -> None:
@@ -1944,7 +2090,9 @@ def _render_step_four() -> None:
         st.caption("Cần: `best.onnx` (ưu tiên), `classes.yaml`/`data.yaml`, metrics và ảnh test. Có thể dùng `best.pt` nếu chính bạn export.")
     with preview:
         result = st.session_state.detection_result
-        overlay_tab, table_tab, stats_tab = st.tabs(["Detection overlay", "Detection table", "Class stats"])
+        overlay_tab, table_tab, stats_tab, bom_tab = st.tabs(
+            ["Detection overlay", "Detection table", "Class stats", "Đối chiếu BOM"]
+        )
         with overlay_tab:
             _show_image(result.image if isinstance(result, DetectionResult) else source, "Component detections")
         with table_tab:
@@ -1967,6 +2115,11 @@ def _render_step_four() -> None:
                 st.bar_chart(counts)
             else:
                 st.caption("Chưa có dữ liệu thống kê.")
+        with bom_tab:
+            _render_bom_reconciliation(
+                result.detections
+                if isinstance(result, DetectionResult) else []
+            )
     if isinstance(st.session_state.detection_result, DetectionResult):
         _render_result_notice(st.session_state.detection_result)
         _render_metrics(st.session_state.detection_result.metrics)

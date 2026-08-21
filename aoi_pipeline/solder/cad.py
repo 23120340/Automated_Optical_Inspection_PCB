@@ -101,11 +101,20 @@ class CadComponent:
     footprint: str | None = None
     value: str | None = None
     part_class: str | None = None
+    # Body size in mm, when the source carries it. A BOM usually does; a
+    # centroid file usually does not. Zero means "unknown", not "zero-sized" --
+    # never divide by it or treat it as a real measurement.
+    width: float = 0.0
+    height: float = 0.0
     pads: list[CadPad] = field(default_factory=list)
 
     @property
     def has_pads(self) -> bool:
         return bool(self.pads)
+
+    @property
+    def has_size(self) -> bool:
+        return self.width > 0.0 and self.height > 0.0
 
     def pad_span_mm(self) -> float:
         """Largest distance between two lands, i.e. the part's true length."""
@@ -126,6 +135,8 @@ class CadComponent:
             "footprint": self.footprint,
             "value": self.value,
             "part_class": self.part_class,
+            "width_mm": self.width,
+            "height_mm": self.height,
             "pad_count": len(self.pads),
             "pads": [pad.to_dict() for pad in self.pads],
         }
@@ -471,6 +482,8 @@ def load_placement_csv(path: Path, units: str = "mm") -> BoardCad:
                     footprint=(str(row.get(columns.get("footprint", ""), "")).strip() or None),
                     value=(str(row.get(columns.get("value", ""), "")).strip() or None),
                     part_class=designator_to_class(designator),
+                    width=_to_float(row.get(columns.get("width", ""))) * row_scale,
+                    height=_to_float(row.get(columns.get("height", ""))) * row_scale,
                 )
             )
     return BoardCad(

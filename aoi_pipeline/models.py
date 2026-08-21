@@ -50,6 +50,12 @@ class BoundingBox:
         return self.y2 - self.y1
 
     @property
+    def center(self) -> tuple[float, float]:
+        """Centre point. Ten call sites recomputed this inline before it existed."""
+
+        return ((self.x1 + self.x2) / 2.0, (self.y1 + self.y2) / 2.0)
+
+    @property
     def area(self) -> float:
         return self.width * self.height
 
