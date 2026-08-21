@@ -209,6 +209,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    # Pass 2 trains on component *crops*, not on whole boards, so the parent
+    # boxes have to travel with the labels. Re-detecting them at training time
+    # would silently use different boxes than the ones these labels were
+    # derived from.
+    components_dir = output / "components"
+    components_dir.mkdir(parents=True, exist_ok=True)
+
     class_index = {name: index for index, name in enumerate(LEAD_CLASS_NAMES)}
     counts: Counter[str] = Counter()
     source_counts: Counter[str] = Counter()
@@ -249,6 +256,33 @@ def main(argv: list[str] | None = None) -> int:
             overlay_boxes.append((class_name, bbox, joint.source or "derived"))
 
         stem = image_path.stem
+        (components_dir / f"{stem}.json").write_text(
+            json.dumps(
+                {
+                    "image": f"images/{stem}.png",
+                    "frame": {"width": int(width), "height": int(height)},
+                    "components": [
+                        {
+                            "detection_id": detection.detection_id,
+                            "label": detection.label,
+                            "confidence": round(float(detection.confidence), 4),
+                            "bbox": [round(float(v), 2) for v in detection.bbox.to_tuple()]
+                            if hasattr(detection.bbox, "to_tuple")
+                            else [
+                                round(float(detection.bbox.x1), 2),
+                                round(float(detection.bbox.y1), 2),
+                                round(float(detection.bbox.x2), 2),
+                                round(float(detection.bbox.y2), 2),
+                            ],
+                        }
+                        for detection in run.detections
+                    ],
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         (images_dir / f"{stem}.png").write_bytes(encode_image(analysis, ".png"))
         (labels_dir / f"{stem}.txt").write_text(
             ("\n".join(lines) + "\n") if lines else "", encoding="utf-8"
@@ -286,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
                 "images": len(per_image),
                 "images_with_boxes": images_with_boxes,
                 "failures": failures,
+                "component_sidecars": "components/<stem>.json — box linh kiện của lượt 1, "
+                "để notebook lượt 2 cắt crop đúng bằng box đã sinh ra nhãn này",
                 "class_counts": dict(counts),
                 "roi_source_counts": dict(source_counts),
                 "per_image": per_image,

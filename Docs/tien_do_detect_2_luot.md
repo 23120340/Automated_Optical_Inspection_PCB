@@ -106,15 +106,54 @@ Mục tiêu: có chỗ cắm model detect chân, chạy được ngay cả khi *
 
 ## Giai đoạn C — Model cho lượt 2
 
-`[!] CHẶN` — chờ dữ liệu gán nhãn từ board thật. Không code được cho tới lúc đó.
+Khảo sát và notebook đã xong. Việc còn lại là **gán nhãn**, không code được.
+
+- `[x] HOÀN THÀNH` **C0a.** Khảo sát → `Docs/dataset_lead_detection.md`.
+  **Kết luận: không nguồn công khai nào đủ dùng.** `pads`/`pins` trong
+  Consolidated chỉ 186/261 instance trên ~30 ảnh (đọc từ manifest ver2);
+  SolDef_AI đúng loại nhãn nhưng sai tỉ lệ 20 lần (đo: 0 box). Ứng viên đáng
+  xem nhất là **PCB-SAID** (ICCVW 2025) — nhưng openaccess trả 403 khi fetch,
+  bạn phải tự mở bài báo lấy link và giấy phép.
+- `[x] HOÀN THÀNH` **C0b.** Chọn `yolo11s` detection, `imgsz=640`. Lý do: crop
+  chỉ có một linh kiện nên bài dễ hơn detect trên board rộng, mà lượt 2 chạy
+  **một lần cho mỗi linh kiện** (~1000 forward pass mỗi board) nên tốc độ quan
+  trọng hơn sức mạnh. Không cần segmentation: lượt 2 trả lời "chân ở đâu".
+- `[x] HOÀN THÀNH` **C0c.** `training/kaggle/pcb_lead_detector_kaggle.py` +
+  `.ipynb` (28 cell, 14 code, mọi cell parse OK).
+  Nguyên tắc số một của notebook: **train trên crop, vì lúc chạy nhìn crop** —
+  không lặp lại sai lầm train-trên-board-chạy-trên-crop.
+  Có cổng chặn nhãn giả chưa sửa, chia tập **theo board**, cell vẽ ngược nhãn
+  lên crop để bắt lỗi toạ độ trước khi train, và cổng phán quyết cuối
+  (recall ≥ 0.70) vì hình học không bao giờ bỏ sót chân — model recall thấp hơn
+  thì tệ hơn thứ nó thay thế.
+- `[x] HOÀN THÀNH` **C0d.** *(phát sinh)* `bootstrap_lead_labels.py` nay xuất
+  thêm `components/<stem>.json` — box linh kiện của lượt 1. Không có nó thì
+  notebook không cắt được crop, mà detect lại lúc train sẽ dùng box khác với box
+  đã sinh ra nhãn. Đã chạy thật trên board: 38 linh kiện, 79 box chân.
+- `[x] HOÀN THÀNH` **C0e.** *(phát sinh)* Test chống lệch giữa notebook và thư
+  viện: notebook mang bản chép `component_crop_window` vì Kaggle không có repo,
+  nên test so hai bản trên 6 hình dạng box. **Đã bắt được lệch thật** — bản chép
+  clamp thiếu một chiều, đã sửa.
+
+**Số đo trên board thật, chạy hết chuỗi bootstrap → crop:**
+
+| Chỉ số | Đo được |
+|---|---|
+| Linh kiện → crop | 38 → 38 (0 trống, 0 quá nhỏ) |
+| Kích thước crop | trung vị 62 × 58 px |
+| **Pad, cạnh ngắn** | **trung vị 23 px**, phân vị 10 là 19 px |
+| Pad dưới 8 px | 2/90 (2.2%) |
+
+Pad 23 px là **học được**. Ngưỡng cảnh báo của notebook (quá nửa dưới 8 px) còn
+rất xa. Đây là dấu hiệu tốt nhất cho thấy lượt 2 khả thi ở độ phân giải hiện tại.
 
 - `[ ] CHƯA LÀM` **C1.** Chụp/thu thập ảnh board thật của dây chuyền.
 - `[ ] CHƯA LÀM` **C2.** Chạy `scripts/bootstrap_lead_labels.py` để xuất ROI suy
   ra thành dataset YOLO cho người sửa (sửa box nhanh hơn vẽ box).
 - `[ ] CHƯA LÀM` **C3.** Sửa nhãn bằng LabelImg/CVAT/Roboflow. **Đây là phần tốn
   công nhất và không có cách nào bỏ qua.**
-- `[ ] CHƯA LÀM` **C4.** Train bằng notebook `soldef-ai.ipynb` đã tải về, đổi
-  nguồn dữ liệu (xem mục "Về notebook" bên dưới).
+- `[ ] CHƯA LÀM` **C4.** Train bằng `training/kaggle/pcb_lead_detector_kaggle.ipynb`
+  (đã soạn ở C0c). Notebook `soldef-ai.ipynb` giữ làm tham khảo khung xử lý.
 - `[ ] CHƯA LÀM` **C5.** Export ONNX + `model_manifest.json`, nạp qua sidebar.
 
 ## Giai đoạn D — Phần cứng
@@ -173,3 +212,4 @@ nhiều. Dữ liệu mới là thứ quyết định.
 | 2026-08-21 | D1 — yêu cầu phần cứng | `Docs/yeu_cau_phan_cung_camera.md` |
 | 2026-08-21 | Giai đoạn A xong (A1–A5) | 11.70 MB → 0.00 MB mỗi tile; 419/419 test pass |
 | 2026-08-21 | Giai đoạn B xong (B1–B5) | `lead_detection.py` + 15 test; 434/434 test pass |
+| 2026-08-21 | C0a–C0e: khảo sát + notebook | `Docs/dataset_lead_detection.md`, notebook lượt 2; 443/443 test pass |
