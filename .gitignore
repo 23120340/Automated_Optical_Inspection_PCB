@@ -45,3 +45,8 @@ models/pcb_solder_defect_artifacts/
 # Ultralytics ghi file cau hinh cuc bo o day: chua UUID may va duong dan
 # tuyet doi cua tung nguoi. Thu vien tu ghi lai moi lan chay.
 Ultralytics/
+
+# models/library la cho nguoi dung tu de model: khong day len Git, khong
+# xung dot khi pull. Giu lai README de thu muc van ton tai sau khi clone.
+models/library/*
+!models/library/README.md

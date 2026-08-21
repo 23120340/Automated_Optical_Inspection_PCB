@@ -26,8 +26,8 @@ import pytest
 import app.streamlit_app as ui
 from app.pipeline_bridge import PipelineBridge
 
-SOLDER_MODEL = ui.PROJECT_ROOT / "models" / "solder defect" / "best.onnx"
-SOLDER_MANIFEST = ui.PROJECT_ROOT / "models" / "solder defect" / "model_manifest.json"
+SOLDER_MODEL = ui.PROJECT_ROOT / "models" / "active" / "solder" / "best.onnx"
+SOLDER_MANIFEST = ui.PROJECT_ROOT / "models" / "active" / "solder" / "model_manifest.json"
 
 needs_artifacts = pytest.mark.skipif(
     not (SOLDER_MODEL.is_file() and SOLDER_MANIFEST.is_file()),

@@ -61,7 +61,13 @@ def test_init_state_declares_every_session_key_the_ui_reads() -> None:
     none were declared when the section was first wired up."""
 
     source = Path(ui.__file__).read_text(encoding="utf-8")
-    used = set(re.findall(r"st\.session_state\.([a-z][a-z0-9_]*)", source))
+    # ``st.session_state.get(...)`` is a Mapping method, not a key. Reading it
+    # as one made this test fail the moment the UI stopped hard-coding a key.
+    MAPPING_METHODS = {
+        "get", "keys", "items", "values", "pop", "setdefault", "update", "clear",
+        "to_dict", "copy",
+    }
+    used = set(re.findall(r"st\.session_state\.([a-z][a-z0-9_]*)", source)) - MAPPING_METHODS
     declared = set(re.findall(r'^\s*"([a-z][a-z0-9_]*)":', inspect.getsource(ui._init_state), re.M))
     # Widget-bound keys are created by Streamlit on render, not by _init_state.
     widget_keys = set(re.findall(r'key="([a-z][a-z0-9_]*)"', source))

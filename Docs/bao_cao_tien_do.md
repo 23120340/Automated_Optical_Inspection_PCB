@@ -88,7 +88,7 @@ qua thư viện `datasets`, không cần thao tác tay.
 
 | Model | Kiến trúc | Trạng thái (21/08) |
 |---|---|---|
-| Detector (bước 4) | YOLO26s, 1536px | **v2 xong**, 122 epoch. mAP50 **0.505**, mAP50-95 **0.231**; `pads` recall 0.000→**0.265**, `pins` 0.145→**0.595**. Artifact ở `models/detector/kaggle/ver2/` |
+| Detector (bước 4) | YOLO26s, 1536px | **v2 xong**, 122 epoch. mAP50 **0.505**, mAP50-95 **0.231**; `pads` recall 0.000→**0.265**, `pins` 0.145→**0.595**. Artifact ở `models/active/detector/` |
 | Classifier (bước 6.1) | ConvNeXt-Base, 288px | Train xong, macro recall **0.9369** trên model-val — nhưng **chưa có số test** và **chưa có `best.onnx`**: 3 cell cuối (calibration/test/export) chưa chạy |
 | Solder grading (bước 6.2) | MobileNetV3-Small | **Có artifact**, 7 lớp (thêm `shift_component` 4192 mẫu). Accuracy **89.9%**, escape 2.4% |
 

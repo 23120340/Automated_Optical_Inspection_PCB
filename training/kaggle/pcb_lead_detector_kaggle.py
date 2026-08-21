@@ -8,7 +8,7 @@
 # ## Vì sao cần notebook riêng, không dùng lại detector cũ
 #
 # Đã đo trên board thật của dự án, không phải suy đoán: chạy
-# `models/detector/kaggle/ver2/best.onnx` lên crop của 8 linh kiện × 3 mức biên
+# `models/active/detector/best.onnx` lên crop của 8 linh kiện × 3 mức biên
 # cho ra **`pads`/`pins` = 0 trong cả 24 cấu hình**, và nhãn trả về là rác — một
 # con điện trở chip phóng to thành `clock`, `transistor`, `potentiometer`.
 #
@@ -701,7 +701,7 @@ print("\nĐã đóng gói:", str(ARTIFACTS) + ".zip")
 #
 # pipeline = AOIPipeline(
 #     config=config,
-#     model_path="models/detector/kaggle/ver2/best.onnx",   # lượt 1
+#     model_path="models/active/detector/best.onnx",   # lượt 1
 #     lead_detector=UltralyticsDetector(                     # lượt 2
 #         "models/lead_detector/best.onnx",
 #         ModelDetectorConfig(confidence=0.25, imgsz=640),

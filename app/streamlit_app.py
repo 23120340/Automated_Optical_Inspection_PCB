@@ -35,6 +35,11 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from aoi_pipeline.model_registry import (  # noqa: E402
+    ModelEntry,
+    discover_models,
+    find_active,
+)
 from app.pipeline_bridge import (  # noqa: E402
     BoardResult,
     ClassificationRecord,
@@ -988,7 +993,7 @@ def _render_inspection_sidebar_resources() -> None:
             key="inspection_component_model_uploader",
             help=(
                 "Chưa nạp thì Golden Inspection dùng CV demo. Detector đã train "
-                "nằm ở models/detector/kaggle/ver2/best.onnx."
+                "nằm ở models/active/detector/best.onnx."
             ),
         )
         if upload is not None:
@@ -1118,6 +1123,8 @@ def _render_sidebar() -> bool:
         )
 
         with st.expander("Model phát hiện linh kiện", expanded=True):
+            if _render_model_picker("component"):
+                st.rerun()
             component_upload = st.file_uploader(
                 "Component detector (.onnx/.pt)",
                 type=["onnx", "pt"],
@@ -1129,6 +1136,8 @@ def _render_sidebar() -> bool:
             _render_model_asset("component")
 
         with st.expander("Model phân loại 6.1", expanded=True):
+            if _render_model_picker("classifier"):
+                st.rerun()
             classifier_upload = st.file_uploader(
                 "Classifier (best.onnx)",
                 type=["onnx"],
@@ -1161,6 +1170,8 @@ def _render_sidebar() -> bool:
                 st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
 
         with st.expander("Model kiểm tra mối hàn 6.2", expanded=False):
+            if _render_model_picker("solder"):
+                st.rerun()
             st.caption(
                 "Tùy chọn. Không có model thì bước 6.2 vẫn chấm bằng tầng luật đo "
                 "hình học; nạp model chỉ thêm một tầng nữa vào hợp nhất."
@@ -1224,6 +1235,84 @@ def _render_sidebar() -> bool:
             st.caption("Xác nhận tin cậy file .pt để bật chạy nhanh.")
         st.markdown(f'<div class="sidebar-version">LOCAL · v{APP_VERSION}</div>', unsafe_allow_html=True)
     return quick_run
+
+
+#: Which session keys each pipeline stage stores its chosen artifact under, and
+#: which folder under ``models/active`` holds its default.
+_MODEL_SLOTS = {
+    "component": ("detector", "component_model_path", "component_model_name", None),
+    "classifier": ("classifier", "classifier_model_path", "classifier_model_name",
+                   "classifier_manifest_path"),
+    "solder": ("solder", "solder_model_path", "solder_model_name",
+               "solder_manifest_path"),
+}
+
+
+def _use_model_entry(slot: str, entry: ModelEntry) -> None:
+    """Point one stage at a model already on disk.
+
+    No copy into the temp workbench: the file is already somewhere stable, and
+    duplicating a 40 MB artifact per session buys nothing.
+    """
+
+    _, path_key, name_key, manifest_key = _MODEL_SLOTS[slot]
+    st.session_state[path_key] = str(entry.model_path)
+    st.session_state[name_key] = entry.name
+    if manifest_key and entry.manifest_path is not None:
+        st.session_state[manifest_key] = str(entry.manifest_path)
+        st.session_state[f"{manifest_key.rsplit('_', 1)[0]}_name"] = entry.manifest_path.name
+    if slot == "solder":
+        st.session_state.config["solder_grading"]["model_path"] = str(entry.model_path)
+        if entry.manifest_path is not None:
+            st.session_state.config["solder_grading"]["manifest_path"] = str(entry.manifest_path)
+    if slot == "component":
+        # An .onnx carries no pickle, so nothing to confirm; a .pt still does.
+        st.session_state.pt_model_trusted = entry.model_path.suffix.lower() != ".pt"
+    st.session_state.messages.append(f"Đã chọn model {slot}: {entry.name} ({entry.origin})")
+
+
+def _render_model_picker(slot: str) -> bool:
+    """Choose a model that is already on disk. Returns True if one was picked.
+
+    Uploading works and stays, but it makes someone re-supply the same file
+    every session. The models the project ships live in ``models/active`` and
+    anything dropped in ``models/library`` shows up here beside them.
+    """
+
+    kind, path_key, _, _ = _MODEL_SLOTS[slot]
+    entries = discover_models(kind)
+    if not entries:
+        st.caption(
+            f"Không thấy model nào trong `models/active/{kind}/` hay "
+            "`models/library/`. Tải lên bên dưới, hoặc bỏ file `.onnx` kèm "
+            "`model_manifest.json` vào `models/library/`."
+        )
+        return False
+
+    current = st.session_state.get(path_key)
+    labels = ["— không dùng —"] + [entry.label for entry in entries]
+    index = 0
+    for offset, entry in enumerate(entries, start=1):
+        if current and Path(current) == entry.model_path:
+            index = offset
+            break
+    chosen = st.selectbox(
+        "Chọn từ thư mục models/",
+        labels,
+        index=index,
+        key=f"{slot}_model_choice",
+        help=(
+            "active = model dự án đang dùng · của bạn = models/library/ · "
+            "bản cũ = models/archive/, không tự nạp"
+        ),
+    )
+    if chosen == labels[0]:
+        return False
+    entry = entries[labels.index(chosen) - 1]
+    if not current or Path(current) != entry.model_path:
+        _use_model_entry(slot, entry)
+        return True
+    return False
 
 
 def _render_model_asset(kind: str) -> None:

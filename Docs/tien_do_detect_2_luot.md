@@ -25,7 +25,7 @@ crop của từng linh kiện**.
 
 ### Số đo nền, đo trên board thật của dự án
 
-Tile `00001__1024__1648___4120.png`, detector `models/detector/kaggle/ver2/best.onnx`,
+Tile `00001__1024__1648___4120.png`, detector `models/active/detector/best.onnx`,
 38 detection.
 
 | Hạng mục | Số đo | Nguồn |

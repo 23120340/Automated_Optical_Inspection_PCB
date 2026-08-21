@@ -17,7 +17,7 @@ one at a time against the raw baseline, so a regression can be pinned on one
 step instead of "preprocessing" as an undifferentiated block.
 
     python scripts/compare_preprocessing_ab.py board_photos/ ^
-        --model models/detector/kaggle/best.onnx --isolate
+        --model models/active/detector/best.onnx --isolate
 
 Needs real board photos, not synthetic fixtures: denoise and white-balance
 only do real work against real sensor noise and real color cast.

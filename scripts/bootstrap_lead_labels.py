@@ -16,7 +16,7 @@ and every board photographed on your own line adds unique images rather than
 another copy of the same 30.
 
     python scripts/bootstrap_lead_labels.py boards/ --output datasets/leads_v1 ^
-        --model models/detector/kaggle/best.onnx --overlays
+        --model models/active/detector/best.onnx --overlays
 
 **These are pseudo-labels, not ground truth.** Training on them uncorrected
 teaches the model to reproduce the geometry it was derived from -- it would

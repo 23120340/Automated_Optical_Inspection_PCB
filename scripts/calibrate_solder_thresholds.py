@@ -13,7 +13,7 @@ a genuine outlier; a joint below a number invented here is not evidence of
 anything.
 
     python scripts/calibrate_solder_thresholds.py good_boards/ ^
-        --model models/detector/kaggle/best.onnx ^
+        --model models/active/detector/best.onnx ^
         --output config/solder_thresholds.json
 
 The output is a JSON fragment that drops straight into the ``solder_grading``

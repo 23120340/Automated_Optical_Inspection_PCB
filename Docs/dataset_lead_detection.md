@@ -21,7 +21,7 @@ so với 46 µm/px của dự án).
 
 ### 1. `pads`/`pins` trong PCB Component Detection Consolidated
 
-Đọc thẳng từ artifact của dự án (`models/detector/kaggle/ver2/model_manifest.json`):
+Đọc thẳng từ artifact của dự án (`models/active/detector/model_manifest.json`):
 
 | Lớp | Số instance train | So với |
 |---|---|---|
