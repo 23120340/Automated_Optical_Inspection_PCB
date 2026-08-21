@@ -30,7 +30,7 @@ import numpy as np
 
 from .cad import BoardCad, CadComponent, CadRegistration, classes_agree, is_informative_label
 from .config import FusionConfig, terminal_geometry
-from .models import BoundingBox, Detection, SolderJoint
+from .models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
 from .solder import ComponentFrame, derive_solder_joints
 
 __all__ = [
@@ -628,16 +628,7 @@ def _merge_boxes(
     )
 
 
-def _intersection_over_smaller(first: BoundingBox, second: BoundingBox) -> float:
-    x1 = max(first.x1, second.x1)
-    y1 = max(first.y1, second.y1)
-    x2 = min(first.x2, second.x2)
-    y2 = min(first.y2, second.y2)
-    if x2 <= x1 or y2 <= y1:
-        return 0.0
-    intersection = (x2 - x1) * (y2 - y1)
-    smaller = min(first.area, second.area)
-    return intersection / smaller if smaller > 0 else 0.0
+_intersection_over_smaller = intersection_over_smaller
 
 
 def _default_pad_size_px(

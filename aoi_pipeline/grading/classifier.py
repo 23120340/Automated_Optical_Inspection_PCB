@@ -24,7 +24,7 @@ import numpy as np
 from ..config import SolderGradingConfig
 from ..exceptions import ClassifierConfigurationError, ModelDependencyError
 from ..image_io import ensure_bgr, letterbox_normalize
-from ..models import ClassProbability
+from ..models import ClassProbability, softmax
 
 __all__ = [
     "MANIFEST_SCHEMA",
@@ -384,10 +384,7 @@ def _override(
     return value
 
 
-def _softmax(logits: np.ndarray) -> np.ndarray:
-    shifted = logits - logits.max(axis=1, keepdims=True)
-    exponentials = np.exp(shifted)
-    return exponentials / exponentials.sum(axis=1, keepdims=True)
+_softmax = softmax
 
 
 def _sha256_file(path: Path) -> str:

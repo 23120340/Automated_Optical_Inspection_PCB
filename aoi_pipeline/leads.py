@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from .config import LeadFusionConfig
-from .models import BoundingBox, Detection, SolderJoint
+from .models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
 
 __all__ = [
     "LEAD_CLASSES",
@@ -243,15 +243,7 @@ def _best_overlap(
     return best_index
 
 
-def _intersection_over_smaller(first: BoundingBox, second: BoundingBox) -> float:
-    x1 = max(first.x1, second.x1)
-    y1 = max(first.y1, second.y1)
-    x2 = min(first.x2, second.x2)
-    y2 = min(first.y2, second.y2)
-    if x2 <= x1 or y2 <= y1:
-        return 0.0
-    smaller = min(first.area, second.area)
-    return ((x2 - x1) * (y2 - y1)) / smaller if smaller > 0 else 0.0
+_intersection_over_smaller = intersection_over_smaller
 
 
 def _centre(box: BoundingBox) -> tuple[float, float]:

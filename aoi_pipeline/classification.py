@@ -14,7 +14,7 @@ import numpy as np
 from .config import ClassificationConfig
 from .exceptions import ClassifierConfigurationError, ModelDependencyError
 from .image_io import ensure_bgr
-from .models import ClassProbability, ComponentClassification, ComponentCrop
+from .models import ClassProbability, ComponentClassification, ComponentCrop, softmax
 
 
 MANIFEST_SCHEMA = "pcb-component-classifier/1.0"
@@ -395,10 +395,7 @@ def _letterbox(image: np.ndarray, size: tuple[int, int], value: int) -> np.ndarr
     return canvas
 
 
-def _softmax(logits: np.ndarray) -> np.ndarray:
-    shifted = logits - logits.max(axis=1, keepdims=True)
-    exponentials = np.exp(shifted)
-    return exponentials / exponentials.sum(axis=1, keepdims=True)
+_softmax = softmax
 
 
 def _sha256_file(path: Path) -> str:

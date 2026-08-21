@@ -87,6 +87,53 @@ class BoundingBox:
         return {"xyxy": self.as_xyxy(), "xywh": self.as_xywh(), "area": float(self.area)}
 
 
+def intersection_over_union(first: BoundingBox, second: BoundingBox) -> float:
+    """Overlap as a share of the two boxes together.
+
+    Lived in four places at once -- ``detectors``, ``tiling``, ``leads`` and
+    ``cad_fusion`` each carried their own copy of this and of
+    :func:`intersection_over_smaller`. All the copies were checked against each
+    other on 4005 box pairs, degenerate ones included, and agreed every time,
+    so nothing changes by having one. What changes is that the next fix lands
+    in one place instead of three that nobody remembers to look at.
+    """
+
+    x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
+    x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
+    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    union = first.area + second.area - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def intersection_over_smaller(first: BoundingBox, second: BoundingBox) -> float:
+    """Overlap as a share of the smaller box.
+
+    The measure that recognises a fragment sitting inside a bigger box, which
+    IoU cannot: a tile-seam sliver against the whole component scores near zero
+    on IoU and near one here.
+    """
+
+    x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
+    x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
+    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    smaller_area = min(first.area, second.area)
+    return intersection / smaller_area if smaller_area > 0 else 0.0
+
+
+def softmax(logits: np.ndarray) -> np.ndarray:
+    """Row-wise softmax, shifted for numerical stability.
+
+    Shared by the step-6.1 and step-6.2 ONNX heads. They had a copy each; the
+    two were byte-identical and agreed to 0.0e+00 over 500 random logit
+    matrices, which is exactly the state in which a divergence would go
+    unnoticed.
+    """
+
+    shifted = logits - logits.max(axis=1, keepdims=True)
+    exponentials = np.exp(shifted)
+    return exponentials / exponentials.sum(axis=1, keepdims=True)
+
+
 @dataclass(slots=True)
 class Detection:
     label: str

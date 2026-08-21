@@ -20,7 +20,7 @@ import numpy as np
 from .config import CVDetectorConfig, ModelDetectorConfig
 from .exceptions import DetectorConfigurationError, ModelDependencyError
 from .image_io import ensure_bgr
-from .models import BoundingBox, Detection
+from .models import BoundingBox, Detection, intersection_over_union
 
 
 class ComponentDetector(ABC):
@@ -345,12 +345,7 @@ def _local_contrast(gray: np.ndarray, x: int, y: int, width: int, height: int) -
     return float(np.clip(0.65 * mean_difference + 0.35 * texture, 0.0, 1.0))
 
 
-def _intersection_over_union(first: BoundingBox, second: BoundingBox) -> float:
-    x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
-    x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
-    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    union = first.area + second.area - intersection
-    return intersection / union if union > 0 else 0.0
+_intersection_over_union = intersection_over_union
 
 
 def _onnx_fixed_image_size(path: Path) -> int | None:

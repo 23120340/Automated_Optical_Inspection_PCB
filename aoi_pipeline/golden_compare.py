@@ -10,7 +10,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .image_io import ensure_bgr
+from .image_io import ensure_bgr, read_asset_under_root
 from .position import PositionResult
 from .recipe import SlotRecipe
 
@@ -396,13 +396,7 @@ def _blob_summary(mask: np.ndarray, min_area: int) -> tuple[int, int]:
     return len(areas), max(areas, default=0)
 
 
-def _read_asset(root: Path, relative_path: str, mode: int) -> np.ndarray | None:
-    path = (root / relative_path).resolve()
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return None
-    return cv2.imread(str(path), mode)
+_read_asset = read_asset_under_root
 
 
 def _not_evaluated(slot: SlotRecipe, reason: str) -> GoldenCompareResult:

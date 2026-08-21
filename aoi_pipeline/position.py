@@ -15,7 +15,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .image_io import ensure_bgr
+from .image_io import ensure_bgr, read_asset_under_root
 from .models import Detection
 from .recipe import MetrologyCalibration, SlotRecipe
 
@@ -547,13 +547,7 @@ def _peak_quality(
     return margin, psr
 
 
-def _read_asset(root: Path, relative_path: str, mode: int) -> np.ndarray | None:
-    path = (root / relative_path).resolve()
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return None
-    return cv2.imread(str(path), mode)
+_read_asset = read_asset_under_root
 
 
 def _invalid(slot: SlotRecipe, status: str, reason: str) -> PositionResult:

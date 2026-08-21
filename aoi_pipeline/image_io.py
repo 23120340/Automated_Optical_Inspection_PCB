@@ -140,3 +140,22 @@ def _to_uint8(image: np.ndarray) -> np.ndarray:
     if np.issubdtype(image.dtype, np.floating) and minimum >= 0.0 and maximum <= 1.0:
         values *= 255.0
     return np.clip(values, 0.0, 255.0).astype(np.uint8)
+
+
+def read_asset_under_root(root, relative_path: str, mode: int):
+    """Read an image that must live inside ``root``.
+
+    The containment check is the point: a recipe carries relative asset paths,
+    and one of them saying ``../../etc/passwd`` must read as "missing asset",
+    not as a file read. Step-2 position matching and Golden Compare each had
+    their own identical copy of this.
+    """
+
+    from pathlib import Path as _Path
+
+    path = (_Path(root) / relative_path).resolve()
+    try:
+        path.relative_to(_Path(root))
+    except ValueError:
+        return None
+    return cv2.imread(str(path), mode)

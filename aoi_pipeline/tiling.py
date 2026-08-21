@@ -17,7 +17,7 @@ import numpy as np
 
 from .config import TilingConfig
 from .image_io import ensure_bgr
-from .models import BoundingBox, Detection
+from .models import BoundingBox, Detection, intersection_over_smaller, intersection_over_union
 
 
 @dataclass(frozen=True, slots=True)
@@ -673,17 +673,7 @@ def _merged_metadata_values(
     return values
 
 
-def _intersection_over_union(first: BoundingBox, second: BoundingBox) -> float:
-    x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
-    x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
-    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    union = first.area + second.area - intersection
-    return intersection / union if union > 0 else 0.0
+_intersection_over_union = intersection_over_union
 
 
-def _intersection_over_smaller(first: BoundingBox, second: BoundingBox) -> float:
-    x1, y1 = max(first.x1, second.x1), max(first.y1, second.y1)
-    x2, y2 = min(first.x2, second.x2), min(first.y2, second.y2)
-    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    smaller_area = min(first.area, second.area)
-    return intersection / smaller_area if smaller_area > 0 else 0.0
+_intersection_over_smaller = intersection_over_smaller
