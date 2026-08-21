@@ -832,3 +832,115 @@ def test_a_two_lead_edge_can_be_split_per_pin() -> None:
     joints = derive_solder_joints(detection, BOARD_SIZE[1], BOARD_SIZE[0], config, image=image)
     top = [joint for joint in joints if joint.position.startswith("lead_top")]
     assert len(top) >= 2, [joint.position for joint in joints]
+
+
+# --------------------------------------------------------------------------- #
+# Giai đoạn A: ROI mang toạ độ, không mang ảnh
+# --------------------------------------------------------------------------- #
+
+
+def _two_part_board():
+    """Two chips far enough apart that nothing here depends on de-confliction."""
+
+    image = np.full((*BOARD_SIZE, 3), (40, 90, 40), np.uint8)
+    detections = []
+    for index, x in enumerate((60, 260)):
+        cv2.rectangle(image, (x - 26, 96), (x - 6, 124), (200, 200, 200), -1)
+        cv2.rectangle(image, (x + 66, 96), (x + 86, 124), (200, 200, 200), -1)
+        cv2.rectangle(image, (x, 92), (x + 70, 128), (25, 25, 25), -1)
+        detections.append(
+            Detection("resistor", 0.9, BoundingBox(x, 92, x + 70, 128),
+                      detection_id=f"d{index}")
+        )
+    return image, detections
+
+
+def _bridge_solder(image, detections, **kwargs):
+    from types import SimpleNamespace
+
+    from app.pipeline_bridge import PipelineBridge
+
+    bridge = PipelineBridge(config={"solder": {"enabled": True}})
+    wrapped = [SimpleNamespace(raw=item) for item in detections]
+    return bridge.make_solder_crops(image, wrapped, **kwargs)
+
+
+def _held_bytes(result) -> int:
+    total = 0
+    for crop in result.crops:
+        if crop.image is not None:
+            total += crop.image.nbytes
+        raw_image = getattr(crop.raw, "image", None)
+        if raw_image is not None:
+            total += raw_image.nbytes
+    return total
+
+
+def test_solder_records_carry_coordinates_not_pixels() -> None:
+    """Measured on a real board: 119 ROIs held 11.70 MB of pixels against
+    0.028 MB of coordinates -- 414x, and the ROIs cost 3.7x the source image
+    they were cut from. The pixels were held twice over, once in ``image`` and
+    once again in ``raw``."""
+
+    image, detections = _two_part_board()
+    result = _bridge_solder(image, detections)
+
+    assert result.crops, "vẫn phải sinh ra ROI"
+    assert _held_bytes(result) == 0
+    assert all(crop.image is None for crop in result.crops)
+    assert all(crop.bbox is not None for crop in result.crops)
+
+
+def test_dropping_the_pixels_does_not_change_a_single_verdict() -> None:
+    """Grading happens before the records are built, on the core's own crops.
+    If holding on to them changed any call, the saving would not be free."""
+
+    image, detections = _two_part_board()
+    lean = _bridge_solder(image, detections)
+    fat = _bridge_solder(image, detections, keep_images=True)
+
+    assert _held_bytes(fat) > 0, "nhánh giữ ảnh phải thật sự giữ ảnh"
+    assert [(v.joint_id, v.label, v.decision) for v in lean.verdicts] == [
+        (v.joint_id, v.label, v.decision) for v in fat.verdicts
+    ]
+    assert [c.bbox for c in lean.crops] == [c.bbox for c in fat.crops]
+
+
+def test_the_ui_cuts_the_roi_back_out_of_the_analysis_frame() -> None:
+    """What the gallery shows must be the same pixels the ROI covers, or the
+    saving has quietly turned into a display bug."""
+
+    from app.streamlit_app import _roi_pixels_for_display
+
+    image, detections = _two_part_board()
+    result = _bridge_solder(image, detections)
+    crop = next(item for item in result.crops if item.kind == "joint")
+
+    shown = _roi_pixels_for_display(image, crop)
+    x1, y1, x2, y2 = crop.bbox
+    assert shown is not None
+    assert np.array_equal(shown, image[y1:y2, x1:x2])
+
+
+def test_display_falls_back_to_a_carried_image_when_there_is_one() -> None:
+    """``keep_images=True`` stays usable, and a record that has its pixels must
+    not be re-cut from a frame that may no longer match it."""
+
+    from app.streamlit_app import _roi_pixels_for_display
+
+    image, detections = _two_part_board()
+    result = _bridge_solder(image, detections, keep_images=True)
+    crop = next(item for item in result.crops if item.kind == "joint")
+
+    assert np.array_equal(_roi_pixels_for_display(image, crop), crop.image)
+    assert _roi_pixels_for_display(None, crop) is not None
+
+
+def test_display_survives_having_no_frame_and_no_pixels() -> None:
+    """A stale record after the source image was cleared must not crash a tab."""
+
+    from app.streamlit_app import _roi_pixels_for_display
+
+    image, detections = _two_part_board()
+    crop = _bridge_solder(image, detections).crops[0]
+    assert _roi_pixels_for_display(None, crop) is None

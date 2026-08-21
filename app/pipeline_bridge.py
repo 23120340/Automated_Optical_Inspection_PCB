@@ -82,7 +82,14 @@ class CropRecord:
 
 @dataclass
 class SolderCropRecord:
-    """One derived solder-joint ROI, ready to show or label for step 6.2."""
+    """One derived solder-joint ROI, ready to show or label for step 6.2.
+
+    ``image`` is normally ``None``. A board holds thousands of these, and every
+    ROI letterboxed to 128x128 costs 48 KB whatever its real size -- measured at
+    414x the cost of the coordinates that describe it, and 3.7x the cost of the
+    source image the ROI was cut from. The pixels are cut again from the
+    analysis frame when something actually needs to show them.
+    """
 
     joint_id: str
     detection_id: str
@@ -90,7 +97,7 @@ class SolderCropRecord:
     kind: str
     position: str
     terminal_geometry: str
-    image: np.ndarray
+    image: np.ndarray | None
     bbox: tuple[int, int, int, int]
     confidence: float | None
     pin_index: int | None = None
@@ -734,6 +741,8 @@ class PipelineBridge:
         image: np.ndarray,
         detections: Sequence[DetectionRecord],
         output_dir: str | None = None,
+        *,
+        keep_images: bool = False,
         **kwargs: Any,
     ) -> SolderResult:
         """Derive step-5.5 solder ROIs through the core pipeline.
@@ -774,6 +783,9 @@ class PipelineBridge:
             joint = _attr(raw_crop, ("joint",), None)
             if crop_image is None or joint is None:
                 continue
+            # The core's crop is still needed for grading below; it is the
+            # *record* that must not carry it into session state. ``raw`` holds
+            # the same pixels, so it goes with it.
             confidence = None
             metadata = getattr(joint, "metadata", None)
             if isinstance(metadata, dict) and "detector_confidence" in metadata:
@@ -786,7 +798,7 @@ class PipelineBridge:
                     kind=str(getattr(joint, "kind", "joint")),
                     position=str(getattr(joint, "position", "")),
                     terminal_geometry=str(getattr(joint, "terminal_geometry", "")),
-                    image=crop_image,
+                    image=crop_image if keep_images else None,
                     bbox=_extract_bbox(joint, image.shape),
                     confidence=confidence,
                     pin_index=getattr(joint, "pin_index", None),
@@ -794,7 +806,7 @@ class PipelineBridge:
                     designator=getattr(joint, "designator", None),
                     pin=getattr(joint, "pin", None),
                     net=getattr(joint, "net", None),
-                    raw=raw_crop,
+                    raw=raw_crop if keep_images else None,
                 )
             )
         joints = sum(1 for item in records if item.kind == "joint")

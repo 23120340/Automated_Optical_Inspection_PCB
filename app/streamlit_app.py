@@ -3071,6 +3071,30 @@ def _solder_frame(
     return pd.DataFrame(rows)
 
 
+def _roi_pixels_for_display(
+    source: np.ndarray | None, crop: SolderCropRecord
+) -> np.ndarray | None:
+    """The ROI's pixels, cut on demand rather than carried around.
+
+    Records deliberately do not hold their own image; on a full board that cost
+    292 MB against 0.70 MB for the coordinates. Cutting one 30x15 patch out of
+    a frame that is already in memory is far cheaper than having kept it.
+    """
+
+    if crop.image is not None:
+        return crop.image
+    if source is None:
+        return None
+    height, width = source.shape[:2]
+    x1, y1, x2, y2 = crop.bbox
+    x1 = max(0, min(int(x1), width))
+    y1 = max(0, min(int(y1), height))
+    x2 = max(x1, min(int(x2), width))
+    y2 = max(y1, min(int(y2), height))
+    patch = source[y1:y2, x1:x2]
+    return patch if patch.size else None
+
+
 def _draw_verdict_overlay(
     image: np.ndarray, verdicts: list[SolderVerdictRecord], show_component: bool
 ) -> np.ndarray:
@@ -3331,7 +3355,9 @@ def _render_solder_rois() -> None:
                 columns = st.columns(6)
                 for column, crop in zip(columns, selected[offset : offset + 6]):
                     with column:
-                        _show_image(crop.image)
+                        pixels = _roi_pixels_for_display(source, crop)
+                        if pixels is not None:
+                            _show_image(pixels)
                         tag = f" · {crop.designator}" if crop.designator else ""
                         st.caption(f"**{crop.label}**{tag}\n\n{crop.position}")
         with table_tab:

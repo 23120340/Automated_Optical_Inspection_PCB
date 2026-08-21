@@ -1,0 +1,159 @@
+# Tiến độ — Detect mối hàn theo 2 lượt
+
+> File này là **bảng công việc sống**. Quy ước bắt buộc cho mọi agent/người làm:
+> ghi hạng mục ra **trước khi** bắt tay, đổi trạng thái sang `ĐANG LÀM` khi bắt
+> đầu, và tích `HOÀN THÀNH` **ngay khi xong** kèm bằng chứng đã đo.
+>
+> Cập nhật lần cuối: 2026-08-21
+
+## Quy ước trạng thái
+
+| Ký hiệu | Nghĩa |
+|---|---|
+| `[ ] CHƯA LÀM` | Đã lên kế hoạch, chưa ai đụng vào |
+| `[~] ĐANG LÀM` | Có người đang làm dở — đừng làm trùng |
+| `[x] HOÀN THÀNH` | Xong, đã kiểm chứng, có số đo kèm theo |
+| `[!] CHẶN` | Không làm tiếp được, ghi rõ đang chờ gì |
+
+---
+
+## Bối cảnh: vì sao đổi sang 2 lượt
+
+Detect thẳng mối hàn trên ảnh board rộng bị nhiễu. Hướng mới: lượt 1 detect
+thân linh kiện trên ảnh lớn (như hiện tại), lượt 2 detect chân/pad **bên trong
+crop của từng linh kiện**.
+
+### Số đo nền, đo trên board thật của dự án
+
+Tile `00001__1024__1648___4120.png`, detector `models/detector/kaggle/ver2/best.onnx`,
+38 detection.
+
+| Hạng mục | Số đo | Nguồn |
+|---|---|---|
+| Độ phân giải thật của ảnh | **~46 µm/px** | 3 phép đo độc lập, xem `Docs/yeu_cau_phan_cung_camera.md` |
+| Cần cho kiểm tra fillet | 15–25 µm/px | báo cáo tiến độ dự án |
+| Ảnh crop so với toạ độ | **nặng gấp 414 lần** | 11.6 MB ảnh so với 0.028 MB toạ độ |
+| Crop so với chính ảnh gốc | **gấp 3.7 lần** | board 5144²: 292 MB crop / 79 MB ảnh gốc |
+| Dùng lại detector cho lượt 2 | **0/24 cấu hình ra `pads`/`pins`** | 8 linh kiện × 3 mức biên |
+
+**Kết luận nền:** kiến trúc 2 lượt khả thi và dự án đã có sẵn phần lớn đường
+ống. Nút thắt **không phải kiến trúc mà là model cho lượt 2** — detector hiện
+tại không dùng lại được, đã đo.
+
+---
+
+## Giai đoạn A — Bộ nhớ: lưu toạ độ thay vì lưu ảnh
+
+Mục tiêu: bỏ việc giữ mảng ảnh cho từng ROI; cắt lại từ ảnh phân tích khi cần
+hiển thị. Không phụ thuộc model nào, làm được ngay.
+
+- `[x] HOÀN THÀNH` **A1.** `SolderCropRecord.image` nay là `np.ndarray | None`;
+  bridge có cờ `keep_images` (mặc định `False`). Không đổi thứ tự trường nên
+  test dựng record theo vị trí vẫn chạy.
+- `[x] HOÀN THÀNH` **A2.** Record dựng không kèm ảnh. **Phát hiện thêm:** ảnh bị
+  giữ *hai lần* — một lần ở `image`, một lần nữa ở `raw.image`. Đã bỏ cả hai.
+- `[x] HOÀN THÀNH` **A3.** `_roi_pixels_for_display(source, crop)` cắt lại từ ảnh
+  phân tích; nếu record có sẵn ảnh thì dùng ảnh đó, không có ảnh lẫn khung thì
+  trả `None` chứ không làm sập tab.
+- `[x] HOÀN THÀNH` **A4.** Đo trên board thật (119 ROI):
+
+  | | ảnh ở `record` | ảnh ở `.raw` | tổng |
+  |---|---|---|---|
+  | CŨ | 5.85 MB | 5.85 MB | **11.70 MB** |
+  | MỚI | 0.00 MB | 0.00 MB | **0.00 MB** |
+
+  Ngoại suy: board 5144² (~958 linh kiện, 2874 ROI) **283 MB → ~0 MB**;
+  board 8192² (~2432 linh kiện, 7296 ROI) **717 MB → ~0 MB**.
+  Verdict giữ nguyên 119/119, toạ độ giữ nguyên từng pixel.
+- `[x] HOÀN THÀNH` **A5.** 5 test mới: record không giữ pixel; bỏ pixel không đổi
+  bất kỳ verdict nào; UI cắt ra đúng vùng ROI; `keep_images=True` vẫn dùng được;
+  không có khung lẫn ảnh thì không sập.
+- `[ ] CHƯA LÀM` **A6.** *(mới, phát sinh)* Crop linh kiện bước 5 vẫn giữ ảnh
+  trong `CropRecord.image` **và** `CropRecord.raw.image` (147 KB/cái). Bước 6.1
+  đang dùng `raw` nên phải cắt lại lúc phân loại — đụng chạm hơn A1–A5, tách
+  riêng. Ước tính tiết kiệm thêm ~141 MB cho board 5144².
+
+## Giai đoạn B — Đường ống lượt 2
+
+Mục tiêu: có chỗ cắm model detect chân, chạy được ngay cả khi **chưa có model**
+(khi đó rơi về hình học suy ra như hiện nay).
+
+- `[~] ĐANG LÀM` **B1.** `LeadDetectionConfig`: bật/tắt, biên crop, ngưỡng
+  confidence, kích thước crop tối thiểu.
+- `[ ] CHƯA LÀM` **B2.** Hàm chạy detector lên crop từng linh kiện và **quy đổi
+  toạ độ về ảnh lớn** (`global = crop_origin + local`).
+- `[ ] CHƯA LÀM` **B3.** Nối vào `fuse_detected_leads` đã có sẵn — chân đo được
+  thắng hình học suy ra, theo **từng chân** chứ không theo cả linh kiện.
+- `[ ] CHƯA LÀM` **B4.** Không có model thì là no-op tuyệt đối: kết quả phải
+  giống hệt hiện tại, có test khẳng định điều đó.
+- `[ ] CHƯA LÀM` **B5.** Test bằng detector giả có toạ độ biết trước, khẳng định
+  phép quy đổi toạ độ đúng từng pixel.
+
+## Giai đoạn C — Model cho lượt 2
+
+`[!] CHẶN` — chờ dữ liệu gán nhãn từ board thật. Không code được cho tới lúc đó.
+
+- `[ ] CHƯA LÀM` **C1.** Chụp/thu thập ảnh board thật của dây chuyền.
+- `[ ] CHƯA LÀM` **C2.** Chạy `scripts/bootstrap_lead_labels.py` để xuất ROI suy
+  ra thành dataset YOLO cho người sửa (sửa box nhanh hơn vẽ box).
+- `[ ] CHƯA LÀM` **C3.** Sửa nhãn bằng LabelImg/CVAT/Roboflow. **Đây là phần tốn
+  công nhất và không có cách nào bỏ qua.**
+- `[ ] CHƯA LÀM` **C4.** Train bằng notebook `soldef-ai.ipynb` đã tải về, đổi
+  nguồn dữ liệu (xem mục "Về notebook" bên dưới).
+- `[ ] CHƯA LÀM` **C5.** Export ONNX + `model_manifest.json`, nạp qua sidebar.
+
+## Giai đoạn D — Phần cứng
+
+- `[x] HOÀN THÀNH` **D1.** Soạn yêu cầu tối thiểu về camera/ống kính/ánh sáng.
+  → `Docs/yeu_cau_phan_cung_camera.md`. Chốt: hiện 46 µm/px (3 phép đo độc lập,
+  lệch <3%); khuyến nghị cảm biến 20 MP + FOV 137×91 mm → 25 µm/px, 4 lần chụp
+  mỗi board. Nếu chỉ đủ tiền một hạng mục thì **mua đèn nhiều góc trước, không
+  phải cảm biến**.
+- `[ ] CHƯA LÀM` **D2.** Quyết định mua/thuê thiết bị — việc của người, không
+  phải của code.
+
+---
+
+## Về notebook `soldef-ai.ipynb` đã tải về
+
+**Dùng lại được, nhưng phải đổi dữ liệu chứ không phải đổi model.**
+
+Notebook đó là YOLO11m-seg train trên SolDef_AI, kết quả val Box mAP50 **0.771**,
+Mask mAP50 0.766. Chạy lên board của dự án thì ra **0 box** ở mọi mức phóng đại
+từ 1× đến 12×, vì SolDef_AI là ảnh macro 1–3 µm/px còn board của ta là 46 µm/px
+— chênh khoảng 20 lần. Đổi sang model "chuẩn hơn" (yolo11l, RT-DETR…) **không
+sửa được chuyện này**: nút thắt là miền dữ liệu, không phải sức mạnh model.
+
+Cái đáng giữ ở notebook là **khung xử lý**: nhận diện format annotation theo nội
+dung, parser LabelMe/COCO/VOC/**YOLO**/mask, split stratified theo lớp hiếm,
+kiểm tra integrity `data.yaml`, đường cong loss, export ONNX/TorchScript/OpenVINO
+có try/except riêng từng format.
+
+Đã kiểm chứng: notebook **tự nhận dạng format và có sẵn parser YOLO**, nên
+output của `bootstrap_lead_labels.py` (định dạng YOLO) nạp thẳng vào được, chỉ
+cần trỏ `DATA_ROOT_OVERRIDE` và đặt `FORMAT_OVERRIDE = "yolo"`.
+
+**Việc cần làm với notebook, theo thứ tự:**
+
+1. Chạy lại Cell 3 (import) rồi Cell 22–28. Cell 22 đang lỗi `NameError: YOLO`
+   do kernel restart giữa chừng — không phải lỗi code. Kéo theo chưa có số test,
+   chưa có confusion matrix, **chưa có ONNX**.
+2. Đổi `DATA_ROOT_OVERRIDE` sang dataset chân hàn của chính dây chuyền.
+3. Đổi bộ lớp: SolDef_AI dùng `good/no_good/exc_solder/poor_solder/spike`; lượt
+   2 cần lớp **vị trí chân** (`pads`, `pins`) chứ không phải lớp lỗi.
+4. Cân nhắc bỏ segmentation, chỉ cần detection: lượt 2 trả lời "chân ở đâu", còn
+   "chân tốt hay xấu" là việc của bước 6.2.
+
+Gợi ý model nền: `yolo11s`/`yolo11m` detection ở `imgsz=640` cho crop. Không cần
+model lớn hơn — crop chỉ chứa một linh kiện, bài toán dễ hơn ảnh board rộng
+nhiều. Dữ liệu mới là thứ quyết định.
+
+---
+
+## Nhật ký
+
+| Ngày | Việc | Kết quả |
+|---|---|---|
+| 2026-08-21 | Lập kế hoạch, đo số nền | Ghi ở mục "Số đo nền" |
+| 2026-08-21 | D1 — yêu cầu phần cứng | `Docs/yeu_cau_phan_cung_camera.md` |
+| 2026-08-21 | Giai đoạn A xong (A1–A5) | 11.70 MB → 0.00 MB mỗi tile; 419/419 test pass |
