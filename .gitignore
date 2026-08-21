@@ -50,3 +50,9 @@ Ultralytics/
 # xung dot khi pull. Giu lai README de thu muc van ton tai sau khi clone.
 models/library/*
 !models/library/README.md
+
+# Ultralytics tải trọng số gốc về thư mục đang đứng khi gọi YOLO("yolo11n.pt").
+# Chúng là bản tải lại được, không phải artifact của dự án, và một lần chạy
+# benchmark ở thư mục gốc là đủ để chúng lọt vào commit.
+/yolo*.pt
+/yolo*.yaml

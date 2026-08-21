@@ -1004,11 +1004,49 @@ def _render_inspection_sidebar_resources() -> None:
     )
 
 
+#: Dấu trạng thái đứng trước tên bước. Ký tự thay cho màu vì sidebar tối và
+#: một chấm màu nhỏ ở đó rất khó phân biệt, nhất là với người nhìn màu kém.
+_STATUS_GLYPH = {
+    "done": "✓",
+    "running": "⟳",
+    "error": "✕",
+    "warning": "!",
+    "demo": "~",
+    "pending": "·",
+}
+
+
+def _render_stepper() -> None:
+    """Danh sách bước — vừa hiện trạng thái vừa bấm được.
+
+    Trước đây sidebar vẽ danh sách này hai lần: một khối HTML có trạng thái
+    nhưng không bấm được, và một radio nhạt bên dưới để điều hướng. Người dùng
+    phải đọc ở bảng trên rồi tìm lại đúng dòng đó ở bảng dưới, và nửa màn hình
+    sidebar mất vào việc lặp lại cùng một thông tin.
+
+    Nút của Streamlit bấm được, nên mỗi bước chỉ còn một dòng. Mô tả ngắn chuyển
+    vào tooltip: nó có ích lúc học quy trình và chỉ chiếm chỗ sau đó.
+    """
+
+    for step, name, description, code in STEP_DEFINITIONS:
+        status = st.session_state.statuses[step]
+        active = step == st.session_state.active_step
+        glyph = _STATUS_GLYPH.get(status, "·")
+        if st.button(
+            f"{glyph}  {step}. {name}",
+            key=f"stepnav_{step}",
+            width="stretch",
+            type="primary" if active else "secondary",
+            help=f"{code} — {description}",
+        ):
+            st.session_state.active_step = step
+            st.rerun()
+
+
 def _render_sidebar() -> bool:
     with st.sidebar:
         pending_navigation = st.session_state.pending_navigation
         if pending_navigation is not None:
-            st.session_state.sidebar_step_navigation = pending_navigation
             st.session_state.active_step = pending_navigation
             st.session_state.pending_navigation = None
         st.markdown(
@@ -1038,37 +1076,7 @@ def _render_sidebar() -> bool:
             )
             return False
         st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–6.1</div>', unsafe_allow_html=True)
-        step_markup: list[str] = ['<div class="stepper">']
-        for step, name, description, code in STEP_DEFINITIONS:
-            status = st.session_state.statuses[step]
-            active = " active" if step == st.session_state.active_step else ""
-            step_markup.append(
-                f'<div class="step-row {status}{active}">'
-                f'<div class="step-code">{html.escape(code)}</div>'
-                f'<div class="step-copy"><strong>{step}. {html.escape(name)}</strong>'
-                f'<span>{html.escape(description)}</span></div>'
-                f'<div class="step-state">{_status_dot(status)}</div></div>'
-            )
-        step_markup.append("</div>")
-        st.markdown("".join(step_markup), unsafe_allow_html=True)
-
-        step_options = [step for step, *_ in STEP_DEFINITIONS]
-        if "sidebar_step_navigation" not in st.session_state:
-            st.session_state.sidebar_step_navigation = st.session_state.active_step
-        elif st.session_state.sidebar_step_navigation not in step_options:
-            st.session_state.sidebar_step_navigation = st.session_state.active_step
-        selected = st.radio(
-            "Mở bước",
-            options=step_options,
-            # Session State is the single source of truth. Passing an ``index``
-            # as well would make Streamlit warn that the widget has two defaults.
-            index=None,
-            format_func=lambda value: f"{value}. {STEP_DEFINITIONS[value][1]}",
-            horizontal=False,
-            label_visibility="collapsed",
-            key="sidebar_step_navigation",
-        )
-        st.session_state.active_step = selected
+        _render_stepper()
 
         st.markdown('<div class="sidebar-section-label">TÀI NGUYÊN</div>', unsafe_allow_html=True)
         with st.expander("Camera calibration", expanded=False):

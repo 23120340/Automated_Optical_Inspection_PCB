@@ -16,10 +16,20 @@
   --red-soft: #ffecef;
 }
 
+/* Montserrat den tu [[theme.fontFaces]] trong .streamlit/config.toml, tu
+ * phuc vu tu app/static/fonts/ -- khong goi CDN. Khai bao lai o day de cac
+ * khoi HTML tu viet (hero, metric-card, section-heading...) khong roi ve font mac
+ * dinh cua trinh duyet: chung nam ngoai cay component cua Streamlit. */
 html,
 body,
-[class*="css"] {
-  font-family: Inter, "Segoe UI", Arial, sans-serif;
+[class*="css"],
+.stApp,
+.hero,
+.metric-card,
+.section-heading,
+.empty-state,
+.pipeline-asset {
+  font-family: Montserrat, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .stApp {
@@ -129,94 +139,45 @@ body,
   margin: 1.35rem 0.35rem 0.65rem;
 }
 
-.stepper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.32rem;
-  margin-bottom: 0.7rem;
+/* Stepper: moi buoc la mot nut cua Streamlit, khong con khoi HTML trang tri
+ * rieng. Mac dinh nut can giua chu -- doc mot danh sach can giua thi mat phai
+ * di tim diem bat dau cua tung dong, nen chuyen sang can trai. */
+[data-testid="stSidebar"] .stButton > button[kind="secondary"],
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+  font-size: 0.76rem;
+  font-weight: 550;
+  justify-content: flex-start;
+  letter-spacing: -0.01em;
+  min-height: 36px;
+  padding: 0.3rem 0.7rem;
+  text-align: left;
 }
 
-.step-row {
-  align-items: center;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  display: grid;
-  gap: 0.65rem;
-  grid-template-columns: 36px 1fr 18px;
-  min-height: 52px;
-  padding: 0.42rem 0.55rem;
-  position: relative;
+[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+  background: #0d2237;
+  border: 1px solid #1c3a56;
+  color: #cfe0ee;
 }
 
-.step-row::before {
-  background: #1c3b56;
-  content: "";
-  height: 8px;
-  left: 23px;
-  position: absolute;
-  top: -6px;
-  width: 1px;
+[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+  background: #123047;
+  border-color: #2a5878;
+  color: #f0f8ff;
 }
 
-.step-row:first-child::before {
-  display: none;
+/* Buoc dang mo. Vien trai day thay cho to nen ca dong: no chi ro vi tri ma
+ * khong lam chu kho doc di. */
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+  background: linear-gradient(90deg, rgba(32, 199, 217, 0.16), rgba(32, 199, 217, 0.04));
+  border: 1px solid #1d6477;
+  border-left: 3px solid var(--cyan);
+  color: #f2fdff;
 }
 
-.step-row.active {
-  background: linear-gradient(90deg, rgba(32, 199, 217, 0.13), rgba(32, 199, 217, 0.035));
-  border-color: #1d6477;
-}
-
-.step-row.done .step-code,
-.step-row.done .step-state {
-  color: #53e0a8 !important;
-}
-
-.step-row.demo .step-code,
-.step-row.demo .step-state,
-.step-row.warning .step-code,
-.step-row.warning .step-state {
-  color: #ffc36a !important;
-}
-
-.step-row.error .step-code,
-.step-row.error .step-state {
-  color: #ff7f89 !important;
-}
-
-.step-code {
-  align-items: center;
-  background: #102b43;
-  border: 1px solid #24506e;
-  border-radius: 7px;
-  color: #8fb1ca !important;
-  display: flex;
-  font-family: Consolas, monospace;
-  font-size: 0.63rem;
-  font-weight: 800;
-  height: 32px;
+/* Nut trong cac expander tai nguyen la hanh dong that (Go model, Go
+ * reference...), khong phai muc dieu huong -- tra ve can giua. */
+[data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button {
   justify-content: center;
-  letter-spacing: -0.02em;
-}
-
-.step-copy strong {
-  color: #e9f2f9 !important;
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-
-.step-copy span {
-  color: #718da6 !important;
-  display: block;
-  font-size: 0.65rem;
-  line-height: 1.15;
-  margin-top: 0.1rem;
-}
-
-.step-state {
-  color: #526f87 !important;
-  font-size: 0.8rem;
   text-align: center;
 }
 
