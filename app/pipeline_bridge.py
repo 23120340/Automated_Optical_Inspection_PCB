@@ -81,6 +81,63 @@ class CropRecord:
 
 
 @dataclass
+class SolderCropRecord:
+    """One derived solder-joint ROI, ready to show or label for step 6.2."""
+
+    joint_id: str
+    detection_id: str
+    label: str
+    kind: str
+    position: str
+    terminal_geometry: str
+    image: np.ndarray
+    bbox: tuple[int, int, int, int]
+    confidence: float | None
+    pin_index: int | None = None
+    source: str = "derived"
+    designator: str | None = None
+    pin: str | None = None
+    net: str | None = None
+    raw: Any = None
+
+
+@dataclass
+class SolderVerdictRecord:
+    """One step-6.2 call, flattened for the UI."""
+
+    joint_id: str
+    detection_id: str
+    scope: str
+    label: str
+    decision: str
+    source: str
+    probability: float
+    rule_label: str | None
+    model_label: str | None
+    model_probability: float | None
+    designator: str | None
+    pin: str | None
+    component_label: str
+    bbox: tuple[int, int, int, int]
+    reasons: list[str] = field(default_factory=list)
+    features: dict[str, Any] = field(default_factory=dict)
+    model_version: str = "rules-only"
+
+
+@dataclass
+class SolderResult(StageResult):
+    crops: list[SolderCropRecord] = field(default_factory=list)
+    verdicts: list[SolderVerdictRecord] = field(default_factory=list)
+    graded_by_model: bool = False
+    # Populated only when a CAD board was loaded and registered.
+    used_cad: bool = False
+    findings: list[dict[str, Any]] = field(default_factory=list)
+    registration: dict[str, Any] | None = None
+    cad_stats: dict[str, Any] = field(default_factory=dict)
+    cad_warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ClassificationRecord:
     crop_id: str
     detection_id: str
@@ -668,6 +725,168 @@ class PipelineBridge:
                 )
             )
         return crops
+
+    def make_solder_crops(
+        self,
+        image: np.ndarray,
+        detections: Sequence[DetectionRecord],
+        output_dir: str | None = None,
+        **kwargs: Any,
+    ) -> SolderResult:
+        """Derive step-5.5 solder ROIs through the core pipeline.
+
+        There is deliberately no UI fallback here: the value of this stage is
+        the class-aware terminal geometry, and a naive box-padding substitute
+        would look like it worked while placing the ROIs in the wrong place.
+        """
+
+        started = time.perf_counter()
+        if self.engine is None or not hasattr(self.engine, "make_solder_crops"):
+            return SolderResult(
+                image=image,
+                mode="UNAVAILABLE",
+                message=(
+                    "Pipeline hiện tại chưa có bước 5.5; cập nhật aoi_pipeline để "
+                    "sinh ROI mối hàn."
+                ),
+            )
+        raw_detections = [item.raw if item.raw is not None else item for item in detections]
+        try:
+            raw_crops = _call_supported(
+                self.engine.make_solder_crops,
+                image,
+                raw_detections,
+                output_dir=output_dir,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"AOIPipeline solder ROI thất bại: {type(exc).__name__}: {exc}"
+            ) from exc
+        if not isinstance(raw_crops, Sequence):
+            raise RuntimeError("AOIPipeline.make_solder_crops phải trả về một sequence")
+
+        records: list[SolderCropRecord] = []
+        for index, raw_crop in enumerate(raw_crops):
+            crop_image = _extract_image(raw_crop, ("image", "crop", "output"))
+            joint = _attr(raw_crop, ("joint",), None)
+            if crop_image is None or joint is None:
+                continue
+            confidence = None
+            metadata = getattr(joint, "metadata", None)
+            if isinstance(metadata, dict) and "detector_confidence" in metadata:
+                confidence = float(metadata["detector_confidence"])
+            records.append(
+                SolderCropRecord(
+                    joint_id=str(getattr(joint, "joint_id", f"joint_{index:05d}")),
+                    detection_id=str(getattr(joint, "detection_id", "")),
+                    label=str(getattr(joint, "label", "component")),
+                    kind=str(getattr(joint, "kind", "joint")),
+                    position=str(getattr(joint, "position", "")),
+                    terminal_geometry=str(getattr(joint, "terminal_geometry", "")),
+                    image=crop_image,
+                    bbox=_extract_bbox(joint, image.shape),
+                    confidence=confidence,
+                    pin_index=getattr(joint, "pin_index", None),
+                    source=str(getattr(joint, "source", "derived")),
+                    designator=getattr(joint, "designator", None),
+                    pin=getattr(joint, "pin", None),
+                    net=getattr(joint, "net", None),
+                    raw=raw_crop,
+                )
+            )
+        joints = sum(1 for item in records if item.kind == "joint")
+        verdicts, graded_by_model = self._grade_solder(image, raw_crops)
+        fusion = getattr(self.engine, "last_fusion", None)
+        used_cad = bool(getattr(fusion, "used_cad", False))
+        findings = [
+            finding.to_dict()
+            for finding in (getattr(fusion, "findings", None) or [])
+            if hasattr(finding, "to_dict")
+        ]
+        registration = getattr(fusion, "registration", None)
+        message = (
+            f"Đã sinh {joints} ROI mối hàn từ {len(detections)} detection."
+            if joints
+            else "Không sinh được ROI mối hàn nào từ detection hiện tại."
+        )
+        if used_cad:
+            stats = getattr(fusion, "stats", {}) or {}
+            message += (
+                f" CAD khớp {stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
+                f" linh kiện, thiếu {stats.get('missing', 0)}."
+            )
+        return SolderResult(
+            image=image,
+            mode="CAD FUSION" if used_cad else "MODEL",
+            message=message,
+            metrics={
+                "elapsed_ms": _elapsed_ms(started),
+                "joints": joints,
+                "total_rois": len(records),
+            },
+            crops=records,
+            verdicts=verdicts,
+            graded_by_model=graded_by_model,
+            used_cad=used_cad,
+            findings=findings,
+            registration=(
+                registration.to_dict() if hasattr(registration, "to_dict") else None
+            ),
+            cad_stats=dict(getattr(fusion, "stats", {}) or {}),
+            cad_warnings=(
+                list(getattr(fusion, "warnings", None) or [])
+                + list(getattr(self.engine, "cad_warnings", None) or [])
+            ),
+        )
+
+    def _grade_solder(
+        self, image: np.ndarray, raw_crops: Sequence[Any]
+    ) -> tuple[list[SolderVerdictRecord], bool]:
+        """Run step 6.2 over the ROIs the core just produced.
+
+        A grading failure returns no verdicts rather than taking the ROI stage
+        down with it: the crops are still useful for labelling even when the
+        call on them cannot be made.
+        """
+
+        engine = self.engine
+        if engine is None or not hasattr(engine, "grade_solder"):
+            return ([], False)
+        try:
+            raw_verdicts = engine.grade_solder(raw_crops, image)
+        except Exception:  # noqa: BLE001 - surfaced through the empty result
+            return ([], False)
+
+        records: list[SolderVerdictRecord] = []
+        for item in raw_verdicts or []:
+            box = (item.metadata or {}).get("bbox") or [0, 0, 0, 0]
+            records.append(
+                SolderVerdictRecord(
+                    joint_id=str(getattr(item, "joint_id", "")),
+                    detection_id=str(getattr(item, "detection_id", "")),
+                    scope=str(getattr(item, "scope", "joint")),
+                    label=str(getattr(item, "label", "")),
+                    decision=str(getattr(item, "decision", "review")),
+                    source=str(getattr(item, "source", "rules")),
+                    probability=float(getattr(item, "probability", 0.0)),
+                    rule_label=getattr(item, "rule_label", None),
+                    model_label=getattr(item, "model_label", None),
+                    model_probability=getattr(item, "model_probability", None),
+                    designator=getattr(item, "designator", None),
+                    pin=getattr(item, "pin", None),
+                    component_label=str(getattr(item, "component_label", "")),
+                    bbox=_clip_bbox(
+                        tuple(int(round(float(value))) for value in box[:4]), image.shape
+                    ),
+                    reasons=list(getattr(item, "reasons", []) or []),
+                    features=(
+                        item.features.to_dict() if getattr(item, "features", None) else {}
+                    ),
+                    model_version=str(getattr(item, "model_version", "rules-only")),
+                )
+            )
+        inspector = getattr(engine, "solder_inspector", None)
+        return (records, bool(getattr(inspector, "has_model", False)))
 
     def classify_components(
         self,

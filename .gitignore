@@ -21,8 +21,6 @@ tmp/
 # Trained model artifacts (keep metadata/configs in Git)
 models/*.engine
 models/*.torchscript
-models/detector/
-models/classifier/
 training/artifacts/
 
 # IDE / OS
@@ -31,10 +29,15 @@ training/artifacts/
 .DS_Store
 Thumbs.db
 
-# Local camera credentials from the legacy prototype
-Ver1/rtsp.txt
-Ver1/KCS_Inspec_PCBA_V2.exe
+# Legacy prototype: a 124 MB binary GitHub refuses outright, plus an RTSP URL
+# with the camera password in it. The folder was renamed Ver1/ -> legacy/ and
+# these rules did not follow, so both got committed. Ignore the folder itself,
+# not the old names.
+legacy/
+Ver1/
 
+# Model artifacts
 models/pcb_detector_v2_artifacts.zip
 models/pcb_detector_v2_artifacts/
 models/pcb_solder_defect_artifacts/
+

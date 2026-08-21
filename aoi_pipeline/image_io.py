@@ -89,6 +89,37 @@ def encode_image(image: np.ndarray, extension: str = ".png", jpeg_quality: int =
     return encoded.tobytes()
 
 
+def letterbox_normalize(
+    crop: np.ndarray,
+    target_size: tuple[int, int] | None,
+    letterbox_color: tuple[int, int, int] = (114, 114, 114),
+) -> np.ndarray:
+    """Resize preserving aspect ratio and pad to ``target_size``."""
+
+    if target_size is None:
+        return np.ascontiguousarray(crop.copy())
+    target_width, target_height = (int(value) for value in target_size)
+    if target_width <= 0 or target_height <= 0:
+        raise ValueError("target_size values must be positive")
+    source_height, source_width = crop.shape[:2]
+    scale = min(target_width / source_width, target_height / source_height)
+    resized_width = max(1, int(round(source_width * scale)))
+    resized_height = max(1, int(round(source_height * scale)))
+    interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
+    resized = cv2.resize(
+        crop, (resized_width, resized_height), interpolation=interpolation
+    )
+    canvas = np.full(
+        (target_height, target_width, 3),
+        tuple(int(np.clip(value, 0, 255)) for value in letterbox_color),
+        dtype=np.uint8,
+    )
+    x = (target_width - resized_width) // 2
+    y = (target_height - resized_height) // 2
+    canvas[y : y + resized_height, x : x + resized_width] = resized
+    return canvas
+
+
 def _to_uint8(image: np.ndarray) -> np.ndarray:
     if image.dtype == np.uint8:
         return image.copy()

@@ -7,6 +7,57 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 
+@dataclass(frozen=True, slots=True)
+class PadProfile:
+    """Outward crop margin expressed as a fraction of the box side it extends.
+
+    ``long_axis`` is applied at both ends of the longer box side and
+    ``short_axis`` at both ends of the shorter side. Solder fillets sit outside
+    the labelled component body, so a two-lead chip needs a much larger margin
+    along its long axis (where the terminals are) than across it.
+    """
+
+    long_axis: float
+    short_axis: float
+
+
+# Terminal topology per detector class. It decides where the solder joints of a
+# component are, which no bounding box alone can express.
+#
+# ``two_terminal``  joints at both ends of the long axis (chip/axial parts)
+# ``multi_pin``     leads along the box edges (ICs, connectors, TO packages)
+# ``pad_only``      the detection already is the joint/land
+TWO_TERMINAL_CLASSES: frozenset[str] = frozenset(
+    {"capacitor", "resistor", "diode", "led", "inductor", "fuse"}
+)
+PAD_ONLY_CLASSES: frozenset[str] = frozenset({"pads"})
+# Everything else — ic, connector, transistor, relay, switch, display, clock,
+# buzzer, battery, potentiometer, button, transformer, transducer, heatsink,
+# pins — is treated as multi-pin. Defaulting unknown labels to the perimeter
+# policy keeps recall: a wrong-but-present ROI can be reviewed, a missing one
+# cannot.
+DEFAULT_TERMINAL_GEOMETRY = "multi_pin"
+
+
+def terminal_geometry(label: str) -> str:
+    """Map a detector class name to its terminal topology."""
+
+    normalized = str(label).strip().lower()
+    if normalized in TWO_TERMINAL_CLASSES:
+        return "two_terminal"
+    if normalized in PAD_ONLY_CLASSES:
+        return "pad_only"
+    return DEFAULT_TERMINAL_GEOMETRY
+
+
+def _default_pad_profiles() -> dict[str, PadProfile]:
+    return {
+        "two_terminal": PadProfile(long_axis=0.35, short_axis=0.22),
+        "multi_pin": PadProfile(long_axis=0.20, short_axis=0.20),
+        "pad_only": PadProfile(long_axis=0.10, short_axis=0.10),
+    }
+
+
 @dataclass(slots=True)
 class PreprocessConfig:
     """Image enhancement options used by step 1.
@@ -92,6 +143,13 @@ class ModelDetectorConfig:
     # ``None`` preserves the head declared by arbitrary Ultralytics artifacts.
     # The local UI explicitly sets False for its Kaggle one-to-many/NMS recipe.
     end2end: bool | None = None
+    # Ultralytics' built-in inference-time augmentation (multi-scale + flip,
+    # averaged internally before NMS). Off by default: it roughly doubles
+    # inference time and every tiling/confidence threshold in this project was
+    # tuned without it. Worth trying once a fresh model is trained -- it is a
+    # no-retrain accuracy lever, typically +0.5-2 mAP on small/occluded
+    # objects, which is exactly where this detector struggles (pads/pins).
+    tta: bool = False
 
 
 @dataclass(slots=True)
@@ -133,15 +191,191 @@ class TilingConfig:
 
 @dataclass(slots=True)
 class CropConfig:
-    """Crop and normalization options used by step 5."""
+    """Crop and normalization options used by step 5.
 
-    padding_ratio: float = 0.12
-    padding_pixels: int = 2
-    square: bool = True
+    These crops feed the step-6.1 family classifier, whose accuracy depends on
+    matching the padding it was trained with. Keep ``solder_aware_padding``
+    off unless the classifier is retrained on the wider recipe; solder-joint
+    inspection has its own ROIs in :class:`SolderJointConfig` precisely so this
+    contract does not have to move.
+    """
+
+    # These three mirror the step-6.1 training notebook exactly
+    # (``pad = 0.15 * max(w, h)``, clipped, no squaring). Changing them shifts
+    # the classifier's input distribution away from what it was fitted on.
+    padding_ratio: float = 0.15
+    padding_pixels: int = 0
+    square: bool = False
+    # Per-axis, per-topology margins. Off by default for the same reason.
+    solder_aware_padding: bool = False
+    pad_profiles: dict[str, PadProfile] = field(default_factory=_default_pad_profiles)
     target_size: tuple[int, int] | None = (224, 224)
     letterbox_color: tuple[int, int, int] = (114, 114, 114)
     image_extension: Literal[".png", ".jpg"] = ".png"
     jpeg_quality: int = 95
+
+
+@dataclass(slots=True)
+class SolderJointConfig:
+    """Step 5.5: derive solder-joint ROIs from component boxes.
+
+    The component detector is trained on datasets that label component bodies,
+    so its boxes never contain the fillet. Rather than asking a detector to
+    find joints — the current model scores ``pads`` at 0.0 recall — the joints
+    are *derived* geometrically from the box plus the class topology, which is
+    how window-based AOI has always placed its inspection ROIs.
+    """
+
+    enabled: bool = True
+
+    # --- two-terminal geometry, as fractions of the box sides ---------------
+    # ``inner`` reaches back over the terminal cap on the body, ``outer``
+    # reaches past the body onto the land/fillet, ``side`` widens across the
+    # short axis so a slightly rotated part is still covered.
+    terminal_inner_ratio: float = 0.30
+    terminal_outer_ratio: float = 0.45
+    terminal_side_ratio: float = 0.20
+
+    # --- multi-pin geometry, as fractions of the shorter box side -----------
+    lead_inner_ratio: float = 0.14
+    lead_outer_ratio: float = 0.26
+    # A perimeter band with no lead metal in it is dropped. ``None`` disables
+    # the check and keeps all four bands.
+    lead_band_energy_ratio: float | None = 0.35
+    # Bridges span two adjacent pins, so a band ROI is often the better
+    # inspection unit than a single pin. Per-pin splitting is opt-in.
+    split_pins: bool = False
+    # Grow each pin ROI along the band by this fraction of the lead pitch so
+    # the gap to the neighbour is inside the crop; a bridge lives in that gap.
+    pin_padding_ratio: float = 0.35
+    min_pins_per_band: int = 3
+    max_pins_per_band: int = 64
+
+    # --- pad-only geometry --------------------------------------------------
+    pad_margin_ratio: float = 0.15
+
+    # --- shared -------------------------------------------------------------
+    min_roi_pixels: int = 6
+    # Also emit one ROI per component covering body + every joint. This is the
+    # "see the leads too" view; it is not a joint sample by itself.
+    include_body_view: bool = True
+    # Experimental: recover the true component axis with ``cv2.minAreaRect`` on
+    # the box interior so a rotated part gets rotated ROIs. Off by default —
+    # an unreliable angle silently mis-places every ROI, which is worse than a
+    # slightly loose axis-aligned one.
+    estimate_orientation: bool = False
+    orientation_max_angle: float = 30.0
+
+    # --- tighten the ROI onto the metal actually inside it ------------------
+    # The ratios above say WHERE a terminal is; they cannot know how wide the
+    # land under it happens to be. Measuring that from the pixels raised mean
+    # IoU against known pad rectangles from 0.24 to 0.70 in the synthetic
+    # benchmark, and tightened 20 of 21 ROIs on a real board.
+    #
+    # Deliberately confined to the already-predicted ROI. Searching a wider
+    # neighbourhood finds every bright thing near the part -- traces, vias, a
+    # neighbour's pads -- and was measurably worse on real boards even though it
+    # scored the same on the synthetic one.
+    refine_to_metal: bool = True
+    # Same meaning as SolderGradingConfig.saturation_max: solder is bright and
+    # close to grey. Duplicated rather than shared because step 5.5 must be able
+    # to run with step 6.2 switched off entirely.
+    saturation_max: int = 110
+    # Ignore a metal blob smaller than this share of the ROI: below it the box
+    # would be shrinking onto a speck of silkscreen.
+    refine_min_metal_fraction: float = 0.02
+    # Refuse a refinement that shrinks the ROI below this share of its area.
+    # A joint with almost no solder must stay a big empty ROI, because that is
+    # the evidence step 6.2 needs; collapsing it onto the one bright pixel
+    # present would hide the defect.
+    refine_min_area_fraction: float = 0.10
+
+    target_size: tuple[int, int] | None = (128, 128)
+    letterbox_color: tuple[int, int, int] = (114, 114, 114)
+    image_extension: Literal[".png", ".jpg"] = ".png"
+    jpeg_quality: int = 95
+
+
+@dataclass(slots=True)
+class CadConfig:
+    """Where the board's CAD data comes from and how it is registered.
+
+    Every field is optional. With ``path`` unset the pipeline runs exactly as it
+    does with no CAD at all, so this can stay in place until a board file is
+    actually available.
+    """
+
+    path: str | None = None
+    # ``auto`` sniffs the format; otherwise name one of ``aoi_pipeline.inspection.cad.CAD_LOADERS``.
+    fmt: str = "auto"
+    units: str = "mm"
+    # Boards are inspected one side at a time; ``None`` keeps every component.
+    side: str | None = "top"
+
+    # Registration. A saved matrix is reused as-is, which is the normal steady
+    # state: register once per SKU/fixture, then never again.
+    registration_path: str | None = None
+    registration: dict[str, Any] | None = None
+    # Correspondences in board mm and analysis-image pixels, when the operator
+    # picks fiducials by hand instead of relying on auto-registration.
+    fiducials_mm: list[tuple[float, float]] = field(default_factory=list)
+    fiducials_px: list[tuple[float, float]] = field(default_factory=list)
+    fiducial_perspective: bool = False
+    # Fall back to matching CAD placements against the detections themselves.
+    auto_register: bool = True
+    auto_min_matches: int = 4
+    auto_match_tolerance_ratio: float = 0.10
+    auto_refine_rounds: int = 3
+
+
+@dataclass(slots=True)
+class FusionConfig:
+    """How registered CAD geometry and derived ROIs are combined.
+
+    The defaults keep every ROI either source produced. Losing a joint is worse
+    than inspecting one twice, so nothing is dropped just because the two
+    disagree -- the disagreement is reported instead.
+    """
+
+    enabled: bool = True
+
+    # Registration quality gates. Below these the CAD half is abandoned rather
+    # than applied, because mis-registered ROIs are indistinguishable from
+    # correct ones by eye.
+    min_inlier_ratio: float = 0.35
+    max_residual_px: float = 25.0
+
+    # Pairing CAD placements to detections.
+    match_tolerance_mm: float = 3.0
+    class_mismatch_penalty: float = 0.5
+
+    # Per-component correction: CAD gives the footprint, the detector gives
+    # where this part actually landed. This is what makes a globally
+    # approximate registration locally accurate.
+    local_refine: bool = True
+    max_local_shift_mm: float = 2.0
+
+    # Findings.
+    max_shift_mm: float = 0.5
+    report_unexpected: bool = True
+    emit_cad_only_rois: bool = True
+
+    # ROI construction from CAD lands.
+    pad_margin_ratio: float = 0.35
+    pitch_pad_ratio: float = 0.55
+    fallback_pad_mm: float = 0.8
+    min_roi_pixels: int = 6
+    include_body_view: bool = True
+
+    # Reconciling the two ROI sets.
+    agreement_ios: float = 0.35
+    merge_mode: Literal["cad", "union", "intersect"] = "union"
+    keep_unmatched_derived: bool = True
+
+    # Placement-only CAD (pick-and-place): rebuild the derived ROI geometry on
+    # the CAD centre and rotation instead of the detector's axis-aligned box.
+    reanchor_on_placement: bool = True
+    solder: SolderJointConfig = field(default_factory=SolderJointConfig)
 
 
 @dataclass(slots=True)
@@ -158,6 +392,105 @@ class ClassificationConfig:
     accept_threshold: float | None = None
     review_threshold: float | None = None
     temperature: float | None = None
+    # Average softmax over the same 4 flip views (identity, horizontal,
+    # vertical, both) the training notebook used to measure macro recall.
+    # Measured there: 0.9292 -> 0.9417 on the same weights, so this is a
+    # no-retrain accuracy gain, at the cost of 4x classifier inference time
+    # (crops are small, so this is still cheap in absolute terms).
+    tta: bool = False
+
+
+@dataclass(slots=True)
+class LeadFusionConfig:
+    """Step 5.5: prefer detected lead/pad boxes over derived ones.
+
+    Inert until the detector actually reports ``pads``/``pins``. On the shipped
+    model those classes score 0.00 and 0.14-0.21 recall, so the derived geometry
+    still carries the pipeline; this only takes over where a real detection
+    exists.
+    """
+
+    enabled: bool = True
+    # A lead box is only trusted above this. Lead classes are the weakest part
+    # of the detector, so the bar sits higher than the component threshold.
+    min_lead_confidence: float = 0.35
+    # Distance from the lead centre to the body box, as a multiple of the body's
+    # shorter side. Leads sit just outside the body, so a small multiple is
+    # right; too large and a neighbouring part's lead gets adopted.
+    max_lead_distance_ratio: float = 1.2
+    # Overlap at which a detected lead is taken to stand in for a derived ROI.
+    # Below it, both are kept -- they are evidently looking at different things.
+    replace_ios: float = 0.30
+    # A lead detection that belongs to no component body still describes a real
+    # inspectable joint: a test point, an unpopulated footprint, a pad whose
+    # component the detector missed. Refusing to *attach* it to a wrong body is
+    # right; throwing it away is not. Measured on the shipped detector, ``pads``
+    # scores 0.712 precision against 0.072 recall -- when it does fire it is
+    # usually correct, so every firing is worth keeping.
+    keep_unassigned_leads: bool = True
+
+
+@dataclass(slots=True)
+class SolderGradingConfig:
+    """Step 6.2: how solder ROIs are measured, judged and fused.
+
+    Works with no model at all -- the rule layer alone produces verdicts. The
+    model fields stay empty until a trained artifact is dropped in, and nothing
+    else has to change when it is.
+    """
+
+    enabled: bool = True
+
+    # --- model artifacts (optional) ----------------------------------------
+    model_path: str | None = None
+    manifest_path: str | None = None
+    batch_size: int = 32
+    device: Literal["cpu", "cuda", "auto"] = "cpu"
+    # Deployment overrides for the manifest's own policy; None keeps the
+    # manifest value so the trained contract stays authoritative.
+    accept_threshold: float | None = None
+    review_threshold: float | None = None
+    temperature: float | None = None
+
+    # --- segmentation -------------------------------------------------------
+    saturation_max: int = 110
+    specular_percentile: float = 99.0
+
+    # --- joint rule thresholds ---------------------------------------------
+    # Fractions of the ROI, so they survive a change of lens or magnification.
+    missing_solder_ratio: float = 0.04
+    insufficient_solder_ratio: float = 0.18
+    excess_solder_ratio: float = 0.80
+    insufficient_span_ratio: float = 0.45
+    cold_specular_ratio: float = 0.010
+    cold_contrast: float = 0.06
+    max_centroid_offset_ratio: float = 0.55
+    bridge_edge_contact: float = 0.35
+    bridge_span_ratio: float = 0.85
+
+    # --- component rule thresholds -----------------------------------------
+    missing_component_ratio: float = 0.02
+
+    # Same 4-flip-view averaging as ClassificationConfig.tta. The solder
+    # notebook only validated random-flip *training* augmentation, not this
+    # eval-time averaging, so treat the accuracy gain here as expected by the
+    # same reasoning rather than a number measured on this specific model.
+    tta: bool = False
+
+    # --- fusion -------------------------------------------------------------
+    # A model verdict below this is never accepted on its own.
+    model_accept_probability: float = 0.80
+    # Hard physical floor. However confident the model is that a joint is good,
+    # this much solder has to actually be there; an escape ships a bad board,
+    # a false call costs an operator ten seconds.
+    escape_guard_solder_ratio: float = 0.10
+    escape_guard_enabled: bool = True
+    # When the two layers disagree, send it to review rather than picking a
+    # winner. Turning this off makes the model authoritative.
+    disagreement_is_review: bool = True
+    # With no model loaded, should a rule-only defect be a hard reject or a
+    # review queue item? Review is the safe default while thresholds settle.
+    rules_only_defect_decision: Literal["reject", "review"] = "review"
 
 
 @dataclass(slots=True)
@@ -171,7 +504,12 @@ class PipelineConfig:
     model_detector: ModelDetectorConfig = field(default_factory=ModelDetectorConfig)
     tiling: TilingConfig = field(default_factory=TilingConfig)
     crop: CropConfig = field(default_factory=CropConfig)
+    solder: SolderJointConfig = field(default_factory=SolderJointConfig)
+    lead_fusion: LeadFusionConfig = field(default_factory=LeadFusionConfig)
+    cad: CadConfig = field(default_factory=CadConfig)
+    fusion: FusionConfig = field(default_factory=FusionConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
+    solder_grading: SolderGradingConfig = field(default_factory=SolderGradingConfig)
     detector_mode: Literal["auto", "cv"] = "auto"
 
     def to_dict(self) -> dict[str, Any]:
@@ -196,6 +534,11 @@ class PipelineConfig:
         model_values = _section(values, "model_detector", "model")
         tiling_values = _section(values, "tiling")
         crop_values = _section(values, "crops", "crop")
+        solder_values = _section(values, "solder", "solder_joints")
+        lead_values = _section(values, "lead_fusion", "leads")
+        cad_values = _section(values, "cad", "board_cad")
+        fusion_values = _section(values, "fusion", "cad_fusion")
+        grading_values = _section(values, "solder_grading", "solder_inspection")
         classification_values = _section(values, "classification", "classifier")
 
         _assign_known(
@@ -291,6 +634,45 @@ class PipelineConfig:
             config.crop.target_size = (side, side) if side > 0 else None
         if crop_values.get("normalize") is False:
             config.crop.target_size = None
+        _assign_known(
+            config.solder,
+            solder_values,
+            aliases={"joint_size": "target_size", "pins": "split_pins"},
+        )
+        solder_target = solder_values.get("target_size")
+        if isinstance(solder_target, (int, float)):
+            side = int(solder_target)
+            config.solder.target_size = (side, side) if side > 0 else None
+        # ``cad``/``fusion`` are only read when the caller supplied that section;
+        # the permissive whole-dict fallback would otherwise let unrelated keys
+        # switch CAD on.
+        if isinstance(values.get("cad"), Mapping) or isinstance(
+            values.get("board_cad"), Mapping
+        ):
+            _assign_known(
+                config.cad,
+                cad_values,
+                aliases={"file": "path", "format": "fmt", "board_side": "side"},
+            )
+        if isinstance(values.get("fusion"), Mapping) or isinstance(
+            values.get("cad_fusion"), Mapping
+        ):
+            _assign_known(config.fusion, fusion_values)
+        # Step 5.5 geometry is shared: re-anchored ROIs must match the ones the
+        # detector-only path would have produced.
+        config.fusion.solder = config.solder
+        if isinstance(values.get("lead_fusion"), Mapping) or isinstance(
+            values.get("leads"), Mapping
+        ):
+            _assign_known(config.lead_fusion, lead_values)
+        if isinstance(values.get("solder_grading"), Mapping) or isinstance(
+            values.get("solder_inspection"), Mapping
+        ):
+            _assign_known(
+                config.solder_grading,
+                grading_values,
+                aliases={"model": "model_path", "manifest": "manifest_path"},
+            )
         _assign_known(config.classification, classification_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:

@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# Only needed to TRAIN the step-6.2 solder model. Inference needs none of this:
+# the app loads the exported .onnx through onnxruntime in requirements-model.txt.
+torch>=2.2
+torchvision>=0.17
+# torch's ONNX exporter delegates to onnxscript from 2.6 onwards. Without it
+# torch.onnx.export raises ModuleNotFoundError at the very end of a training
+# run, after all the compute has already been spent.
+onnxscript>=0.1
+onnx>=1.16
