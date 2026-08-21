@@ -35,6 +35,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from aoi_pipeline.solder.cad import CadError, register_cad  # noqa: E402
 from aoi_pipeline.bom import (  # noqa: E402
     BillOfMaterials,
     BomError,
@@ -1392,18 +1393,68 @@ def _remove_bom() -> None:
     st.session_state.bom_name = None
 
 
-def _bom_projection() -> Any | None:
-    """Phép chiếu mm -> pixel cho BOM, lấy từ registration CAD nếu đã có.
+@st.cache_resource(show_spinner=False)
+def _bom_registration(
+    bom_signature: str,
+    points_mm: tuple[tuple[float, float], ...],
+    detection_signature: str,
+    _board: Any,
+    _detections: Any,
+    image_size: tuple[int, int],
+) -> Any:
+    """Căn BOM vào ảnh bằng chính các detection, một lần cho mỗi bộ đầu vào.
 
-    Không có registration thì trả None, và đối chiếu tự chuyển sang đếm theo
-    lớp. Ghép theo toạ độ mà không biết board nằm đâu trong ảnh sẽ cho ra một
-    bảng kết quả trông rất thuyết phục và sai toàn bộ.
+    BOM cho toạ độ mm, detector cho toạ độ pixel; `register_cad` bỏ phiếu
+    RANSAC trên các cặp tương ứng để tìm phép biến đổi giữa hai không gian đó.
+    Nghĩa là BOM tự căn được ngay ở bước 4, không phải đợi bước 7 nạp CAD.
+
+    RANSAC tốn vài trăm mili giây, và Streamlit chạy lại cả script mỗi lần bấm
+    nút. Không cache thì mỗi lần tick một checkbox là căn lại từ đầu.
+
+    Tham số có tiền tố ``_`` không tham gia khoá cache (Streamlit không băm
+    được chúng); ``bom_signature`` và ``detection_signature`` mới là khoá.
     """
 
-    registration = st.session_state.get("cad_registration")
+    del bom_signature, points_mm, detection_signature   # chỉ để làm khoá cache
+    try:
+        return register_cad(_board, _detections, image_size)
+    except CadError:
+        return None
+
+
+def _bom_projection(detections: Sequence[Any]) -> Any | None:
+    """Hàm chiếu mm -> pixel cho BOM, hoặc None nếu không căn được.
+
+    Trả None thì đối chiếu tự chuyển sang đếm theo lớp. Đó là hành vi đúng:
+    ghép theo toạ độ mà không biết board nằm đâu trong ảnh sẽ cho ra một bảng
+    trông rất thuyết phục và sai toàn bộ.
+    """
+
+    bom = st.session_state.bom
+    image = _analysis_image()
+    if bom is None or not bom.has_positions or not detections or image is None:
+        return None
+
+    board = bom.to_board_cad()
+    if not board.components:
+        return None
+
+    points = tuple(
+        (float(component.x), float(component.y)) for component in board.components
+    )
+    detection_signature = _digest(
+        "|".join(
+            f"{d.detection_id}:{d.label}:{d.bbox.x1:.1f},{d.bbox.y1:.1f}"
+            for d in detections
+        ).encode("utf-8")
+    )
+    registration = _bom_registration(
+        str(bom.source), points, detection_signature,
+        board, list(detections), (image.shape[1], image.shape[0]),
+    )
     if registration is None:
         return None
-    return getattr(registration, "project", None)
+    return registration.to_image
 
 
 def _bom_findings_frame(findings: Sequence[Any]) -> "pd.DataFrame":
@@ -1443,14 +1494,20 @@ def _render_bom_reconciliation(detections: Sequence[Any]) -> None:
         _render_empty("Chưa có detection", "Chạy detector trước khi đối chiếu.")
         return
 
-    project = _bom_projection()
+    project = _bom_projection(detections)
     result = reconcile_bom(bom, detections, project)
 
     if project is None and bom.has_positions:
         st.info(
-            "BOM có toạ độ nhưng chưa đăng ký được board vào ảnh, nên đang đối "
-            "chiếu bằng cách **đếm theo lớp**. Nạp CAD và đăng ký ở bước 5.5 để "
-            "chỉ đích danh từng linh kiện."
+            "BOM có toạ độ nhưng **chưa căn được vào ảnh** — RANSAC không tìm "
+            "đủ cặp linh kiện khớp nhau. Đang đối chiếu bằng cách **đếm theo "
+            "lớp**: nói được board thiếu hay thừa mấy con, không chỉ được con "
+            "nào. Thường là do detector bỏ sót quá nhiều, hoặc BOM và ảnh khác "
+            "mặt board."
+        )
+    elif project is None:
+        st.caption(
+            "BOM không có cột toạ độ, nên đang đối chiếu bằng cách đếm theo lớp."
         )
 
     columns = st.columns(4)

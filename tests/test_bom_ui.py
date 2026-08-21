@@ -115,19 +115,60 @@ def test_findings_are_sorted_with_errors_first() -> None:
     assert frame["mức"].tolist() == ["LỖI", "cảnh báo", "ghi nhận"]
 
 
-def test_position_matching_is_skipped_without_a_registration(app: AppTest) -> None:
-    """Ghép theo toạ độ mà chưa biết board nằm đâu trong ảnh sẽ cho ra một bảng
-    trông rất thuyết phục và sai toàn bộ. Phải rơi về đếm theo lớp."""
+def test_a_positioned_bom_without_an_image_renders_instead_of_crashing(
+    app: AppTest,
+) -> None:
+    """BOM có toạ độ nhưng chưa có ảnh phân tích thì không căn được. Phải rơi
+    về đếm theo lớp và vẫn vẽ ra màn hình — ghép theo toạ độ mà chưa biết board
+    nằm đâu sẽ cho một bảng trông rất thuyết phục và sai toàn bộ."""
 
-    import app.streamlit_app as ui
-    from aoi_pipeline.bom import reconcile_bom
-
-    assert ui._bom_projection() is None
-
-    bom = BillOfMaterials(
+    app.session_state["bom"] = BillOfMaterials(
         entries=[BomEntry(designator="R1", part_class="resistor", x=1.0, y=2.0)],
         source="test",
     )
-    result = reconcile_bom(bom, [_detection("resistor", 5.0, 5.0, "d0")],
-                           ui._bom_projection())
-    assert result.stats["method"] == "count"
+    app.session_state["active_step"] = 4
+    app.run()
+
+    assert not app.exception
+
+
+def test_the_projection_the_ui_hands_over_is_actually_callable() -> None:
+    """Test này tồn tại vì một bug thật: `_bom_projection` từng đọc sai key
+    session state VÀ gọi sai tên method (`project` thay vì `to_image`). Cả hai
+    lỗi đều trả về None một cách im lặng, nên đường ghép theo toạ độ chết hẳn
+    mà không test nào đỏ và giao diện vẫn hiện một bảng trông hợp lý.
+
+    Nên ở đây kiểm chính thứ đã hỏng: registration thật, gọi thật, ra pixel.
+    """
+
+    import numpy as np
+    from aoi_pipeline.solder.cad import register_cad
+
+    # Board mm và detection pixel của cùng một bố cục, tỉ lệ 10 px/mm.
+    entries = [
+        BomEntry(designator=f"R{index}", part_class="resistor",
+                 x=float(x), y=float(y))
+        for index, (x, y) in enumerate(
+            [(5, 5), (25, 5), (45, 5), (5, 25), (25, 25), (45, 25)], start=1)
+    ]
+    bom = BillOfMaterials(entries=entries, source="test")
+    detections = [
+        _detection("resistor", entry.x * 10.0, entry.y * 10.0, f"d{index}")
+        for index, entry in enumerate(entries)
+    ]
+
+    registration = register_cad(bom.to_board_cad(), detections, (600, 400))
+    assert registration is not None, "RANSAC phải căn được bố cục khớp hoàn toàn"
+
+    project = registration.to_image
+    projected = project(np.array([[5.0, 5.0]], dtype=np.float64))
+    assert projected.shape == (1, 2)
+    assert np.allclose(projected[0], [50.0, 50.0], atol=5.0), (
+        f"chiếu (5, 5) mm ra {projected[0]}, phải gần (50, 50) px"
+    )
+
+    from aoi_pipeline.bom import reconcile_bom
+
+    result = reconcile_bom(bom, detections, project)
+    assert result.stats["method"] == "position"
+    assert result.passed, [item.message for item in result.errors]
