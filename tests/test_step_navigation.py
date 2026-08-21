@@ -86,3 +86,37 @@ def test_resetting_a_step_invalidates_every_later_step() -> None:
     covered = {int(index) for index in re.findall(r"^\s*(\d+): \"\w+\",", source, re.M)}
     missing = [step for step in _step_indices() if step not in covered]
     assert missing == [], f"bước không có result_key khi reset: {missing}"
+
+
+def test_no_renderer_calls_a_name_that_does_not_exist() -> None:
+    """A NameError inside a Streamlit renderer is invisible until that panel is
+    drawn, so importing the module proves nothing. A merge dropped
+    ``_draw_verdict_overlay``, ``_verdict_frame`` and ``import collections``
+    from step 6.2 and every test still passed.
+
+    ``symtable`` gives the compiler's own view of which names each function
+    resolves globally; anything not in the module or in builtins is a
+    NameError waiting for a user to open that tab.
+    """
+
+    import builtins
+    import symtable
+
+    import app.pipeline_bridge as bridge
+
+    for module in (ui, bridge):
+        path = Path(module.__file__)
+        table = symtable.symtable(path.read_text(encoding="utf-8"), str(path), "exec")
+        missing: set[tuple[str, str]] = set()
+
+        def walk(scope) -> None:
+            for symbol in scope.get_symbols():
+                if symbol.is_global() and not symbol.is_assigned():
+                    name = symbol.get_name()
+                    if not hasattr(module, name) and not hasattr(builtins, name):
+                        missing.add((scope.get_name(), name))
+            for child in scope.get_children():
+                walk(child)
+
+        walk(table)
+        assert missing == set(), f"{path.name}: tên chưa định nghĩa {sorted(missing)}"

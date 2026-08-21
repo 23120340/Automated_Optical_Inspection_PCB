@@ -1,4 +1,4 @@
-"""Streamlit dashboard for Golden inspection and AOI steps 0 through 6.1.
+"""Streamlit dashboard for Golden inspection and AOI steps 0 through 6.2.
 
 Run from the repository root:
 
@@ -9,6 +9,7 @@ All images in session state and at the pipeline boundary use OpenCV BGR order.
 
 from __future__ import annotations
 
+import collections
 from collections.abc import Mapping
 import csv
 from datetime import datetime, timezone
@@ -64,6 +65,11 @@ MIN_SOURCE_PIXELS = MIN_SOURCE_LONG_SIDE * MIN_SOURCE_SHORT_SIDE
 # stops you from feeding the pipeline the images you have.
 ENFORCE_SOURCE_RESOLUTION = False
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
+# Mirror of aoi_pipeline.grading.classifier.MANIFEST_SCHEMA and of
+# aoi_pipeline.classification.MANIFEST_SCHEMA. Kept as literals so the UI module
+# does not import the core at load time; a drift test asserts they still match.
+CLASSIFIER_MANIFEST_SCHEMA = "pcb-component-classifier/1.0"
+SOLDER_MANIFEST_SCHEMA = "pcb-solder-defect-classifier/1.0"
 STEP_DEFINITIONS = (
     (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
     (1, "Tiền xử lý", "Undistort và chuẩn hóa", "FX"),
@@ -184,6 +190,23 @@ def _default_config() -> dict[str, Any]:
             "accept_threshold": None,
             "review_threshold": None,
             "temperature": None,
+        },
+        # Steps 5.5 and 6.2. Declared here rather than created on demand: the
+        # sidebar writes the 6.2 artifact paths into ``solder_grading`` before
+        # anything has rendered the step-7 panel, and an absent section made
+        # that a KeyError that killed the whole app on upload.
+        "solder": {
+            "enabled": True,
+            "split_pins": False,
+            "include_body_view": True,
+            "terminal_outer_ratio": 0.45,
+            "lead_outer_ratio": 0.26,
+            "target_size": 128,
+        },
+        "solder_grading": {
+            "enabled": True,
+            "model_path": None,
+            "manifest_path": None,
         },
     }
 
@@ -500,10 +523,10 @@ def _set_classifier_manifest(upload: Any) -> None:
         raise ValueError(f"model_manifest.json không hợp lệ: {exc}") from exc
     if (
         not isinstance(manifest, dict)
-        or manifest.get("schema_version") != "pcb-component-classifier/1.0"
+        or manifest.get("schema_version") != CLASSIFIER_MANIFEST_SCHEMA
     ):
         raise ValueError(
-            "Manifest không đúng schema pcb-component-classifier/1.0 của bước 6.1."
+            f"Manifest không đúng schema {CLASSIFIER_MANIFEST_SCHEMA} của bước 6.1."
         )
     quality_warning = _classifier_manifest_quality_warning(manifest)
     if digest == st.session_state.classifier_manifest_digest:
@@ -613,8 +636,29 @@ def _cached_bridge(
     )
 
 
+def _engine_config(config: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The config as the engine should see it, not as the sidebar recorded it.
+
+    ``create_solder_classifier`` refuses half a contract: a 6.2 model whose
+    class order is unknown would have to be guessed, and guessing wrong maps
+    every defect onto ``good``. That refusal is raised inside
+    ``AOIPipeline.__init__``, so it does not fail step 6.2 alone -- it leaves
+    the bridge with no engine at all and quietly drops step 4 back to the CV
+    demo. Hold an incomplete pair back until the user supplies the other half,
+    the same way the 6.1 classifier pair is held back below.
+    """
+
+    config = dict(st.session_state.config if config is None else config)
+    grading = dict(config.get("solder_grading") or {})
+    if not (grading.get("model_path") and grading.get("manifest_path")):
+        grading["model_path"] = None
+        grading["manifest_path"] = None
+    config["solder_grading"] = grading
+    return config
+
+
 def _get_bridge() -> PipelineBridge:
-    config_json = json.dumps(st.session_state.config, sort_keys=True, ensure_ascii=False)
+    config_json = json.dumps(_engine_config(), sort_keys=True, ensure_ascii=False)
     classifier_ready = bool(
         st.session_state.classifier_model_path
         and st.session_state.classifier_manifest_path
@@ -865,6 +909,11 @@ def _run_all() -> None:
     st.session_state.pending_navigation = final_step
     st.toast(f"Đã chạy xong workflow đến {label}.", icon="✅")
     if not classifier_ready:
+        # After the loop, not before it: step 5 invalidates every later step,
+        # which would reset this straight back to "pending". Say it in the
+        # navigation too -- "Chờ chạy" on a step the run deliberately passed
+        # over reads as a stall.
+        st.session_state.statuses[6] = "skipped"
         st.info(
             "Bước 6.1 bị bỏ qua vì chưa có best.onnx và model_manifest.json từ "
             "notebook train; các bước còn lại đã chạy."
@@ -1133,11 +1182,21 @@ def _render_sidebar() -> bool:
                     _set_solder_manifest(solder_manifest_upload)
                 except ValueError as exc:
                     st.error(str(exc))
-            if st.session_state.solder_model_name:
-                st.success(f"Model: {st.session_state.solder_model_name}")
-            if st.session_state.solder_manifest_name:
-                st.success(f"Manifest: {st.session_state.solder_manifest_name}")
-            if st.session_state.solder_model_name or st.session_state.solder_manifest_name:
+            solder_model_name = st.session_state.solder_model_name
+            solder_manifest_name = st.session_state.solder_manifest_name
+            if solder_model_name:
+                st.success(f"Model: {solder_model_name}")
+            if solder_manifest_name:
+                st.success(f"Manifest: {solder_manifest_name}")
+            if solder_model_name and solder_manifest_name:
+                st.caption("Đủ cặp · bước 6.2 hợp nhất luật đo với model")
+            elif solder_model_name or solder_manifest_name:
+                # Deliberately not an error: the run still produces verdicts.
+                st.warning(
+                    "Mới có một nửa cặp; bước 6.2 vẫn chấm bằng luật đo và chưa "
+                    "dùng model cho tới khi có đủ cả hai."
+                )
+            if solder_model_name or solder_manifest_name:
                 if st.button("Gỡ model 6.2", width="stretch"):
                     _remove_solder_model()
                     st.rerun()
@@ -2773,7 +2832,7 @@ def _set_solder_model(upload: Any) -> None:
     st.session_state.solder_model_digest = digest
     st.session_state.config["solder_grading"]["model_path"] = path
     st.session_state.ignored_uploads["solder_model"] = None
-    _invalidate_after(5)
+    _invalidate_after(6)
     st.session_state.messages.append(f"Đã nạp model 6.2: {upload.name}")
 
 
@@ -2810,7 +2869,7 @@ def _set_solder_manifest(upload: Any) -> None:
     st.session_state.solder_manifest_digest = digest
     st.session_state.config["solder_grading"]["manifest_path"] = path
     st.session_state.ignored_uploads["solder_manifest"] = None
-    _invalidate_after(5)
+    _invalidate_after(6)
     st.session_state.messages.append(f"Đã nạp manifest 6.2: {upload.name}")
 
 
@@ -2822,7 +2881,7 @@ def _remove_solder_model() -> None:
         st.session_state[key] = None
     st.session_state.config["solder_grading"]["model_path"] = None
     st.session_state.config["solder_grading"]["manifest_path"] = None
-    _invalidate_after(5)
+    _invalidate_after(6)
     st.session_state.messages.append(
         "Đã gỡ model 6.2; bước này quay về chấm bằng luật đo."
     )
@@ -2904,17 +2963,31 @@ def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
         return None
     if not st.session_state.config.get("solder", {}).get("enabled", True):
         st.session_state.solder_result = None
+        st.session_state.statuses[7] = "skipped"
         return None
+    st.session_state.statuses[7] = "running"
     try:
         result = bridge.make_solder_crops(source, detection_result.detections)
     except Exception as exc:
         st.session_state.solder_result = None
+        st.session_state.statuses[7] = "error"
         st.session_state.messages.append(
             f"Bước 5.5 lỗi: {type(exc).__name__}: {exc}"
         )
         return None
     st.session_state.solder_result = result
+    # Not ``_record_stage``: this one step covers both 5.5 and 6.2, and the log
+    # is more useful naming them than repeating "Bước 7" twice.
+    st.session_state.statuses[7] = _mode_to_status(result.mode)
+    elapsed = result.metrics.get("elapsed_ms")
+    if elapsed is not None:
+        st.session_state.latencies[7] = float(elapsed)
     st.session_state.messages.append(f"Bước 5.5: {result.message}")
+    if result.verdicts:
+        layer = "model + luật đo" if result.graded_by_model else "luật đo"
+        st.session_state.messages.append(
+            f"Bước 6.2: {len(result.verdicts)} kết quả ({layer})."
+        )
     return result
 
 
@@ -2963,6 +3036,49 @@ def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
                 "defect_class": "",
             }
             for crop in crops
+        ]
+    )
+
+
+def _draw_verdict_overlay(
+    image: np.ndarray, verdicts: list[SolderVerdictRecord], show_component: bool
+) -> np.ndarray:
+    overlay = image.copy()
+    for verdict in verdicts:
+        if verdict.scope == "component" and not show_component:
+            continue
+        x1, y1, x2, y2 = verdict.bbox
+        color = VERDICT_DECISION_COLORS.get(verdict.decision, (200, 200, 200))
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
+        if verdict.decision != "accept":
+            cv2.putText(
+                overlay, verdict.label, (x1, max(11, y1 - 3)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.36, color, 1, cv2.LINE_AA,
+            )
+    return overlay
+
+
+def _verdict_frame(verdicts: list[SolderVerdictRecord]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "joint_id": item.joint_id,
+                "designator": item.designator or "",
+                "pin": item.pin or "",
+                "component": item.component_label,
+                "scope": item.scope,
+                "label": item.label,
+                "decision": item.decision,
+                "source": item.source,
+                "rule_label": item.rule_label or "",
+                "model_label": item.model_label or "",
+                "model_prob": item.model_probability,
+                "solder_ratio": item.features.get("solder_ratio"),
+                "span_ratio": item.features.get("span_ratio"),
+                "specular_ratio": item.features.get("specular_ratio"),
+                "reasons": " | ".join(item.reasons),
+            }
+            for item in verdicts
         ]
     )
 
@@ -3111,11 +3227,13 @@ def _render_solder_rois() -> None:
                 "hẹp trường nhìn trước khi gán nhãn 6.2."
             )
 
-        overlay_tab, gallery_tab, grade_tab, table_tab, cad_tab = st.tabs(
+        # No grading tab here: step 6.2 has its own tab one level up. Rendering
+        # it in both places drew the same widget twice and Streamlit refused the
+        # duplicate key, which took the whole step-7 view down.
+        overlay_tab, gallery_tab, table_tab, cad_tab = st.tabs(
             [
                 "ROI overlay",
                 "Joint gallery",
-                "Chấm mối hàn (6.2)",
                 "Bảng nhãn 6.2",
                 "Đối chiếu CAD",
             ]
@@ -3169,8 +3287,6 @@ def _render_solder_rois() -> None:
                 file_name="solder_joints.csv",
                 mime="text/csv",
             )
-        with grade_tab:
-            _render_solder_grading(result)
         with cad_tab:
             _render_cad_panel(result)
 
@@ -3190,15 +3306,6 @@ def _findings_frame(findings: list[dict[str, Any]]) -> pd.DataFrame:
             for item in findings
         ]
     )
-
-
-VERDICT_DECISION_COLORS = {
-    "accept": (80, 200, 80),   # BGR green
-    "review": (0, 170, 255),   # BGR orange
-    "reject": (40, 40, 230),   # BGR red
-}
-
-VERDICT_DECISION_ICONS = {"accept": "🟢", "review": "🟠", "reject": "🔴"}
 
 
 def _render_cad_panel(result: SolderResult) -> None:
