@@ -1,6 +1,7 @@
 # Automated Optical Inspection PCB
 
-Ứng dụng local thử nghiệm luồng AOI từ bước 0 đến bước 6.1:
+Ứng dụng local có hai workspace: Golden Inspection dùng recipe cố định cho
+Position/Appearance, và pipeline thử nghiệm từ bước 0 đến bước 6.1:
 
 ```text
 0. Import ảnh
@@ -9,9 +10,7 @@
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
    → 5. Crop và xuất dữ liệu linh kiện
-   → 5.5. Suy ra ROI mối hàn + hợp nhất CAD nếu có (dữ liệu cho 6.2)
    → 6.1. Phân loại family (accept/review/unknown)
-   → 6.2. Kiểm tra mối hàn (luật đo + model, accept/review/reject)
 ```
 
 Hiện bước 0 dùng upload ảnh để có thể phát triển khi chưa gắn camera. Adapter
@@ -31,35 +30,38 @@ Set-ExecutionPolicy -Scope Process Bypass
 Sau đó mở địa chỉ Streamlit hiển thị trong terminal, mặc định là
 `http://127.0.0.1:8501`.
 
-## Vì sao bước 1 và bước 2 trông như bị khoá
+## Golden Inspection
 
-Cả hai bước đều **không hỏng và không thiếu thư viện**. Chúng bị khoá vì thiếu
-*file đầu vào* mà không thứ gì trong repo tạo thay được:
+Workspace mặc định của UI là **Golden Inspection**:
 
-| Chỗ bị khoá | Thiếu gì | Cần camera không? | Mở khoá bằng |
-|---|---|---|---|
-| Bước 1 · ô **Sửa méo ống kính** | Profile hiệu chỉnh `.json` | **Có** — phải chụp bàn cờ bằng đúng camera/lens/tiêu cự sẽ dùng | [Hiệu chỉnh méo ống kính camera](#hiệu-chỉnh-méo-ống-kính-camera) |
-| Bước 2 · nút **Căn chỉnh với reference** | Ảnh Golden Image | **Không** — dùng được ảnh board đạt chuẩn có sẵn | Sidebar → *Golden Image / Reference* |
-| Bước 2 · ô **Phương pháp** | — | — | Không mở được: ORB + ECC là phương pháp duy nhất được nối vào core, nên không có gì để chọn |
+1. Nạp Golden Image ở sidebar. Ảnh JPEG đầu vào demo được chấp nhận, nhưng
+   recipe luôn lưu lại Golden, anchor, template và mask dưới dạng PNG lossless.
+2. Nạp ảnh board cần kiểm tra và dùng `models/detector/best.onnx` có sẵn, hoặc
+   chọn detector khác trong sidebar.
+3. Trong tab **Build Recipe**, nhập `Board ID`, chọn `top`/`bottom`, đặt
+   calibration/tolerance rồi tạo fixed slot ROI và strict-alignment anchors.
+4. Trong tab **Inspect Board**, chạy core inspector. UI hiển thị Alignment,
+   Position và Appearance ở ba bảng riêng, kèm overlay và JSON portable.
+5. Recipe có thể tải thành ZIP gồm `recipe.json` và toàn bộ asset tương đối;
+   kết quả inspection tải thành `inspection_result.json`.
 
-Không có Golden Image thì bấm **Bỏ qua căn chỉnh**; pipeline vẫn chạy hết bước
-3–6.1, chỉ là toạ độ không được đưa về hệ của board chuẩn.
+Anchor lưới tự động chỉ phục vụ enrollment demo và vẫn phải qua residual,
+inlier, scale, rotation và canvas-overlap gate. Không đánh dấu calibration là
+verified nếu chưa đo thật. Recipe demo vẫn inspect được khi tắt production gate,
+nhưng không được coi là acceptance production.
 
-Mọi tuỳ chọn còn lại của bước 1 (resize, khử nhiễu, white balance, CLAHE,
-normalize, sharpen) dùng được ngay mà không cần gì thêm.
+Recipe hiện dùng schema `aoi-inspection-recipe/1.1`: Golden, mọi anchor,
+template và mask lossless đều có SHA-256 riêng, và các digest đó được gắn vào
+recipe hash. Sửa một asset cùng kích thước cũng làm validation thất bại. Recipe
+schema 1.0 không có bảo đảm này nên phải build lại thay vì được nâng cấp ngầm.
+Khi camera calibration được bật, Golden lẫn ảnh test đều chỉ đi qua undistort
+(không resize/letterbox); profile hoặc alpha khác recipe sẽ dừng inspection.
 
-### Cài đặt: kiểm tra nhanh
-
-Nếu nghi thiếu thư viện, chạy lệnh này. Chỉ cần `requirements.txt` là bước 1 và 2
-chạy đủ; `requirements-model.txt` chỉ cần cho bước 4/6.1 khi nạp model.
-
-```powershell
-.\.venv\Scripts\python.exe -c "import cv2, numpy, pandas, streamlit; print('core OK', cv2.__version__)"
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-Test chạy sạch nghĩa là phần calibration và alignment đã hoạt động; lúc đó thứ
-còn thiếu chắc chắn là file đầu vào, không phải cài đặt.
+File detector `.pt` chỉ được chạy sau khi người dùng xác nhận tin cậy trong
+sidebar vì định dạng này có thể thực thi pickle khi nạp. Recipe production chỉ
+được xét khi detector runtime khớp identifier/hash đã lưu, metrology đã verified
+và anchor có provenance fiducial/hole/stable-patch được phê duyệt; anchor lưới
+tự động không thể tự nâng recipe lên production.
 
 ## Hiệu chỉnh méo ống kính camera
 
@@ -67,18 +69,10 @@ Bước 1 hỗ trợ profile camera OpenCV để sửa méo radial/tangential **
 resize**. Đây là lớp xử lý khác với homography ở bước 2: undistort sửa méo lens,
 còn homography đưa mặt phẳng PCB về Golden Image.
 
-**Bước 0 — in bàn cờ.** Tải một mẫu chessboard bất kỳ (ví dụ 10×7 ô), in ra và
-dán phẳng lên bìa cứng. Bàn cờ cong sẽ làm sai toàn bộ phép hiệu chỉnh. Đo cạnh
-một ô bằng thước, đó là `--square-size`.
-
-**Bước 1 — chụp.** Cần ít nhất 10 ảnh dùng được, nên chụp 15–25 ảnh bằng **đúng**
-camera, lens, tiêu cự, focus và độ phân giải sẽ dùng khi chạy AOI. Đổi bất kỳ thứ
-nào trong số đó là profile hết giá trị. Cho bàn cờ xuất hiện ở giữa khung, ở bốn
-góc, sát cạnh ảnh, và nghiêng nhiều góc khác nhau — nghiêng là thứ tách được tiêu
-cự khỏi khoảng cách, chụp toàn ảnh chính diện sẽ ra profile kém.
-
-**Bước 2 — chạy script.** `--columns`/`--rows` là số **giao điểm bên trong**,
-không phải số ô. Bàn cờ 10×7 ô có 9×6 giao điểm trong:
+Chuẩn bị ít nhất 10 ảnh bàn cờ calibration ở đúng camera, lens, tiêu cự, focus và
+độ phân giải sẽ dùng khi chạy AOI. Nên chụp 15–25 ảnh với bàn cờ xuất hiện ở giữa,
+các góc, cạnh ảnh và nhiều góc nghiêng. `--columns`/`--rows` là số **giao điểm bên
+trong**, không phải số ô. Ví dụ bàn cờ 10×7 ô có 9×6 giao điểm trong:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\calibrate_camera.py `
@@ -91,18 +85,11 @@ không phải số ô. Bàn cờ 10×7 ô có 9×6 giao điểm trong:
   --output camera_profiles\cam01_12mm.json
 ```
 
-Đơn vị `--square-size` có thể là mm hoặc đơn vị khác miễn nhất quán.
-
-Script in ra số ảnh nhận/loại và reprojection error. **RMS dưới ~0.5 px là tốt,
-trên ~1.0 px thì nên chụp lại** — thường là do bàn cờ cong, ảnh mờ, hoặc thiếu
-góc nghiêng. Ảnh nào không tìm thấy bàn cờ sẽ được liệt kê ở mục Rejected; nếu
-loại quá nhiều thì kiểm tra lại `--columns`/`--rows` trước đã, đếm nhầm giao điểm
-là lỗi hay gặp nhất.
-
-**Bước 3 — dùng trong app:**
+Đơn vị `--square-size` có thể là mm hoặc đơn vị khác miễn nhất quán. Sau khi tạo
+profile:
 
 1. Mở sidebar **Camera calibration** và tải file JSON.
-2. Ở bước 1 bật **Sửa méo ống kính** (ô này chỉ bật lên sau khi có profile).
+2. Ở bước 1 bật **Sửa méo ống kính**.
 3. Để `Giữ vùng biên sau undistort = 0` nếu muốn ít viền đen; tăng dần về `1` nếu
    cần giữ trường nhìn.
 4. Nếu dùng Golden Image, ảnh chuẩn phải là ảnh raw từ cùng camera/lens/recipe;
@@ -176,16 +163,10 @@ một crop cụt ở mép. Sau same-class NMS, hai box khác class nhưng IoU tr
 coi là hai giả thuyết cho cùng vật thể và chỉ giữ box có ưu tiên cao hơn. Lưới debug
 vẽ cả cửa sổ inference và ownership để kiểm tra trực quan.
 
-Client **cảnh báo** khi ảnh toàn PCB dưới **1280×960 px (1,23 MP)** nhưng không
-chặn — bật lại chặn cứng bằng `ENFORCE_SOURCE_RESOLUTION = True` trong
-`app/streamlit_app.py`. Nên bật cho dây chuyền thật: chạy một board mà không ai
-chấm nổi còn tệ hơn là từ chối nó. Trong lúc phát triển thì nó chỉ ngăn bạn thử
-đúng những ảnh đang có.
-
-Con số vẫn được đo và hiện ra dù không chặn, vì nó vẫn quan trọng: fillet cần cỡ
-10 px ngang mới đọc được hình dạng, nên một lượt chạy ở độ phân giải thấp có thể
-trông sạch sẽ trong khi không hề nhìn thấy được lỗi nó đáng lẽ phải tìm. Upscale
-ảnh cũ không giúp gì vì không tạo thêm chi tiết quang học.
+Client chặn ảnh toàn PCB dưới **1280×960 px (1,23 MP)** ngay tại bước import và
+kiểm tra lại trước preprocessing. Thông báo yêu cầu chụp/gửi ảnh khác; upscale ảnh
+cũ không được coi là đạt chất lượng vì không tạo thêm chi tiết quang học. Ngưỡng
+này là gate ban đầu, cần tăng theo kích thước linh kiện nhỏ nhất của camera thật.
 
 Detector class trên overlay chỉ là gợi ý. Nếu một capacitor/LED có box nhưng bị
 gán thành resistor, tiling/NMS không thể sửa class một cách đáng tin cậy; bước 6.1
@@ -200,132 +181,6 @@ từ tensor tile đã bị detector letterbox/resize.
 Với camera nhiều khung sau này, mỗi frame dùng chính contract `frame_id` và tọa độ
 frame-local này: undistort, detect từng frame, chiếu box qua homography sang hệ PCB
 chung rồi global merge. Panorama chỉ cần cho hiển thị, không phải đầu vào detector.
-
-## Bước 5.5 — ROI mối hàn cho bước 6.2
-
-Detector ở bước 4 được train trên dataset gán nhãn **thân linh kiện**. Fillet
-mối hàn nằm *ngoài* silhouette đó, nên không có box nào của detector — và không
-có lần train lại nào trên cùng bộ nhãn — chứa được mối hàn. Đi bắt detector tìm
-thẳng mối hàn cũng không phải lựa chọn: model hiện tại đạt recall **0.0** cho
-class `pads` trên cả val lẫn test (186 instance train), và 0.14/0.21 cho `pins`.
-
-Vì vậy ROI mối hàn được **suy ra** chứ không phải detect. Từ box cộng với
-topology chân của class, vị trí mọi mối hàn là bài toán hình học — đúng cách các
-hệ AOI cửa sổ vẫn đặt vùng kiểm tra:
-
-| Topology | Class | ROI sinh ra |
-|---|---|---|
-| `two_terminal` | resistor, capacitor, diode, led, inductor, fuse | 2 ROI ở hai đầu trục dài |
-| `multi_pin` | ic, connector, transistor, relay, switch… và mọi class chưa biết | 1 ROI dải cho mỗi cạnh có chân |
-| `pad_only` | pads | chính box đó, nới nhẹ |
-
-Mỗi linh kiện còn có thêm một ảnh `body` gồm thân **và** toàn bộ chân — đây là
-view "nhìn thấy cả mối hàn" mà box gốc không cho.
-
-Với board `multi_pin`, cạnh nào không có kim loại chân sẽ bị loại bằng năng
-lượng Laplacian tương đối giữa 4 cạnh của cùng linh kiện, nên SOIC chỉ còn hai
-dải trái/phải thay vì bốn. Nếu không truyền ảnh vào, bộ lọc bị bỏ qua và cả 4
-cạnh được giữ: loại bỏ một cạnh khi không có bằng chứng sẽ làm mất mối hàn mà
-không báo.
-
-Tùy chọn `split_pins` cắt mỗi dải thành một ROI cho từng chân, dùng profile 1-D
-đã khử nền. Mặc định **tắt**, vì lỗi bridge nằm giữa hai chân nên ROI dải thường
-là đơn vị kiểm tra tốt hơn. Khi bật, dải nào không đọc được hàng chân đáng tin
-(số chân hoặc pitch bất thường) sẽ giữ nguyên là một dải thay vì bịa ra chân.
-
-### Sinh dataset cho bước 6.2
-
-```powershell
-.\.venv\Scripts\python.exe scripts\export_solder_dataset.py D:\anh_board `
-  --output D:\datasets\solder_v1 `
-  --model models\detector\best.onnx `
-  --overlays
-```
-
-Kết quả là `crops/` phẳng cộng `solder_dataset.csv` có cột `defect_class` bỏ
-trống. Hình học đã giải quyết xong, nên gán nhãn chỉ còn là phán quyết theo từng
-dòng chứ không phải đi khoanh box lại. Script cảnh báo nếu ROI quá nhỏ để chấm
-được fillet. Trong app, bước 5 có tab **ROI mối hàn (6.2)** để xem overlay,
-gallery và tải cùng bảng nhãn đó.
-
-### Hai điều kiện vật lý quyết định bước 6.2
-
-Trước khi gán nhãn cả lô, hãy xem `overlays/` và một mẫu `crops/`:
-
-- **Ánh sáng.** AOI soi mối hàn thật dùng đèn vòng RGB đa góc để độ dốc fillet
-  được mã hóa thành màu. Với đèn trắng phẳng hoặc coaxial, mối hàn tốt và cold
-  joint gần như giống hệt nhau, và không model nào sửa được điều đó.
-- **Độ phân giải.** Fillet cần cỡ 10–15 px ngang mới đọc được hình dạng. Với
-  linh kiện 0402 tức khoảng 15–25 µm/px, tức board 100 mm cần ảnh cỡ 5000–6000
-  px chiều ngang. Gate import hiện tại là 1280×960, thấp hơn nhiều bậc so với
-  yêu cầu đó.
-
-Nếu có Gerber/CAD hoặc file pick-and-place thì phần dưới đây hợp nhất toạ độ
-land thật vào chính hình học này. Không có CAD thì mọi thứ trên vẫn chạy nguyên
-vẹn.
-
-### Hợp nhất sơ đồ CAD (đã dựng sẵn, chưa cần file)
-
-Toàn bộ đường CAD đã có trong code. Khi có sơ đồ thì chỉ cần nạp file vào, không
-phải sửa gì. **Chưa có file thì pipeline chạy đúng như phần trên**, không thêm
-bước nào.
-
-Quan trọng: đây là **kết hợp**, không phải chọn một trong hai. CAD biết land nằm
-đâu và linh kiện *phải* là gì, nhưng không biết board đang nằm đâu dưới camera và
-không biết linh kiện nào đặt sai hay thiếu. Detector thì ngược lại. Nên:
-
-| Tình huống | ROI sinh ra | `source` |
-|---|---|---|
-| Hai bên cùng chỉ vào một land | ROI hợp nhất | `cad+derived` |
-| CAD có land, detector không có ROI ở đó | ROI theo land CAD | `cad` |
-| Detector có ROI, CAD không liệt kê land (thermal pad, shield…) | Giữ ROI suy ra | `derived` |
-| CAD chỉ có vị trí đặt (pick-and-place) | Hình học suy ra, neo trên tâm/góc CAD | `cad+derived` |
-| CAD có linh kiện, ảnh không thấy | ROI theo land + finding `missing_component` | `cad` |
-| Ảnh có linh kiện, CAD không có | Giữ ROI suy ra + finding `unexpected_component` | `derived` |
-
-Hai điểm làm nên phần "kết hợp":
-
-- **Hiệu chỉnh cục bộ.** CAD cho footprint, detector cho biết linh kiện *này*
-  thực tế nằm đâu. Mỗi linh kiện được dịch theo sai lệch giữa hai vị trí, nên một
-  phép căn chỉ gần đúng trên toàn board vẫn cho ROI chính xác tại từng linh kiện.
-- **Topology chân lấy từ số pad thật.** Một linh kiện 4 chân bị detector đọc nhầm
-  thành `resistor` vẫn ra 4 ROI, thay vì 2 theo suy đoán từ class.
-
-Nhờ đối chiếu, có thêm bốn loại lỗi phát hiện được **không cần model nào** — ghi
-vào `cad_findings.csv`: `missing_component` (defect), `shifted_component`
-(review, ngưỡng mặc định 0.5 mm), `unexpected_component` và `class_mismatch`.
-
-Định dạng nhận được: bảng pad CSV, file pick-and-place/centroid, IPC-D-356A, và
-`cad_json` đã lưu. Nhận dạng tự động. Thêm định dạng mới chỉ là viết một hàm rồi
-đăng ký vào `CAD_LOADERS`.
-
-```powershell
-.\.venv\Scripts\python.exe scripts\export_solder_dataset.py D:\anh_board `
-  --output D:\datasets\solder_v1 `
-  --model models\detector\kaggle\best.onnx `
-  --cad D:\cad\board_pads.csv `
-  --save-registration D:\cad\reg_sku01.json
-```
-
-Trong app: sidebar có mục **Sơ đồ CAD (tuỳ chọn)**, bước 5 có tab **Đối chiếu CAD**.
-
-**Phép căn sai trông y hệt phép căn đúng nếu chỉ nhìn residual**, nên hệ thống báo
-ra thay vì im lặng áp dụng: phép căn kém chất lượng bị **từ chối** và quay về ROI
-suy ra; phép căn mơ hồ (layout đối xứng, hoặc detector không cho class) bị đánh
-dấu `ambiguous` kèm cảnh báo. Chốt chắc chắn bằng fiducial hoặc file
-`registration.json` lưu một lần cho mỗi SKU/đồ gá.
-
-Chi tiết định dạng, cách căn và cách xử lý khi phép căn không đáng tin:
-[docs/cad_formats.md](docs/cad_formats.md), template:
-[docs/cad_pads_template.csv](docs/cad_pads_template.csv).
-
-### Crop bước 5 vẫn giữ nguyên hợp đồng với 6.1
-
-Bước 5.5 có ROI riêng đúng để không phải nới crop của bước 5. Classifier 6.1
-được train với `pad = 0.15 × max(w, h)`, cắt theo biên ảnh, **không** ép vuông;
-`CropConfig` và config UI nay khớp đúng công thức đó. `CropConfig.solder_aware_padding`
-cho phép chuyển sang padding theo trục/theo class, nhưng mặc định tắt vì nó làm
-lệch phân bố đầu vào của classifier.
 
 ## Trạng thái bước 6.1
 
@@ -351,6 +206,7 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 - [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
 - [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach_pretrain_6_1_classification.md).
 
+<<<<<<< HEAD
 ## Bước 6.2 — Kiểm tra mối hàn
 
 Chấm từng ROI do bước 5.5 sinh ra. **Chạy được ngay khi chưa có model.**
@@ -777,53 +633,23 @@ của Ultralytics (đa tỉ lệ + lật, tự hợp nhất trước NMS) — k�
 [tests/detection/test_detectors.py](tests/detection/test_detectors.py) kiểm cả
 việc 4 view thật sự được lật đúng chiều lẫn xác suất được trung bình đúng.
 
+=======
+>>>>>>> 4f1691c6e6ac3841aecc56f290b647f755d40bec
 ## Cấu trúc dự án
 
 ```text
-aoi_pipeline/        Thư viện pipeline, chia theo bước
-  core/                Nền tảng: models, exceptions, image_io (không phụ thuộc ai)
-  imaging/             Bước 0–1: calibration, preprocessing
-  board/               Bước 2–3: alignment, localization
-  detection/           Bước 4: detectors, tiling
-  inspection/          Bước 5–5.5: cropping, solder, cad, fusion
-  export/              Đóng gói: exporters, overlays
-  grading/             Bước 6.2: features, rules, classifier, inspector
-  classification.py    Bước 6.1
-  config.py            Toàn bộ knob của mọi bước, một chỗ
-  pipeline.py          Facade 0 → 6.1
 app/                 Streamlit UI và bridge
-tests/               Unit tests, soi gương cấu trúc aoi_pipeline/
-training/            Notebook train bước 4 / 6.1 / 6.2 (có bản v2), script train 6.2 tại máy
+aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.1
+tests/               Unit tests
+training/kaggle/     Notebook train detector bước 4 và classifier bước 6.1
 models/              Nơi đặt model local (weights không commit Git)
-docs/                Khảo sát dataset, kế hoạch 6.1, hướng dẫn nạp CAD
-scripts/             Setup/chạy app, calibrate camera, export dataset 6.2
-legacy/              Prototype cũ (KCS_Inspec_PCBA_V2.exe), không commit Git
+Docs/                Khảo sát dataset và kế hoạch pre-train 6.1
+scripts/             Setup/chạy app trên Windows
 ```
-
-Phụ thuộc trong `aoi_pipeline/` phân tầng nghiêm ngặt và không có vòng: `core/`
-không phụ thuộc ai, mỗi package theo bước chỉ phụ thuộc `core/` cộng `config.py`,
-và chỉ `pipeline.py` biết tới tất cả. Vì vậy đọc một bước không cần đọc bước khác.
-
-API công khai vẫn nguyên: `from aoi_pipeline import ...` không đổi gì. Chỉ khi
-import thẳng submodule mới cần dùng đường dẫn mới, ví dụ
-`from aoi_pipeline.inspection.cad import load_cad`.
 
 ## Giới hạn hiện tại
 
 - Khoanh PCB ở bước 3 đang dùng contour fallback, chưa có PCB detector riêng.
-- ROI bước 5.5 suy ra từ box nên chỉ đúng khi class của detector đúng; class sai
-  kéo theo topology chân sai. Nạp CAD sẽ lấy topology từ số pad thật.
-- Tự căn CAD cần detector cho được class thật; với CV demo (mọi thứ đều là
-  `component_candidate`) phép căn chỉ dựa trên hình học và bị đánh dấu mơ hồ trên
-  layout đối xứng. Dùng fiducial hoặc registration đã lưu cho sản xuất.
-- Chưa có loader cho KiCad `.kicad_pcb`, ODB++ hay Gerber; quy về bảng pad CSV
-  hoặc thêm loader vào `CAD_LOADERS`.
-- Ước lượng góc xoay linh kiện (`estimate_orientation`) mặc định tắt: góc sai làm
-  lệch mọi ROI suy ra từ nó, đắt hơn là để ROI axis-aligned hơi rộng.
-- Ngưỡng mặc định của bước 6.2 là số khởi đầu, không phải số đúng cho dây chuyền
-  của bạn; phải chạy `calibrate_solder_thresholds.py` trước khi tin kết quả.
-- Tầng đo của bước 6.2 phụ thuộc mạnh vào ánh sáng: đèn trắng phẳng không tách
-  được mối hàn nguội khỏi mối hàn tốt.
 - CV proposal ở bước 4 không thay thế model đã train.
 - Baseline dùng `max_det=2000` cho board dày linh kiện; cần tune lại theo SKU/tốc độ.
 - Adaptive tiling tăng recall cho linh kiện nhỏ nhưng tăng thời gian gần tỷ lệ với

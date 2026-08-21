@@ -18,20 +18,10 @@ runs/
 tmp/
 *.log
 
-# Pretrained weights auto-downloaded by Ultralytics into the CWD
-yolo*.pt
-yolo*.yaml
-
 # Trained model artifacts (keep metadata/configs in Git)
 models/*.engine
 models/*.torchscript
 training/artifacts/
-
-# Ultralytics writes its own settings here when run from the repo root:
-# machine-specific dataset/weights paths plus a per-install uuid, so it is
-# local tool state, not project source. The folder is left where the tool
-# expects it; only Git ignores it.
-Ultralytics/
 
 # IDE / OS
 .idea/
@@ -39,7 +29,6 @@ Ultralytics/
 .DS_Store
 Thumbs.db
 
-# Legacy prototype: RTSP credentials and a 130 MB binary, kept on disk for
-# reference but never in Git.
-legacy/rtsp.txt
-legacy/KCS_Inspec_PCBA_V2.exe
+# Local camera credentials from the legacy prototype
+Ver1/rtsp.txt
+Ver1/KCS_Inspec_PCBA_V2.exe

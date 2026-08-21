@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "D:\\repos\\Internship\\datasets",
+  "weights_dir": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\weights",
+  "runs_dir": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\runs",
+  "uuid": "5e3c8117e3b2a03f9019b5cb7e963740a3014ead9f95b1b54924032069eec632",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

@@ -1,4 +1,4 @@
-"""Streamlit dashboard for AOI PCB steps 0 through 6.1.
+"""Streamlit dashboard for Golden inspection and AOI steps 0 through 6.1.
 
 Run from the repository root:
 
@@ -9,7 +9,6 @@ All images in session state and at the pipeline boundary use OpenCV BGR order.
 
 from __future__ import annotations
 
-import collections
 from collections.abc import Mapping
 import csv
 from datetime import datetime, timezone
@@ -22,6 +21,7 @@ import re
 import sys
 import tempfile
 from typing import Any, Callable
+from uuid import uuid4
 import zipfile
 
 
@@ -34,15 +34,6 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from aoi_pipeline.inspection.cad import (  # noqa: E402
-    CadError,
-    CadRegistration,
-    load_cad,
-)
-from aoi_pipeline.grading.classifier import (  # noqa: E402
-    MANIFEST_SCHEMA as SOLDER_MANIFEST_SCHEMA,
-)
-
 from app.pipeline_bridge import (  # noqa: E402
     BoardResult,
     ClassificationRecord,
@@ -50,26 +41,20 @@ from app.pipeline_bridge import (  # noqa: E402
     CropRecord,
     DetectionRecord,
     DetectionResult,
+    InspectionRecipeRecord,
+    InspectionResult,
     PipelineBridge,
-    SolderCropRecord,
-    SolderResult,
-    SolderVerdictRecord,
     StageResult,
 )
 
 
 APP_TITLE = "AOI PCB · Workbench"
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.6.0"
 MAX_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 50_000_000
 MIN_SOURCE_LONG_SIDE = 1280
 MIN_SOURCE_SHORT_SIDE = 960
 MIN_SOURCE_PIXELS = MIN_SOURCE_LONG_SIDE * MIN_SOURCE_SHORT_SIDE
-# The resolution figure is still measured and still shown; it just no longer
-# blocks the import. Set this back to True for a production line, where running
-# a board nobody can grade is worse than refusing it. During development it only
-# stops you from feeding the pipeline the images you have.
-ENFORCE_SOURCE_RESOLUTION = False
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 STEP_DEFINITIONS = (
     (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
@@ -152,47 +137,13 @@ def _default_config() -> dict[str, Any]:
             "cross_class_iou": 0.70,
             "show_tile_grid": False,
         },
-        # Mirrors the step-6.1 training crop recipe: pad = 0.15 * max(w, h),
-        # no squaring, letterbox to 224. A fixed pixel padding is not a
-        # substitute -- 6 px around an 0603 chip is effectively no padding.
         "crops": {
-            "padding": 0,
-            "padding_ratio": 0.15,
+            "padding": 6,
+            "padding_ratio": 0.0,
             "square": False,
             "normalize": True,
             "target_size": 224,
             "image_format": "png",
-        },
-        # Left empty on purpose: the pipeline runs unchanged with no CAD,
-        # and the sidebar fills these in when a board file is uploaded.
-        "cad": {
-            "path": None,
-            "fmt": "auto",
-            "units": "mm",
-            "side": "top",
-            "registration_path": None,
-            "auto_register": True,
-        },
-        "fusion": {
-            "enabled": True,
-            "local_refine": True,
-            "max_shift_mm": 0.5,
-            "merge_mode": "union",
-            "emit_cad_only_rois": True,
-        },
-        "solder_grading": {
-            "enabled": True,
-            "model_path": None,
-            "manifest_path": None,
-            "rules_only_defect_decision": "review",
-        },
-        "solder": {
-            "enabled": True,
-            "split_pins": False,
-            "include_body_view": True,
-            "target_size": 128,
-            "terminal_outer_ratio": 0.45,
-            "lead_outer_ratio": 0.26,
         },
         "classification": {
             "batch_size": 32,
@@ -206,7 +157,9 @@ def _default_config() -> dict[str, Any]:
 
 
 def _init_state() -> None:
+    local_detector = PROJECT_ROOT / "models" / "detector" / "best.onnx"
     defaults: dict[str, Any] = {
+        "workspace_mode": "golden_inspection",
         "active_step": 0,
         "pending_navigation": None,
         "input_image": None,
@@ -220,8 +173,8 @@ def _init_state() -> None:
         "board_model_path": None,
         "board_model_name": None,
         "board_model_digest": None,
-        "component_model_path": None,
-        "component_model_name": None,
+        "component_model_path": str(local_detector) if local_detector.is_file() else None,
+        "component_model_name": local_detector.name if local_detector.is_file() else None,
         "component_model_digest": None,
         "classifier_model_path": None,
         "classifier_model_name": None,
@@ -230,26 +183,16 @@ def _init_state() -> None:
         "classifier_manifest_name": None,
         "classifier_manifest_digest": None,
         "classifier_manifest_quality_warning": None,
-        "cad_path": None,
-        "cad_name": None,
-        "cad_digest": None,
-        "cad_summary": None,
-        "cad_registration_path": None,
-        "cad_registration_name": None,
-        "solder_model_path": None,
-        "solder_model_name": None,
-        "solder_model_digest": None,
-        "solder_manifest_path": None,
-        "solder_manifest_name": None,
-        "solder_manifest_digest": None,
         "pt_model_trusted": False,
         "preprocess_result": None,
         "alignment_result": None,
         "board_result": None,
         "detection_result": None,
         "crops": [],
-        "solder_result": None,
         "classification_result": None,
+        "inspection_recipe": None,
+        "inspection_run": None,
+        "inspection_session_id": uuid4().hex,
         "statuses": {step: "pending" for step in range(7)},
         "latencies": {},
         "messages": [],
@@ -263,10 +206,6 @@ def _init_state() -> None:
             "component": None,
             "classifier": None,
             "classifier_manifest": None,
-            "cad": None,
-            "cad_registration": None,
-            "solder_model": None,
-            "solder_manifest": None,
         },
     }
     for key, value in defaults.items():
@@ -303,14 +242,7 @@ def _decode_image(data: bytes) -> np.ndarray:
 
 
 def _source_resolution_issue(image: np.ndarray) -> str | None:
-    """Describe how far a board image falls short of the recommended resolution.
-
-    Returns the description whether or not it is enforced, because the number
-    still matters: a fillet needs roughly ten pixels across it before its shape
-    is readable, so a low-resolution run can look clean while being unable to
-    see the defects it was meant to find. Whether that description blocks the
-    import is :data:`ENFORCE_SOURCE_RESOLUTION`'s business, not this function's.
-    """
+    """Return a user-facing quality gate error for a complete-board import."""
 
     height, width = (int(value) for value in image.shape[:2])
     long_side, short_side = max(width, height), min(width, height)
@@ -320,27 +252,17 @@ def _source_resolution_issue(image: np.ndarray) -> str | None:
         or short_side < MIN_SOURCE_SHORT_SIDE
         or pixel_count < MIN_SOURCE_PIXELS
     ):
-        blocked = (
-            "Pipeline đã khóa để tránh bỏ sót linh kiện nhỏ."
-            if ENFORCE_SOURCE_RESOLUTION
-            else "Ảnh vẫn chạy được để thử nghiệm, nhưng linh kiện và mối hàn nhỏ "
-            "có thể bị bỏ sót — đừng lấy kết quả ở độ phân giải này làm căn cứ "
-            "đánh giá model."
-        )
         return (
             f"Ảnh {width} × {height}px ({pixel_count / 1_000_000:.2f} MP) không đạt "
-            f"ngưỡng ảnh toàn PCB khuyến nghị {MIN_SOURCE_LONG_SIDE} × "
+            f"ngưỡng ảnh toàn PCB tối thiểu {MIN_SOURCE_LONG_SIDE} × "
             f"{MIN_SOURCE_SHORT_SIDE}px ({MIN_SOURCE_PIXELS / 1_000_000:.2f} MP). "
-            f"{blocked}"
+            "Pipeline đã khóa để tránh bỏ sót linh kiện nhỏ. Hãy chụp hoặc gửi "
+            "ảnh khác có độ phân giải cao hơn; không nội suy/upscale ảnh cũ."
         )
     return None
 
 
 def _require_source_resolution(image: np.ndarray) -> None:
-    """Raise only when the gate is enforced; otherwise the caller warns instead."""
-
-    if not ENFORCE_SOURCE_RESOLUTION:
-        return
     issue = _source_resolution_issue(image)
     if issue:
         raise ValueError(issue)
@@ -391,9 +313,6 @@ def _invalidate_after(step: int) -> None:
     }
     for candidate in range(step + 1, 7):
         st.session_state[result_keys[candidate]] = [] if candidate == 5 else None
-        if candidate == 5:
-            # Step 5.5 shares step 5's inputs, so it expires with the crops.
-            st.session_state.solder_result = None
         st.session_state.statuses[candidate] = "pending"
         st.session_state.latencies.pop(candidate, None)
 
@@ -408,6 +327,7 @@ def _set_source(name: str, data: bytes) -> None:
     st.session_state.input_name = name
     st.session_state.input_digest = digest
     st.session_state.statuses[0] = "done"
+    st.session_state.inspection_run = None
     _invalidate_after(0)
     st.session_state.messages.append(f"Đã nạp ảnh: {name}")
 
@@ -425,6 +345,8 @@ def _set_reference(upload: Any) -> None:
     st.session_state.reference_name = upload.name
     st.session_state.reference_digest = digest
     st.session_state.ignored_uploads["reference"] = None
+    st.session_state.inspection_recipe = None
+    st.session_state.inspection_run = None
     _invalidate_after(1)
     st.session_state.messages.append(f"Đã nạp Golden Image: {upload.name}")
 
@@ -486,6 +408,8 @@ def _set_model(upload: Any, kind: str) -> None:
         _invalidate_after(2)
     elif kind == "component":
         st.session_state.pt_model_trusted = Path(upload.name).suffix.lower() != ".pt"
+        st.session_state.inspection_recipe = None
+        st.session_state.inspection_run = None
         _invalidate_after(3)
     else:
         _invalidate_after(5)
@@ -501,6 +425,8 @@ def _remove_model(kind: str) -> None:
         _invalidate_after(2)
     elif kind == "component":
         st.session_state.pt_model_trusted = False
+        st.session_state.inspection_recipe = None
+        st.session_state.inspection_run = None
         _invalidate_after(3)
     else:
         _invalidate_after(5)
@@ -551,174 +477,6 @@ def _remove_classifier_manifest() -> None:
     st.session_state.classifier_manifest_digest = None
     st.session_state.classifier_manifest_quality_warning = None
     _invalidate_after(5)
-
-
-def _set_solder_model(upload: Any) -> None:
-    """Accept the step-6.2 ONNX. Validation waits for the manifest.
-
-    The two are only meaningful together: an ONNX whose class order is unknown
-    cannot be checked, and guessing that order maps every defect onto a pass.
-    """
-
-    if upload is None:
-        return
-    data = upload.getvalue()
-    if not data or len(data) > 256 * 1024 * 1024:
-        raise ValueError("File model rỗng hoặc vượt quá 256 MB.")
-    digest = _digest(data)
-    if digest in (
-        st.session_state.ignored_uploads.get("solder_model"),
-        st.session_state.solder_model_digest,
-    ):
-        return
-    path = _materialize_upload(upload.name, data)
-    st.session_state.solder_model_path = path
-    st.session_state.solder_model_name = upload.name
-    st.session_state.solder_model_digest = digest
-    st.session_state.config["solder_grading"]["model_path"] = path
-    st.session_state.ignored_uploads["solder_model"] = None
-    _invalidate_after(5)
-    st.session_state.messages.append(f"Đã nạp model 6.2: {upload.name}")
-
-
-def _set_solder_manifest(upload: Any) -> None:
-    """Accept and validate the step-6.2 contract before the run needs it."""
-
-    if upload is None:
-        return
-    data = upload.getvalue()
-    if not data or len(data) > 1024 * 1024:
-        raise ValueError("model_manifest.json rỗng hoặc vượt quá 1 MB.")
-    digest = _digest(data)
-    if digest in (
-        st.session_state.ignored_uploads.get("solder_manifest"),
-        st.session_state.solder_manifest_digest,
-    ):
-        return
-    try:
-        manifest = json.loads(data.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError) as exc:
-        st.session_state.ignored_uploads["solder_manifest"] = digest
-        raise ValueError(f"model_manifest.json không hợp lệ: {exc}") from exc
-    if (
-        not isinstance(manifest, dict)
-        or manifest.get("schema_version") != SOLDER_MANIFEST_SCHEMA
-    ):
-        st.session_state.ignored_uploads["solder_manifest"] = digest
-        raise ValueError(
-            f"Manifest không đúng schema {SOLDER_MANIFEST_SCHEMA} của bước 6.2."
-        )
-    path = _materialize_upload(upload.name, data)
-    st.session_state.solder_manifest_path = path
-    st.session_state.solder_manifest_name = upload.name
-    st.session_state.solder_manifest_digest = digest
-    st.session_state.config["solder_grading"]["manifest_path"] = path
-    st.session_state.ignored_uploads["solder_manifest"] = None
-    _invalidate_after(5)
-    st.session_state.messages.append(f"Đã nạp manifest 6.2: {upload.name}")
-
-
-def _remove_solder_model() -> None:
-    for key in (
-        "solder_model_path", "solder_model_name", "solder_model_digest",
-        "solder_manifest_path", "solder_manifest_name", "solder_manifest_digest",
-    ):
-        st.session_state[key] = None
-    st.session_state.config["solder_grading"]["model_path"] = None
-    st.session_state.config["solder_grading"]["manifest_path"] = None
-    _invalidate_after(5)
-    st.session_state.messages.append(
-        "Đã gỡ model 6.2; bước này quay về chấm bằng luật đo."
-    )
-
-
-def _set_cad(upload: Any) -> None:
-    """Accept a board CAD file and report what was parsed out of it.
-
-    Parsing happens here rather than at run time so a wrong or unreadable file
-    is caught while the operator is still looking at the sidebar.
-    """
-
-    if upload is None:
-        return
-    data = upload.getvalue()
-    if not data or len(data) > 32 * 1024 * 1024:
-        raise ValueError("File CAD rỗng hoặc vượt quá 32 MB.")
-    digest = _digest(data)
-    if digest == st.session_state.ignored_uploads.get("cad"):
-        return
-    if digest == st.session_state.cad_digest:
-        return
-    path = _materialize_upload(upload.name, data)
-    side = st.session_state.config["cad"].get("side") or None
-    try:
-        board = load_cad(
-            path,
-            fmt=st.session_state.config["cad"].get("fmt", "auto"),
-            units=st.session_state.config["cad"].get("units", "mm"),
-            side=side,
-        )
-    except CadError as exc:
-        st.session_state.ignored_uploads["cad"] = digest
-        raise ValueError(str(exc)) from exc
-
-    st.session_state.cad_path = path
-    st.session_state.cad_name = upload.name
-    st.session_state.cad_digest = digest
-    st.session_state.cad_summary = {
-        "format": board.source_format,
-        "components": len(board.components),
-        "pads": board.pad_count,
-        "with_pads": sum(1 for item in board.components if item.has_pads),
-        "side": side or "cả hai mặt",
-    }
-    st.session_state.config["cad"]["path"] = path
-    st.session_state.ignored_uploads["cad"] = None
-    _invalidate_after(4)
-    st.session_state.messages.append(
-        f"Đã nạp CAD {upload.name}: {len(board.components)} linh kiện, "
-        f"{board.pad_count} pad."
-    )
-
-
-def _remove_cad() -> None:
-    for key in ("cad_path", "cad_name", "cad_digest", "cad_summary"):
-        st.session_state[key] = None
-    st.session_state.config["cad"]["path"] = None
-    _invalidate_after(4)
-    st.session_state.messages.append("Đã gỡ file CAD; bước 5.5 quay lại ROI suy ra.")
-
-
-def _set_cad_registration(upload: Any) -> None:
-    """Reuse a registration measured earlier for this SKU and fixture."""
-
-    if upload is None:
-        return
-    data = upload.getvalue()
-    if not data or len(data) > 256 * 1024:
-        raise ValueError("File registration rỗng hoặc quá lớn.")
-    digest = _digest(data)
-    if digest == st.session_state.ignored_uploads.get("cad_registration"):
-        return
-    try:
-        CadRegistration.from_dict(json.loads(data.decode("utf-8")))
-    except (UnicodeError, json.JSONDecodeError, CadError, KeyError, TypeError, ValueError) as exc:
-        st.session_state.ignored_uploads["cad_registration"] = digest
-        raise ValueError(f"registration.json không hợp lệ: {exc}") from exc
-    path = _materialize_upload(upload.name, data)
-    st.session_state.cad_registration_path = path
-    st.session_state.cad_registration_name = upload.name
-    st.session_state.config["cad"]["registration_path"] = path
-    st.session_state.ignored_uploads["cad_registration"] = None
-    _invalidate_after(4)
-    st.session_state.messages.append(f"Đã nạp CAD registration: {upload.name}")
-
-
-def _remove_cad_registration() -> None:
-    st.session_state.cad_registration_path = None
-    st.session_state.cad_registration_name = None
-    st.session_state.config["cad"]["registration_path"] = None
-    _invalidate_after(4)
 
 
 def _classifier_manifest_quality_warning(manifest: Mapping[str, Any]) -> str | None:
@@ -979,35 +737,7 @@ def _execute_crops(bridge: PipelineBridge) -> list[CropRecord]:
     st.session_state.statuses[5] = "demo" if "DEMO" in detection_result.mode.upper() else "done"
     st.session_state.latencies[5] = round(elapsed_ms, 2)
     st.session_state.messages.append(f"Bước 5: tạo {len(crops)} crop.")
-    _execute_solder(bridge)
     return crops
-
-
-def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
-    """Step 5.5: derive the solder-joint ROIs that step 6.2 needs.
-
-    Failure here must not invalidate the component crops, which are the input
-    to step 6.1; it is reported and the run continues.
-    """
-
-    source = _analysis_image()
-    detection_result = st.session_state.detection_result
-    if source is None or not isinstance(detection_result, DetectionResult):
-        return None
-    if not st.session_state.config.get("solder", {}).get("enabled", True):
-        st.session_state.solder_result = None
-        return None
-    try:
-        result = bridge.make_solder_crops(source, detection_result.detections)
-    except Exception as exc:
-        st.session_state.solder_result = None
-        st.session_state.messages.append(
-            f"Bước 5.5 lỗi: {type(exc).__name__}: {exc}"
-        )
-        return None
-    st.session_state.solder_result = result
-    st.session_state.messages.append(f"Bước 5.5: {result.message}")
-    return result
 
 
 def _execute_classification(bridge: PipelineBridge) -> ClassificationResult:
@@ -1093,6 +823,65 @@ def _status_dot(status: str) -> str:
     }.get(status, "○")
 
 
+def _render_inspection_sidebar_resources() -> None:
+    st.markdown(
+        '<div class="sidebar-section-label">GOLDEN INSPECTION</div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("1 · Golden Image", expanded=True):
+        upload = st.file_uploader(
+            "Ảnh board chuẩn",
+            type=["png", "jpg", "jpeg", "tif", "tiff"],
+            key="inspection_golden_uploader",
+        )
+        if upload is not None:
+            try:
+                _set_reference(upload)
+            except ValueError as exc:
+                st.error(str(exc))
+        if st.session_state.reference_name:
+            st.success(st.session_state.reference_name)
+            st.caption("Recipe sẽ lưu Golden và mọi ROI thành PNG lossless.")
+            if st.button("Gỡ Golden", key="remove_inspection_golden", width="stretch"):
+                st.session_state.ignored_uploads["reference"] = (
+                    st.session_state.reference_digest
+                )
+                st.session_state.reference_image = None
+                st.session_state.reference_name = None
+                st.session_state.reference_digest = None
+                st.session_state.inspection_recipe = None
+                st.session_state.inspection_run = None
+                st.rerun()
+
+    with st.expander("2 · Ảnh test", expanded=True):
+        upload = st.file_uploader(
+            "Ảnh board cần kiểm tra",
+            type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
+            key="inspection_test_uploader",
+        )
+        if upload is not None:
+            try:
+                _set_source(upload.name, upload.getvalue())
+            except ValueError as exc:
+                st.error(str(exc))
+        if st.session_state.input_name:
+            st.success(st.session_state.input_name)
+
+    with st.expander("3 · Component detector", expanded=True):
+        upload = st.file_uploader(
+            "Detector (.onnx/.pt)",
+            type=["onnx", "pt"],
+            key="inspection_component_model_uploader",
+            help="Mặc định dùng models/detector/best.onnx có sẵn trong repo.",
+        )
+        if upload is not None:
+            _set_model(upload, "component")
+        _render_model_asset("component")
+    st.caption(
+        "Golden/Test chỉ được xử lý trong phiên local. Không có thao tác GitHub hoặc upload mạng."
+    )
+
+
 def _render_sidebar() -> bool:
     with st.sidebar:
         pending_navigation = st.session_state.pending_navigation
@@ -1109,6 +898,23 @@ def _render_sidebar() -> bool:
             """,
             unsafe_allow_html=True,
         )
+        st.radio(
+            "Workspace",
+            options=["golden_inspection", "pipeline_lab"],
+            format_func=lambda value: (
+                "Golden Inspection" if value == "golden_inspection" else "Pipeline 0–6.1"
+            ),
+            horizontal=True,
+            label_visibility="collapsed",
+            key="workspace_mode",
+        )
+        if st.session_state.workspace_mode == "golden_inspection":
+            _render_inspection_sidebar_resources()
+            st.markdown(
+                f'<div class="sidebar-version">LOCAL · v{APP_VERSION}</div>',
+                unsafe_allow_html=True,
+            )
+            return False
         st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–6.1</div>', unsafe_allow_html=True)
         step_markup: list[str] = ['<div class="stepper">']
         for step, name, description, code in STEP_DEFINITIONS:
@@ -1236,122 +1042,6 @@ def _render_sidebar() -> bool:
                     st.rerun()
             else:
                 st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
-
-        with st.expander("Model kiểm tra mối hàn 6.2 (tuỳ chọn)", expanded=False):
-            st.caption(
-                "Chưa có model thì bước 6.2 vẫn chấm bằng luật đo hình học. Nạp "
-                "cả hai file do training/train_solder_classifier.py xuất để bật "
-                "thêm tầng phân loại."
-            )
-            solder_model_upload = st.file_uploader(
-                "Model (.onnx)",
-                type=["onnx"],
-                key="solder_model_uploader",
-            )
-            if solder_model_upload is not None:
-                try:
-                    _set_solder_model(solder_model_upload)
-                except ValueError as exc:
-                    st.error(str(exc))
-            solder_manifest_upload = st.file_uploader(
-                "Contract (model_manifest.json)",
-                type=["json"],
-                key="solder_manifest_uploader",
-                help="Bắt buộc: quy định thứ tự class, tiền xử lý và ngưỡng quyết định.",
-            )
-            if solder_manifest_upload is not None:
-                try:
-                    _set_solder_manifest(solder_manifest_upload)
-                except ValueError as exc:
-                    st.error(str(exc))
-
-            has_model = bool(st.session_state.solder_model_name)
-            has_manifest = bool(st.session_state.solder_manifest_name)
-            if has_model and has_manifest:
-                st.success(f"6.2: {st.session_state.solder_model_name}")
-                if st.button("Gỡ model 6.2", key="remove_solder_model", width="stretch"):
-                    _remove_solder_model()
-                    st.rerun()
-            elif has_model or has_manifest:
-                st.warning(
-                    "Cần đủ cả .onnx và model_manifest.json; thiếu một trong hai thì "
-                    "bước 6.2 vẫn chạy bằng luật."
-                )
-            else:
-                st.caption("Chưa có model · bước 6.2 chấm bằng luật đo")
-
-        with st.expander("Sơ đồ CAD (tuỳ chọn)", expanded=False):
-            st.caption(
-                "Chưa có CAD thì bước 5.5 vẫn chạy bằng ROI suy ra. Nạp file vào "
-                "đây để hợp nhất toạ độ land thật với hình học đó."
-            )
-            cad_config = st.session_state.config["cad"]
-            side_options = ["top", "bottom", "both"]
-            current_side = cad_config.get("side") or "both"
-            chosen_side = st.selectbox(
-                "Mặt board đang soi",
-                side_options,
-                index=side_options.index(current_side) if current_side in side_options else 0,
-                key="cad_side_select",
-            )
-            cad_config["side"] = None if chosen_side == "both" else chosen_side
-            cad_upload = st.file_uploader(
-                "Board CAD",
-                type=["csv", "txt", "ipc", "d356", "json"],
-                key="cad_uploader",
-                help=(
-                    "Bảng pad, file pick-and-place (centroid), IPC-D-356A, hoặc "
-                    "cad_json đã lưu. Định dạng được nhận dạng tự động."
-                ),
-            )
-            if cad_upload is not None:
-                try:
-                    _set_cad(cad_upload)
-                except ValueError as exc:
-                    st.error(str(exc))
-            summary = st.session_state.cad_summary
-            if summary:
-                st.success(f"CAD: {st.session_state.cad_name}")
-                st.caption(
-                    f"{summary['format']} · {summary['components']} linh kiện · "
-                    f"{summary['pads']} pad · {summary['with_pads']} linh kiện có land · "
-                    f"mặt {summary['side']}"
-                )
-                if summary["pads"] == 0:
-                    st.info(
-                        "File chỉ có vị trí đặt, không có land. Bước 5.5 sẽ dựng lại "
-                        "ROI suy ra trên tâm và góc xoay của CAD."
-                    )
-                if st.button("Gỡ CAD", key="remove_cad", width="stretch"):
-                    _remove_cad()
-                    st.rerun()
-            else:
-                st.caption("Chưa có CAD · bước 5.5 chỉ dùng ROI suy ra")
-
-            registration_upload = st.file_uploader(
-                "Registration đã lưu (JSON)",
-                type=["json"],
-                key="cad_registration_uploader",
-                help=(
-                    "Ma trận CAD→ảnh đo một lần cho mỗi SKU/đồ gá. Không có thì app "
-                    "tự căn theo detection của từng ảnh."
-                ),
-            )
-            if registration_upload is not None:
-                try:
-                    _set_cad_registration(registration_upload)
-                except ValueError as exc:
-                    st.error(str(exc))
-            if st.session_state.cad_registration_name:
-                st.success(f"Registration: {st.session_state.cad_registration_name}")
-                if st.button("Gỡ registration", key="remove_cad_reg", width="stretch"):
-                    _remove_cad_registration()
-                    st.rerun()
-            else:
-                cad_config["auto_register"] = st.checkbox(
-                    "Tự căn CAD theo detection",
-                    value=bool(cad_config.get("auto_register", True)),
-                )
 
         st.markdown('<div class="security-note"><b>Lưu ý model</b><br>.pt có thể chứa pickle. Chỉ mở weight do bạn tự train hoặc nguồn tin cậy; ưu tiên ONNX khi trao đổi.</div>', unsafe_allow_html=True)
         quick_run = st.button(
@@ -1503,11 +1193,8 @@ def _render_step_zero() -> None:
                 st.metric("Kênh màu", "BGR · 8-bit")
                 resolution_issue = _source_resolution_issue(candidate)
                 if resolution_issue:
-                    (st.error if ENFORCE_SOURCE_RESOLUTION else st.warning)(resolution_issue)
-                blocked = bool(resolution_issue) and ENFORCE_SOURCE_RESOLUTION
-                if not blocked and st.button(
-                    "Nạp ảnh này vào pipeline", type="primary", width="stretch"
-                ):
+                    st.error(resolution_issue)
+                elif st.button("Nạp ảnh này vào pipeline", type="primary", width="stretch"):
                     _set_source(uploaded_file.name, payload)
                     st.toast("Đã nạp ảnh vào workspace.", icon="✅")
                     st.rerun()
@@ -1525,11 +1212,10 @@ def _render_step_zero() -> None:
             st.code(st.session_state.input_digest[:16], language=None)
             active_issue = _source_resolution_issue(st.session_state.input_image)
             if active_issue:
-                (st.error if ENFORCE_SOURCE_RESOLUTION else st.warning)(active_issue)
+                st.error(active_issue)
             else:
                 st.success("Ảnh đã sẵn sàng cho bước 1.")
-            active_blocked = bool(active_issue) and ENFORCE_SOURCE_RESOLUTION
-            if not active_blocked and st.button("Đi đến bước 1 →", width="stretch"):
+            if not active_issue and st.button("Đi đến bước 1 →", width="stretch"):
                 st.session_state.active_step = 1
                 st.session_state.pending_navigation = 1
                 st.rerun()
@@ -1541,24 +1227,11 @@ def _render_step_one() -> None:
         _render_empty("Thiếu ảnh đầu vào", "Quay lại bước 0 và import một ảnh PCB.")
         return
     config = st.session_state.config["preprocess"]
-    has_calibration = isinstance(config.get("calibration_profile"), dict)
-    if not has_calibration:
-        # A disabled checkbox with only a tooltip reads like a broken feature.
-        # It is not: undistort needs a profile measured from the real camera,
-        # and there is no honest default for that.
-        st.info(
-            "**Sửa méo ống kính đang tắt vì chưa có profile hiệu chỉnh** — đây là "
-            "trạng thái bình thường, không phải lỗi. Mọi tuỳ chọn còn lại của bước 1 "
-            "vẫn dùng được.\n\n"
-            "Để bật: chụp 15–25 ảnh bàn cờ bằng **đúng** camera/lens/tiêu cự sẽ dùng "
-            "cho AOI, chạy `scripts/calibrate_camera.py` để tạo file `.json`, rồi tải "
-            "file đó ở sidebar **Camera calibration**. Xem mục *Hiệu chỉnh méo ống "
-            "kính camera* trong README."
-        )
     control_col, preview_col = st.columns([0.85, 2.15], gap="large")
     with control_col:
         st.markdown("#### Recipe tiền xử lý")
         with st.form("preprocess_form"):
+            has_calibration = isinstance(config.get("calibration_profile"), dict)
             undistort = st.checkbox(
                 "Sửa méo ống kính",
                 value=bool(config.get("undistort", False) and has_calibration),
@@ -1641,38 +1314,25 @@ def _render_step_two() -> None:
     )
     config = st.session_state.config["alignment"]
     if st.session_state.reference_image is None:
-        st.info(
-            "**Bước 2 cần một Golden Image thì nút căn chỉnh mới bật** — đây là "
-            "trạng thái bình thường, không phải lỗi, và **không cần camera**: bất kỳ "
-            "ảnh nào của một board đạt chuẩn cùng loại đều dùng được.\n\n"
-            "Tải ảnh đó ở sidebar **Golden Image / Reference**. Ảnh chuẩn phải chụp "
-            "cùng camera, lens và recipe ánh sáng với ảnh kiểm.\n\n"
-            "Không có Golden Image thì bấm **Bỏ qua căn chỉnh**: pipeline vẫn chạy "
-            "hết bước 3–6.1, chỉ là toạ độ không được đưa về hệ của board chuẩn."
-        )
+        st.warning("Chưa có Golden Image. Upload reference trong sidebar; nếu chạy nhanh, bước này sẽ được đánh dấu Bỏ qua.")
     controls, preview = st.columns([0.85, 2.15], gap="large")
     with controls:
         st.markdown("#### Feature matching")
-        st.caption(
-            "Phương pháp: **ORB + homography**, ECC affine làm fallback. Đây là "
-            "phương pháp duy nhất được nối vào core nên không có gì để chọn; SIFT "
-            "chưa được nối."
-        )
         with st.form("alignment_form"):
+            st.selectbox(
+                "Phương pháp",
+                ["ORB + ECC fallback"],
+                disabled=True,
+                help="Core hiện hỗ trợ ORB/homography và ECC fallback; SIFT chưa được nối.",
+            )
             features = st.slider("Số feature tối đa", 500, 8000, int(config["features"]), 500)
             match_ratio = st.slider("Lowe ratio", 0.50, 0.95, float(config["match_ratio"]), 0.01)
             ransac = st.slider("RANSAC threshold", 1.0, 10.0, float(config["ransac_threshold"]), 0.5)
-            has_reference = st.session_state.reference_image is not None
             submitted = st.form_submit_button(
                 "Căn chỉnh với reference",
                 type="primary",
                 width="stretch",
-                disabled=not has_reference,
-                help=(
-                    None
-                    if has_reference
-                    else "Tải Golden Image ở sidebar để bật nút này."
-                ),
+                disabled=st.session_state.reference_image is None,
             )
         if submitted:
             config.update(
@@ -2083,9 +1743,7 @@ def _render_step_five() -> None:
                 st.rerun()
             _render_empty("Chưa có crop", "Nhấn Tạo crop để cắt các detection hiện tại.")
         else:
-            gallery_tab, solder_tab, export_tab = st.tabs(
-                ["Crop gallery", "ROI mối hàn (6.2)", "Export package"]
-            )
+            gallery_tab, export_tab = st.tabs(["Crop gallery", "Export package"])
             with gallery_tab:
                 search = st.text_input("Lọc theo class/id", placeholder="resistor, det_0001…")
                 filtered = [
@@ -2101,487 +1759,8 @@ def _render_step_five() -> None:
                             _show_image(crop.image)
                             confidence = "—" if crop.confidence is None else f"{crop.confidence:.2f}"
                             st.caption(f"**{crop.label}** · {crop.crop_id}\n\nconf {confidence}")
-            with solder_tab:
-                _render_solder_rois()
             with export_tab:
                 _render_exports()
-
-
-SOLDER_ROI_COLORS = {
-    "joint": (0, 200, 255),  # BGR amber
-    "body": (255, 170, 0),   # BGR blue
-}
-
-# Provenance colours, so a glance at the overlay says which ROIs rest on CAD
-# land coordinates and which were inferred from the detector box alone.
-SOLDER_SOURCE_COLORS = {
-    "cad+derived": (80, 220, 80),   # BGR green: both sources agreed
-    "cad": (255, 120, 255),         # BGR magenta: CAD only
-    "derived": (0, 200, 255),       # BGR amber: detector geometry only
-}
-
-CAD_SEVERITY_ICONS = {"defect": "🔴", "review": "🟠", "info": "🔵"}
-
-SOLDER_MIN_READABLE_PX = 24
-
-
-def _draw_solder_overlay(
-    image: np.ndarray,
-    crops: list[SolderCropRecord],
-    show_body: bool,
-    by_source: bool = False,
-) -> np.ndarray:
-    overlay = image.copy()
-    for crop in crops:
-        if crop.kind == "body" and not show_body:
-            continue
-        x1, y1, x2, y2 = crop.bbox
-        if by_source:
-            color = SOLDER_SOURCE_COLORS.get(crop.source, (200, 200, 200))
-        else:
-            color = SOLDER_ROI_COLORS.get(crop.kind, (200, 200, 200))
-        thickness = 1 if crop.kind == "body" else 2
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, thickness)
-    return overlay
-
-
-def _solder_frame(crops: list[SolderCropRecord]) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            {
-                "joint_id": crop.joint_id,
-                "detection_id": crop.detection_id,
-                "component_label": crop.label,
-                "kind": crop.kind,
-                "position": crop.position,
-                "pin_index": crop.pin_index,
-                "terminal_geometry": crop.terminal_geometry,
-                "x1": crop.bbox[0],
-                "y1": crop.bbox[1],
-                "x2": crop.bbox[2],
-                "y2": crop.bbox[3],
-                "roi_width_px": crop.bbox[2] - crop.bbox[0],
-                "roi_height_px": crop.bbox[3] - crop.bbox[1],
-                "detector_confidence": crop.confidence,
-                "source": crop.source,
-                "designator": crop.designator or "",
-                "pin": crop.pin or "",
-                "net": crop.net or "",
-                "defect_class": "",
-            }
-            for crop in crops
-        ]
-    )
-
-
-def _render_solder_settings() -> None:
-    """Controls for step 5.5. The bridge is cached on the config JSON, so
-    writing the new values is enough to rebuild the engine on the next call."""
-
-    config = st.session_state.config.setdefault("solder", {})
-    st.markdown("#### ROI mối hàn")
-    st.caption(
-        "Box của detector chỉ ôm thân linh kiện. Các ROI dưới đây được suy ra từ "
-        "box cộng topology chân của class, không phải do detector tìm ra."
-    )
-    with st.form("solder_form"):
-        enabled = st.checkbox("Bật bước 5.5", value=bool(config.get("enabled", True)))
-        split_pins = st.checkbox(
-            "Tách từng chân (IC/connector)",
-            value=bool(config.get("split_pins", False)),
-            help=(
-                "Tắt thì mỗi cạnh là một ROI dải. Lỗi bridge nằm giữa hai chân nên "
-                "ROI dải thường là đơn vị kiểm tra tốt hơn."
-            ),
-        )
-        include_body = st.checkbox(
-            "Kèm ảnh toàn linh kiện + chân",
-            value=bool(config.get("include_body_view", True)),
-        )
-        terminal_outer = st.slider(
-            "Nới đầu trục dài (nhân cạnh dài)",
-            0.10,
-            0.80,
-            float(config.get("terminal_outer_ratio", 0.45)),
-            0.05,
-            help="Tăng nếu ROI chưa với tới hết pad của điện trở/tụ.",
-        )
-        lead_outer = st.slider(
-            "Nới cạnh nhiều chân (nhân cạnh ngắn)",
-            0.10,
-            0.60,
-            float(config.get("lead_outer_ratio", 0.26)),
-            0.02,
-        )
-        current_size = int(config.get("target_size", 128))
-        size_options = [64, 96, 128, 160, 224]
-        size_index = (
-            size_options.index(current_size) if current_size in size_options else 2
-        )
-        joint_size = st.selectbox("Kích thước crop", size_options, index=size_index)
-        submitted = st.form_submit_button(
-            "Tạo lại ROI", type="primary", width="stretch"
-        )
-    if submitted:
-        config.update(
-            {
-                "enabled": enabled,
-                "split_pins": split_pins,
-                "include_body_view": include_body,
-                "terminal_outer_ratio": terminal_outer,
-                "lead_outer_ratio": lead_outer,
-                "target_size": joint_size,
-            }
-        )
-        _execute_solder(_get_bridge())
-        st.rerun()
-
-
-def _findings_frame(findings: list[dict[str, Any]]) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            {
-                "kind": item.get("kind"),
-                "severity": item.get("severity"),
-                "designator": item.get("designator") or "",
-                "expected_class": item.get("expected_class") or "",
-                "observed_class": item.get("observed_class") or "",
-                "shift_mm": item.get("shift_mm"),
-                "message": item.get("message"),
-            }
-            for item in findings
-        ]
-    )
-
-
-VERDICT_DECISION_COLORS = {
-    "accept": (80, 200, 80),   # BGR green
-    "review": (0, 170, 255),   # BGR orange
-    "reject": (40, 40, 230),   # BGR red
-}
-
-VERDICT_DECISION_ICONS = {"accept": "🟢", "review": "🟠", "reject": "🔴"}
-
-
-def _draw_verdict_overlay(
-    image: np.ndarray, verdicts: list[SolderVerdictRecord], show_component: bool
-) -> np.ndarray:
-    overlay = image.copy()
-    for verdict in verdicts:
-        if verdict.scope == "component" and not show_component:
-            continue
-        x1, y1, x2, y2 = verdict.bbox
-        color = VERDICT_DECISION_COLORS.get(verdict.decision, (200, 200, 200))
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
-        if verdict.decision != "accept":
-            cv2.putText(
-                overlay, verdict.label, (x1, max(11, y1 - 3)),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.36, color, 1, cv2.LINE_AA,
-            )
-    return overlay
-
-
-def _verdict_frame(verdicts: list[SolderVerdictRecord]) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            {
-                "joint_id": item.joint_id,
-                "designator": item.designator or "",
-                "pin": item.pin or "",
-                "component": item.component_label,
-                "scope": item.scope,
-                "label": item.label,
-                "decision": item.decision,
-                "source": item.source,
-                "rule_label": item.rule_label or "",
-                "model_label": item.model_label or "",
-                "model_prob": item.model_probability,
-                "solder_ratio": item.features.get("solder_ratio"),
-                "span_ratio": item.features.get("span_ratio"),
-                "specular_ratio": item.features.get("specular_ratio"),
-                "reasons": " | ".join(item.reasons),
-            }
-            for item in verdicts
-        ]
-    )
-
-
-def _render_solder_grading(result: SolderResult) -> None:
-    """Step 6.2: what each ROI was called, and on what evidence."""
-
-    verdicts = result.verdicts
-    if not verdicts:
-        _render_empty(
-            "Chưa chấm được mối hàn",
-            "Bước 6.2 chạy cùng bước 5.5. Nếu trống, hãy chạy lại bước 5.",
-        )
-        return
-
-    if result.graded_by_model:
-        st.success(
-            f"Đang chấm bằng **model + luật đo** (model: "
-            f"{verdicts[0].model_version}). Bất đồng giữa hai tầng được đưa vào "
-            "hàng đợi kiểm tra thay vì chọn bên nào thắng."
-        )
-    else:
-        st.info(
-            "**Đang chấm bằng luật đo hình học, chưa có model** — đây là trạng "
-            "thái bình thường, không phải lỗi. Nạp `.onnx` + `model_manifest.json` "
-            "ở sidebar **Model kiểm tra mối hàn 6.2** để bật thêm tầng phân loại.\n\n"
-            "Ngưỡng mặc định chỉ là số khởi đầu. Chạy "
-            "`scripts/calibrate_solder_thresholds.py` trên các board bạn đã chấp "
-            "nhận để đo ngưỡng từ chính dây chuyền của bạn."
-        )
-
-    joints = [item for item in verdicts if item.scope == "joint"]
-    counts = collections.Counter(item.decision for item in joints)
-    columns = st.columns(4)
-    columns[0].metric("ROI mối hàn", len(joints))
-    columns[1].metric("Đạt", counts.get("accept", 0))
-    columns[2].metric("Cần kiểm tra", counts.get("review", 0))
-    columns[3].metric("Loại", counts.get("reject", 0))
-
-    conflicts = [item for item in joints if item.source == "conflict"]
-    guarded = [item for item in joints if item.source == "escape_guard"]
-    if conflicts:
-        st.warning(
-            f"{len(conflicts)} ROI có model và luật bất đồng. Đây chính là chỗ "
-            "đáng xem trước tiên khi hiệu chỉnh ngưỡng hoặc đánh giá model."
-        )
-    if guarded:
-        st.error(
-            f"{len(guarded)} ROI bị chốt chặn giữ lại: model kết luận đạt nhưng "
-            "lượng thiếc đo được dưới sàn vật lý."
-        )
-
-    source = _analysis_image()
-    overlay_tab, table_tab, detail_tab = st.tabs(
-        ["Verdict overlay", "Bảng kết quả", "Chi tiết theo ROI"]
-    )
-    with overlay_tab:
-        if source is None:
-            _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
-        else:
-            show_component = st.checkbox(
-                "Hiện cả ROI mức linh kiện", value=False, key="verdict_show_component"
-            )
-            _show_image(
-                _draw_verdict_overlay(source, verdicts, show_component),
-                "Xanh: đạt · Cam: cần kiểm tra · Đỏ: loại",
-            )
-    with table_tab:
-        frame = _verdict_frame(verdicts)
-        st.dataframe(frame, width="stretch", height=340)
-        st.download_button(
-            "Tải solder_verdicts.csv",
-            frame.to_csv(index=False).encode("utf-8-sig"),
-            file_name="solder_verdicts.csv",
-            mime="text/csv",
-        )
-    with detail_tab:
-        flagged = [item for item in joints if item.decision != "accept"]
-        pool = flagged or joints
-        st.caption(
-            f"{len(flagged)} ROI cần chú ý trong tổng {len(joints)}."
-            if flagged
-            else "Không ROI nào bị gắn cờ; hiển thị toàn bộ."
-        )
-        for item in pool[:40]:
-            icon = VERDICT_DECISION_ICONS.get(item.decision, "·")
-            title = f"{icon} {item.label} — {item.designator or item.component_label}"
-            with st.expander(f"{title} ({item.joint_id})", expanded=False):
-                st.markdown(
-                    f"**Quyết định:** {item.decision} · **Nguồn:** {item.source}  \n"
-                    f"**Luật:** {item.rule_label or '—'} · **Model:** "
-                    f"{item.model_label or '—'}"
-                    + (
-                        f" ({item.model_probability:.2f})"
-                        if item.model_probability is not None
-                        else ""
-                    )
-                )
-                for reason in item.reasons:
-                    st.markdown(f"- {reason}")
-                if item.features:
-                    st.json(item.features, expanded=False)
-
-
-def _render_cad_panel(result: SolderResult) -> None:
-    """What the CAD comparison found, and how far to trust the alignment."""
-
-    if not st.session_state.cad_summary:
-        st.info(
-            "Chưa nạp sơ đồ CAD. ROI hiện tại được suy ra từ box của detector cộng "
-            "topology chân của class. Nạp file CAD ở sidebar để hợp nhất với toạ độ "
-            "land thật; pipeline không đổi gì khác."
-        )
-        return
-    if not result.used_cad:
-        st.warning(
-            "Đã nạp CAD nhưng chưa áp dụng được cho ảnh này; bước 5.5 dùng ROI suy ra."
-        )
-        for warning in result.cad_warnings:
-            st.caption(f"· {warning}")
-        return
-
-    registration = result.registration or {}
-    stats = result.cad_stats or {}
-    if registration.get("ambiguous"):
-        st.error(
-            "Căn CAD **mơ hồ**: có phép căn khác khớp không kém. Kiểm tra overlay "
-            "trước khi dùng crop, hoặc chốt bằng fiducial / file registration."
-        )
-    for warning in result.cad_warnings:
-        st.warning(warning)
-
-    columns = st.columns(4)
-    columns[0].metric(
-        "Khớp CAD", f"{stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
-    )
-    columns[1].metric("Thiếu linh kiện", stats.get("missing", 0))
-    columns[2].metric("Lệch vị trí", stats.get("shifted", 0))
-    columns[3].metric("px / mm", f"{registration.get('scale_px_per_mm', 0.0):.2f}")
-    st.caption(
-        f"Phương pháp: {registration.get('method', '—')} · "
-        f"residual {registration.get('residual_px', 0.0):.2f} px · "
-        f"inlier {registration.get('inlier_ratio', 0.0):.0%} · "
-        f"class khớp {stats.get('class_agreements', 0)}/{stats.get('class_comparable', 0)}"
-    )
-
-    if result.findings:
-        for item in sorted(
-            result.findings,
-            key=lambda entry: {"defect": 0, "review": 1}.get(entry.get("severity"), 2),
-        )[:6]:
-            icon = CAD_SEVERITY_ICONS.get(item.get("severity"), "·")
-            st.markdown(f"{icon} {item.get('message')}")
-        frame = _findings_frame(result.findings)
-        st.dataframe(frame, width="stretch", height=220)
-        st.download_button(
-            "Tải cad_findings.csv",
-            frame.to_csv(index=False).encode("utf-8-sig"),
-            file_name="cad_findings.csv",
-            mime="text/csv",
-        )
-    else:
-        st.success("CAD và ảnh khớp nhau: không có linh kiện thiếu, thừa hay lệch.")
-
-    if registration:
-        st.download_button(
-            "Tải registration.json",
-            json.dumps(registration, indent=2).encode("utf-8"),
-            file_name="cad_registration.json",
-            mime="application/json",
-            help="Nạp lại ở sidebar để mọi lần chạy sau dùng đúng phép căn này.",
-        )
-
-
-def _render_solder_rois() -> None:
-    """Step 5.5 view: the ROIs that make solder joints visible for step 6.2.
-
-    The detector box stops at the component body, so these ROIs are derived
-    from that box plus the class terminal topology rather than detected.
-    """
-
-    source = _analysis_image()
-    settings, content = st.columns([0.75, 2.25], gap="large")
-    with settings:
-        _render_solder_settings()
-
-    result = st.session_state.solder_result
-    with content:
-        if not isinstance(result, SolderResult):
-            _render_empty(
-                "Chưa có ROI mối hàn",
-                "Chạy lại bước 5 hoặc bấm Tạo lại ROI để sinh vùng kiểm tra mối hàn.",
-            )
-            return
-        if result.mode == "UNAVAILABLE" or not result.crops:
-            _render_empty("Chưa sinh được ROI", result.message)
-            return
-
-        joints = [crop for crop in result.crops if crop.kind == "joint"]
-        bodies = [crop for crop in result.crops if crop.kind == "body"]
-        metric_a, metric_b, metric_c = st.columns(3)
-        metric_a.metric("ROI mối hàn", len(joints))
-        metric_b.metric("Ảnh linh kiện kèm chân", len(bodies))
-        smallest = min(
-            (
-                min(crop.bbox[2] - crop.bbox[0], crop.bbox[3] - crop.bbox[1])
-                for crop in joints
-            ),
-            default=0,
-        )
-        metric_c.metric("ROI nhỏ nhất (px)", smallest)
-        if joints and smallest < SOLDER_MIN_READABLE_PX:
-            st.warning(
-                f"ROI nhỏ nhất chỉ {smallest} px ở cạnh ngắn. Ở kích thước đó không "
-                "đọc được hình dạng fillet; cần chụp độ phân giải cao hơn hoặc thu "
-                "hẹp trường nhìn trước khi gán nhãn 6.2."
-            )
-
-        overlay_tab, gallery_tab, grade_tab, table_tab, cad_tab = st.tabs(
-            [
-                "ROI overlay",
-                "Joint gallery",
-                "Chấm mối hàn (6.2)",
-                "Bảng nhãn 6.2",
-                "Đối chiếu CAD",
-            ]
-        )
-        with overlay_tab:
-            if source is None:
-                _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
-            else:
-                show_body = st.checkbox("Hiện khung toàn linh kiện", value=True)
-                by_source = False
-                if result.used_cad:
-                    by_source = st.checkbox(
-                        "Tô màu theo nguồn ROI",
-                        value=True,
-                        help="Xanh lá: CAD và detector cùng đồng ý · Hồng: chỉ CAD · "
-                        "Vàng: chỉ suy ra từ detector.",
-                    )
-                _show_image(
-                    _draw_solder_overlay(source, result.crops, show_body, by_source),
-                    (
-                        "Xanh lá: CAD + detector - Hồng: chỉ CAD - Vàng: chỉ suy ra"
-                        if by_source
-                        else "Vàng: ROI mối hàn - Xanh: linh kiện kèm chân"
-                    ),
-                )
-        with gallery_tab:
-            kind = st.radio("Loại ROI", ["Mối hàn", "Linh kiện kèm chân"], horizontal=True)
-            selected = joints if kind == "Mối hàn" else bodies
-            st.caption(
-                f"Hiển thị {min(len(selected), 60)}/{len(selected)} ROI "
-                "(giới hạn 60 để UI mượt)."
-            )
-            for offset in range(0, min(len(selected), 60), 6):
-                columns = st.columns(6)
-                for column, crop in zip(columns, selected[offset : offset + 6]):
-                    with column:
-                        _show_image(crop.image)
-                        tag = f" · {crop.designator}" if crop.designator else ""
-                        st.caption(f"**{crop.label}**{tag}\n\n{crop.position}")
-        with table_tab:
-            frame = _solder_frame(result.crops)
-            st.dataframe(frame, width="stretch", height=320)
-            st.caption(
-                "Cột defect_class để trống chính là chỗ gán nhãn cho bước 6.2. "
-                "Hình học đã giải quyết xong nên gán nhãn chỉ còn là phán quyết "
-                "theo từng dòng."
-            )
-            st.download_button(
-                "Tải solder_joints.csv",
-                frame.to_csv(index=False).encode("utf-8-sig"),
-                file_name="solder_joints.csv",
-                mime="text/csv",
-            )
-        with grade_tab:
-            _render_solder_grading(result)
-        with cad_tab:
-            _render_cad_panel(result)
 
 
 def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:
@@ -2604,56 +1783,6 @@ def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:
             for item in items
         ]
     )
-
-
-DECISION_OVERLAY_COLORS = {
-    "accept": (60, 180, 75),    # BGR green
-    "review": (0, 165, 255),    # BGR orange
-    "unknown": (32, 32, 220),   # BGR red
-}
-DECISION_OVERLAY_DEFAULT_COLOR = (200, 200, 200)
-
-
-def _draw_classification_overlay(
-    image: np.ndarray,
-    detections: list[DetectionRecord],
-    classifications: list[ClassificationRecord],
-) -> np.ndarray:
-    """Draw bbox + family/decision label per classified crop, same visual
-    language (rectangle + filled label strip) as the step-4 detector overlay."""
-
-    overlay = image.copy()
-    detection_by_id = {item.detection_id: item for item in detections}
-    for item in classifications:
-        detection = detection_by_id.get(item.detection_id)
-        if detection is None:
-            continue
-        x1, y1, x2, y2 = detection.bbox
-        color = DECISION_OVERLAY_COLORS.get(item.decision, DECISION_OVERLAY_DEFAULT_COLOR)
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
-        label = f"{item.family} {item.probability:.2f}"
-        (text_width, text_height), baseline = cv2.getTextSize(
-            label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1
-        )
-        label_top = max(0, y1 - text_height - baseline - 4)
-        cv2.rectangle(
-            overlay,
-            (x1, label_top),
-            (x1 + text_width + 6, label_top + text_height + baseline + 4),
-            color,
-            -1,
-        )
-        cv2.putText(
-            overlay,
-            label,
-            (x1 + 3, label_top + text_height + 1),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA,
-        )
-    return overlay
 
 
 def _render_step_six() -> None:
@@ -2706,24 +1835,9 @@ def _render_step_six() -> None:
             )
             return
         items = result.classifications
-        detection_result = st.session_state.detection_result
-        source_image = _analysis_image()
-        overlay_image = None
-        if source_image is not None and isinstance(detection_result, DetectionResult) and items:
-            overlay_image = _draw_classification_overlay(
-                source_image, detection_result.detections, items
-            )
-        overlay_tab, table_tab, stats_tab, review_tab = st.tabs(
-            ["Classification overlay", "Classification table", "Family stats", "Review queue"]
+        table_tab, stats_tab, review_tab = st.tabs(
+            ["Classification table", "Family stats", "Review queue"]
         )
-        with overlay_tab:
-            if overlay_image is not None:
-                _show_image(overlay_image, "Family + decision theo từng detection")
-            else:
-                _render_empty(
-                    "Chưa có overlay",
-                    "Cần cả bbox từ bước 4 và kết quả phân loại để vẽ overlay.",
-                )
         with table_tab:
             if items:
                 st.dataframe(
@@ -2765,13 +1879,6 @@ def _render_step_six() -> None:
                         )
         _render_result_notice(result)
         _render_metrics(result.metrics)
-        if overlay_image is not None:
-            st.download_button(
-                "Tải ảnh classified PNG",
-                _encode_png(overlay_image),
-                file_name=f"{_safe_name(st.session_state.input_name or 'pcb')}_classified.png",
-                mime="image/png",
-            )
 
 
 def _encode_png(image: np.ndarray) -> bytes:
@@ -3080,6 +2187,441 @@ def _render_exports() -> None:
     )
 
 
+def _inspection_recipe_output_dir(*, build_id: str | None = None) -> Path:
+    """Return a session/build-unique path; bridge publishes it atomically."""
+
+    digest = st.session_state.reference_digest
+    if not digest:
+        raise ValueError("Chưa có Golden Image để xác định recipe output.")
+    return (
+        Path(tempfile.gettempdir())
+        / "aoi-pcb-workbench"
+        / "inspection-recipes"
+        / str(st.session_state.inspection_session_id)
+        / digest[:16]
+        / (build_id or uuid4().hex)
+    )
+
+
+def _inspection_recipe_asset_names(record: InspectionRecipeRecord) -> list[str]:
+    recipe = record.raw
+    names = {"recipe.json", str(recipe.golden_asset_path)}
+    for anchor in recipe.alignment.anchors:
+        names.add(str(anchor.template_path))
+        if anchor.mask_path is not None:
+            names.add(str(anchor.mask_path))
+    for slot in recipe.slots:
+        names.update(
+            {
+                str(slot.template_path),
+                str(slot.component_mask_path),
+                str(slot.compare_mask_path),
+            }
+        )
+        if slot.ignore_mask_path is not None:
+            names.add(str(slot.ignore_mask_path))
+    return sorted(names)
+
+
+def _inspection_recipe_zip_bytes(record: InspectionRecipeRecord) -> bytes:
+    output = io.BytesIO()
+    root = record.recipe_root.resolve()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for relative_name in _inspection_recipe_asset_names(record):
+            path = (root / relative_name).resolve()
+            if root not in path.parents:
+                raise ValueError(f"Recipe asset thoát khỏi thư mục gốc: {relative_name}")
+            if not path.is_file():
+                raise ValueError(f"Thiếu recipe asset: {relative_name}")
+            archive.write(path, arcname=relative_name)
+    return output.getvalue()
+
+
+def _inspection_position_rows(result: InspectionResult) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for slot in result.slots:
+        position = slot["position"]
+        rows.append(
+            {
+                "slot_id": slot["slot_id"],
+                "slot_status": slot["status"],
+                "position_status": position["status"],
+                "dx_px": position["dx_px"],
+                "dy_px": position["dy_px"],
+                "dx_mm": position["dx_mm"],
+                "dy_mm": position["dy_mm"],
+                "angle_deg": position["angle_deg"],
+                "score": position["score"],
+                "peak_margin": position["peak_margin"],
+                "psr": position["psr"],
+                "reason": position["reason"],
+            }
+        )
+    return rows
+
+
+def _inspection_appearance_rows(result: InspectionResult) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for slot in result.slots:
+        appearance = slot["appearance"]
+        rows.append(
+            {
+                "slot_id": slot["slot_id"],
+                "slot_status": slot["status"],
+                "appearance_status": appearance["status"],
+                "ssim": appearance["ssim"],
+                "diff_ratio": appearance["diff_ratio"],
+                "edge_diff_ratio": appearance["edge_diff_ratio"],
+                "max_blob_area_px": appearance["max_blob_area_px"],
+                "anomaly_blob_count": appearance["anomaly_blob_count"],
+                "valid_overlap_ratio": appearance["valid_overlap_ratio"],
+                "defect_label": appearance["defect_label"],
+                "reason": appearance["reason"],
+            }
+        )
+    return rows
+
+
+def _render_inspection_header() -> None:
+    recipe = st.session_state.inspection_recipe
+    run = st.session_state.inspection_run
+    board_status = run.status.upper() if isinstance(run, InspectionResult) else "—"
+    slot_count = recipe.slot_count if isinstance(recipe, InspectionRecipeRecord) else 0
+    anchor_count = recipe.anchor_count if isinstance(recipe, InspectionRecipeRecord) else 0
+    st.markdown(
+        f"""
+        <div class="hero">
+          <div>
+            <div class="eyebrow">GOLDEN RECIPE · POSITION · APPEARANCE</div>
+            <h1>Golden Inspection</h1>
+            <p>Build recipe từ Golden và kiểm tra board bằng contract Phase 1–5.</p>
+          </div>
+          <div class="mode-pill model"><span></span>CORE INSPECTOR</div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric-card"><span>RECIPE</span><strong>{'READY' if recipe else '—'}</strong><small>validated assets</small></div>
+          <div class="metric-card"><span>SLOTS</span><strong>{slot_count}</strong><small>fixed Golden ROIs</small></div>
+          <div class="metric-card"><span>ANCHORS</span><strong>{anchor_count}</strong><small>strict alignment</small></div>
+          <div class="metric-card"><span>BOARD</span><strong>{html.escape(board_status)}</strong><small>core decision</small></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_build_recipe_mode() -> None:
+    golden = st.session_state.reference_image
+    if golden is None:
+        _render_empty(
+            "Chưa có Golden Image",
+            "Nạp Image #1 ở sidebar. Recipe sẽ dùng ảnh native, không letterbox/resize.",
+        )
+        return
+    preview, settings = st.columns([1.25, 1.0], gap="large")
+    with preview:
+        st.markdown("#### Golden measurement image")
+        _show_image(golden, st.session_state.reference_name)
+        st.caption(
+            f"{golden.shape[1]} × {golden.shape[0]}px · canonical `golden_board_pixels`"
+        )
+    with settings:
+        st.markdown("#### Recipe settings")
+        with st.form("build_inspection_recipe_form"):
+            identity_col, side_col = st.columns(2)
+            with identity_col:
+                board_id = st.text_input(
+                    "Board ID", value="demo_board", help="Định danh SKU/board của recipe."
+                )
+            with side_col:
+                side = st.selectbox("Side", ["top", "bottom"], index=0)
+            scale_x, scale_y = st.columns(2)
+            with scale_x:
+                pixels_per_mm_x = st.number_input(
+                    "Pixels/mm X", min_value=0.001, value=1.0, step=0.1
+                )
+            with scale_y:
+                pixels_per_mm_y = st.number_input(
+                    "Pixels/mm Y", min_value=0.001, value=1.0, step=0.1
+                )
+            calibration_verified = st.checkbox(
+                "Calibration này đã được đo và xác minh",
+                value=False,
+                help="Để trống cho demo. Không check nếu đang dùng 1 px/mm tạm.",
+            )
+            roi_col, search_col = st.columns(2)
+            with roi_col:
+                roi_padding_px = st.number_input(
+                    "ROI padding (px)", min_value=0, value=12, step=1
+                )
+            with search_col:
+                search_margin_px = st.number_input(
+                    "Search margin (px)", min_value=0, value=16, step=1
+                )
+            tolerance_x, tolerance_y = st.columns(2)
+            with tolerance_x:
+                max_dx = st.number_input(
+                    "Tolerance |dx| (mm)", min_value=0.0, value=0.20, step=0.05
+                )
+            with tolerance_y:
+                max_dy = st.number_input(
+                    "Tolerance |dy| (mm)", min_value=0.0, value=0.20, step=0.05
+                )
+            rotation_label = st.selectbox(
+                "Rotation measurement",
+                ["Không đo góc", "180° periodic", "360°"],
+            )
+            max_angle = st.number_input(
+                "Tolerance góc (deg)",
+                min_value=0.0,
+                value=3.0,
+                step=0.5,
+                disabled=rotation_label == "Không đo góc",
+            )
+            with st.expander("Appearance thresholds", expanded=False):
+                min_ssim = st.number_input(
+                    "Min local SSIM", min_value=0.0, max_value=1.0, value=0.88, step=0.01
+                )
+                max_diff = st.number_input(
+                    "Max diff ratio", min_value=0.0, max_value=1.0, value=0.08, step=0.01
+                )
+                max_edge = st.number_input(
+                    "Max edge diff ratio", min_value=0.0, max_value=1.0, value=0.10, step=0.01
+                )
+                max_blob = st.number_input(
+                    "Max anomaly blob (px)", min_value=0, value=45, step=1
+                )
+                min_overlap = st.number_input(
+                    "Min valid overlap", min_value=0.0, max_value=1.0, value=0.88, step=0.01
+                )
+            submitted = st.form_submit_button(
+                "Build Golden Recipe",
+                type="primary",
+                width="stretch",
+                disabled=_pt_model_blocked(),
+            )
+        if submitted:
+            rotation_period = {
+                "Không đo góc": None,
+                "180° periodic": 180.0,
+                "360°": 360.0,
+            }[rotation_label]
+            if _pt_model_blocked():
+                st.error("Cần xác nhận file .pt đáng tin cậy trước khi build Golden Recipe.")
+                return
+            try:
+                with st.spinner("Đang chạy detector và tạo fixed ROI/anchor lossless…"):
+                    record = _get_bridge().build_inspection_recipe(
+                        golden,
+                        _inspection_recipe_output_dir(),
+                        board_id=board_id,
+                        side=side,
+                        pixels_per_mm_x=float(pixels_per_mm_x),
+                        pixels_per_mm_y=float(pixels_per_mm_y),
+                        calibration_verified=bool(calibration_verified),
+                        roi_padding_px=int(roi_padding_px),
+                        search_margin_px=int(search_margin_px),
+                        max_abs_dx_mm=float(max_dx),
+                        max_abs_dy_mm=float(max_dy),
+                        max_abs_angle_deg=(
+                            None if rotation_period is None else float(max_angle)
+                        ),
+                        rotation_period_deg=rotation_period,
+                        min_ssim=float(min_ssim),
+                        max_diff_ratio=float(max_diff),
+                        max_edge_diff_ratio=float(max_edge),
+                        max_blob_area_px=int(max_blob),
+                        min_valid_overlap_ratio=float(min_overlap),
+                        allow_trusted_pt=bool(st.session_state.pt_model_trusted),
+                    )
+                st.session_state.inspection_recipe = record
+                st.session_state.inspection_run = None
+                st.session_state.messages.append(
+                    f"Đã build Golden recipe: {record.slot_count} slots, {record.anchor_count} anchors"
+                )
+                st.success("Golden recipe đã được tạo và validate đầy đủ asset.")
+            except Exception as exc:
+                st.error(f"Build recipe thất bại: {exc}")
+
+    record = st.session_state.inspection_recipe
+    if isinstance(record, InspectionRecipeRecord):
+        st.markdown("#### Recipe contract")
+        col_a, col_b, col_c, col_d = st.columns(4)
+        col_a.metric("Slots", record.slot_count)
+        col_b.metric("Anchors", record.anchor_count)
+        col_c.metric("Rejected", record.rejected_count)
+        col_d.metric(
+            "Eligibility", "PRODUCTION" if record.production_eligible else "DEMO"
+        )
+        if not record.production_eligible:
+            st.info(
+                "Recipe đang ở chế độ demo, thường do calibration chưa verified hoặc detector demo. "
+                "Inspect vẫn chạy khi tắt production gate nhưng kết quả không phải acceptance production."
+            )
+        recipe_json = record.recipe_path.read_bytes()
+        recipe_zip = _inspection_recipe_zip_bytes(record)
+        left, right = st.columns(2)
+        with left:
+            st.download_button(
+                "Tải recipe package (.zip)",
+                recipe_zip,
+                file_name="golden_inspection_recipe.zip",
+                mime="application/zip",
+                type="primary",
+                width="stretch",
+            )
+        with right:
+            st.download_button(
+                "Tải recipe.json",
+                recipe_json,
+                file_name="recipe.json",
+                mime="application/json",
+                width="stretch",
+            )
+        st.caption(f"Local recipe: {record.recipe_path}")
+
+
+def _render_inspection_result(result: InspectionResult) -> None:
+    if result.status == "pass":
+        st.success("BOARD PASS")
+    elif result.status == "ng":
+        st.error("BOARD NG")
+    elif result.status == "review":
+        st.warning("BOARD REVIEW")
+    else:
+        st.error(f"INSPECTION INVALID · {result.raw.reason}")
+    _render_result_notice(result)
+    _show_image(result.image, "Aligned Golden coordinates · core decision overlay")
+
+    alignment_tab, position_tab, appearance_tab, json_tab = st.tabs(
+        ["Alignment", "Position", "Appearance", "Result JSON"]
+    )
+    with alignment_tab:
+        alignment = result.alignment
+        columns = st.columns(5)
+        columns[0].metric("Status", str(alignment.get("status", "—")).upper())
+        columns[1].metric("Matched", alignment.get("matched_anchors", 0))
+        columns[2].metric("Inliers", alignment.get("inliers", 0))
+        columns[3].metric(
+            "Residual px",
+            "—" if alignment.get("residual_px") is None else f"{alignment['residual_px']:.4f}",
+        )
+        columns[4].metric(
+            "Canvas overlap",
+            "—"
+            if alignment.get("canvas_overlap_ratio") is None
+            else f"{alignment['canvas_overlap_ratio']:.3f}",
+        )
+        if alignment.get("reason"):
+            st.error(alignment["reason"])
+        st.json(alignment, expanded=False)
+    with position_tab:
+        rows = _inspection_position_rows(result)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+        else:
+            st.info("Không có Position result vì inspection đã dừng trước slot stage.")
+    with appearance_tab:
+        rows = _inspection_appearance_rows(result)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+        else:
+            st.info("Không có Appearance result vì inspection đã dừng trước slot stage.")
+        if result.extras:
+            st.markdown("##### Extra candidates")
+            st.dataframe(pd.DataFrame(result.extras), hide_index=True, width="stretch")
+    with json_tab:
+        st.download_button(
+            "Tải inspection_result.json",
+            result.json_payload.encode("utf-8"),
+            file_name="inspection_result.json",
+            mime="application/json",
+            type="primary",
+        )
+        st.code(result.json_payload, language="json")
+
+
+def _render_inspect_board_mode() -> None:
+    record = st.session_state.inspection_recipe
+    st.markdown("#### Recipe source")
+    recipe_path = st.text_input(
+        "Hoặc nhập đường dẫn local tới recipe.json",
+        placeholder="/path/to/recipe/recipe.json",
+    )
+    if st.button("Load và validate recipe", disabled=not recipe_path.strip()):
+        try:
+            record = _get_bridge().load_inspection_recipe(recipe_path)
+            st.session_state.inspection_recipe = record
+            st.session_state.inspection_run = None
+            st.success("Recipe và toàn bộ lossless assets hợp lệ.")
+        except Exception as exc:
+            st.error(f"Không load được recipe: {exc}")
+    if isinstance(record, InspectionRecipeRecord):
+        st.caption(
+            f"{record.schema_version} · {record.slot_count} slots · "
+            f"{record.anchor_count} anchors · {record.coordinate_space}"
+        )
+    else:
+        st.info("Build recipe ở tab đầu hoặc load một recipe local trước khi inspect.")
+
+    test_image = st.session_state.input_image
+    if test_image is None:
+        _render_empty("Chưa có ảnh test", "Nạp Image #2 ở sidebar.")
+        return
+    left, right = st.columns([1.25, 1.0], gap="large")
+    with left:
+        _show_image(test_image, st.session_state.input_name)
+        st.caption(f"Measurement image · {test_image.shape[1]} × {test_image.shape[0]}px")
+    with right:
+        require_production = st.checkbox(
+            "Bật production eligibility gate",
+            value=False,
+            help="Demo recipe sẽ fail closed nếu bật gate này.",
+        )
+        st.caption(
+            "Detector chỉ cung cấp presence/missing/extra và class hint. Position/Appearance "
+            "luôn dùng fixed ROI từ Golden recipe."
+        )
+        inspect_clicked = st.button(
+            "Inspect Board",
+            type="primary",
+            width="stretch",
+            disabled=(
+                not isinstance(record, InspectionRecipeRecord) or _pt_model_blocked()
+            ),
+        )
+        if inspect_clicked and isinstance(record, InspectionRecipeRecord):
+            if _pt_model_blocked():
+                st.error("Cần xác nhận file .pt đáng tin cậy trước khi inspect board.")
+                return
+            try:
+                with st.spinner("Đang strict-align, đo pose và Golden Compare…"):
+                    result = _get_bridge().inspect_board(
+                        test_image,
+                        record,
+                        require_production_eligible=bool(require_production),
+                        allow_trusted_pt=bool(st.session_state.pt_model_trusted),
+                    )
+                st.session_state.inspection_run = result
+                st.session_state.messages.append(
+                    f"Inspection board: {result.status.upper()} · {len(result.slots)} slots"
+                )
+            except Exception as exc:
+                st.error(f"Inspect Board thất bại: {exc}")
+
+    result = st.session_state.inspection_run
+    if isinstance(result, InspectionResult):
+        _render_inspection_result(result)
+
+
+def _render_inspection_workspace() -> None:
+    _render_inspection_header()
+    build_tab, inspect_tab = st.tabs(["Build Recipe", "Inspect Board"])
+    with build_tab:
+        _render_build_recipe_mode()
+    with inspect_tab:
+        _render_inspect_board_mode()
+
+
 def _render_activity_log() -> None:
     with st.expander("Nhật ký phiên xử lý", expanded=False):
         if not st.session_state.messages:
@@ -3106,6 +2648,11 @@ def main() -> None:
     _init_state()
     _load_css()
     quick_run = _render_sidebar()
+    if st.session_state.workspace_mode == "golden_inspection":
+        _render_inspection_workspace()
+        _render_activity_log()
+        _render_footer()
+        return
     _render_header()
     if quick_run:
         _run_all()
