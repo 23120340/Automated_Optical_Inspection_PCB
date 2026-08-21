@@ -58,6 +58,11 @@ MAX_IMAGE_PIXELS = 50_000_000
 MIN_SOURCE_LONG_SIDE = 1280
 MIN_SOURCE_SHORT_SIDE = 960
 MIN_SOURCE_PIXELS = MIN_SOURCE_LONG_SIDE * MIN_SOURCE_SHORT_SIDE
+# The resolution figure is still measured and still shown; it just no longer
+# blocks the import. Set this back to True for a production line, where running
+# a board nobody can grade is worse than refusing it. During development it only
+# stops you from feeding the pipeline the images you have.
+ENFORCE_SOURCE_RESOLUTION = False
 MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 STEP_DEFINITIONS = (
     (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
@@ -66,8 +71,8 @@ STEP_DEFINITIONS = (
     (3, "Khoanh vùng PCB", "Xác định board ROI", "ROI"),
     (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI"),
     (5, "Cắt linh kiện", "Crop + normalize + export", "CUT"),
-    (6, "6.1 Phân loại linh kiện", "Family + accept/review/unknown", "CLS"),
-    (7, "6.2 Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD"),
+    (6, "Phân loại linh kiện", "Family + accept/review/unknown", "CLS"),
+    (7, "Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD"),
 )
 SOLDER_ROI_COLORS = {
     "joint": (0, 200, 255),  # BGR amber
@@ -302,6 +307,10 @@ def _source_resolution_issue(image: np.ndarray) -> str | None:
 
 
 def _require_source_resolution(image: np.ndarray) -> None:
+    """Raise only when the gate is enforced; otherwise the caller warns instead."""
+
+    if not ENFORCE_SOURCE_RESOLUTION:
+        return
     issue = _source_resolution_issue(image)
     if issue:
         raise ValueError(issue)
@@ -832,8 +841,14 @@ def _run_all() -> None:
     )
     if classifier_ready:
         stages += ((6, "6.1 Phân loại linh kiện", _execute_classification),)
+    # 6.2 chạy luôn: nó là bước riêng chứ không còn là tab con của bước 4, và
+    # tầng luật chấm được ngay cả khi chưa nạp model nào -- nên "chạy toàn bộ"
+    # mà dừng ở 6.1 sẽ để người dùng tưởng bước 6.2 hỏng.
+    solder_enabled = bool(st.session_state.config.get("solder", {}).get("enabled", True))
+    if solder_enabled:
+        stages += ((7, "6.2 Kiểm tra mối hàn", _execute_solder),)
     for index, (step, label, callback) in enumerate(stages, start=1):
-        progress.progress((index - 1) / len(stages), text=f"Bước {step}/6.1 · {label}")
+        progress.progress((index - 1) / len(stages), text=f"Bước {step} · {label}")
         try:
             callback(bridge)
         except Exception as exc:
@@ -842,16 +857,17 @@ def _run_all() -> None:
             progress.empty()
             st.error(f"Dừng ở bước {step}: {exc}")
             return
-    final_step = 6 if classifier_ready else 5
-    progress.progress(1.0, text=f"Hoàn tất workflow 0–{final_step}")
+    final_step = stages[-1][0]
+    titles = {index: title for index, title, *_ in STEP_DEFINITIONS}
+    label = titles.get(final_step, str(final_step))
+    progress.progress(1.0, text=f"Hoàn tất workflow 0 → {label}")
     st.session_state.active_step = final_step
     st.session_state.pending_navigation = final_step
-    if classifier_ready:
-        st.toast("Đã chạy xong workflow đến bước 6.1.", icon="✅")
-    else:
+    st.toast(f"Đã chạy xong workflow đến {label}.", icon="✅")
+    if not classifier_ready:
         st.info(
-            "Đã chạy xong bước 5. Bước 6.1 đang chờ best.onnx và "
-            "model_manifest.json từ notebook train."
+            "Bước 6.1 bị bỏ qua vì chưa có best.onnx và model_manifest.json từ "
+            "notebook train; các bước còn lại đã chạy."
         )
 
 
@@ -1087,9 +1103,50 @@ def _render_sidebar() -> bool:
             else:
                 st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
 
+        with st.expander("Model kiểm tra mối hàn 6.2", expanded=False):
+            st.caption(
+                "Tùy chọn. Không có model thì bước 6.2 vẫn chấm bằng tầng luật đo "
+                "hình học; nạp model chỉ thêm một tầng nữa vào hợp nhất."
+            )
+            solder_upload = st.file_uploader(
+                "Model 6.2 (best.onnx)",
+                type=["onnx"],
+                key="solder_model_uploader",
+                help="ONNX raw-logit do notebook pcb_solder_defect_kaggle xuất.",
+            )
+            if solder_upload is not None:
+                try:
+                    _set_solder_model(solder_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            solder_manifest_upload = st.file_uploader(
+                "Contract 6.2 (model_manifest.json)",
+                type=["json"],
+                key="solder_manifest_uploader",
+                help=(
+                    "Bắt buộc đi kèm model: nó ghim class order và ngưỡng. Thiếu nó "
+                    "thì thứ tự lớp phải đoán, mà đoán sai là mọi lỗi thành 'đạt'."
+                ),
+            )
+            if solder_manifest_upload is not None:
+                try:
+                    _set_solder_manifest(solder_manifest_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            if st.session_state.solder_model_name:
+                st.success(f"Model: {st.session_state.solder_model_name}")
+            if st.session_state.solder_manifest_name:
+                st.success(f"Manifest: {st.session_state.solder_manifest_name}")
+            if st.session_state.solder_model_name or st.session_state.solder_manifest_name:
+                if st.button("Gỡ model 6.2", width="stretch"):
+                    _remove_solder_model()
+                    st.rerun()
+            else:
+                st.caption("Chưa có model · bước 6.2 chấm bằng luật đo")
+
         st.markdown('<div class="security-note"><b>Lưu ý model</b><br>.pt có thể chứa pickle. Chỉ mở weight do bạn tự train hoặc nguồn tin cậy; ưu tiên ONNX khi trao đổi.</div>', unsafe_allow_html=True)
         quick_run = st.button(
-            "▶  Chạy pipeline 0–6.1",
+            "▶  Chạy pipeline 0–6.2",
             type="primary",
             width="stretch",
             disabled=st.session_state.input_image is None or _pt_model_blocked(),
@@ -1237,8 +1294,11 @@ def _render_step_zero() -> None:
                 st.metric("Kênh màu", "BGR · 8-bit")
                 resolution_issue = _source_resolution_issue(candidate)
                 if resolution_issue:
-                    st.error(resolution_issue)
-                elif st.button("Nạp ảnh này vào pipeline", type="primary", width="stretch"):
+                    (st.error if ENFORCE_SOURCE_RESOLUTION else st.warning)(resolution_issue)
+                blocked = bool(resolution_issue) and ENFORCE_SOURCE_RESOLUTION
+                if not blocked and st.button(
+                    "Nạp ảnh này vào pipeline", type="primary", width="stretch"
+                ):
                     _set_source(uploaded_file.name, payload)
                     st.toast("Đã nạp ảnh vào workspace.", icon="✅")
                     st.rerun()
@@ -1256,10 +1316,11 @@ def _render_step_zero() -> None:
             st.code(st.session_state.input_digest[:16], language=None)
             active_issue = _source_resolution_issue(st.session_state.input_image)
             if active_issue:
-                st.error(active_issue)
+                (st.error if ENFORCE_SOURCE_RESOLUTION else st.warning)(active_issue)
             else:
                 st.success("Ảnh đã sẵn sàng cho bước 1.")
-            if not active_issue and st.button("Đi đến bước 1 →", width="stretch"):
+            active_blocked = bool(active_issue) and ENFORCE_SOURCE_RESOLUTION
+            if not active_blocked and st.button("Đi đến bước 1 →", width="stretch"):
                 st.session_state.active_step = 1
                 st.session_state.pending_navigation = 1
                 st.rerun()
@@ -2680,7 +2741,7 @@ def _render_footer() -> None:
     st.markdown(
         """
         <div class="app-footer">
-          <span>AOI PCB WORKBENCH · STEPS 0–6.1</span>
+          <span>AOI PCB WORKBENCH · STEPS 0–6.2</span>
           <span>Local session · dữ liệu không được upload ra ngoài bởi UI</span>
         </div>
         """,
