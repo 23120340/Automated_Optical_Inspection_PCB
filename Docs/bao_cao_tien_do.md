@@ -1,8 +1,8 @@
 # Báo cáo tiến độ — Dự án AOI PCB
 
-> Cập nhật: 2026-08-20. Tóm tắt những gì đã làm được, chưa xong đến đâu là
+> Cập nhật: 2026-08-21. Tóm tắt những gì đã làm được, chưa xong đến đâu là
 > chính xác — không tô hồng. Chi tiết kỹ thuật từng phần xem các file khác
-> trong `docs/` và `README.md` ở gốc repo.
+> trong `Docs/` và `README.md` ở gốc repo.
 
 ## Pipeline tổng quan
 
@@ -13,7 +13,11 @@ linh kiện → 6.2 chấm lỗi mối hàn
 ```
 
 Streamlit + OpenCV + Ultralytics YOLO + ONNX Runtime. Bộ test hiện tại:
-**243/243 pass**.
+**374/374 pass**.
+
+Ứng dụng có hai workspace: **Golden Inspection** (recipe cố định cho
+Position/Appearance) và pipeline 0→6.2 ở trên. Bước **6.2 là mục riêng** trong
+điều hướng, không phải tab con của bước 4.
 
 ## Đã hoàn thành theo từng bước
 
@@ -34,10 +38,10 @@ học** từ box linh kiện + topology chân (`aoi_pipeline/solder.py`),
 không phải detect trực tiếp. Ba lớp hợp nhất chồng lên trên, theo thứ tự ưu
 tiên và đều đã đo, không chỉ lý thuyết:
 
-1. **Lead/pad detection thật** (`inspection/leads.py`) thắng khi có, theo
+1. **Lead/pad detection thật** (`aoi_pipeline/leads.py`) thắng khi có, theo
    *từng chân* chứ không theo cả linh kiện — model chỉ thấy một đầu thì đầu
    kia vẫn giữ ROI suy ra.
-2. **CAD fusion** (`inspection/cad.py`, `fusion.py`) — hợp nhất khi có file
+2. **CAD fusion** (`aoi_pipeline/cad.py`, `cad_fusion.py`) — hợp nhất khi có file
    CAD board, hiệu chỉnh cục bộ từng linh kiện, không thay thế detector.
 3. **Siết theo kim loại thật** (`refine_to_metal`) — thu ROI về đúng vùng kim
    loại bên trong nó, đo được cải thiện IoU 0.24→0.70 trên board tổng hợp và
@@ -82,11 +86,24 @@ qua thư viện `datasets`, không cần thao tác tay.
 
 ## Trạng thái model hiện tại
 
-| Model | Kiến trúc | Trạng thái |
+| Model | Kiến trúc | Trạng thái (21/08) |
 |---|---|---|
-| Detector (bước 4) | YOLO26s | v1 đã có trong `models/detector/`; v2 (oversample + imgsz 1536) đang/đã train trên Kaggle |
-| Classifier (bước 6.1) | ConvNeXt-Base | v1 đã có trong `models/classifier/`; v2 đã đo macro recall 0.942 với TTA |
-| Solder grading (bước 6.2) | MobileNetV3-Small | Chưa có model thật trong `models/` — pipeline đang chạy bằng tầng luật; notebook train đã chạy được hết tới ONNX hợp lệ trên dữ liệu ghép |
+| Detector (bước 4) | YOLO26s, 1536px | **v2 xong**, 122 epoch. mAP50 **0.505**, mAP50-95 **0.231**; `pads` recall 0.000→**0.265**, `pins` 0.145→**0.595**. Artifact ở `models/detector/kaggle/ver2/` |
+| Classifier (bước 6.1) | ConvNeXt-Base, 288px | Train xong, macro recall **0.9369** trên model-val — nhưng **chưa có số test** và **chưa có `best.onnx`**: 3 cell cuối (calibration/test/export) chưa chạy |
+| Solder grading (bước 6.2) | MobileNetV3-Small | **Có artifact**, 7 lớp (thêm `shift_component` 4192 mẫu). Accuracy **89.9%**, escape 2.4% |
+
+**Về con số 89.9% của 6.2**: lần chạy trước báo 97.65%, nhưng đó là số **ảo** do
+Roboflow sinh nhiều bản augment cho cùng một ảnh và chúng bị tách thành các
+group khác nhau nên rơi vào cả train lẫn val. Sau khi gộp về ảnh gốc
+(2334→1185 group) thì còn 89.9% — đây mới là số đúng.
+
+Điểm yếu rõ nhất của 6.2: **`insufficient` recall chỉ 48.7%** (37/76), trong đó
+18 mẫu bị đọc thành `good` — tức escape thật. Nguyên nhân là dữ liệu (320 mẫu
+train, lệch 11:1 so với `shift_component`), không phải thiếu epoch: loss đã
+phẳng từ epoch 21. Tầng luật (`escape_guard`) vẫn bắt độc lập với model.
+
+`cold` đạt 100% (64/64) và `shift_component` 99.2% — cả hai **chỉ từ một
+nguồn** và chưa kiểm chứng leave-one-source-out, nên chưa nên tin.
 
 ## Giới hạn còn tồn tại — nói thẳng
 
@@ -106,8 +123,11 @@ qua thư viện `datasets`, không cần thao tác tay.
 
 ## Việc tiếp theo, theo thứ tự ưu tiên
 
-1. Chờ detector v2 + classifier v2 train xong trên Kaggle, so kết quả với
-   baseline (cổng verdict đã có sẵn trong notebook).
+1. **Chạy nốt 3 cell cuối của notebook classifier** — training đã xong nhưng
+   chưa có `best.onnx` nên bước 6.1 chưa nạp được model v2. Nếu session Kaggle
+   còn sống thì chỉ mất vài phút; nếu đã chết thì phải train lại (notebook nay
+   ghi `best_state.pt` ra đĩa mỗi lần cải thiện nên lần sau đứt mạng không mất
+   trắng, và có `CONFIG["resume_state"]` để bỏ qua train).
 2. Chạy `compare_preprocessing_ab.py` trên ảnh board thật ngay khi có model,
    quyết định giữ/tắt từng bước tiền xử lý dựa trên số đo thật.
 3. Xem ảnh mẫu cho `no_good`/`poor_solder` (cell đã có trong notebook 6.2),
