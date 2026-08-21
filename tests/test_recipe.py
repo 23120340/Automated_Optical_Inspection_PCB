@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from aoi_pipeline import BoundingBox, Detection
+from aoi_pipeline.imaging.image_io import read_asset_under_root
 from aoi_pipeline.golden.recipe import (
     AppearanceThresholds,
     MetrologyCalibration,
@@ -82,11 +83,18 @@ def test_recipe_clamps_roi_and_persists_pixel_native_assets(tmp_path: Path) -> N
     assert slot.expected_bbox_xyxy.as_xyxy() == [0.0, 4.2, 9.6, 15.1]
     assert slot.fixed_roi_xyxy.as_xyxy() == [0.0, 1.0, 13.0, 19.0]
 
-    template = cv2.imread(str(tmp_path / slot.template_path), cv2.IMREAD_COLOR)
-    component_mask = cv2.imread(
-        str(tmp_path / slot.component_mask_path), cv2.IMREAD_GRAYSCALE
+    # Through the project's reader, not a bare cv2.imread: production never
+    # calls imread directly here, and cv2.imread is not necessarily OpenCV's --
+    # importing ultralytics replaces it with a version that hands back a
+    # trailing channel axis for grayscale. A test that reads the asset a
+    # different way from the code under test is testing a different thing.
+    template = read_asset_under_root(tmp_path, slot.template_path, cv2.IMREAD_COLOR)
+    component_mask = read_asset_under_root(
+        tmp_path, slot.component_mask_path, cv2.IMREAD_GRAYSCALE
     )
-    compare_mask = cv2.imread(str(tmp_path / slot.compare_mask_path), cv2.IMREAD_GRAYSCALE)
+    compare_mask = read_asset_under_root(
+        tmp_path, slot.compare_mask_path, cv2.IMREAD_GRAYSCALE
+    )
     assert template.shape == (18, 13, 3)
     assert np.array_equal(template, _golden()[1:19, 0:13])
     assert component_mask.shape == template.shape[:2]

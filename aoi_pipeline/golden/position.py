@@ -147,7 +147,7 @@ class PositionMeasurer:
         ):
             return _invalid(slot, "unmeasurable", "aligned_valid_mask_geometry_invalid")
         else:
-            valid_mask = np.where(global_valid_mask > 0, 255, 0).astype(np.uint8)
+            valid_mask = ((global_valid_mask > 0).view(np.uint8) * 255)
         root = Path(recipe_root).expanduser().resolve()
         template = _read_asset(root, slot.template_path, cv2.IMREAD_COLOR)
         mask = _read_asset(root, slot.component_mask_path, cv2.IMREAD_GRAYSCALE)
@@ -176,7 +176,7 @@ class PositionMeasurer:
 
         template_repr = _gradient_representation(template)
         search_repr = _gradient_representation(search)
-        binary_mask = np.where(mask > 0, 255, 0).astype(np.uint8)
+        binary_mask = ((mask > 0).view(np.uint8) * 255)
         try:
             response = cv2.matchTemplate(
                 search_repr,
@@ -438,7 +438,7 @@ def _refine_euclidean_pose(
         borderMode=cv2.BORDER_CONSTANT,
     )
     valid = cv2.warpAffine(
-        np.where(observed_valid_mask > 0, 255, 0).astype(np.uint8),
+        ((observed_valid_mask > 0).view(np.uint8) * 255),
         warp,
         (template.shape[1], template.shape[0]),
         flags=cv2.INTER_NEAREST | cv2.WARP_INVERSE_MAP,
@@ -485,8 +485,12 @@ def _translation_valid_overlap(
     )
     x1, y1, x2, y2 = roi_xyxy
     component = component_mask > 0
-    if component.shape != (y2 - y1, x2 - x1):
+    # ``shape[:2]``, not ``shape``: a single-channel mask that arrives as
+    # (h, w, 1) is still the right mask, and reading this as a size mismatch
+    # returned 0.0 coverage for every slot on the board.
+    if component.shape[:2] != (y2 - y1, x2 - x1):
         return 0.0
+    component = component.reshape(component.shape[0], component.shape[1])
     valid = valid_in_golden[y1:y2, x1:x2] > 0
     return float(np.count_nonzero(component & valid) / max(1, np.count_nonzero(component)))
 

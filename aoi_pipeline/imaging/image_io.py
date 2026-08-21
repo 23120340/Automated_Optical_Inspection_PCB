@@ -142,6 +142,30 @@ def _to_uint8(image: np.ndarray) -> np.ndarray:
     return np.clip(values, 0.0, 255.0).astype(np.uint8)
 
 
+def drop_singleton_channel(image):
+    """Return a single-channel image as ``(h, w)``, never ``(h, w, 1)``.
+
+    ``cv2.imread`` is not necessarily OpenCV's. Ultralytics replaces it at
+    import time with ``ultralytics.utils.patches.imread`` so that non-ASCII
+    paths work, and under OpenCV 5 that replacement hands back a trailing
+    channel axis for a grayscale read where OpenCV itself hands back two
+    dimensions:
+
+        before importing ultralytics:  imread(mask, IMREAD_GRAYSCALE) -> (83, 95)
+        after  importing ultralytics:  imread(mask, IMREAD_GRAYSCALE) -> (83, 95, 1)
+
+    The app always loads a detector, so inside the app it is always the second
+    one. Every ``mask.shape == (height, width)`` check in the recipe, position
+    and compare code then fails on a mask that is perfectly correct -- which is
+    how Golden Inspection came to measure ``valid_overlap_ratio`` as exactly
+    0.0 on every slot and report nothing at all.
+    """
+
+    if image is not None and getattr(image, "ndim", 0) == 3 and image.shape[2] == 1:
+        return image[:, :, 0]
+    return image
+
+
 def read_asset_under_root(root, relative_path: str, mode: int):
     """Read an image that must live inside ``root``.
 
@@ -149,6 +173,9 @@ def read_asset_under_root(root, relative_path: str, mode: int):
     and one of them saying ``../../etc/passwd`` must read as "missing asset",
     not as a file read. Step-2 position matching and Golden Compare each had
     their own identical copy of this.
+
+    Single-channel reads are normalised here rather than at each of the eight
+    call sites, because the shape they expect is the shape they should get.
     """
 
     from pathlib import Path as _Path
@@ -158,4 +185,4 @@ def read_asset_under_root(root, relative_path: str, mode: int):
         path.relative_to(_Path(root))
     except ValueError:
         return None
-    return cv2.imread(str(path), mode)
+    return drop_singleton_channel(cv2.imread(str(path), mode))

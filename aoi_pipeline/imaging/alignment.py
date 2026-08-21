@@ -12,7 +12,7 @@ import numpy as np
 
 from ..config import AlignmentConfig
 from ..exceptions import AlignmentError, RecipeValidationError
-from .image_io import ensure_bgr
+from .image_io import drop_singleton_channel, ensure_bgr
 from ..models import AlignmentResult, shape_dict
 from ..golden.recipe import AlignmentAnchor, InspectionRecipe, validate_recipe_assets
 
@@ -177,7 +177,7 @@ class PCBAligner:
                 "Source valid mask must be a 2D array matching the measurement image"
             )
         else:
-            source_valid = np.where(source_valid_mask > 0, 255, 0).astype(np.uint8)
+            source_valid = ((source_valid_mask > 0).view(np.uint8) * 255)
         gates = recipe.alignment.quality_gates
         anchors = recipe.alignment.anchors
         if len(anchors) < int(gates.min_anchors):
@@ -490,7 +490,12 @@ def _measure_anchor(
     recipe_root: Path,
     minimum_score: float,
 ) -> AnchorMatch:
-    template = cv2.imread(str(recipe_root / anchor.template_path), cv2.IMREAD_GRAYSCALE)
+    # Not a bare cv2.imread: see drop_singleton_channel. The anchor mask is
+    # compared against the template shape three lines down, and that comparison
+    # is exactly what a trailing channel axis breaks.
+    template = drop_singleton_channel(
+        cv2.imread(str(recipe_root / anchor.template_path), cv2.IMREAD_GRAYSCALE)
+    )
     if template is None or template.size == 0:
         return AnchorMatch(
             anchor.anchor_id,
@@ -502,7 +507,9 @@ def _measure_anchor(
         )
     mask: np.ndarray | None = None
     if anchor.mask_path is not None:
-        mask = cv2.imread(str(recipe_root / anchor.mask_path), cv2.IMREAD_GRAYSCALE)
+        mask = drop_singleton_channel(
+            cv2.imread(str(recipe_root / anchor.mask_path), cv2.IMREAD_GRAYSCALE)
+        )
         if mask is None or mask.shape != template.shape:
             return AnchorMatch(
                 anchor.anchor_id,
