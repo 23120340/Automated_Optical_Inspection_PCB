@@ -211,6 +211,49 @@ nhiều. Dữ liệu mới là thứ quyết định.
 
 ---
 
+## Đợt việc 2026-08-22
+
+Danh sách người dùng giao. Ghi ra trước khi làm, tích ngay khi xong.
+
+### E — Lưu dữ liệu lỗi (làm TRƯỚC lượt 2, theo yêu cầu)
+
+- `[ ] CHƯA LÀM` **E1.** Chốt cách lưu: công nhân phải xem được ảnh chỗ lỗi,
+  nhưng lưu mọi ảnh thì phình dữ liệu. Cần phương án đo được, không phải cảm
+  tính.
+- `[ ] CHƯA LÀM` **E2.** Cài đặt: lưu toạ độ + đủ thông tin để **dựng lại**
+  đúng khung ảnh đã đo, cắt theo yêu cầu khi mở xem.
+- `[ ] CHƯA LÀM` **E3.** Đo dung lượng thật trước/sau trên board thật.
+
+### F — Nhập BOM
+
+- `[ ] CHƯA LÀM` **F1.** Đọc BOM (vị trí, toạ độ, kích thước từng linh kiện).
+- `[ ] CHƯA LÀM` **F2.** Đối chiếu detect ↔ BOM. **Linh kiện detect được ở
+  toạ độ mà BOM không có cũng là một lỗi** — không chỉ thiếu linh kiện.
+- `[ ] CHƯA LÀM` **F3.** UI nạp BOM + hiển thị đối chiếu.
+
+### G — Thư mục model
+
+- `[ ] CHƯA LÀM` **G1.** Tách thư mục model dùng chính, copy model hiện dùng
+  sang, giữ riêng một chỗ cho model người dùng tự lưu.
+- `[ ] CHƯA LÀM` **G2.** App nạp từ thư mục đó thay vì bắt upload mỗi lần.
+
+### H — UI
+
+- `[ ] CHƯA LÀM` **H1.** Font Montserrat.
+- `[ ] CHƯA LÀM` **H2.** Thao tác dễ hơn.
+
+### I — Model 6.2 hiện tại có dùng được không
+
+- `[ ] CHƯA LÀM` **I1.** Kiểm bằng test, kết luận rõ ràng, nêu hướng khắc phục
+  nếu không đạt.
+
+### J — Lượt 2 cho chân mối hàn
+
+- `[ ] CHƯA LÀM` **J1.** Agent con khảo sát dataset + chọn model.
+- `[ ] CHƯA LÀM` **J2.** Hoàn thiện đường ống theo kết quả khảo sát.
+
+---
+
 ## Nhật ký
 
 | Ngày | Việc | Kết quả |
