@@ -217,12 +217,40 @@ Danh sách người dùng giao. Ghi ra trước khi làm, tích ngay khi xong.
 
 ### E — Lưu dữ liệu lỗi (làm TRƯỚC lượt 2, theo yêu cầu)
 
-- `[ ] CHƯA LÀM` **E1.** Chốt cách lưu: công nhân phải xem được ảnh chỗ lỗi,
-  nhưng lưu mọi ảnh thì phình dữ liệu. Cần phương án đo được, không phải cảm
-  tính.
-- `[ ] CHƯA LÀM` **E2.** Cài đặt: lưu toạ độ + đủ thông tin để **dựng lại**
-  đúng khung ảnh đã đo, cắt theo yêu cầu khi mở xem.
-- `[ ] CHƯA LÀM` **E3.** Đo dung lượng thật trước/sau trên board thật.
+- `[x] HOÀN THÀNH` **E1.** Đo trước rồi mới chốt. Số thật trên board của dự án:
+
+  | | mỗi board (~960 linh kiện) | mỗi năm (100 board/ngày) |
+  |---|---|---|
+  | Lưu ảnh từng lỗi (PNG) | 7.1 MB | ~260 GB |
+  | Lưu toạ độ + số đo (JSON) | 1.39 MB | ~50 GB |
+
+  Tỉ lệ chỉ **5 lần**, không phải hàng trăm — vì chỉ lưu phần LỖI, và crop nhỏ
+  nén PNG rất tốt. Nên lý do chọn toạ độ không hẳn là dung lượng, mà là **số thì
+  tra cứu/thống kê/so sánh được, còn ảnh thì không**.
+
+  Chi phí đổi lại, cũng đo được:
+
+  ```
+  dựng lại khung ảnh từ file gốc : 219 ms   (một lần cho cả board)
+  cắt một ROI từ khung đã có     : 0.004 ms
+  ```
+
+  → Giữ **đúng một khung** trong RAM cho mỗi board đang xem. Công nhân mở một
+  board rồi lật qua các lỗi của nó, nên 219 ms trả một lần, mọi crop sau đó gần
+  như miễn phí. Dựng lại cho từng ROI sẽ đắt gấp **~59.000 lần**.
+- `[x] HOÀN THÀNH` **E2.** `aoi_pipeline/evidence.py`: `EvidenceBundle` lưu
+  toạ độ + số đo + **vân tay nguồn** (đường dẫn, SHA-256, kích thước khung, cấu
+  hình tiền xử lý). `EvidenceViewer` giữ tối đa một khung, `release()` để trả
+  RAM.
+
+  Phần quan trọng hơn tiết kiệm: **khung dựng lại phải đúng là khung cũ.** Toạ
+  độ ghi theo một công thức tiền xử lý sẽ trỏ vào pixel khác dưới công thức
+  khác, và cho công nhân xem nhầm pixel còn tệ hơn không cho xem gì. Nên viewer
+  **từ chối** khi digest lệch, khi kích thước khung lệch, hoặc khi mất ảnh gốc —
+  báo lỗi rõ ràng thay vì cắt bừa.
+- `[x] HOÀN THÀNH` **E3.** 10 test, phần lớn là test các ca **từ chối**: file
+  nguồn đổi nội dung, tiền xử lý đổi làm khung khác kích thước, mất ảnh gốc,
+  schema cũ.
 
 ### F — Nhập BOM
 

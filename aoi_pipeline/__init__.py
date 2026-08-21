@@ -44,6 +44,14 @@ from .detection.detectors import (
     create_detector,
     non_maximum_suppression,
 )
+from .evidence import (
+    DefectEvidence,
+    EvidenceBundle,
+    EvidenceMismatch,
+    EvidenceViewer,
+    SourceFingerprint,
+    build_evidence_bundle,
+)
 from .exceptions import (
     AlignmentError,
     AOIPipelineError,
@@ -167,6 +175,12 @@ from .detection.tiling import (
 )
 
 __all__ = [
+    "DefectEvidence",
+    "EvidenceBundle",
+    "EvidenceMismatch",
+    "EvidenceViewer",
+    "SourceFingerprint",
+    "build_evidence_bundle",
     "AOIPipeline",
     "AOIInspector",
     "AOIPipelineError",
