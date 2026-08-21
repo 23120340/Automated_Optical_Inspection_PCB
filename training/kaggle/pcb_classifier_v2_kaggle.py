@@ -538,11 +538,22 @@ print("  LR:", ", ".join(lrs))
 # %%
 def evaluate(network, loader):
     network.eval()
+    # Hỏi chính network xem nó đang ở đâu, đừng dùng biến `device` toàn cục.
+    # Phần hiệu chỉnh nhiệt độ gọi model.to("cpu"), mà nn.Module.to() chuyển
+    # TẠI CHỖ và trả về chính nó -- nên sau cell đó `model` cũng đã nằm trên
+    # CPU, trong khi `device` vẫn nói "cuda". Gửi ảnh tới nơi không có trọng số
+    # cho lỗi khó đọc:
+    #   Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor)
+    #   should be the same
+    try:
+        network_device = next(network.parameters()).device
+    except StopIteration:               # model không có tham số nào
+        network_device = device
     correct = total = 0
     per_class_correct, per_class_total = Counter(), Counter()
     with torch.no_grad():
         for images, targets in loader:
-            outputs = network(images.to(device))
+            outputs = network(images.to(network_device))
             predicted = outputs.argmax(1).cpu()
             correct += int((predicted == targets).sum())
             total += targets.numel()
@@ -663,6 +674,9 @@ print(f"\nmacro recall tốt nhất: {best_score:.4f}")
 # dùng chọn model luôn lạc quan.
 
 # %%
+# LƯU Ý: nn.Module.to() chuyển TẠI CHỖ và trả về chính đối tượng đó. Sau dòng
+# này `model` và `model_cpu` là MỘT, và cả hai đều nằm trên CPU. Mọi thứ phía
+# sau phải lấy device từ chính model chứ không từ biến `device` toàn cục.
 model_cpu = model.to("cpu").eval()
 
 
