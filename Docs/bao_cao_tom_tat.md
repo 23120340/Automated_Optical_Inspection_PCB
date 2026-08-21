@@ -3,7 +3,7 @@
 
 > **Cập nhật:** 21/08/2026  
 > **Dự án:** Automated Optical Inspection for PCB Assembly (AOI PCBA)  
-> **Bản đầy đủ chi tiết:** Xem tại [`BAO_CAO_DU_AN_AOI_PCB.md`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/BAO_CAO_DU_AN_AOI_PCB.md)
+> **Bản đầy đủ chi tiết:** Xem tại [`bao_cao_du_an.md`](bao_cao_du_an.md)
 
 ---
 
@@ -118,11 +118,11 @@ flowchart TD
 
 ## 7. BỘ CÔNG CỤ DÒNG LỆNH PHỤ TRỢ (SCRIPTS)
 
-1. [`scripts/calibrate_camera.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/calibrate_camera.py): Hiệu chuẩn ma trận camera và sửa méo lens từ ảnh bàn cờ.
-2. [`scripts/calibrate_solder_thresholds.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/calibrate_solder_thresholds.py): Tự động tính toán bộ ngưỡng quang học tối ưu từ bo mạch chuẩn.
-3. [`scripts/export_solder_dataset.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/export_solder_dataset.py): Trích xuất tập crop mối hàn thực tế phục vụ huấn luyện.
-4. [`scripts/bootstrap_lead_labels.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/bootstrap_lead_labels.py): Tự động sinh nhãn chân/pad định dạng YOLO để hỗ trợ gán nhãn tăng cường.
-5. [`scripts/compare_preprocessing_ab.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/compare_preprocessing_ab.py): Đánh giá A/B Testing định lượng tác động của từng bước tiền xử lý.
+1. [`scripts/calibrate_camera.py`](../scripts/calibrate_camera.py): Hiệu chuẩn ma trận camera và sửa méo lens từ ảnh bàn cờ.
+2. [`scripts/calibrate_solder_thresholds.py`](../scripts/calibrate_solder_thresholds.py): Tự động tính toán bộ ngưỡng quang học tối ưu từ bo mạch chuẩn.
+3. [`scripts/export_solder_dataset.py`](../scripts/export_solder_dataset.py): Trích xuất tập crop mối hàn thực tế phục vụ huấn luyện.
+4. [`scripts/bootstrap_lead_labels.py`](../scripts/bootstrap_lead_labels.py): Tự động sinh nhãn chân/pad định dạng YOLO để hỗ trợ gán nhãn tăng cường.
+5. [`scripts/compare_preprocessing_ab.py`](../scripts/compare_preprocessing_ab.py): Đánh giá A/B Testing định lượng tác động của từng bước tiền xử lý.
 
 ---
 

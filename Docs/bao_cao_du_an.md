@@ -3,7 +3,7 @@
 
 > **Thời gian cập nhật:** 21/08/2026  
 > **Dự án:** Automated Optical Inspection for Printed Circuit Board Assembly (AOI PCBA)  
-> **Tài liệu tham chiếu:** Thiết kế hệ thống, Thực nghiệm mã nguồn ([`aoi_pipeline/`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/)), Báo cáo tiến độ ([`Docs/bao_cao_tien_do.md`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/Docs/bao_cao_tien_do.md)), Hướng dẫn huấn luyện ([`training/kaggle/`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/training/kaggle/)), và Nghiên cứu phân cực linh kiện.  
+> **Tài liệu tham chiếu:** Thiết kế hệ thống, Thực nghiệm mã nguồn ([`aoi_pipeline/`](../aoi_pipeline/)), Báo cáo tiến độ ([`Docs/bao_cao_tien_do.md`](../Docs/bao_cao_tien_do.md)), Hướng dẫn huấn luyện ([`training/kaggle/`](../training/kaggle/)), và Nghiên cứu phân cực linh kiện.  
 > **Chất lượng mã nguồn:** 340+ kiểm thử tự động (Unit / Integration Tests).
 
 ---
@@ -44,7 +44,7 @@ mindmap
 
 ## II. KIẾN TRÚC HỆ THỐNG & HAI WORKSPACE VẬN HÀNH
 
-Hệ thống được thiết kế theo cấu trúc module hóa cao ([`aoi_pipeline/`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/)), phân định rõ ràng 2 không gian làm việc (*Workspace*) phục vụ hai mục đích chuyên biệt:
+Hệ thống được thiết kế theo cấu trúc module hóa cao ([`aoi_pipeline/`](../aoi_pipeline/)), phân định rõ ràng 2 không gian làm việc (*Workspace*) phục vụ hai mục đích chuyên biệt:
 
 ```mermaid
 flowchart TD
@@ -75,20 +75,20 @@ flowchart TD
 
 ### 1. Phân đoạn 0–3: Nạp ảnh, Hiệu chuẩn ống kính, Căn chỉnh & Định vị bo mạch
 
-* **Cổng tiếp nhận ảnh nghiêm ngặt (Step 0 - [`aoi_pipeline/image_io.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/image_io.py)):**
+* **Cổng tiếp nhận ảnh nghiêm ngặt (Step 0 - [`aoi_pipeline/image_io.py`](../aoi_pipeline/image_io.py)):**
   * Thiết lập ngưỡng chất lượng tối thiểu $\ge 1280 \times 960\text{ px}$ ($1.23\text{ MP}$), dung lượng tối đa $64\text{ MB} / 50\text{ MP}$ để đảm bảo độ phân giải quang học cho linh kiện siêu nhỏ.
   * Chặn ảnh giả mạo hoặc ảnh nén suy hao nặng ngay từ đầu vào.
 
-* **Hiệu chuẩn Camera & Khử méo phi tuyến (Step 1 - [`aoi_pipeline/calibration.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/calibration.py), [`aoi_pipeline/preprocessing.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/preprocessing.py)):**
-  * Xây dựng công cụ hiệu chuẩn mẫu bàn cờ ([`scripts/calibrate_camera.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/calibrate_camera.py)) ước lượng ma trận nội tại $K$ và hệ số méo Brown-Conrady $D$ với sai số tái chiếu $RMS < 0.5\text{ px}$.
+* **Hiệu chuẩn Camera & Khử méo phi tuyến (Step 1 - [`aoi_pipeline/calibration.py`](../aoi_pipeline/calibration.py), [`aoi_pipeline/preprocessing.py`](../aoi_pipeline/preprocessing.py)):**
+  * Xây dựng công cụ hiệu chuẩn mẫu bàn cờ ([`scripts/calibrate_camera.py`](../scripts/calibrate_camera.py)) ước lượng ma trận nội tại $K$ và hệ số méo Brown-Conrady $D$ với sai số tái chiếu $RMS < 0.5\text{ px}$.
   * **Sửa lỗi tương thích quan trọng:** Xử lý triệt để thay đổi shape trả về của corner detector trong OpenCV 5, bổ sung regression test bảo vệ.
   * Chuỗi tiền xử lý đa tầng: Cân bằng trắng Gray-World, lọc tương phản thích ứng CLAHE trên kênh $L$ (không gian màu LAB), khử nhiễu Non-Local Means / Bilateral / Gaussian, chuẩn hóa dải sáng Percentile Stretching (1.0%–99.0%), và làm nét Unsharp Masking.
 
-* **Căn chỉnh phối cảnh 2 tầng (Step 2 - [`aoi_pipeline/alignment.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/alignment.py)):**
+* **Căn chỉnh phối cảnh 2 tầng (Step 2 - [`aoi_pipeline/alignment.py`](../aoi_pipeline/alignment.py)):**
   * Tầng 1 (Toàn cục nhanh): Trích xuất đặc trưng ORB, so khớp Brute-Force Matcher với Lowe's Ratio Test ($0.75$), ước lượng ma trận Homography $3 \times 3$ bằng RANSAC.
   * Tầng 2 (Tinh chỉnh sub-pixel): Tối ưu hóa hệ số tương quan tăng cường ECC (Enhanced Correlation Coefficient Maximization) với mô hình Affine/Euclidean, đưa bo mạch test khớp chính xác từng pixel với ảnh mẫu (*Golden Image*).
 
-* **Định vị & Khoanh vùng bo mạch (Step 3 - [`aoi_pipeline/board.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/board.py)):**
+* **Định vị & Khoanh vùng bo mạch (Step 3 - [`aoi_pipeline/board.py`](../aoi_pipeline/board.py)):**
   * Phân tích kênh Saturation (HSV), kết hợp phân ngưỡng Otsu tự động và Canny edge detector thích ứng theo Median.
   * Áp dụng phép toán hình thái học Morphological Close & Open, phân cấp đường viền ngoài (*RETR_EXTERNAL*) và tính bao chữ nhật tối thiểu (*MinAreaRect*) để tách trọn vẹn PCB ra khỏi nền bàn gá và bóng đổ.
 
@@ -96,12 +96,12 @@ flowchart TD
 
 ### 2. Phân đoạn 4: Phát hiện linh kiện (Component Detection) & Adaptive Tiling
 
-* **Mô hình YOLO26s thế hệ mới ([`aoi_pipeline/detectors.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/detectors.py)):**
+* **Mô hình YOLO26s thế hệ mới ([`aoi_pipeline/detectors.py`](../aoi_pipeline/detectors.py)):**
   * Tích hợp kiến trúc YOLO26 với cơ chế STAL (Small-Target-Aware Label Assignment) tối ưu cho vật thể siêu nhỏ.
-  * Huấn luyện phiên bản Detector v2 trên Kaggle ([`training/kaggle/pcb_detector_v2_kaggle.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/training/kaggle/pcb_detector_v2_kaggle.py)): độ phân giải $1536\text{ px}$, kỹ thuật oversampling cho các lớp hiếm (`pads`, `pins`) có trần an toàn, `copy_paste` augmentation ($0.30$), và cơ chế resume thông minh từ `last.pt`.
+  * Huấn luyện phiên bản Detector v2 trên Kaggle ([`training/kaggle/pcb_detector_v2_kaggle.py`](../training/kaggle/pcb_detector_v2_kaggle.py)): độ phân giải $1536\text{ px}$, kỹ thuật oversampling cho các lớp hiếm (`pads`, `pins`) có trần an toàn, `copy_paste` augmentation ($0.30$), và cơ chế resume thông minh từ `last.pt`.
   * Hỗ trợ nạp mô hình linh hoạt qua ONNX Runtime và PyTorch (`.pt`), tự động đọc cấu hình input shape từ metadata của file ONNX.
 
-* **Thuật toán chia lưới thích ứng (Adaptive Tiling - [`aoi_pipeline/tiling.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/tiling.py)):**
+* **Thuật toán chia lưới thích ứng (Adaptive Tiling - [`aoi_pipeline/tiling.py`](../aoi_pipeline/tiling.py)):**
   * Giải quyết triệt để bài toán mất chi tiết của linh kiện siêu nhỏ ($0402, 0201$) trên ảnh toàn mạch độ phân giải cao ($4\text{K}/8\text{K}$).
   * Tự động phân chia ảnh thành các cửa sổ con linh hoạt $640\text{–}1280\text{ px}$ với độ chồng lấp $20\%$.
   * Thiết lập **Vùng sở hữu trung tâm (Ownership Zone)** nhằm loại bỏ hiện tượng linh kiện bị cắt làm đôi ở mép tile.
@@ -111,11 +111,11 @@ flowchart TD
 
 ### 3. Phân đoạn 5 & 5.5: Cắt ảnh chuẩn hóa, Suy luận hình học ROI mối hàn & Hợp nhất 3 lớp
 
-* **Cắt ảnh & Chuẩn hóa (Step 5 - [`aoi_pipeline/cropping.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/cropping.py)):**
+* **Cắt ảnh & Chuẩn hóa (Step 5 - [`aoi_pipeline/cropping.py`](../aoi_pipeline/cropping.py)):**
   * Trích xuất Sub-pixel từ ảnh gốc độ phân giải cao, mở rộng viền động $15\%$ ($0.15 \times \max(W, H)$).
   * Chuẩn hóa Letterbox với viền xám trung tính ($114$), bảo toàn tỷ lệ khung hình trước khi đưa vào mạng phân loại.
 
-* **Suy luận ROI mối hàn đa hình thái (Step 5.5 - [`aoi_pipeline/solder.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/solder.py)):**
+* **Suy luận ROI mối hàn đa hình thái (Step 5.5 - [`aoi_pipeline/solder.py`](../aoi_pipeline/solder.py)):**
   * Khắc phục rào cản thiếu dữ liệu gán nhãn chân/pad từ các tập dữ liệu công khai bằng **thuật toán suy luận hình học không gian**:
     * **Linh kiện 2 đầu cực (Two-terminal: Resistor, Capacitor, Diode):** Tự động sinh 2 ROI mối hàn đối xứng ở hai đầu theo hướng xoay linh kiện.
     * **Linh kiện nhiều chân (Multi-pin IC / QFP / SOP):** Tính toán ma trận năng lượng biên Laplacian trên 4 cạnh để loại bỏ cạnh không có chân; dùng phép chiếu 1D Intensity Profile phân rã dải chân thành từng ROI chân hàn độc lập.
@@ -135,15 +135,15 @@ flowchart TD
 ```
 
 * **Kiến trúc Hợp nhất ROI 3 tầng (Multi-layer Fusion):**
-  1. **Tầng 1 - Ưu tiên Lead Detection thật ([`aoi_pipeline/leads.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/leads.py)):** Áp dụng theo *từng chân độc lập*. Nếu AI chỉ nhận dạng được 1 đầu, đầu còn lại vẫn duy trì ROI suy luận hình học; các pad phát hiện riêng lẻ được giữ làm ROI độc lập (`pad_only`).
-  2. **Tầng 2 - Hợp nhất CAD/Pick-and-place ([`aoi_pipeline/cad.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/cad.py), [`aoi_pipeline/cad_fusion.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/cad_fusion.py)):** Nạp tọa độ thiết kế từ CAD/BOM/Pick-and-place, tự động bù sai lệch cục bộ (*Local Offset*) cho từng linh kiện.
+  1. **Tầng 1 - Ưu tiên Lead Detection thật ([`aoi_pipeline/leads.py`](../aoi_pipeline/leads.py)):** Áp dụng theo *từng chân độc lập*. Nếu AI chỉ nhận dạng được 1 đầu, đầu còn lại vẫn duy trì ROI suy luận hình học; các pad phát hiện riêng lẻ được giữ làm ROI độc lập (`pad_only`).
+  2. **Tầng 2 - Hợp nhất CAD/Pick-and-place ([`aoi_pipeline/cad.py`](../aoi_pipeline/cad.py), [`aoi_pipeline/cad_fusion.py`](../aoi_pipeline/cad_fusion.py)):** Nạp tọa độ thiết kế từ CAD/BOM/Pick-and-place, tự động bù sai lệch cục bộ (*Local Offset*) cho từng linh kiện.
   3. **Tầng 3 - Siết theo kim loại thật (`refine_to_metal`):** Tự động co ROI dự đoán về đúng đường bao kim loại thực tế bên trong. Thực nghiệm đo được cải thiện IoU từ **0.24 lên 0.70** trên bo mạch tổng hợp và tối ưu trên **16/24 ROI** bo mạch thực tế.
 
 ---
 
 ### 4. Phân đoạn 6.1: Phân loại họ linh kiện (Component Classification)
 
-* **Mô hình ConvNeXt-Base v2 ([`aoi_pipeline/classification.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/classification.py), [`training/kaggle/pcb_classifier_v2_kaggle.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/training/kaggle/pcb_classifier_v2_kaggle.py)):**
+* **Mô hình ConvNeXt-Base v2 ([`aoi_pipeline/classification.py`](../aoi_pipeline/classification.py), [`training/kaggle/pcb_classifier_v2_kaggle.py`](../training/kaggle/pcb_classifier_v2_kaggle.py)):**
   * Nâng cấp từ baseline EfficientNet-B0 lên kiến trúc hiện đại **ConvNeXt-Base** (kích thước đầu vào $288\text{ px}$).
   * Áp dụng kỹ thuật **Layer-wise Learning Rate Decay (LLRD)**: Sửa lỗi cấu hình decay giúp Macro Recall nhảy vọt từ **0.731 lên 0.883**.
   * Kết hợp **Exponential Moving Average (EMA)** và **Test-Time Augmentation (TTA 4-view)** đưa Macro Recall đạt đỉnh **0.942**.
@@ -153,7 +153,7 @@ flowchart TD
 
 ### 5. Phân đoạn 6.2: Thẩm định chất lượng mối hàn 3 tầng & Chốt chặn an toàn
 
-Kiến trúc thẩm định mối hàn ([`aoi_pipeline/grading/`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/grading/)) được xây dựng độc lập với 3 tầng khép kín:
+Kiến trúc thẩm định mối hàn ([`aoi_pipeline/grading/`](../aoi_pipeline/grading/)) được xây dựng độc lập với 3 tầng khép kín:
 
 ```mermaid
 flowchart LR
@@ -182,7 +182,7 @@ flowchart LR
     C2 -- "Kích hoạt" --> C3
 ```
 
-* **Tầng A - Phép đo quang học vật lý ([`aoi_pipeline/grading/features.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/grading/features.py), [`aoi_pipeline/grading/rules.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/grading/rules.py)):**
+* **Tầng A - Phép đo quang học vật lý ([`aoi_pipeline/grading/features.py`](../aoi_pipeline/grading/features.py), [`aoi_pipeline/grading/rules.py`](../aoi_pipeline/grading/rules.py)):**
   * Phân đoạn kim loại trong không gian màu HSV: $(V \ge V_{Otsu}) \land (S \le 110)$.
   * Đo đạc 5 nhóm chỉ số vật lý:
     1. `solder_ratio`: Tỷ lệ diện tích thiếc hàn trên diện tích pad/ROI.
@@ -192,14 +192,14 @@ flowchart LR
     5. `two_terminal_asymmetry`: Độ bất đối xứng diện tích thiếc giữa 2 đầu linh kiện để bắt lỗi dựng bia (*Tombstone*).
   * Hoạt động $100\%$ độc lập, không cần dữ liệu huấn luyện, giải thích rõ nguyên nhân bằng số đo thực tế.
 
-* **Tầng B - Mô hình AI CNN ([`aoi_pipeline/grading/classifier.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/grading/classifier.py)):**
+* **Tầng B - Mô hình AI CNN ([`aoi_pipeline/grading/classifier.py`](../aoi_pipeline/grading/classifier.py)):**
   * Mô hình MobileNetV3-Small ONNX phân loại 7 lớp khuyết tật mối hàn và linh kiện (`good`, `insufficient`, `excess`, `bridge`, `cold`, `missing_solder`, `shift_component`).
   * Đo lường trên tập dữ liệu gộp nhóm đạt độ chính xác thực tế **89.9%**.
 
-* **Tầng C - Bộ hợp nhất & Chốt chặn an toàn (`escape_guard` - [`aoi_pipeline/grading/inspector.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/grading/inspector.py)):**
+* **Tầng C - Bộ hợp nhất & Chốt chặn an toàn (`escape_guard` - [`aoi_pipeline/grading/inspector.py`](../aoi_pipeline/grading/inspector.py)):**
   * Cưỡng chế quy tắc bất đối xứng công nghiệp: Nếu AI tự tin là "Good" nhưng lượng thiếc đo được ở Tầng A nằm dưới sàn vật lý an toàn, hệ thống lập tức cưỡng chế chuyển sang trạng thái `review` (nguồn `escape_guard`). Không mức confidence nào của AI có thể ghi đè chốt chặn này.
 
-* **Hợp nhất dữ liệu mối hàn đa nguồn ([`aoi_pipeline/grading/datasets.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/grading/datasets.py)):**
+* **Hợp nhất dữ liệu mối hàn đa nguồn ([`aoi_pipeline/grading/datasets.py`](../aoi_pipeline/grading/datasets.py)):**
   * Tự động nhận diện cấu trúc thư mục (Folder-per-class, COCO, YOLO, CSV, LabelMe).
   * Viết parser đọc nhãn LabelMe cho 428 ảnh bộ dữ liệu SolDef_AI; tích hợp tải tự động dữ liệu Hugging Face (`hf_soldering_boarding`).
   * Chia tập dữ liệu triệt để theo Bo mạch (*Board-level split*), tuyệt đối không chia theo crop để tránh rò rỉ dữ liệu (*Data leakage*).
@@ -208,7 +208,7 @@ flowchart LR
 
 ### 6. Phân hệ Golden Inspection: Metrology, Position Check & Golden Compare
 
-Nhóm đã hoàn thiện trọn vẹn phân hệ **Golden Inspection** ([`aoi_pipeline/recipe.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/recipe.py), [`aoi_pipeline/position.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/position.py), [`aoi_pipeline/golden_compare.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/golden_compare.py), [`aoi_pipeline/inspection.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/inspection.py)) đáp ứng tiêu chuẩn kiểm định công nghiệp khắt khe:
+Nhóm đã hoàn thiện trọn vẹn phân hệ **Golden Inspection** ([`aoi_pipeline/recipe.py`](../aoi_pipeline/recipe.py), [`aoi_pipeline/position.py`](../aoi_pipeline/position.py), [`aoi_pipeline/golden_compare.py`](../aoi_pipeline/golden_compare.py), [`aoi_pipeline/inspection.py`](../aoi_pipeline/inspection.py)) đáp ứng tiêu chuẩn kiểm định công nghiệp khắt khe:
 
 ```mermaid
 sequenceDiagram
@@ -233,7 +233,7 @@ sequenceDiagram
     O->>O: Final Board Status (Tách biệt lỗi dịch chuyển vs lỗi ngoại quan)
 ```
 
-* **Data Contract & Recipe Schema 1.1 ([`aoi_pipeline/recipe.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/recipe.py)):**
+* **Data Contract & Recipe Schema 1.1 ([`aoi_pipeline/recipe.py`](../aoi_pipeline/recipe.py)):**
   * Chuẩn hóa schema `aoi-inspection-recipe/1.1`. Toàn bộ ảnh Golden, anchor, template và mask lossless đều được mã hóa băm SHA-256 độc lập.
   * Thiết lập hệ quy chiếu tọa độ chuẩn `golden_board_pixels`.
   * Hỗ trợ xuất/nhập gói Recipe nén ZIP chứa file `recipe.json` và toàn bộ tài sản ảnh liên quan.
@@ -242,13 +242,13 @@ sequenceDiagram
   * Sử dụng các điểm neo cơ sở (*Fiducials / Mounting Holes / Stable Patches*) với biến đổi Partial Affine / Similarity.
   * Thiết lập cơ chế **Fail-closed**: Nếu inlier ratio thấp, sai số phần dư (*Reprojection Residual*) vượt ngưỡng, hoặc canvas overlap không đủ, hệ thống lập tức dừng lại và gán cờ `INVALID`, ngăn chặn việc kiểm định trên ảnh căn chỉnh sai.
 
-* **Kiểm tra vị trí và đo lường kích thước (Position Check Metrology - [`aoi_pipeline/position.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/position.py)):**
+* **Kiểm tra vị trí và đo lường kích thước (Position Check Metrology - [`aoi_pipeline/position.py`](../aoi_pipeline/position.py)):**
   * Quét vị trí 2 giai đoạn: Tìm kiếm thô (*Coarse Search*) bằng Template Matching $\rightarrow$ Tinh chỉnh sub-pixel bằng nội suy cực trị Parabol 2D và tối ưu Euclidean Rotation.
   * Tính toán chính xác độ lệch $\Delta x\text{ px}, \Delta y\text{ px}, \Delta\theta^\circ$, quy đổi sang đơn vị milimét ($\Delta x\text{ mm}, \Delta y\text{ mm}$) thông qua hệ số hiệu chuẩn thực tế.
   * Kiểm soát góc xoay tuần hoàn ($180^\circ$ cho linh kiện 2 cực đối xứng).
   * Xử lý trường hợp không tin cậy (*Low confidence*): Trả về `unmeasurable` / `missing_candidate`, tuyệt đối không tạo số đo giả.
 
-* **So sánh ngoại quan Golden Compare ([`aoi_pipeline/golden_compare.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/aoi_pipeline/golden_compare.py)):**
+* **So sánh ngoại quan Golden Compare ([`aoi_pipeline/golden_compare.py`](../aoi_pipeline/golden_compare.py)):**
   * **Bù sai lệch tư thế cục bộ (Local Pose Compensation):** Thực hiện biến đổi ngược tư thế đã đo được trước khi so sánh hình thái, giúp linh kiện chỉ bị lệch vị trí nhẹ không bị đánh trượt oan lỗi ngoại quan (*Appearance Defect*).
   * Đánh giá đa chiều: Chỉ số tương đồng cấu trúc (SSIM), Tương quan chéo chuẩn hóa (NCC), Mặt nạ chênh lệch cường độ sáng (Diff Mask) và phân tích các đốm bất thường (*Anomaly Blobs*).
   * Tách bạch 3 trạng thái phán quyết độc lập: `position_status`, `appearance_status` và `final_board_status`.
@@ -286,19 +286,19 @@ flowchart TD
 
 ### 8. Hệ sinh thái công cụ hỗ trợ & Giao diện Web (Tooling & Web App)
 
-* **Giao diện người dùng Web App trực quan ([`app/`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/app/)):**
+* **Giao diện người dùng Web App trực quan ([`app/`](../app/)):**
   * Xây dựng trên nền tảng **Streamlit**, điều hướng mượt mà giữa các bước với trạng thái độc lập.
   * Tích hợp khung hiển thị ảnh tương tác, phóng to chi tiết mối hàn vi mô, chuyển đổi linh hoạt các lớp phủ overlay (Bounding Box linh kiện, Lưới Tiling, Mặt nạ thiếc kim loại, Heatmap khuyết tật).
   * Bảng điều khiển nạp mô hình linh hoạt qua sidebar (hỗ trợ kiểm tra bảo mật file `.pt` và xác thực chữ ký SHA-256 file `.onnx`).
   * Xuất báo cáo kiểm định toàn diện: File nén ZIP chứa ảnh trực quan hóa, file JSON portable, và các bảng dữ liệu CSV chi tiết.
 
-* **Bộ công cụ dòng lệnh chuyên dụng ([`scripts/`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/)):**
-  * [`calibrate_camera.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/calibrate_camera.py): Hiệu chuẩn ống kính camera từ ảnh bàn cờ.
-  * [`calibrate_solder_thresholds.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/calibrate_solder_thresholds.py): Khảo sát đặc trưng mối hàn trên bo mạch chuẩn và đề xuất bộ ngưỡng vật lý tối ưu theo phân vị.
-  * [`export_solder_dataset.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/export_solder_dataset.py): Tự động trích xuất tập dữ liệu crop mối hàn từ ảnh bo mạch thực tế.
-  * [`bootstrap_lead_labels.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/bootstrap_lead_labels.py): Xuất nhãn chân/pad bán tự động sang định dạng YOLO phục vụ gán nhãn tăng cường cho Detector.
-  * [`compare_preprocessing_ab.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/compare_preprocessing_ab.py): Đánh giá A/B Testing định lượng ảnh hưởng của từng bộ lọc tiền xử lý lên độ tin cậy của mô hình AI.
-  * [`verify_solder_model.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/verify_solder_model.py) & [`fix_detector_manifest.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/fix_detector_manifest.py): Kiểm tra và sửa đổi cấu hình manifest mô hình tự động.
+* **Bộ công cụ dòng lệnh chuyên dụng ([`scripts/`](../scripts/)):**
+  * [`calibrate_camera.py`](../scripts/calibrate_camera.py): Hiệu chuẩn ống kính camera từ ảnh bàn cờ.
+  * [`calibrate_solder_thresholds.py`](../scripts/calibrate_solder_thresholds.py): Khảo sát đặc trưng mối hàn trên bo mạch chuẩn và đề xuất bộ ngưỡng vật lý tối ưu theo phân vị.
+  * [`export_solder_dataset.py`](../scripts/export_solder_dataset.py): Tự động trích xuất tập dữ liệu crop mối hàn từ ảnh bo mạch thực tế.
+  * [`bootstrap_lead_labels.py`](../scripts/bootstrap_lead_labels.py): Xuất nhãn chân/pad bán tự động sang định dạng YOLO phục vụ gán nhãn tăng cường cho Detector.
+  * [`compare_preprocessing_ab.py`](../scripts/compare_preprocessing_ab.py): Đánh giá A/B Testing định lượng ảnh hưởng của từng bộ lọc tiền xử lý lên độ tin cậy của mô hình AI.
+  * [`verify_solder_model.py`](../scripts/verify_solder_model.py) & [`fix_detector_manifest.py`](../scripts/fix_detector_manifest.py): Kiểm tra và sửa đổi cấu hình manifest mô hình tự động.
 
 ---
 
@@ -391,18 +391,18 @@ flowchart TD
    * Sau khi nhóm tiến hành gộp nhóm theo bo mạch gốc ($2334 \rightarrow 1185\text{ groups}$), độ chính xác thực tế được xác lập chuẩn xác là **$89.9\%$**.
 2. **Về khả năng phát hiện `pads` và `pins` của Detector:**
    * Lớp `pads` có precision cao ($0.712$) nhưng recall thấp do chỉ có 30/670 ảnh trong tập dữ liệu công khai chứa đối tượng này.
-   * Giải pháp của nhóm là không cố gắng train thêm epoch mà cung cấp công cụ [`scripts/bootstrap_lead_labels.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/bootstrap_lead_labels.py) để gán nhãn tăng cường trực tiếp từ ảnh bo mạch thực tế.
+   * Giải pháp của nhóm là không cố gắng train thêm epoch mà cung cấp công cụ [`scripts/bootstrap_lead_labels.py`](../scripts/bootstrap_lead_labels.py) để gán nhãn tăng cường trực tiếp từ ảnh bo mạch thực tế.
 
 ---
 
 ## VII. CÁC GIỚI HẠN HIỆN TẠI VÀ ĐỊNH HƯỚNG PHÁT TRIỂN
 
 ### 1. Giới hạn vật lý và dữ liệu thực tế
-1. **Độ lệch phân bố dữ liệu (Domain Gap):** Các mô hình hiện tại được huấn luyện trên tập dữ liệu công khai. Khi triển khai tại nhà máy, cần thu thập thêm ảnh chụp từ chính camera, ống kính và hệ thống chiếu sáng thực tế thông qua [`scripts/export_solder_dataset.py`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/export_solder_dataset.py).
+1. **Độ lệch phân bố dữ liệu (Domain Gap):** Các mô hình hiện tại được huấn luyện trên tập dữ liệu công khai. Khi triển khai tại nhà máy, cần thu thập thêm ảnh chụp từ chính camera, ống kính và hệ thống chiếu sáng thực tế thông qua [`scripts/export_solder_dataset.py`](../scripts/export_solder_dataset.py).
 2. **Nút thắt chiếu sáng quang học đối với mối hàn nguội (*Cold Solder*):** Dưới ánh sáng phẳng thông thường, mối hàn nguội và mối hàn tốt có độ phản xạ gần như tương đương. Để bắt lỗi này triệt để $100\%$, phần cứng cần nâng cấp lên **hệ thống đèn vòm RGB đa góc (Dome Light)** để tách biệt góc nghiêng bề mặt bằng màu sắc.
 
 ### 2. Kế hoạch ưu tiên tiếp theo
-1. **Chạy A/B Testing tiền xử lý trên ảnh thực tế:** Sử dụng [`scripts/compare_preprocessing_ab.py --isolate`](file:///E:/Professional%20documents/Internship/AOI_PCB/Automated_Optical_Inspection_PCB/scripts/compare_preprocessing_ab.py) để tối ưu việc bật/tắt từng bộ lọc dựa trên số đo thực tế.
+1. **Chạy A/B Testing tiền xử lý trên ảnh thực tế:** Sử dụng [`scripts/compare_preprocessing_ab.py --isolate`](../scripts/compare_preprocessing_ab.py) để tối ưu việc bật/tắt từng bộ lọc dựa trên số đo thực tế.
 2. **Gán nhãn bộ dữ liệu SolDef_AI:** Hoàn tất việc rà soát ảnh mẫu cho 145 trường hợp `no_good`/`poor_solder` để bổ sung vào bản đồ nhãn `LABEL_MAPS`.
 3. **Triển khai Edge & Đóng gói phần mềm:** Tối ưu hóa mô hình sang định dạng TensorRT (trên GPU NVIDIA) và OpenVINO / ONNX Runtime INT8 (trên vi máy tính CPU/ARM64).
 

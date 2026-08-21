@@ -195,7 +195,7 @@ gantt
 ### Phase 4: Xây dựng Module Xuất CAD & Tự động sinh Recipe (Tuần 11–12)
 - Tạo module lõi `aoi_pipeline/digitizer.py`.
 - Tạo các exporter: `export_pads_csv()`, `export_placement_csv()`, `export_ipc356()`, `export_recipe_json()`.
-- Kiểm tra tính tương thích 100% với bộ nạp `CAD_LOADERS` trong [`aoi_pipeline/inspection/cad.py`](../aoi_pipeline/inspection/cad.py).
+- Kiểm tra tính tương thích 100% với bộ nạp `CAD_LOADERS` trong [`aoi_pipeline/cad.py`](../aoi_pipeline/cad.py).
 
 ### Phase 5: Tích hợp Giao diện UI Streamlit & Đánh giá Thực tế (Tuần 13–14)
 - Thêm workspace **"Số hóa Mạch PCB (PCB Digitization)"** trên giao diện Streamlit:

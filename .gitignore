@@ -41,3 +41,7 @@ models/*.zip
 models/pcb_detector_v2_artifacts.zip
 models/pcb_detector_v2_artifacts/
 models/pcb_solder_defect_artifacts/
+
+# Ultralytics ghi file cau hinh cuc bo o day: chua UUID may va duong dan
+# tuyet doi cua tung nguoi. Thu vien tu ghi lai moi lan chay.
+Ultralytics/
