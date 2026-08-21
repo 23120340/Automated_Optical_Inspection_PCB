@@ -35,8 +35,8 @@ Thumbs.db
 # not the old names.
 legacy/
 Ver1/
-
 # Model artifacts
+models/*.zip
 models/pcb_detector_v2_artifacts.zip
 models/pcb_detector_v2_artifacts/
 models/pcb_solder_defect_artifacts/

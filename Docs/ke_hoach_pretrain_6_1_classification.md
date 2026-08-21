@@ -1,11 +1,11 @@
 # Kế hoạch pre-train bước 6.1 — Phân loại linh kiện PCB
 
-> Trạng thái triển khai: khung runtime ONNX + manifest và notebook baseline đã
+> Trạng thái triển khai: khung runtime ONNX + manifest và notebook baseline/v2 đã
 > được tạo. Xem [hướng dẫn Kaggle](../training/kaggle/README_classification.md).
 
 > Model trong sơ đồ: `03_classify_component`  
-> Phiên bản kế hoạch: `v1.0-draft` — 2026-08-16  
-> Tài liệu dữ liệu liên quan: [Khảo sát dataset PCB AOI](./pcb_aoi_component_datasets.md)
+> Phiên bản kế hoạch: `v1.1` — 2026-08-21  
+> Tài liệu dữ liệu liên quan: [Khảo sát dataset PCB AOI](./pcb_aoi_component_datasets.md) | [Kế hoạch ứng dụng RNN/LSTM](./ke_hoach_ung_dung_rnn_lstm_aoi_pcb.md) | [Kế hoạch số hóa mạch PCB](./ke_hoach_so_hoa_mach_pcb_aoi.md) | [Báo cáo tiến độ](./bao_cao_tien_do.md)
 
 ## 1. Quyết định đề xuất
 
