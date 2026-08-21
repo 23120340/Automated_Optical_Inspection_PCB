@@ -217,10 +217,20 @@ def _init_state() -> None:
         "detection_result": None,
         "crops": [],
         "classification_result": None,
+        # Bước 5.5/6.2. Thiếu các key này thì mở tab 6.2 là AttributeError ngay,
+        # vì Streamlit không tự sinh thuộc tính chưa khai báo.
+        "solder_result": None,
+        "cad_summary": None,
+        "solder_model_path": None,
+        "solder_model_name": None,
+        "solder_model_digest": None,
+        "solder_manifest_path": None,
+        "solder_manifest_name": None,
+        "solder_manifest_digest": None,
         "inspection_recipe": None,
         "inspection_run": None,
         "inspection_session_id": uuid4().hex,
-        "statuses": {step: "pending" for step in range(7)},
+        "statuses": {step: "pending" for step, *_ in STEP_DEFINITIONS},
         "latencies": {},
         "messages": [],
         "last_backend_mode": "CHƯA CHẠY",
@@ -233,6 +243,8 @@ def _init_state() -> None:
             "component": None,
             "classifier": None,
             "classifier_manifest": None,
+            "solder_model": None,
+            "solder_manifest": None,
         },
     }
     for key, value in defaults.items():
@@ -337,8 +349,13 @@ def _invalidate_after(step: int) -> None:
         4: "detection_result",
         5: "crops",
         6: "classification_result",
+        7: "solder_result",
     }
-    for candidate in range(step + 1, 7):
+    # Bounded by STEP_DEFINITIONS, not by a literal: a hard-coded 7 here is what
+    # let step 6.2 be added to the navigation while staying invisible to state
+    # reset, and the same literal in the statuses dict raised KeyError: 7 on the
+    # very first render.
+    for candidate in range(step + 1, len(STEP_DEFINITIONS)):
         st.session_state[result_keys[candidate]] = [] if candidate == 5 else None
         st.session_state.statuses[candidate] = "pending"
         st.session_state.latencies.pop(candidate, None)
