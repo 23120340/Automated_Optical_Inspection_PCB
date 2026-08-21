@@ -12,8 +12,14 @@ confidence scores.  The distinction is deliberately carried in every result.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from hashlib import sha256
 import importlib
 import inspect
+import json
+import os
+from pathlib import Path
+import shutil
+import tempfile
 import time
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -75,63 +81,6 @@ class CropRecord:
 
 
 @dataclass
-class SolderCropRecord:
-    """One derived solder-joint ROI, ready to show or label for step 6.2."""
-
-    joint_id: str
-    detection_id: str
-    label: str
-    kind: str
-    position: str
-    terminal_geometry: str
-    image: np.ndarray
-    bbox: tuple[int, int, int, int]
-    confidence: float | None
-    pin_index: int | None = None
-    source: str = "derived"
-    designator: str | None = None
-    pin: str | None = None
-    net: str | None = None
-    raw: Any = None
-
-
-@dataclass
-class SolderVerdictRecord:
-    """One step-6.2 call, flattened for the UI."""
-
-    joint_id: str
-    detection_id: str
-    scope: str
-    label: str
-    decision: str
-    source: str
-    probability: float
-    rule_label: str | None
-    model_label: str | None
-    model_probability: float | None
-    designator: str | None
-    pin: str | None
-    component_label: str
-    bbox: tuple[int, int, int, int]
-    reasons: list[str] = field(default_factory=list)
-    features: dict[str, Any] = field(default_factory=dict)
-    model_version: str = "rules-only"
-
-
-@dataclass
-class SolderResult(StageResult):
-    crops: list[SolderCropRecord] = field(default_factory=list)
-    verdicts: list[SolderVerdictRecord] = field(default_factory=list)
-    graded_by_model: bool = False
-    # Populated only when a CAD board was loaded and registered.
-    used_cad: bool = False
-    findings: list[dict[str, Any]] = field(default_factory=list)
-    registration: dict[str, Any] | None = None
-    cad_stats: dict[str, Any] = field(default_factory=dict)
-    cad_warnings: list[str] = field(default_factory=list)
-
-
-@dataclass
 class ClassificationRecord:
     crop_id: str
     detection_id: str
@@ -152,6 +101,32 @@ class ClassificationResult:
     message: str = ""
     metrics: dict[str, Any] = field(default_factory=dict)
     raw: Any = None
+
+
+@dataclass
+class InspectionRecipeRecord:
+    recipe_root: Path
+    recipe_path: Path
+    board_id: str
+    side: str
+    schema_version: str
+    coordinate_space: str
+    slot_count: int
+    anchor_count: int
+    rejected_count: int
+    production_eligible: bool
+    raw: Any
+    elapsed_ms: float = 0.0
+
+
+@dataclass
+class InspectionResult(StageResult):
+    status: str = "invalid"
+    alignment_status: str = "invalid"
+    alignment: dict[str, Any] = field(default_factory=dict)
+    slots: list[dict[str, Any]] = field(default_factory=list)
+    extras: list[dict[str, Any]] = field(default_factory=list)
+    json_payload: str = ""
 
 
 class PipelineBridge:
@@ -197,6 +172,69 @@ class PipelineBridge:
         self.engine_error: str | None = None
         self.engine_module: str | None = None
         self._load_engine()
+
+    def _inspection_measurement_image(
+        self, image: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+        """Apply only the canonical lens-undistortion measurement stage.
+
+        Inspection must not reuse presentation preprocessing: no resize,
+        letterbox, denoise, or contrast operation is permitted here. The same
+        calibration identity is persisted at enrollment and required at run
+        time, while the returned mask tracks remap padding.
+        """
+
+        from aoi_pipeline.calibration import CameraCalibrationProfile, CameraUndistorter
+        from aoi_pipeline.image_io import ensure_bgr
+
+        source = ensure_bgr(image)
+        preprocess_config = self.config.get("preprocess", self.config)
+        if not bool(preprocess_config.get("undistort", False)):
+            return (
+                np.ascontiguousarray(source),
+                np.full(source.shape[:2], 255, dtype=np.uint8),
+                {"undistort": "not_requested", "calibration_sha256": None, "alpha": None},
+            )
+        profile_mapping = preprocess_config.get("calibration_profile")
+        if not isinstance(profile_mapping, Mapping):
+            raise RuntimeError(
+                "Đã bật undistort cho Golden Inspection nhưng thiếu calibration_profile."
+            )
+        profile = CameraCalibrationProfile.from_mapping(profile_mapping)
+        alpha = float(preprocess_config.get("undistort_alpha", 0.0))
+        corrected = CameraUndistorter(
+            profile,
+            alpha=alpha,
+            aspect_tolerance=float(
+                preprocess_config.get("calibration_aspect_tolerance", 0.01)
+            ),
+        ).correct(source)
+        profile_json = json.dumps(
+            profile.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        return (
+            corrected.image,
+            corrected.valid_mask,
+            {
+                "undistort": "pinhole",
+                "calibration_sha256": sha256(profile_json.encode("utf-8")).hexdigest(),
+                "alpha": float(corrected.alpha),
+            },
+        )
+
+    def _assert_inspection_model_is_trusted(self, allow_trusted_pt: bool) -> None:
+        """Block pickle-backed .pt loading before any Golden inference occurs."""
+
+        detector = getattr(self.engine, "detector", None) if self.engine is not None else None
+        candidates = (self.model_path, getattr(detector, "model_path", None))
+        has_pt = any(
+            candidate is not None and Path(str(candidate)).suffix.lower() == ".pt"
+            for candidate in candidates
+        )
+        if has_pt and not allow_trusted_pt:
+            raise RuntimeError(
+                "Detector .pt chưa được xác nhận tin cậy; Golden Inspection sẽ không nạp hoặc chạy nó."
+            )
 
     @property
     def backend_mode(self) -> str:
@@ -631,168 +669,6 @@ class PipelineBridge:
             )
         return crops
 
-    def make_solder_crops(
-        self,
-        image: np.ndarray,
-        detections: Sequence[DetectionRecord],
-        output_dir: str | None = None,
-        **kwargs: Any,
-    ) -> SolderResult:
-        """Derive step-5.5 solder ROIs through the core pipeline.
-
-        There is deliberately no UI fallback here: the value of this stage is
-        the class-aware terminal geometry, and a naive box-padding substitute
-        would look like it worked while placing the ROIs in the wrong place.
-        """
-
-        started = time.perf_counter()
-        if self.engine is None or not hasattr(self.engine, "make_solder_crops"):
-            return SolderResult(
-                image=image,
-                mode="UNAVAILABLE",
-                message=(
-                    "Pipeline hiện tại chưa có bước 5.5; cập nhật aoi_pipeline để "
-                    "sinh ROI mối hàn."
-                ),
-            )
-        raw_detections = [item.raw if item.raw is not None else item for item in detections]
-        try:
-            raw_crops = _call_supported(
-                self.engine.make_solder_crops,
-                image,
-                raw_detections,
-                output_dir=output_dir,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"AOIPipeline solder ROI thất bại: {type(exc).__name__}: {exc}"
-            ) from exc
-        if not isinstance(raw_crops, Sequence):
-            raise RuntimeError("AOIPipeline.make_solder_crops phải trả về một sequence")
-
-        records: list[SolderCropRecord] = []
-        for index, raw_crop in enumerate(raw_crops):
-            crop_image = _extract_image(raw_crop, ("image", "crop", "output"))
-            joint = _attr(raw_crop, ("joint",), None)
-            if crop_image is None or joint is None:
-                continue
-            confidence = None
-            metadata = getattr(joint, "metadata", None)
-            if isinstance(metadata, dict) and "detector_confidence" in metadata:
-                confidence = float(metadata["detector_confidence"])
-            records.append(
-                SolderCropRecord(
-                    joint_id=str(getattr(joint, "joint_id", f"joint_{index:05d}")),
-                    detection_id=str(getattr(joint, "detection_id", "")),
-                    label=str(getattr(joint, "label", "component")),
-                    kind=str(getattr(joint, "kind", "joint")),
-                    position=str(getattr(joint, "position", "")),
-                    terminal_geometry=str(getattr(joint, "terminal_geometry", "")),
-                    image=crop_image,
-                    bbox=_extract_bbox(joint, image.shape),
-                    confidence=confidence,
-                    pin_index=getattr(joint, "pin_index", None),
-                    source=str(getattr(joint, "source", "derived")),
-                    designator=getattr(joint, "designator", None),
-                    pin=getattr(joint, "pin", None),
-                    net=getattr(joint, "net", None),
-                    raw=raw_crop,
-                )
-            )
-        joints = sum(1 for item in records if item.kind == "joint")
-        verdicts, graded_by_model = self._grade_solder(image, raw_crops)
-        fusion = getattr(self.engine, "last_fusion", None)
-        used_cad = bool(getattr(fusion, "used_cad", False))
-        findings = [
-            finding.to_dict()
-            for finding in (getattr(fusion, "findings", None) or [])
-            if hasattr(finding, "to_dict")
-        ]
-        registration = getattr(fusion, "registration", None)
-        message = (
-            f"Đã sinh {joints} ROI mối hàn từ {len(detections)} detection."
-            if joints
-            else "Không sinh được ROI mối hàn nào từ detection hiện tại."
-        )
-        if used_cad:
-            stats = getattr(fusion, "stats", {}) or {}
-            message += (
-                f" CAD khớp {stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
-                f" linh kiện, thiếu {stats.get('missing', 0)}."
-            )
-        return SolderResult(
-            image=image,
-            mode="CAD FUSION" if used_cad else "MODEL",
-            message=message,
-            metrics={
-                "elapsed_ms": _elapsed_ms(started),
-                "joints": joints,
-                "total_rois": len(records),
-            },
-            crops=records,
-            verdicts=verdicts,
-            graded_by_model=graded_by_model,
-            used_cad=used_cad,
-            findings=findings,
-            registration=(
-                registration.to_dict() if hasattr(registration, "to_dict") else None
-            ),
-            cad_stats=dict(getattr(fusion, "stats", {}) or {}),
-            cad_warnings=(
-                list(getattr(fusion, "warnings", None) or [])
-                + list(getattr(self.engine, "cad_warnings", None) or [])
-            ),
-        )
-
-    def _grade_solder(
-        self, image: np.ndarray, raw_crops: Sequence[Any]
-    ) -> tuple[list[SolderVerdictRecord], bool]:
-        """Run step 6.2 over the ROIs the core just produced.
-
-        A grading failure returns no verdicts rather than taking the ROI stage
-        down with it: the crops are still useful for labelling even when the
-        call on them cannot be made.
-        """
-
-        engine = self.engine
-        if engine is None or not hasattr(engine, "grade_solder"):
-            return ([], False)
-        try:
-            raw_verdicts = engine.grade_solder(raw_crops, image)
-        except Exception:  # noqa: BLE001 - surfaced through the empty result
-            return ([], False)
-
-        records: list[SolderVerdictRecord] = []
-        for item in raw_verdicts or []:
-            box = (item.metadata or {}).get("bbox") or [0, 0, 0, 0]
-            records.append(
-                SolderVerdictRecord(
-                    joint_id=str(getattr(item, "joint_id", "")),
-                    detection_id=str(getattr(item, "detection_id", "")),
-                    scope=str(getattr(item, "scope", "joint")),
-                    label=str(getattr(item, "label", "")),
-                    decision=str(getattr(item, "decision", "review")),
-                    source=str(getattr(item, "source", "rules")),
-                    probability=float(getattr(item, "probability", 0.0)),
-                    rule_label=getattr(item, "rule_label", None),
-                    model_label=getattr(item, "model_label", None),
-                    model_probability=getattr(item, "model_probability", None),
-                    designator=getattr(item, "designator", None),
-                    pin=getattr(item, "pin", None),
-                    component_label=str(getattr(item, "component_label", "")),
-                    bbox=_clip_bbox(
-                        tuple(int(round(float(value))) for value in box[:4]), image.shape
-                    ),
-                    reasons=list(getattr(item, "reasons", []) or []),
-                    features=(
-                        item.features.to_dict() if getattr(item, "features", None) else {}
-                    ),
-                    model_version=str(getattr(item, "model_version", "rules-only")),
-                )
-            )
-        inspector = getattr(engine, "solder_inspector", None)
-        return (records, bool(getattr(inspector, "has_model", False)))
-
     def classify_components(
         self,
         crops: Sequence[CropRecord],
@@ -867,6 +743,244 @@ class PipelineBridge:
             },
             raw=raw,
         )
+
+    def build_inspection_recipe(
+        self,
+        golden_image: np.ndarray,
+        output_dir: str | Path,
+        *,
+        board_id: str,
+        side: str,
+        pixels_per_mm_x: float = 1.0,
+        pixels_per_mm_y: float = 1.0,
+        calibration_verified: bool = False,
+        roi_padding_px: int = 12,
+        search_margin_px: int = 16,
+        max_abs_dx_mm: float = 0.20,
+        max_abs_dy_mm: float = 0.20,
+        max_abs_angle_deg: float | None = None,
+        rotation_period_deg: float | None = None,
+        min_ssim: float = 0.88,
+        max_diff_ratio: float = 0.08,
+        max_edge_diff_ratio: float = 0.10,
+        max_blob_area_px: int = 45,
+        min_valid_overlap_ratio: float = 0.88,
+        anchor_template_size_px: int = 65,
+        anchor_search_margin_px: int = 48,
+        allow_demo_sources: bool = True,
+        allow_trusted_pt: bool = False,
+    ) -> InspectionRecipeRecord:
+        """Forward Golden enrollment to the versioned core recipe service."""
+
+        if self.engine is None or not hasattr(self.engine, "detect_components"):
+            detail = self.engine_error or "AOIPipeline không hỗ trợ detection"
+            raise RuntimeError(f"Không thể build recipe nếu core không sẵn sàng: {detail}")
+        if not isinstance(board_id, str) or not board_id.strip():
+            raise ValueError("board_id là bắt buộc khi build Golden recipe")
+        if side not in {"top", "bottom"}:
+            raise ValueError("side phải là 'top' hoặc 'bottom'")
+        self._assert_inspection_model_is_trusted(allow_trusted_pt)
+        from aoi_pipeline import (
+            AppearanceThresholds,
+            Detection,
+            MetrologyCalibration,
+            PositionTolerance,
+            create_grid_alignment_recipe,
+            create_recipe,
+        )
+
+        started = time.perf_counter()
+        measurement_golden, _golden_valid_mask, measurement_domain = (
+            self._inspection_measurement_image(golden_image)
+        )
+        destination = Path(output_dir).expanduser().resolve()
+        if destination.exists():
+            raise RuntimeError(
+                f"Recipe output đã tồn tại và không được ghi đè: {destination}"
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            tempfile.mkdtemp(prefix=f".{destination.name}.staging-", dir=destination.parent)
+        )
+        try:
+            detections = list(
+                _call_supported(
+                    self.engine.detect_components,
+                    measurement_golden,
+                    frame_id="golden_enrollment",
+                )
+            )
+        except Exception as exc:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise RuntimeError(
+                "Detector không tạo được slot Golden; không dùng bbox giả thay thế: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        if not detections or not all(isinstance(item, Detection) for item in detections):
+            shutil.rmtree(staging, ignore_errors=True)
+            raise RuntimeError("Detector không trả về Detection hợp lệ để tạo Golden recipe")
+
+        try:
+            alignment = create_grid_alignment_recipe(
+                measurement_golden,
+                staging,
+                template_size_px=int(anchor_template_size_px),
+                search_margin_px=int(anchor_search_margin_px),
+            )
+            from aoi_pipeline.detectors import detector_identifier
+
+            runtime_detector = getattr(self.engine, "detector", None)
+            if runtime_detector is None:
+                raise RuntimeError("AOIPipeline không cung cấp detector runtime")
+            built = create_recipe(
+                measurement_golden,
+                detections,
+                staging,
+                board_id=board_id.strip(),
+                side=side,
+                metrology=MetrologyCalibration(
+                    float(pixels_per_mm_x),
+                    float(pixels_per_mm_y),
+                    verified=bool(calibration_verified),
+                ),
+                roi_padding_px=int(roi_padding_px),
+                search_margin_px=int(search_margin_px),
+                position_tolerance=PositionTolerance(
+                    float(max_abs_dx_mm),
+                    float(max_abs_dy_mm),
+                    None if max_abs_angle_deg is None else float(max_abs_angle_deg),
+                ),
+                appearance_thresholds=AppearanceThresholds(
+                    float(min_ssim),
+                    float(max_diff_ratio),
+                    float(max_edge_diff_ratio),
+                    int(max_blob_area_px),
+                    float(min_valid_overlap_ratio),
+                ),
+                alignment=alignment,
+                model_identifiers={
+                    "component_detector": detector_identifier(runtime_detector)
+                },
+                allow_demo_sources=bool(allow_demo_sources),
+                rotation_period_deg=rotation_period_deg,
+                measurement_metadata=measurement_domain,
+            )
+        except Exception:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        try:
+            os.replace(staging, destination)
+        except OSError as exc:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise RuntimeError(f"Không thể publish recipe atomically: {exc}") from exc
+        return _inspection_recipe_record(
+            built.recipe,
+            destination,
+            elapsed_ms=_elapsed_ms(started),
+        )
+
+    def load_inspection_recipe(
+        self,
+        recipe_path: str | Path,
+    ) -> InspectionRecipeRecord:
+        """Load and validate an existing local recipe with all of its assets."""
+
+        from aoi_pipeline import load_recipe
+
+        path = Path(recipe_path).expanduser().resolve()
+        recipe = load_recipe(path, validate_assets=True)
+        return _inspection_recipe_record(recipe, path.parent)
+
+    def inspect_board(
+        self,
+        test_image: np.ndarray,
+        recipe_record: InspectionRecipeRecord,
+        *,
+        require_production_eligible: bool = False,
+        allow_trusted_pt: bool = False,
+    ) -> InspectionResult:
+        """Run the core inspector and normalize its contract for Streamlit."""
+
+        if self.engine is None:
+            detail = self.engine_error or "AOIPipeline không sẵn sàng"
+            raise RuntimeError(f"Không thể inspect board: {detail}")
+        self._assert_inspection_model_is_trusted(allow_trusted_pt)
+        from aoi_pipeline import (
+            AOIInspector,
+            InspectionConfig,
+            render_inspection_overlay,
+        )
+
+        started = time.perf_counter()
+        measurement_test, source_valid_mask, measurement_domain = (
+            self._inspection_measurement_image(test_image)
+        )
+        enrolled_domain = recipe_record.raw.enrollment.get("measurement_domain", {})
+        if enrolled_domain != measurement_domain:
+            raise RuntimeError(
+                "Calibration/undistortion đang dùng không khớp Golden recipe; inspection dừng fail-closed."
+            )
+        inspector = AOIInspector.from_pipeline(
+            self.engine,
+            config=InspectionConfig(
+                require_production_eligible=bool(require_production_eligible)
+            ),
+        )
+        run = inspector.inspect(
+            measurement_test,
+            recipe_record.raw,
+            recipe_record.recipe_root,
+            source_valid_mask=source_valid_mask,
+        )
+        payload = run.to_dict()
+        overlay = render_inspection_overlay(run, recipe_record.raw)
+        if overlay is None:
+            overlay = np.ascontiguousarray(measurement_test.copy())
+        status_messages = {
+            "pass": "Board PASS theo toàn bộ status do core trả về.",
+            "ng": "Board NG; xem riêng Position và Appearance theo từng slot.",
+            "review": "Board cần review vì có phép đo không đủ tin cậy.",
+            "invalid": "Inspection INVALID; pipeline đã fail closed.",
+        }
+        return InspectionResult(
+            image=overlay,
+            mode="INSPECTION",
+            message=status_messages.get(run.status, run.reason),
+            metrics={
+                "elapsed_ms": _elapsed_ms(started),
+                "slot_count": len(run.slots),
+                "extra_count": len(run.extras),
+            },
+            raw=run,
+            status=run.status,
+            alignment_status=run.alignment.status,
+            alignment=payload["alignment"],
+            slots=list(payload["slots"]),
+            extras=list(payload["extras"]),
+            json_payload=run.to_json(),
+        )
+
+
+def _inspection_recipe_record(
+    recipe: Any,
+    root: Path,
+    *,
+    elapsed_ms: float = 0.0,
+) -> InspectionRecipeRecord:
+    return InspectionRecipeRecord(
+        recipe_root=root,
+        recipe_path=root / "recipe.json",
+        board_id=str(recipe.board_id),
+        side=str(recipe.side),
+        schema_version=str(recipe.schema_version),
+        coordinate_space=str(recipe.coordinate_space),
+        slot_count=len(recipe.slots),
+        anchor_count=len(recipe.alignment.anchors),
+        rejected_count=len(recipe.rejected_detections),
+        production_eligible=bool(recipe.production_eligible),
+        raw=recipe,
+        elapsed_ms=float(elapsed_ms),
+    )
 
 
 def _call_supported(callable_obj: Any, *args: Any, **kwargs: Any) -> Any:
