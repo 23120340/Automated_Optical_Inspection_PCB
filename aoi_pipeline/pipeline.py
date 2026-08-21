@@ -43,7 +43,7 @@ from .models import (
     utc_now_iso,
 )
 from .preprocessing import ImagePreprocessor
-from .solder import SolderJointCropper
+from .solder import SolderJointCropper, deconflict_joint_rois
 from .tiling import detect_with_adaptive_tiling
 
 
@@ -387,7 +387,14 @@ class AOIPipeline:
             image, bodies or detections, lead_result.joints, board_region
         )
         self.last_fusion = fusion
-        return self.solder_cropper.extract_joints(image, fusion.joints, output_dir)
+        # Again after fusion, not only inside ``derive``: lead detection and CAD
+        # re-anchoring both rewrite ROIs, and either can push one component's
+        # ROI back onto its neighbour. This is the last point where every joint
+        # exists together, so it is the only place the check is complete.
+        joints = deconflict_joint_rois(
+            fusion.joints, bodies or detections, self.config.solder
+        )
+        return self.solder_cropper.extract_joints(image, joints, output_dir)
 
     def grade_solder(
         self,

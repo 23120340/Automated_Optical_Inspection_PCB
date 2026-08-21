@@ -129,6 +129,9 @@ class SolderResult(StageResult):
     crops: list[SolderCropRecord] = field(default_factory=list)
     verdicts: list[SolderVerdictRecord] = field(default_factory=list)
     graded_by_model: bool = False
+    # Why step 6.2 produced nothing. ``None`` means it ran; anything else is a
+    # reason the UI must show rather than render an empty panel.
+    grading_error: str | None = None
     # Populated only when a CAD board was loaded and registered.
     used_cad: bool = False
     findings: list[dict[str, Any]] = field(default_factory=list)
@@ -795,7 +798,7 @@ class PipelineBridge:
                 )
             )
         joints = sum(1 for item in records if item.kind == "joint")
-        verdicts, graded_by_model = self._grade_solder(image, raw_crops)
+        verdicts, graded_by_model, grading_error = self._grade_solder(image, raw_crops)
         fusion = getattr(self.engine, "last_fusion", None)
         used_cad = bool(getattr(fusion, "used_cad", False))
         findings = [
@@ -815,6 +818,8 @@ class PipelineBridge:
                 f" CAD khớp {stats.get('matched', 0)}/{stats.get('cad_components', 0)}"
                 f" linh kiện, thiếu {stats.get('missing', 0)}."
             )
+        if grading_error and joints:
+            message += f" Bước 6.2 không chấm được: {grading_error}"
         return SolderResult(
             image=image,
             mode="CAD FUSION" if used_cad else "MODEL",
@@ -827,6 +832,7 @@ class PipelineBridge:
             crops=records,
             verdicts=verdicts,
             graded_by_model=graded_by_model,
+            grading_error=grading_error,
             used_cad=used_cad,
             findings=findings,
             registration=(
@@ -841,21 +847,23 @@ class PipelineBridge:
 
     def _grade_solder(
         self, image: np.ndarray, raw_crops: Sequence[Any]
-    ) -> tuple[list[SolderVerdictRecord], bool]:
+    ) -> tuple[list[SolderVerdictRecord], bool, str | None]:
         """Run step 6.2 over the ROIs the core just produced.
 
         A grading failure returns no verdicts rather than taking the ROI stage
         down with it: the crops are still useful for labelling even when the
-        call on them cannot be made.
+        call on them cannot be made. It returns the *reason* along with them --
+        swallowing it made a failed step 6.2 look exactly like a step 6.2 that
+        was never wired up, which is the worst of both.
         """
 
         engine = self.engine
         if engine is None or not hasattr(engine, "grade_solder"):
-            return ([], False)
+            return ([], False, "AOIPipeline không có grade_solder; bước 6.2 chưa sẵn sàng.")
         try:
             raw_verdicts = engine.grade_solder(raw_crops, image)
-        except Exception:  # noqa: BLE001 - surfaced through the empty result
-            return ([], False)
+        except Exception as exc:  # noqa: BLE001 - reported, not hidden
+            return ([], False, f"{type(exc).__name__}: {exc}")
 
         records: list[SolderVerdictRecord] = []
         for item in raw_verdicts or []:
@@ -886,7 +894,7 @@ class PipelineBridge:
                 )
             )
         inspector = getattr(engine, "solder_inspector", None)
-        return (records, bool(getattr(inspector, "has_model", False)))
+        return (records, bool(getattr(inspector, "has_model", False)), None)
 
     def classify_components(
         self,

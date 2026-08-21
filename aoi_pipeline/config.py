@@ -228,6 +228,19 @@ class SolderJointConfig:
 
     enabled: bool = True
 
+    # --- which axis holds the terminals -------------------------------------
+    # A box only names its long axis when it is actually longer one way. At
+    # 40x40 vs 40x41 the choice flips the two ROIs by 90 degrees on a single
+    # pixel, and a square-ish part -- an SMD electrolytic can, a tantalum, a
+    # tactile switch -- sits exactly there. Under this aspect ratio the axis is
+    # decided from the metal in the image instead of from the box.
+    terminal_axis_min_aspect: float = 1.25
+    # How much more metal one candidate axis needs before it wins. Below this
+    # the evidence is a coin toss, so ROIs are emitted on BOTH axes: a
+    # reviewable extra ROI costs an operator seconds, a missing one ships the
+    # board.
+    terminal_axis_decision_margin: float = 1.30
+
     # --- two-terminal geometry, as fractions of the box sides ---------------
     # ``inner`` reaches back over the terminal cap on the body, ``outer``
     # reaches past the body onto the land/fillet, ``side`` widens across the
@@ -289,6 +302,18 @@ class SolderJointConfig:
     # the evidence step 6.2 needs; collapsing it onto the one bright pixel
     # present would hide the defect.
     refine_min_area_fraction: float = 0.10
+
+    # --- keep one component's ROI off its neighbour --------------------------
+    # Each ROI is derived from its own box in isolation, and the outward reach
+    # is a fixed fraction of that box. On a dense board the reach lands on the
+    # neighbour: two chips 10 px apart produced facing ROIs overlapping 97%.
+    # Overlapping ROIs make step 6.2 measure the same pixels twice and make
+    # "bridge" meaningless, so they are pulled apart before anything is
+    # measured on them.
+    deconflict_neighbours: bool = True
+    # An ROI is never cut below this share of its derived area. A joint starved
+    # of solder must stay a big empty ROI; that emptiness is the evidence.
+    deconflict_min_area_fraction: float = 0.25
 
     target_size: tuple[int, int] | None = (128, 128)
     letterbox_color: tuple[int, int, int] = (114, 114, 114)

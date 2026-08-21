@@ -3095,10 +3095,19 @@ def _render_solder_grading(result: SolderResult) -> None:
 
     verdicts = result.verdicts
     if not verdicts:
-        _render_empty(
-            "Chưa chấm được mối hàn",
-            "Bước 6.2 chạy cùng bước 5.5. Nếu trống, hãy chạy lại bước 5.",
-        )
+        if result.grading_error:
+            # A failure and a stage that was never run look identical from an
+            # empty panel; say which one this is.
+            st.error(f"Bước 6.2 chạy nhưng lỗi: {result.grading_error}")
+            st.caption(
+                "ROI ở tab 5.5 vẫn dùng được để gán nhãn. Nếu vừa nạp model 6.2, "
+                "hãy kiểm tra model và manifest có cùng bộ lớp không."
+            )
+        else:
+            _render_empty(
+                "Chưa chấm được mối hàn",
+                "Bước 6.2 chạy cùng bước 5.5. Nếu trống, hãy chạy lại bước 5.",
+            )
         return
 
     if result.graded_by_model:

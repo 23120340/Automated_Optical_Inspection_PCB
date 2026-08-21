@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import replace
 import io
 import zipfile
 from pathlib import Path
@@ -23,7 +24,7 @@ from aoi_pipeline import (
 from aoi_pipeline.cropping import ComponentCropper
 from aoi_pipeline.exporters import solder_joints_csv
 from aoi_pipeline.overlays import render_solder_overlay
-from aoi_pipeline.solder import estimate_component_angle
+from aoi_pipeline.solder import deconflict_joint_rois, estimate_component_angle
 
 BOARD_SIZE = (400, 700)
 
@@ -444,3 +445,226 @@ def test_refinement_can_be_switched_off() -> None:
     off_area = sum(j.bbox.area for j in off if j.kind == "joint")
     assert on_area < off_area
     assert all("refined_to_metal" not in j.metadata for j in off)
+
+
+# --------------------------------------------------------------------------- #
+# Which axis carries the terminals
+# --------------------------------------------------------------------------- #
+
+
+def _square_part_board(pad_axis: str, width: int, height: int):
+    """A square-ish two-terminal part whose real lands sit on ONE axis.
+
+    An SMD electrolytic can, a tantalum, a tactile switch: the box is close to
+    square, so the box itself cannot say where the leads are.
+    """
+
+    image = _blank_board()
+    cx, cy = 200, 200
+    x1, y1 = cx - width // 2, cy - height // 2
+    x2, y2 = cx + width // 2, cy + height // 2
+    if pad_axis == "x":
+        cv2.rectangle(image, (x1 - 16, y1 + 6), (x1 - 1, y2 - 6), (205, 205, 205), -1)
+        cv2.rectangle(image, (x2 + 1, y1 + 6), (x2 + 16, y2 - 6), (205, 205, 205), -1)
+    else:
+        cv2.rectangle(image, (x1 + 6, y1 - 16), (x2 - 6, y1 - 1), (205, 205, 205), -1)
+        cv2.rectangle(image, (x1 + 6, y2 + 1), (x2 - 6, y2 + 16), (205, 205, 205), -1)
+    cv2.rectangle(image, (x1, y1), (x2, y2), (28, 28, 32), -1)
+    cv2.circle(image, (cx, cy), width // 3, (150, 150, 155), 2)
+    return image, Detection("capacitor", 0.9, BoundingBox(x1, y1, x2, y2))
+
+
+def _terminal_axis(joints) -> str:
+    first, second = joints[0].bbox, joints[1].bbox
+    horizontal = abs(first.x1 - second.x1) > abs(first.y1 - second.y1)
+    return "x" if horizontal else "y"
+
+
+@pytest.mark.parametrize("pad_axis", ["x", "y"])
+@pytest.mark.parametrize("width,height", [(44, 44), (44, 43), (43, 44)])
+def test_a_square_part_takes_its_terminal_axis_from_the_metal(
+    pad_axis: str, width: int, height: int
+) -> None:
+    """The box cannot name the axis; the lands can.
+
+    ``max(width, height)`` decided this before, so 44x43 and 43x44 -- one pixel
+    apart -- placed the two ROIs 90 degrees from each other. Half the time that
+    put both ROIs on bare laminate, which measures as no solder at all.
+    """
+
+    image, detection = _square_part_board(pad_axis, width, height)
+    joints = _by_kind(_joints(detection, image), "joint")
+    assert len(joints) == 2, "trục đã quyết được thì chỉ nên có 2 ROI"
+    assert _terminal_axis(joints) == pad_axis
+
+
+def test_an_undecidable_square_part_keeps_both_axes() -> None:
+    """With no image there is no evidence, and guessing is worse than asking.
+
+    Four reviewable ROIs cost an operator seconds; two ROIs on the wrong two
+    sides pass every defect on the real joints.
+    """
+
+    detection = Detection("capacitor", 0.9, BoundingBox(100, 100, 144, 144))
+    joints = _by_kind(_joints(detection), "joint")
+    assert len(joints) == 4
+    positions = {joint.position for joint in joints}
+    assert positions == {
+        "terminal_a", "terminal_b", "terminal_a_cross", "terminal_b_cross",
+    }
+
+
+def test_a_clearly_elongated_part_still_uses_its_long_axis() -> None:
+    """The measurement only runs where the box is ambiguous; an ordinary chip
+    must not pay for it."""
+
+    detection = Detection("resistor", 0.9, BoundingBox(100, 100, 180, 134))
+    joints = _by_kind(_joints(detection), "joint")
+    assert len(joints) == 2
+    assert _terminal_axis(joints) == "x"
+
+
+# --------------------------------------------------------------------------- #
+# Keeping one component's ROIs off its neighbours
+# --------------------------------------------------------------------------- #
+
+
+def _resistor_array(rows: int = 4, columns: int = 2, gap: int = 10):
+    """A tightly packed chip array, the layout that breaks isolated derivation."""
+
+    width, height = 78, 34
+    detections = []
+    for row in range(rows):
+        for column in range(columns):
+            x = 40 + column * (width + gap)
+            y = 40 + row * (height + gap)
+            detections.append(
+                Detection(
+                    "resistor",
+                    0.9,
+                    BoundingBox(x, y, x + width, y + height),
+                    detection_id=f"r{row}{column}",
+                )
+            )
+    return detections
+
+
+def _cross_component_overlaps(joints):
+    """(pairs, worst) over ROIs belonging to *different* components."""
+
+    rois = [joint for joint in joints if joint.kind == "joint"]
+    pairs, worst = 0, 0.0
+    for index, first in enumerate(rois):
+        for second in rois[index + 1:]:
+            if first.detection_id == second.detection_id:
+                continue
+            left = max(first.bbox.x1, second.bbox.x1)
+            top = max(first.bbox.y1, second.bbox.y1)
+            right = min(first.bbox.x2, second.bbox.x2)
+            bottom = min(first.bbox.y2, second.bbox.y2)
+            area = max(0.0, right - left) * max(0.0, bottom - top)
+            if area <= 0:
+                continue
+            smaller = min(
+                first.bbox.width * first.bbox.height,
+                second.bbox.width * second.bbox.height,
+            )
+            ratio = area / smaller
+            if ratio > 0.05:
+                pairs += 1
+                worst = max(worst, ratio)
+    return pairs, worst
+
+
+def test_neighbouring_components_do_not_share_solder_rois() -> None:
+    """Measured before the fix: 22 overlapping pairs, the worst at 97%.
+
+    Two ROIs that are 97% the same box are not two measurements. Step 6.2
+    grades the same pixels twice, ``refine_to_metal`` snaps both onto the same
+    blob, and a bridge between the two parts is inside both ROIs and therefore
+    attributable to neither.
+    """
+
+    detections = _resistor_array()
+    config = SolderJointConfig(include_body_view=False, refine_to_metal=False)
+    derived = []
+    for detection in detections:
+        derived.extend(derive_solder_joints(detection, 700, 400, config))
+
+    before_pairs, before_worst = _cross_component_overlaps(
+        deconflict_joint_rois(
+            derived, detections, replace(config, deconflict_neighbours=False)
+        )
+    )
+    assert before_pairs > 0 and before_worst > 0.9, "layout này phải tái hiện được lỗi"
+
+    after_pairs, _ = _cross_component_overlaps(
+        deconflict_joint_rois(derived, detections, config)
+    )
+    assert after_pairs == 0
+
+
+def test_de_confliction_keeps_the_rois_big_enough_to_inspect() -> None:
+    """Cutting must not turn the ROIs into slivers: a joint starved of solder
+    has to stay a big empty ROI, because the emptiness is the evidence."""
+
+    detections = _resistor_array()
+    config = SolderJointConfig(include_body_view=False, refine_to_metal=False)
+    derived = []
+    for detection in detections:
+        derived.extend(derive_solder_joints(detection, 700, 400, config))
+    resolved = deconflict_joint_rois(derived, detections, config)
+
+    for before, after in zip(derived, resolved):
+        if before.kind != "joint":
+            continue
+        kept = (after.bbox.width * after.bbox.height) / (
+            before.bbox.width * before.bbox.height
+        )
+        assert kept >= config.deconflict_min_area_fraction
+        assert after.bbox.width >= config.min_roi_pixels
+        assert after.bbox.height >= config.min_roi_pixels
+
+
+def test_a_roi_that_cannot_be_freed_is_marked_not_deleted() -> None:
+    """An ROI swallowed whole by a neighbour means the detector merged or
+    duplicated a box. Dropping the ROI would hide that; keep it and say so."""
+
+    covered = Detection("resistor", 0.9, BoundingBox(100, 100, 120, 116), detection_id="a")
+    swallower = Detection("ic", 0.9, BoundingBox(40, 40, 260, 200), detection_id="b")
+    config = SolderJointConfig(include_body_view=False, refine_to_metal=False)
+    derived = derive_solder_joints(covered, 400, 400, config)
+
+    resolved = deconflict_joint_rois(derived, [covered, swallower], config)
+    assert len(resolved) == len(derived)
+    assert all(joint.metadata.get("overlap_unresolved") for joint in resolved)
+
+
+def test_de_confliction_leaves_a_sparse_board_untouched() -> None:
+    """Nothing to fix must mean nothing changed; the fix is not allowed to move
+    ROIs on the boards that were already correct."""
+
+    detections = _resistor_array(rows=2, columns=1, gap=300)
+    config = SolderJointConfig(include_body_view=False, refine_to_metal=False)
+    derived = []
+    for detection in detections:
+        derived.extend(derive_solder_joints(detection, 900, 900, config))
+    resolved = deconflict_joint_rois(derived, detections, config)
+    assert [joint.bbox.to_dict() for joint in resolved] == [
+        joint.bbox.to_dict() for joint in derived
+    ]
+
+
+def test_pins_of_the_same_component_are_allowed_to_stay_adjacent() -> None:
+    """Two pins of one IC are neighbours by design; only ROIs from *different*
+    components compete for ground."""
+
+    image, detection = _soic_board(pins=6)
+    config = SolderJointConfig(
+        include_body_view=False, refine_to_metal=False, split_pins=True
+    )
+    derived = derive_solder_joints(detection, 700, 400, config, image=image)
+    resolved = deconflict_joint_rois(derived, [detection], config)
+    assert [joint.bbox.to_dict() for joint in resolved] == [
+        joint.bbox.to_dict() for joint in derived
+    ]

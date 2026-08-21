@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
@@ -34,6 +34,7 @@ from .grading.features import segment_solder
 
 __all__ = [
     "ComponentFrame",
+    "deconflict_joint_rois",
     "refine_joint_to_metal",
     "SolderJointCropper",
     "derive_solder_joints",
@@ -100,7 +101,9 @@ def derive_solder_joints(
     frame = frame or _component_frame(box, config, image)
 
     if geometry == "two_terminal":
-        rects = _two_terminal_rects(frame, config)
+        rects = _resolve_two_terminal_rects(
+            frame, config, image, image_width, image_height
+        )
     elif geometry == "pad_only":
         rects = _pad_only_rects(frame, config)
     else:
@@ -272,16 +275,138 @@ def _angle_difference(angle: float, reference: float) -> float:
 # --------------------------------------------------------------------------- #
 
 
-def _two_terminal_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
-    inner = config.terminal_inner_ratio * frame.length
-    outer = config.terminal_outer_ratio * frame.length
-    side = config.terminal_side_ratio * frame.span
+def _two_terminal_rects(
+    frame: ComponentFrame,
+    config: SolderJointConfig,
+    *,
+    along_long_axis: bool = True,
+) -> list[_LocalRect]:
+    """The two terminal ROIs, on the long axis by default.
+
+    ``along_long_axis=False`` places them on the short axis instead. A box only
+    names its long axis when it is actually longer one way; for a square-ish
+    part the caller has to decide from something other than the box, and then
+    needs a way to say so.
+    """
+
+    length = frame.length if along_long_axis else frame.span
+    span = frame.span if along_long_axis else frame.length
+    inner = config.terminal_inner_ratio * length
+    outer = config.terminal_outer_ratio * length
+    side = config.terminal_side_ratio * span
     roi_length = inner + outer
-    roi_span = frame.span + 2.0 * side
-    offset = frame.length / 2.0 + (outer - inner) / 2.0
+    roi_span = span + 2.0 * side
+    offset = length / 2.0 + (outer - inner) / 2.0
+    if along_long_axis:
+        return [
+            _LocalRect(-offset, 0.0, roi_length, roi_span, "terminal_a"),
+            _LocalRect(offset, 0.0, roi_length, roi_span, "terminal_b"),
+        ]
     return [
-        _LocalRect(-offset, 0.0, roi_length, roi_span, "terminal_a"),
-        _LocalRect(offset, 0.0, roi_length, roi_span, "terminal_b"),
+        _LocalRect(0.0, -offset, roi_span, roi_length, "terminal_a"),
+        _LocalRect(0.0, offset, roi_span, roi_length, "terminal_b"),
+    ]
+
+
+def _outer_strip(
+    frame: ComponentFrame, config: SolderJointConfig, *, along_long_axis: bool
+) -> list[_LocalRect]:
+    """The two bands just *outside* the body on one candidate terminal axis.
+
+    Only outside: the land a fillet sits on sticks out past the component
+    silhouette on the terminal axis, and on the other axis there is bare
+    laminate or silkscreen. Inside the body both axes can look metallic -- the
+    top of an electrolytic can is metal all over -- so the inside says nothing.
+    """
+
+    length = frame.length if along_long_axis else frame.span
+    span = frame.span if along_long_axis else frame.length
+    outer = config.terminal_outer_ratio * length
+    side = config.terminal_side_ratio * span
+    offset = length / 2.0 + outer / 2.0
+    width, height = outer, span + 2.0 * side
+    if along_long_axis:
+        return [
+            _LocalRect(-offset, 0.0, width, height, "probe_a"),
+            _LocalRect(offset, 0.0, width, height, "probe_b"),
+        ]
+    return [
+        _LocalRect(0.0, -offset, height, width, "probe_a"),
+        _LocalRect(0.0, offset, height, width, "probe_b"),
+    ]
+
+
+def _axis_metal_score(
+    frame: ComponentFrame,
+    config: SolderJointConfig,
+    image: np.ndarray,
+    image_width: int,
+    image_height: int,
+    *,
+    along_long_axis: bool,
+) -> float:
+    """Mean metal fraction in the two outward bands of one candidate axis."""
+
+    scores: list[float] = []
+    for rect in _outer_strip(frame, config, along_long_axis=along_long_axis):
+        bbox = _local_rect_to_bbox(rect, frame, image_width, image_height)
+        if bbox is None:
+            continue
+        x1, y1, x2, y2 = bbox.to_int()
+        patch = image[y1:y2, x1:x2]
+        if patch.size == 0 or min(patch.shape[:2]) < 3:
+            continue
+        mask = segment_solder(patch, saturation_max=config.saturation_max)
+        if mask.size == 0:
+            continue
+        scores.append(float(np.count_nonzero(mask)) / float(mask.size))
+    if not scores:
+        return 0.0
+    return float(sum(scores) / len(scores))
+
+
+def _resolve_two_terminal_rects(
+    frame: ComponentFrame,
+    config: SolderJointConfig,
+    image: np.ndarray | None,
+    image_width: int,
+    image_height: int,
+) -> list[_LocalRect]:
+    """Place the two terminal ROIs, deciding the axis when the box cannot.
+
+    A box whose sides are within ``terminal_axis_min_aspect`` of each other
+    does not know where its terminals are: at 40x40 against 40x41 the ROIs flip
+    by 90 degrees on one pixel. So the axis is measured from the metal outside
+    the body, and when that measurement is not decisive both axes are emitted.
+    Four reviewable ROIs cost an operator seconds; two ROIs on the wrong two
+    sides inspect bare laminate and pass every defect on the real ones.
+    """
+
+    span = max(frame.span, 1e-6)
+    if frame.length / span >= config.terminal_axis_min_aspect:
+        return _two_terminal_rects(frame, config, along_long_axis=True)
+
+    if image is not None:
+        long_score = _axis_metal_score(
+            frame, config, image, image_width, image_height, along_long_axis=True
+        )
+        short_score = _axis_metal_score(
+            frame, config, image, image_width, image_height, along_long_axis=False
+        )
+        margin = config.terminal_axis_decision_margin
+        if long_score > margin * short_score:
+            return _two_terminal_rects(frame, config, along_long_axis=True)
+        if short_score > margin * long_score:
+            return _two_terminal_rects(frame, config, along_long_axis=False)
+
+    # Undecidable: keep both, but name them so a reviewer can see that the pair
+    # on one axis is the alternative hypothesis, not four separate terminals.
+    return [
+        *_two_terminal_rects(frame, config, along_long_axis=True),
+        *(
+            replace(rect, position=f"{rect.position}_cross")
+            for rect in _two_terminal_rects(frame, config, along_long_axis=False)
+        ),
     ]
 
 
@@ -615,6 +740,187 @@ def _axis_offset(angle: float) -> float:
 # --------------------------------------------------------------------------- #
 
 
+# --------------------------------------------------------------------------- #
+# Neighbour de-confliction
+# --------------------------------------------------------------------------- #
+
+
+def _area(box: BoundingBox) -> float:
+    return max(0.0, box.width) * max(0.0, box.height)
+
+
+def _intersects(a: BoundingBox, b: BoundingBox) -> bool:
+    return a.x1 < b.x2 and b.x1 < a.x2 and a.y1 < b.y2 and b.y1 < a.y2
+
+
+def _cut_out_of(box: BoundingBox, obstacle: BoundingBox) -> BoundingBox:
+    """Trim ``box`` back out of ``obstacle``, keeping as much of it as possible.
+
+    A rectangle minus a rectangle is not a rectangle, so this keeps the largest
+    single remaining slab rather than inventing a shape the rest of the
+    pipeline cannot crop.
+    """
+
+    if not _intersects(box, obstacle):
+        return box
+    options: list[BoundingBox] = []
+    if obstacle.x1 > box.x1:
+        options.append(BoundingBox(box.x1, box.y1, obstacle.x1, box.y2))
+    if obstacle.x2 < box.x2:
+        options.append(BoundingBox(obstacle.x2, box.y1, box.x2, box.y2))
+    if obstacle.y1 > box.y1:
+        options.append(BoundingBox(box.x1, box.y1, box.x2, obstacle.y1))
+    if obstacle.y2 < box.y2:
+        options.append(BoundingBox(box.x1, obstacle.y2, box.x2, box.y2))
+    if not options:
+        return box
+    return max(options, key=_area)
+
+
+def _split_between(a: BoundingBox, b: BoundingBox) -> tuple[BoundingBox, BoundingBox]:
+    """Give each box the half of their overlap that is nearer to it.
+
+    Split on the shallower axis: that is the direction the two ROIs actually
+    grew into each other, and cutting there costs both of them the least.
+    """
+
+    if not _intersects(a, b):
+        return a, b
+    overlap_x = min(a.x2, b.x2) - max(a.x1, b.x1)
+    overlap_y = min(a.y2, b.y2) - max(a.y1, b.y1)
+    if overlap_x <= overlap_y:
+        middle = (max(a.x1, b.x1) + min(a.x2, b.x2)) / 2.0
+        a_first = (a.x1 + a.x2) <= (b.x1 + b.x2)
+        first, second = (a, b) if a_first else (b, a)
+        near = BoundingBox(first.x1, first.y1, middle, first.y2)
+        far = BoundingBox(middle, second.y1, second.x2, second.y2)
+        return (near, far) if a_first else (far, near)
+    middle = (max(a.y1, b.y1) + min(a.y2, b.y2)) / 2.0
+    a_first = (a.y1 + a.y2) <= (b.y1 + b.y2)
+    first, second = (a, b) if a_first else (b, a)
+    near = BoundingBox(first.x1, first.y1, first.x2, middle)
+    far = BoundingBox(second.x1, middle, second.x2, second.y2)
+    return (near, far) if a_first else (far, near)
+
+
+def _accept_cut(
+    original: BoundingBox, cut: BoundingBox, config: SolderJointConfig
+) -> BoundingBox | None:
+    """Take a trimmed ROI only when enough of it survives to inspect."""
+
+    if cut.width < config.min_roi_pixels or cut.height < config.min_roi_pixels:
+        return None
+    if _area(cut) < config.deconflict_min_area_fraction * _area(original):
+        return None
+    return cut
+
+
+def _with_bbox(
+    joint: SolderJoint, bbox: BoundingBox, unresolved: bool, against: str
+) -> SolderJoint:
+    metadata = dict(joint.metadata)
+    if bbox is not joint.bbox:
+        metadata.setdefault("roi_before_deconflict", joint.bbox.to_dict())
+        metadata["deconflicted_against"] = against
+    if unresolved:
+        metadata["overlap_unresolved"] = True
+    return SolderJoint(
+        detection_id=joint.detection_id,
+        joint_id=joint.joint_id,
+        label=joint.label,
+        kind=joint.kind,
+        bbox=bbox,
+        terminal_geometry=joint.terminal_geometry,
+        position=joint.position,
+        angle=joint.angle,
+        pin_index=joint.pin_index,
+        source=joint.source,
+        designator=joint.designator,
+        pin=joint.pin,
+        net=joint.net,
+        metadata=metadata,
+    )
+
+
+def deconflict_joint_rois(
+    joints: Sequence[SolderJoint],
+    detections: Sequence[Detection],
+    config: SolderJointConfig,
+) -> list[SolderJoint]:
+    """Stop one component's ROIs from reaching onto its neighbours.
+
+    Every ROI is derived from its own box in isolation, and the outward reach
+    is a fixed fraction of that box. On a dense board that reach lands on the
+    part next door: two chips 10 px apart produced facing ROIs overlapping 97%,
+    so step 6.2 measured the same pixels twice, ``bridge`` lost its meaning,
+    and ``refine_to_metal`` snapped both ROIs onto the same blob of solder.
+
+    Two rules, in order. A joint ROI may not cover another component's body --
+    whatever is under there, it is not this component's fillet. Then any pair
+    of joint ROIs belonging to different components splits the ground between
+    them. Body views are left alone: they exist to show the whole part and
+    nothing is measured on them.
+
+    A cut that would leave too little to inspect is refused and the ROI is
+    marked ``overlap_unresolved`` instead. An ROI swallowed whole by a
+    neighbour means the detector merged or duplicated a box, and quietly
+    deleting the ROI would hide that.
+    """
+
+    if not config.deconflict_neighbours:
+        return list(joints)
+
+    bodies = {str(detection.detection_id): detection.bbox for detection in detections}
+    resolved = list(joints)
+
+    for index, joint in enumerate(resolved):
+        if joint.kind != "joint":
+            continue
+        box = joint.bbox
+        unresolved = False
+        for detection_id, body in bodies.items():
+            if detection_id == joint.detection_id or not _intersects(box, body):
+                continue
+            cut = _cut_out_of(box, body)
+            # ``_cut_out_of`` hands back the box untouched when there is no
+            # slab left to keep -- an ROI wholly inside a neighbour's body. That
+            # is not a successful cut, so check the overlap is really gone
+            # rather than trusting the box it returned.
+            if _intersects(cut, body):
+                unresolved = True
+                continue
+            accepted = _accept_cut(joint.bbox, cut, config)
+            if accepted is None:
+                unresolved = True
+                continue
+            box = accepted
+        if box is not joint.bbox or unresolved:
+            resolved[index] = _with_bbox(joint, box, unresolved, "body")
+
+    for i in range(len(resolved)):
+        if resolved[i].kind != "joint":
+            continue
+        for j in range(i + 1, len(resolved)):
+            if resolved[j].kind != "joint":
+                continue
+            first, second = resolved[i], resolved[j]
+            if first.detection_id == second.detection_id:
+                continue
+            if not _intersects(first.bbox, second.bbox):
+                continue
+            cut_a, cut_b = _split_between(first.bbox, second.bbox)
+            kept_a = _accept_cut(first.bbox, cut_a, config)
+            kept_b = _accept_cut(second.bbox, cut_b, config)
+            if kept_a is None or kept_b is None:
+                resolved[i] = _with_bbox(first, first.bbox, True, "neighbour")
+                resolved[j] = _with_bbox(second, second.bbox, True, "neighbour")
+                continue
+            resolved[i] = _with_bbox(first, kept_a, False, "neighbour")
+            resolved[j] = _with_bbox(second, kept_b, False, "neighbour")
+
+    return resolved
+
+
 def refine_joint_to_metal(
     joint: SolderJoint,
     image: np.ndarray,
@@ -707,6 +1013,9 @@ class SolderJointCropper:
             joints.extend(
                 derive_solder_joints(detection, width, height, self.config, bgr)
             )
+        # Before refining: two ROIs overlapping 97% would otherwise both snap
+        # onto the same blob of metal and read as a confident agreement.
+        joints = deconflict_joint_rois(joints, detections, self.config)
         if self.config.refine_to_metal:
             joints = [refine_joint_to_metal(joint, bgr, self.config) for joint in joints]
         return joints
