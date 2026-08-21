@@ -163,6 +163,13 @@ rất xa. Đây là dấu hiệu tốt nhất cho thấy lượt 2 khả thi ở
   lệch <3%); khuyến nghị cảm biến 20 MP + FOV 137×91 mm → 25 µm/px, 4 lần chụp
   mỗi board. Nếu chỉ đủ tiền một hạng mục thì **mua đèn nhiều góc trước, không
   phải cảm biến**.
+- `[x] HOÀN THÀNH` **D3.** *(phát sinh)* Đánh giá camera có sẵn Hikvision
+  DS-2CD5026WZ-YD 11–40 mm → mục 6 của `Docs/yeu_cau_phan_cung_camera.md`.
+  Tóm tắt: 2 MP, pixel pitch 3.74 µm. **Quang học đủ** (40 mm @ 30 cm →
+  24 µm/px) nếu ống kính lấy nét được ở khoảng đó — chưa biết MOD, phải đo.
+  **Nút chặn là nén JPEG**: nhiễu Δspecular 0.038 so với ngưỡng
+  `cold_specular_ratio` 0.010 — **gấp 3.8 lần**, ở mọi mức chất lượng. Dùng để
+  thu ảnh gán nhãn cho giai đoạn C thì được; chấm hàn nguội thì không.
 - `[ ] CHƯA LÀM` **D2.** Quyết định mua/thuê thiết bị — việc của người, không
   phải của code.
 
@@ -213,3 +220,4 @@ nhiều. Dữ liệu mới là thứ quyết định.
 | 2026-08-21 | Giai đoạn A xong (A1–A5) | 11.70 MB → 0.00 MB mỗi tile; 419/419 test pass |
 | 2026-08-21 | Giai đoạn B xong (B1–B5) | `lead_detection.py` + 15 test; 434/434 test pass |
 | 2026-08-21 | C0a–C0e: khảo sát + notebook | `Docs/dataset_lead_detection.md`, notebook lượt 2; 443/443 test pass |
+| 2026-08-21 | D3 — đánh giá camera Hikvision sẵn có | Quang học đủ, nén JPEG chặn phần hàn nguội |

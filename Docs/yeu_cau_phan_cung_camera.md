@@ -139,7 +139,127 @@ Tối thiểu:
 - [ ] Chạy `scripts/compare_preprocessing_ab.py --isolate` trên ảnh mới để chốt
       bật/tắt từng bước tiền xử lý dựa trên số đo.
 
-## 5. Lưu ý về chi phí
+## 6. Đánh giá một camera cụ thể: Hikvision DS-2CD5026WZ-YD (11–40 mm)
+
+> Cập nhật 2026-08-21, theo nhãn máy người dùng gửi. **Chưa xác minh được biến
+> thể `WZ-YD`** — tra được thông số của *dòng* DS-2CD5026, không tìm thấy
+> datasheet riêng cho hậu tố này. Mọi tính toán dưới đây dựa trên thông số dòng;
+> hãy đối chiếu lại với máy thật.
+
+### 6.1 Thông số nền
+
+| Hạng mục | Giá trị |
+|---|---|
+| Cảm biến | 1/1.8" Progressive Scan CMOS |
+| Độ phân giải | **1920 × 1080 (2 MP)** |
+| Pixel pitch suy ra | **3.74 µm** (7.18 mm ÷ 1920) |
+| Ống kính trên nhãn | 11–40 mm |
+| Cấp nguồn | 12V DC / 24V AC / PoE 802.3af, 9W |
+| Firmware trên nhãn | V5.3.4_151024 (2015) — rất cũ |
+
+Ảnh dự án đang dùng rộng ít nhất **5144 px**. Camera này cho **1920 px**, tức
+**thô hơn 2.7 lần theo mỗi chiều** ở cùng trường nhìn.
+
+### 6.2 Quang học: đủ, nếu ống kính lấy nét đủ gần
+
+Tính theo pixel pitch 3.74 µm:
+
+| Tiêu cự | Khoảng cách | µm/px | FOV ngang | Đánh giá |
+|---|---|---|---|---|
+| 40 mm | 200 mm | **15.0** | 29 mm | đạt mức tốt nhất |
+| 40 mm | 300 mm | **24.3** | 47 mm | **đạt mức khuyến nghị 25** |
+| 40 mm | 500 mm | 43.0 | 83 mm | ngang ảnh hiện tại |
+| 40 mm | 1000 mm | 89.8 | 172 mm | thô gấp đôi hiện tại |
+| 25 mm | 200 mm | 26.2 | 50 mm | xấp xỉ khuyến nghị |
+| 11 mm | 200 mm | 64.3 | 123 mm | không đủ |
+
+**Kết luận quang học: dùng được, với điều kiện zoom hết cỡ 40 mm và đặt cách
+board khoảng 30 cm.**
+
+Điểm chưa biết và là điểm quyết định: **khoảng cách lấy nét gần nhất (MOD)** của
+ống 11–40 mm. Ống kính giám sát thường lấy nét gần nhất trong khoảng 0.5–1.5 m,
+và ở đầu tele thì thường tệ nhất. Nếu MOD là 1 m thì camera chỉ đạt ~90 µm/px —
+**thô gấp đôi ảnh hiện tại**.
+
+**Cách kiểm trong 5 phút, không cần thiết bị gì:** zoom hết cỡ, đặt board cách
+30 cm, chỉnh nét. Nét được thì chụp và đo lại µm/px theo mục 1 (pitch chân SOIC
+hoặc SOT-23). Không nét được thì rút lui dần cho tới khi nét, đo khoảng cách, rồi
+tra bảng trên.
+
+### 6.3 Độ phân giải: đo trên chính board của dự án
+
+Giảm mẫu tile thật xuống các mức tương ứng rồi đo ROI mối hàn:
+
+| µm/px | FOV của 1920 px | Pad, cạnh ngắn (trung vị) |
+|---|---|---|
+| 46 (hiện tại) | 88 mm | 35.2 px |
+| 92 (40 mm @ 1 m) | 177 mm | **17.4 px** |
+| 124 | 238 mm | 12.8 px |
+| 23 | 44 mm | 70.5 px |
+
+Ngay ở 92 µm/px, pad vẫn còn **17 px** — trên sàn 8 px. Nghĩa là **định vị chân
+cho lượt 2 vẫn làm được** với camera này. Cái mất đi là *hình dạng* fillet.
+
+### 6.4 Nút chặn thật sự: nén JPEG
+
+Camera IP không có đường ra không nén. Nó xuất H.264/H.265, ảnh chụp là JPEG.
+Đo trên tile thật, so số liệu bước 6.2 trước và sau khi nén:
+
+| Chất lượng JPEG | KB/ảnh | Δ solder_ratio | Δ specular_ratio | ROI lệch > 10% |
+|---|---|---|---|---|
+| gốc (PNG) | 1825 | — | — | — |
+| 95 | 483 | 0.0138 | **0.0381** | 3/15 |
+| 85 | 268 | 0.0187 | 0.0367 | 5/15 |
+| 75 | 199 | 0.0210 | 0.0432 | 5/15 |
+| 60 | 153 | 0.0268 | 0.0435 | 7/15 |
+
+Đặt cạnh ngưỡng thật trong `SolderGradingConfig`:
+
+- `cold_specular_ratio` = **0.010**. Nhiễu do nén ở chất lượng cao nhất là
+  **0.0381 — gấp 3.8 lần chính cái ngưỡng phân biệt hàn nguội.** Tín hiệu hàn
+  nguội bị nén nuốt hoàn toàn, ở mọi mức chất lượng.
+- `missing_solder_ratio` = 0.04. Nhiễu 0.0138 là **35% của cả ngưỡng đó**.
+- `insufficient_solder_ratio` = 0.18. Nhiễu chiếm ~8%, còn chấp nhận được.
+
+Không có mức chất lượng nào cứu được: từ 95 xuống 60, Δ specular gần như không
+đổi (0.037–0.044). Đây là **hạn chế bản chất của phép nén dựa trên DCT** — nó vứt
+đúng thành phần tần số cao, mà bề mặt bóng của mối hàn nằm ở đó.
+
+### 6.5 Những thứ khác phải tắt
+
+Camera giám sát tự chỉnh rất mạnh; mỗi tấm thành một miền dữ liệu khác nhau. Nếu
+dùng máy này thì **bắt buộc** vào web UI tắt hết:
+
+- WDR (máy này 140 dB) — tone-mapping phi tuyến từng khung
+- AGC / auto exposure → chuyển sang phơi sáng và gain **cố định**
+- 3D DNR — làm mịn đúng cái kết cấu ánh kim mà 6.2 đang đo
+- Auto white balance → cố định
+- Khoá **day mode**, chặn IR-cut tự chuyển; tắt đèn IR
+- Sharpening về mức thấp nhất
+
+Kể cả tắt hết, đường nén vẫn không bỏ được.
+
+### 6.6 Kết luận
+
+| Dùng để | Được không |
+|---|---|
+| Dựng giàn thử nghiệm, thu ảnh gán nhãn cho lượt 2 | **Được**, nếu ống kính nét ở ~30 cm |
+| Thiếu/sai/lệch linh kiện, cầu thiếc | **Được** |
+| Định vị chân/pad cho lượt 2 | **Được**, pad còn 17–35 px |
+| Thiếu thiếc / thừa thiếc | **Miễn cưỡng**, nhiễu nén bằng 35% ngưỡng missing |
+| **Hàn nguội, hình dạng fillet** | **Không.** Nhiễu nén gấp 3.8 lần ngưỡng |
+| Máy AOI chạy sản xuất | **Không** |
+
+**Khuyến nghị:** dùng nó để **bắt đầu**, không phải để chốt. Nó đủ tốt để thu
+ảnh board thật mà giai đoạn C đang chờ — và đó chính là thứ đang chặn tiến độ.
+Chụp ở FOV nhỏ nhất mà ống kính cho phép, đặt JPEG chất lượng cao nhất, tắt hết
+chế độ tự động, rồi đo lại µm/px theo mục 1 và bảng kiểm ở mục 4.
+
+Nhưng đừng đặt kỳ vọng chấm hàn nguội lên nó, và đừng lấy nó làm cấu hình cho
+dây chuyền. Ưu tiên nâng cấp vẫn theo mục 5: **hệ chiếu sáng nhiều góc trước, rồi
+mới tới máy ảnh có đường ra không nén.**
+
+## 7. Lưu ý về chi phí
 
 Nâng từ 46 lên 25 µm/px là **cải thiện 2 lần theo mỗi chiều, tức 4 lần số điểm
 ảnh** — kéo theo số lần chụp và thời gian chu kỳ. Nâng lên 15 µm/px là 9 lần số
