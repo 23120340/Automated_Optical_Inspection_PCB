@@ -536,6 +536,76 @@ imgsz 1280→1536, oversample ảnh chứa pads/pins (có trần 35% và tự h�
 `copy_paste` 0.30, 150 epoch với `close_mosaic` muộn, và một **cổng verdict** so
 recall với baseline rồi nói thẳng nếu vẫn kẹt.
 
+#### Kết quả v2 (đã chạy đủ 150 epoch): vẫn kẹt, và biết vì sao
+
+| | baseline | v2 | |
+|---|---:|---:|---|
+| `pads` recall | 0.000 | **0.072** | precision 0.712 |
+| `pins` recall | 0.145 | **0.333** | precision 0.332 |
+| mAP50 tổng | — | 0.457 | mAP50-95 0.166 |
+
+`pads` precision **0.712** với recall **0.072** là chữ ký của việc **học thuộc**,
+không phải học lớp: model nhận ra đúng vài pad nó đã thấy, và bỏ lỡ 93% số còn
+lại. Con số giải thích điều đó nằm ở dữ liệu — **chỉ 30 trong 670 ảnh train có
+chứa pads/pins**. Nhân bản 30 ảnh đó lên 6 lần (22% train list) không tạo thêm
+sự đa dạng nào, chỉ lặp lại đúng 30 tấm.
+
+Kết luận đo được, không phải phỏng đoán: **thêm epoch hoặc đổi kiến trúc không
+sửa được 30 ảnh.** Chỉ ảnh mới mới sửa được — xem mục bootstrap ngay dưới.
+
+#### Ba chế độ của notebook detector
+
+`CONFIG` trong [pcb_detector_v2_kaggle.ipynb](training/kaggle/pcb_detector_v2_kaggle.ipynb),
+xét theo thứ tự này:
+
+| CONFIG | Làm gì | Dùng khi |
+|---|---|---|
+| `export_from` | **Bỏ qua train**, nạp thẳng file `.pt` | Đã có checkpoint tốt, chỉ cần `best.onnx` + manifest |
+| `resume_from` | Train tiếp đúng epoch còn dở | Bị đứt giữa chừng, muốn chạy nốt |
+| (không đặt) | Train mới từ đầu | Lần đầu |
+
+**Còn giữ `best.pt` từ session đã chết thì dùng `export_from`, đừng resume.**
+`best.pt` là bản fitness đỉnh đã được chọn sẵn; resume chỉ chạy nốt các epoch
+còn lại và không có gì đảm bảo chúng vượt được đỉnh đó — đúng lý do sau resume
+thường không sinh ra `best.pt` mới. Export-only mất vài phút thay vì hơn một
+giờ, và cell val vẫn đo metric thật trên chính trọng số được export.
+
+Cả ba chế độ **vẫn cần Add Input dataset gốc**, vì cell val chấm điểm trên tập
+val của nó để sinh metric cho manifest.
+
+Hai lỗi đã sửa ở đường này, cả hai đều chỉ lộ ra sau nhiều giờ train:
+- Cell export chết `FileNotFoundError: best.pt` sau resume — nay lùi về
+  `last.pt` kèm giải thích, và ghi `exported_from`/`trained_in_this_run` vào
+  manifest để sau còn truy được.
+- `hasattr(model, "trainer")` **luôn** trả True vì Ultralytics đặt sẵn
+  `self.trainer = None` trong `__init__` — kiểm chứng trực tiếp: dòng cũ ném
+  `AttributeError: 'NoneType' object has no attribute 'save_dir'` ngay khi có
+  đường không train. Nay kiểm tra giá trị thay vì sự tồn tại của thuộc tính.
+
+#### Bootstrap nhãn chân từ board của bạn
+
+[`scripts/bootstrap_lead_labels.py`](scripts/bootstrap_lead_labels.py) chạy
+bước 0–5.5 trên ảnh board của bạn rồi xuất ROI chân/pad ra **định dạng YOLO**
+kèm ảnh khung phân tích, mở thẳng được bằng LabelImg/CVAT/Roboflow:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\bootstrap_lead_labels.py D:\anh_board `
+  --output datasets\leads_v1 --model models\detector\kaggle\best.onnx --overlays
+```
+
+Box đã vẽ sẵn nên việc của người là **sửa**, không phải vẽ từ đầu — nhanh hơn
+nhiều lần. Giá trị lớn nhất là **thêm box ở chân mà hình học bỏ sót**, vì đó
+đúng là thứ model đang không thấy.
+
+Hai điều script tự cưỡng chế, vì cả hai đều là bẫy im lặng:
+- Ảnh ghi ra là **khung phân tích** (sau tiền xử lý + căn chỉnh), không phải file
+  gốc — toạ độ box khớp khung này. Ghi nhầm ảnh gốc thì mọi box lệch theo tỉ lệ
+  resize mà nhãn vẫn "đúng định dạng", không có gì báo lỗi.
+- Output đánh dấu `PSEUDO_LABELS_NEED_REVIEW` và kèm `README_FIRST.md`. **Train
+  thẳng lên nhãn chưa sửa chỉ dạy model lặp lại đúng công thức hình học đã sinh
+  ra nó** — recall sẽ đẹp trên chính tập đó mà không thêm thông tin nào so với
+  việc gọi thẳng hàm suy ra ROI.
+
 **Không có dataset công khai nào gán nhãn chân/pad thành object riêng.** FPIC —
 dataset PCB uy tín nhất — ghi rõ trong bài báo rằng annotation pin là *future
 work*. Bản dẫn xuất FPIC-Component chỉ mức linh kiện và mang license **CC BY-NC-ND**
@@ -587,11 +657,19 @@ chân, không theo từng linh kiện**:
 | Detector tìm được chân ở chỗ ROI suy ra không đoán | Thêm vào, giữ cả hai | `detected` + `derived` |
 | Detector tìm được 1 trong 2 đầu | Đầu đó detect, **đầu kia vẫn giữ ROI suy ra** | trộn |
 | Detector không tìm được gì | Toàn bộ ROI suy ra | `derived` |
-| Detection chân quá xa mọi linh kiện | **Bỏ và báo**, không gán bừa | — |
+| Detection chân quá xa mọi linh kiện | **Giữ làm ROI độc lập**, không gán bừa vào linh kiện gần nhất | `detected` |
 
 Dòng thứ ba là quan trọng nhất: chuyển cả linh kiện sang "detected" khi model chỉ
 thấy một đầu sẽ **âm thầm mất đầu kia** — thường đúng là đầu có lỗi. Cấu hình ở
 `LeadFusionConfig`; inert hoàn toàn khi detector không báo class `pads`/`pins`.
+
+Dòng cuối từng là một lỗi thật, đã sửa: pad không thuộc linh kiện nào bị **vứt
+hẳn**, chỉ để lại warning. Nhưng "không thuộc linh kiện nào" và "không phải mối
+hàn" là hai chuyện khác nhau — test point, footprint chưa gắn linh kiện, hoặc pad
+mà detector bỏ sót mất thân đều rơi vào đây. Với `pads` đo được precision **0.712**
+/ recall **0.072**, model bắn rất ít nhưng bắn thì thường đúng, nên vứt một
+detection tự tin là vứt đúng thứ hiếm nhất. Giờ nó thành ROI độc lập
+(`terminal_geometry="pad_only"`); tắt bằng `keep_unassigned_leads=False`.
 
 Sau khi nạp detector mới, chạy một board và xem cảnh báo *"dùng N ROI từ detection
 chân/pad thật và M ROI suy ra"*. N > 0 nghĩa là detector mới thực sự đóng góp.

@@ -421,6 +421,13 @@ class LeadFusionConfig:
     # Overlap at which a detected lead is taken to stand in for a derived ROI.
     # Below it, both are kept -- they are evidently looking at different things.
     replace_ios: float = 0.30
+    # A lead detection that belongs to no component body still describes a real
+    # inspectable joint: a test point, an unpopulated footprint, a pad whose
+    # component the detector missed. Refusing to *attach* it to a wrong body is
+    # right; throwing it away is not. Measured on the shipped detector, ``pads``
+    # scores 0.712 precision against 0.072 recall -- when it does fire it is
+    # usually correct, so every firing is worth keeping.
+    keep_unassigned_leads: bool = True
 
 
 @dataclass(slots=True)

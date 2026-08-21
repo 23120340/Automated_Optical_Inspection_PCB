@@ -1,0 +1,209 @@
+{
+  "schema_version": "pcb-component-detector/2.0",
+  "task": "component_and_lead_detection",
+  "model_format": "onnx",
+  "created_at": "2026-08-20T23:08:28.007125+00:00",
+  "class_names": [
+    "battery",
+    "button",
+    "buzzer",
+    "capacitor",
+    "clock",
+    "connector",
+    "diode",
+    "display",
+    "fuse",
+    "heatsink",
+    "ic",
+    "inductor",
+    "led",
+    "pads",
+    "pins",
+    "potentiometer",
+    "relay",
+    "resistor",
+    "switch",
+    "transducer",
+    "transformer",
+    "transistor"
+  ],
+  "lead_classes": [
+    "pads",
+    "pins"
+  ],
+  "input": {
+    "size": [
+      1536,
+      1536
+    ],
+    "color_space": "RGB"
+  },
+  "head": {
+    "end2end": false,
+    "nms": "external",
+    "max_det": 2000
+  },
+  "model": {
+    "version": "detector-v2-20260820T230828Z",
+    "architecture": "yolo26s.pt",
+    "sha256": "99ced68285a5802982d2d4475ec29cc2e8c27749a2477ccae950c2e543feec4d",
+    "exported_from": "best.pt",
+    "resumed_from": null,
+    "export_only_from": null,
+    "trained_in_this_run": true
+  },
+  "metrics": {
+    "map50": 0.505157118048442,
+    "map50_95": 0.2309871993906897,
+    "per_class": {
+      "battery": {
+        "precision": 0.12462457171584741,
+        "recall": 0.75,
+        "map50": 0.5606645569620256,
+        "map50_95": 0.2566420852824918
+      },
+      "button": {
+        "precision": 0.794843669962177,
+        "recall": 0.7061786498452693,
+        "map50": 0.8036666666666671,
+        "map50_95": 0.43042229437229435
+      },
+      "buzzer": {
+        "precision": 0.2991883779623994,
+        "recall": 0.7142857142857143,
+        "map50": 0.6715263157894735,
+        "map50_95": 0.23107715765590947
+      },
+      "capacitor": {
+        "precision": 0.5211801351775953,
+        "recall": 0.7445687952600395,
+        "map50": 0.7415171726944869,
+        "map50_95": 0.3879184685725274
+      },
+      "clock": {
+        "precision": 0.5304577893648688,
+        "recall": 0.4117647058823529,
+        "map50": 0.37032091674860507,
+        "map50_95": 0.23778432387713141
+      },
+      "connector": {
+        "precision": 0.6962351258311696,
+        "recall": 0.4381443298969072,
+        "map50": 0.5016453237024399,
+        "map50_95": 0.227321455577443
+      },
+      "diode": {
+        "precision": 0.5017701262189287,
+        "recall": 0.46601941747572817,
+        "map50": 0.45768805706884863,
+        "map50_95": 0.17228264668999302
+      },
+      "display": {
+        "precision": 0.11419929498796691,
+        "recall": 0.2222222222222222,
+        "map50": 0.04441765704584041,
+        "map50_95": 0.01899226820803749
+      },
+      "fuse": {
+        "precision": 0.5209717872082775,
+        "recall": 0.19897691680677254,
+        "map50": 0.2650465164858212,
+        "map50_95": 0.07557479554500594
+      },
+      "ic": {
+        "precision": 0.6196024980505515,
+        "recall": 0.8176991150442477,
+        "map50": 0.7497799422446132,
+        "map50_95": 0.37121669401971874
+      },
+      "inductor": {
+        "precision": 0.2899395914546799,
+        "recall": 0.1411842997140529,
+        "map50": 0.14229239957660078,
+        "map50_95": 0.07402196137489611
+      },
+      "led": {
+        "precision": 0.596132763900147,
+        "recall": 0.5350877192982456,
+        "map50": 0.5538573333847203,
+        "map50_95": 0.21771799021099594
+      },
+      "pads": {
+        "precision": 0.5653972150909479,
+        "recall": 0.26528629213772975,
+        "map50": 0.26087052738582067,
+        "map50_95": 0.11705687598915819
+      },
+      "pins": {
+        "precision": 0.29369113484577264,
+        "recall": 0.5952380952380952,
+        "map50": 0.3613717794608939,
+        "map50_95": 0.1989836189893195
+      },
+      "potentiometer": {
+        "precision": 0.7184222549283544,
+        "recall": 0.35,
+        "map50": 0.34335566394974487,
+        "map50_95": 0.07944768782542089
+      },
+      "relay": {
+        "precision": 0.6321910508574919,
+        "recall": 1.0,
+        "map50": 0.9816666666666668,
+        "map50_95": 0.5838684121746526
+      },
+      "resistor": {
+        "precision": 0.7794144965940695,
+        "recall": 0.6348718173094445,
+        "map50": 0.6964664390704292,
+        "map50_95": 0.33087816764170935
+      },
+      "switch": {
+        "precision": 0.44963752802498413,
+        "recall": 0.391554187734622,
+        "map50": 0.4321480121437108,
+        "map50_95": 0.20568161500947824
+      },
+      "transistor": {
+        "precision": 0.5935982532714459,
+        "recall": 0.6756756756756757,
+        "map50": 0.6596832958729892,
+        "map50_95": 0.17186826940692046
+      }
+    }
+  },
+  "training": {
+    "imgsz": 1536,
+    "epochs": 150,
+    "rare_classes": [
+      "pads",
+      "pins"
+    ],
+    "rare_oversample_applied": 6,
+    "rare_image_fraction": 0.21951219512195122,
+    "train_instances": {
+      "battery": 42,
+      "button": 56,
+      "buzzer": 45,
+      "capacitor": 7775,
+      "clock": 89,
+      "connector": 889,
+      "diode": 552,
+      "display": 63,
+      "fuse": 111,
+      "heatsink": 4,
+      "ic": 2222,
+      "inductor": 213,
+      "led": 549,
+      "pads": 186,
+      "pins": 261,
+      "potentiometer": 50,
+      "relay": 66,
+      "resistor": 7135,
+      "switch": 283,
+      "transformer": 2,
+      "transistor": 572
+    },
+    "seed": 42
+  }
+}

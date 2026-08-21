@@ -168,8 +168,67 @@ def test_unassigned_leads_are_reported_not_forced_onto_a_component() -> None:
     result = fuse_detected_leads([body], [_lead(20, 20)], derived)
     assert result.unassigned_leads == 1
     assert result.warnings and "too far from any component" in result.warnings[0]
-    # And nothing was attached anyway.
+    # Not attached to the body it does not belong to: every ROI carrying the
+    # body's detection_id must still come from the derived geometry.
+    body_rois = [j for j in result.joints if j.detection_id == body.detection_id]
+    assert all(j.source != "detected" for j in body_rois)
+
+
+def test_an_unassigned_lead_is_kept_as_its_own_roi_not_thrown_away() -> None:
+    """A pad that belongs to no component is still a real joint.
+
+    Test points, unpopulated footprints, and pads whose component the detector
+    missed all land here. Measured on the shipped detector, ``pads`` scores
+    0.712 precision against 0.072 recall -- it fires rarely but is usually
+    right when it does, so discarding a confident firing throws away the
+    scarcest evidence in the pipeline.
+    """
+
+    body = _resistor()
+    derived = _derived([body])
+    orphan = _lead(20, 20, confidence=0.85)
+    result = fuse_detected_leads([body], [orphan], derived)
+
+    standalone = [
+        j for j in result.joints
+        if j.metadata.get("lead_detection_id") == orphan.detection_id
+    ]
+    assert len(standalone) == 1
+    assert standalone[0].source == "detected"
+    assert standalone[0].bbox == orphan.bbox
+    assert standalone[0].terminal_geometry == "pad_only"
+    # It stands on its own rather than being filed under the wrong component.
+    assert standalone[0].detection_id == orphan.detection_id
+
+
+def test_an_unassigned_lead_below_the_confidence_floor_stays_dropped() -> None:
+    """Keeping orphans must not resurrect detections the threshold rejected."""
+
+    body = _resistor()
+    derived = _derived([body])
+    weak = _lead(20, 20, confidence=0.10)
+    result = fuse_detected_leads([body], [weak], derived)
+
+    assert result.unassigned_leads == 0
     assert result.used_detected == 0
+    assert not any(
+        j.metadata.get("lead_detection_id") == weak.detection_id for j in result.joints
+    )
+
+
+def test_keeping_unassigned_leads_can_be_switched_off() -> None:
+    body = _resistor()
+    derived = _derived([body])
+    orphan = _lead(20, 20, confidence=0.85)
+    result = fuse_detected_leads(
+        [body], [orphan], derived, LeadFusionConfig(keep_unassigned_leads=False)
+    )
+    assert result.unassigned_leads == 1
+    assert result.used_detected == 0
+    assert "DROPPED" in result.warnings[0]
+    assert not any(
+        j.metadata.get("lead_detection_id") == orphan.detection_id for j in result.joints
+    )
 
 
 def test_lead_fusion_can_be_switched_off() -> None:

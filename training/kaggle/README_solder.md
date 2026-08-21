@@ -28,6 +28,44 @@ lớp về 0 mẫu.
 bằng fixture mô phỏng đúng cấu trúc `SolDef_AI/Labeled/*.json` +
 `Dataset/CS1..CS7`: notebook chạy trọn 12 cell, export ra `best.onnx` hợp lệ.
 
+## Đã sửa: 4192 nhãn `component misalignment` bị vứt
+
+Lần chạy 3 nguồn đầu tiên cho 7635 record / 6 lớp, nhưng cell đọc dữ liệu in:
+
+```
+!! KHÔNG ÁNH XẠ ĐƯỢC: {'component misalignment': 4192, 'solder residue': 619,
+                       'charred solder': 275}
+```
+
+`component misalignment` (có **dấu cách**, normalize thành
+`component_misalignment`) là **nhóm lớn nhất trong toàn bộ lần ghép** và là
+nguồn `shift_component` đáng kể duy nhất tìm được ở bất cứ đâu — trong khi
+`shift_component` đang có **0 mẫu** và bị loại khỏi `class_names`. Nó bị bỏ
+lặng lẽ chỉ vì thiếu một dòng trong `LABEL_MAPS`. Đã thêm.
+
+Hai nhãn còn lại vào `IGNORE` **kèm lý do**, không map bừa:
+- `solder residue` (619): cặn flux là lỗi **vệ sinh**, không phải lỗi hình dạng
+  mối hàn; gộp vào `excess` là giấu nhiễm bẩn sau một nhãn nói về lượng thiếc.
+- `charred solder` (275): thiếc cháy là lỗi **quá nhiệt**; lớp trông giống nhất
+  là `cold` lại là lỗi **thiếu nhiệt** — map vào đó là dạy model ngược hẳn
+  nguyên nhân vật lý.
+
+## Đã sửa: rò rỉ val do Roboflow nhân bản ảnh augment
+
+Roboflow đổi tên mọi ảnh export thành `<gốc>_<ext>.rf.<md5>` và sinh **một file
+cho mỗi bản augment**. Ba bản augment của cùng một tấm ảnh có ba stem khác nhau,
+nên với `group = image.stem` chúng thành **ba group riêng** — bản 1 có thể vào
+train trong khi bản 2 vào val. Đó đúng là kiểu rò rỉ mà việc chia theo group
+sinh ra để ngăn, và nó thổi phồng mọi con số báo cáo mà không để lại dấu vết.
+
+Đã thêm `source_group()` gộp các bản augment về đúng ảnh gốc (vô hại với mọi
+nguồn khác — tên không khớp mẫu Roboflow được giữ nguyên). Cell đọc dữ liệu giờ
+**in ra bằng chứng**: nếu số file ảnh nhiều hơn số group, nó báo tỉ lệ
+bản/ảnh. Nếu dataset của bạn không có augment thì con số không đổi và không mất
+gì.
+
+## Nhãn thật của SolDef_AI
+
 **Cập nhật (2026-08): nhãn chữ thật đã quan sát được trên một lần Run All
 thật**, khác hẳn suy đoán ban đầu từ thuật ngữ bài báo:
 
@@ -92,13 +130,28 @@ phải kiểm toán được.
 1. Tạo notebook mới, import `pcb_solder_defect_kaggle.ipynb`.
 2. **Add Input** ít nhất một dataset. Bắt đầu bằng SolDef_AI:
    `mauriziocalabrese/soldef-ai-pcb-dataset-for-defect-detection`.
-3. Nguồn không có trên Kaggle (Roboflow, Hugging Face): export/tải về máy rồi
-   upload thành Kaggle Dataset của bạn, sau đó Add Input như bình thường.
-4. Chọn **GPU T4 x2** hoặc mới hơn. Bật **Internet** để TorchVision tải ImageNet
-   weights lần đầu.
-5. Sửa `SOURCES` ở cell 1: bật nguồn nào có, sửa `root` cho khớp đường dẫn
-   `/kaggle/input/...`.
-6. Run All.
+3. **Roboflow** (`roboflow_soldering`): mở project trên
+   [universe.roboflow.com/search?q=class:solder](https://universe.roboflow.com/search?q=class:solder),
+   xem preview — có khung box khoanh lỗi thì Export **YOLO** (bất kỳ biến thể
+   nào, `read_yolo()` đọc được mọi bản YOLO vì định dạng .txt annotation không
+   đổi giữa các phiên bản), không có box mà chỉ gán nhãn cả ảnh thì Export
+   **Folder Structure**. Tải zip về, upload thành Kaggle Dataset, Add Input.
+4. **Hugging Face** (`hf_soldering_boarding`,
+   [ouvic215/Soldering-Data-Annotation-boarding](https://huggingface.co/datasets/ouvic215/Soldering-Data-Annotation-boarding)):
+   không có file rời để tải tay — dataset lưu dạng bảng `{"image", "text"}`
+   (đã xác minh qua Hugging Face datasets-server API: cột `text` đúng là nhãn
+   thô `bridge`/`excess_solder`/`empty`/...). Đặt `enabled: True` cho nguồn
+   này ở CONFIG cell đầu, cell **"1b. Tải nguồn Hugging Face"** ngay sau đó tự
+   tải qua thư viện `datasets` và ghi ra ảnh theo layout folder-per-class —
+   không cần Add Input tay. **Nhắc lại**: nguồn này không license, nghi dữ
+   liệu sinh (repo anh em cùng tác giả tên `...-ControlNet`) — chỉ dùng bổ
+   sung, đừng để nó chiếm đa số một lớp.
+5. Chọn **GPU T4 x2** hoặc mới hơn. Bật **Internet** (bắt buộc nếu dùng nguồn
+   Hugging Face; cũng cần để TorchVision tải ImageNet weights lần đầu).
+6. Sửa `SOURCES` ở cell 1: bật nguồn nào có, sửa `root` cho khớp đường dẫn
+   `/kaggle/input/...` (Roboflow/local_export) — riêng Hugging Face không cần
+   sửa `root`, cell 1b tự điền.
+7. Run All.
 
 ## Ba thứ notebook cưỡng chế, đừng tắt
 

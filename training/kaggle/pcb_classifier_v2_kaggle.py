@@ -58,6 +58,12 @@ CONFIG = {
     # convnext_base | convnext_small | convnext_tiny | efficientnet_v2_m
     # | efficientnet_v2_s | swin_t | efficientnet_b0 | mobilenet_v3_small
     "model_name": "convnext_base",
+    # Nạp `best_state.pt` của một lần chạy trước và BỎ QUA train, chỉ chạy phần
+    # hiệu chỉnh nhiệt độ + đánh giá test + export. Dùng khi một lần chạy đã
+    # train xong nhưng chết trước lúc export (mất mạng, hết giờ, đóng tab).
+    # Vòng train giờ ghi best_state.pt ra đĩa mỗi lần cải thiện, nên tình huống
+    # đó không còn mất trắng như trước.
+    "resume_state": None,  # vd: "/kaggle/input/pcb-classifier-ckpt/best_state.pt"
     # 288 thay vì 224: crop linh kiện nhỏ và fine-grained, độ phân giải là đòn
     # bẩy accuracy rẻ nhất. Hạ xuống 224 nếu OOM.
     "input_size": 288,
@@ -551,8 +557,40 @@ def evaluate(network, loader):
     return accuracy, (sum(recalls) / len(recalls) if recalls else 0.0)
 
 
-best_score, best_state, history = -1.0, None, []
-for epoch in range(1, CONFIG["epochs"] + 1):
+CHECKPOINT_PATH = Path(CONFIG["work_dir"]) / "best_state.pt"
+CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# Nạp lại checkpoint của lần chạy trước và BỎ QUA train, thay vì train lại từ
+# đầu. Đặt CONFIG["resume_state"] trỏ vào best_state.pt (đã Add Input thành
+# Kaggle Dataset) khi một lần chạy bị đứt sau lúc train xong nhưng trước khi
+# export -- lúc đó chỉ cần chạy nốt phần hiệu chỉnh + export.
+if CONFIG["resume_state"]:
+    _ckpt_path = Path(CONFIG["resume_state"])
+    if not _ckpt_path.is_file():
+        raise SystemExit(
+            f"resume_state trỏ vào file không tồn tại: {_ckpt_path}. "
+            "Add Input dataset chứa best_state.pt rồi sửa lại đường dẫn."
+        )
+    _ckpt = torch.load(_ckpt_path, map_location="cpu", weights_only=False)
+    if list(_ckpt.get("class_names", [])) != list(CLASS_NAMES):
+        raise SystemExit(
+            "Checkpoint có danh sách class KHÁC với lần chạy này.\n"
+            f"  checkpoint: {_ckpt.get('class_names')}\n"
+            f"  hiện tại  : {CLASS_NAMES}\n"
+            "Thứ tự class quyết định mọi chỉ số của head -- nạp nhầm sẽ hoán vị "
+            "toàn bộ nhãn mà không báo lỗi. Kiểm tra lại nguồn dữ liệu/min_per_class."
+        )
+    model.load_state_dict(_ckpt["state_dict"])
+    model.eval()
+    best_score, best_state, history = float(_ckpt["score"]), _ckpt["state_dict"], []
+    print(
+        f"Nạp checkpoint epoch {_ckpt['epoch']} (macro recall {best_score:.4f}) "
+        f"-- BỎ QUA train, chạy thẳng sang hiệu chỉnh + export."
+    )
+else:
+    best_score, best_state, history = -1.0, None, []
+TOTAL_EPOCHS = 0 if CONFIG["resume_state"] else CONFIG["epochs"]
+for epoch in range(1, TOTAL_EPOCHS + 1):
     if epoch <= CONFIG["freeze_epochs"]:
         for name, parameter in model.named_parameters():
             parameter.requires_grad = any(head in name for head in head_names)
@@ -586,6 +624,23 @@ for epoch in range(1, CONFIG["epochs"] + 1):
         best_score = score
         source = ema.module if use_ema else model
         best_state = {k: v.detach().cpu().clone() for k, v in source.state_dict().items()}
+        # Ghi ra ĐĨA ngay, không chỉ giữ trong RAM. Nếu session Kaggle chết sau
+        # khi train xong nhưng trước khi export (mất mạng, hết giờ, đóng tab),
+        # trọng số trong RAM mất trắng và phải train lại từ đầu -- đã xảy ra
+        # thật. Detector sống sót được vì Ultralytics tự ghi best.pt mỗi epoch;
+        # nhánh này cho classifier thứ tương đương.
+        torch.save(
+            {
+                "state_dict": best_state,
+                "class_names": CLASS_NAMES,
+                "epoch": epoch,
+                "score": best_score,
+                "model_name": CONFIG["model_name"],
+                "input_size": CONFIG["input_size"],
+                "used_ema": bool(use_ema),
+            },
+            CHECKPOINT_PATH,
+        )
     print(f"epoch {epoch:3d}  loss {history[-1]['loss']:.4f}  "
           f"acc {accuracy:.4f} macroR {macro_recall:.4f}  |  "
           f"ema acc {ema_accuracy:.4f} macroR {ema_macro:.4f}{'  <- EMA' if use_ema else ''}")

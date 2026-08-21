@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+import yaml
+
 __all__ = [
     "BARE_BOARD_DATASETS",
     "DatasetSource",
@@ -49,6 +51,7 @@ __all__ = [
     "merge_sources",
     "probe_layout",
     "coverage_report",
+    "source_group",
 ]
 
 IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
@@ -293,11 +296,30 @@ SOURCES: dict[str, DatasetSource] = {
             "good": "good",
             "normal": "good",
             "ok": "good",
+            # Observed on a real run: the raw label is "component misalignment"
+            # (with a space), 4192 instances -- the largest single bucket in the
+            # whole merge, and the only substantial source of shift_component
+            # found anywhere. It was silently dropped as unmapped until this
+            # entry existed.
+            "component_misalignment": "shift_component",
+            "misalignment": "shift_component",
         },
         ignore={
             "solder_ball": "Real defect, but absent from the taxonomy; folding it into excess would hide it.",
             "solder_crack": "Same reasoning.",
             "solder_dross": "Same reasoning.",
+            # Both observed on a real run.
+            "solder_residue": (
+                "619 instances. Leftover flux/solder residue is a cleanliness "
+                "defect, not a joint-geometry one; the taxonomy has no class "
+                "for it and folding it into excess would put contamination "
+                "behind a solder-volume label."
+            ),
+            "charred_solder": (
+                "275 instances. Burnt solder is an OVER-heating defect; the "
+                "nearest-looking class, cold, is the UNDER-heating one. Mapping "
+                "it there would teach the model the opposite physical cause."
+            ),
         },
     ),
     "local_export": DatasetSource(
@@ -752,26 +774,83 @@ def _read_yolo(probe: LayoutProbe) -> list[dict[str, Any]]:
             items.append({
                 "image_path": image,
                 "label": names.get(index, str(index)),
-                "group": image.stem,
+                "group": source_group(image.stem),
                 # Normalized xywh; the caller scales it once the image is read.
                 "metadata": {"yolo_xywhn": [cx, cy, width, height]},
             })
     return items
 
 
+#: Roboflow renames every exported image to ``<original>_<ext>.rf.<md5>``, and
+#: emits one such file per augmented copy. Three augmentations of one photo get
+#: three different stems.
+_ROBOFLOW_EXPORT = re.compile(
+    r"^(?P<stem>.+?)_(?:jpg|jpeg|png|bmp|tif|tiff)\.rf\.[0-9a-f]{6,}$", re.IGNORECASE
+)
+
+
+def source_group(stem: str) -> str:
+    """Collapse augmented copies of one photo onto the photo they came from.
+
+    The train/validation split holds whole groups out, so a group has to mean
+    "one real scene". Roboflow's augmented copies are near-duplicates of each
+    other; leaving them as separate groups lets copy 1 train while copy 2
+    validates, which is exactly the leak group-splitting exists to prevent --
+    and it inflates every reported number without leaving a trace.
+
+    A name that does not match the Roboflow pattern is returned unchanged, so
+    this is inert for every other source.
+    """
+
+    match = _ROBOFLOW_EXPORT.match(str(stem))
+    return match.group("stem") if match else str(stem)
+
+
 def _yolo_class_names(root: Path) -> dict[int, str]:
+    """Read the class-index -> name mapping out of a YOLO dataset's yaml.
+
+    Real YAML parsing, not regex: Roboflow and Ultralytics both write
+    ``names`` as a flow list, a block sequence (``- name`` per line), or a
+    mapping (index: name), and the exact style has drifted across export
+    formats. A real "yolo26" Roboflow export used the block-sequence style;
+    verified directly that the old hand-rolled regex here (a flow-list match
+    then a digit:value line scan) does not match that shape at all, so every
+    label silently fell back to its raw numeric class index -- "7", "4", ...
+    -- none of which matched anything in ``LABEL_MAPS``, so an entire
+    dataset's annotations were dropped as unmapped with no error.
+    ``yaml.safe_load`` handles every shape uniformly, with no per-format guessing.
+    """
+
     for candidate in list(root.rglob("data.yaml")) + list(root.rglob("*.yaml")):
         try:
             text = candidate.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        match = re.search(r"names\s*:\s*\[(.*?)\]", text, re.S)
-        if match:
-            names = [item.strip().strip("'\"") for item in match.group(1).split(",")]
-            return {index: name for index, name in enumerate(names) if name}
-        block = re.findall(r"^\s*(\d+)\s*:\s*(.+)$", text, re.M)
-        if block:
-            return {int(index): name.strip().strip("'\"") for index, name in block}
+        try:
+            payload = yaml.safe_load(text)
+        except yaml.YAMLError:
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        names = _coerce_yolo_names(payload.get("names"))
+        if names:
+            return names
+    return {}
+
+
+def _coerce_yolo_names(raw_names: Any) -> dict[int, str]:
+    if isinstance(raw_names, list):
+        return {index: str(name).strip() for index, name in enumerate(raw_names) if name}
+    if isinstance(raw_names, Mapping):
+        names: dict[int, str] = {}
+        for key, value in raw_names.items():
+            try:
+                index = int(key)
+            except (TypeError, ValueError):
+                continue
+            if value:
+                names[index] = str(value).strip()
+        return names
     return {}
 
 

@@ -134,17 +134,28 @@ class UltralyticsDetector(ComponentDetector):
         if model is None and not self.model_path.is_file():
             raise DetectorConfigurationError(f"Component model does not exist: {self.model_path}")
         self._model = model
+        # Filled lazily on first inference. ``None`` means "not looked yet";
+        # ``0`` means "looked, this artifact has no fixed size". A bool sentinel
+        # would be wrong here -- ``isinstance(False, int)`` is True in Python,
+        # so False would be returned as the image size and reach cv2.resize.
+        self._fixed_image_size: int | None = None
 
     def detect(
         self, image: np.ndarray, *, confidence: float | None = None
     ) -> list[Detection]:
         bgr = ensure_bgr(image)
         model = self._get_model()
+        # An ONNX exported with dynamic=False accepts exactly one input size.
+        # The configured imgsz is what the *pipeline* wants; the graph decides
+        # what it will actually take, and disagreeing is a hard ONNX Runtime
+        # error rather than a resize. Shipped exports differ (640, 1280, 1536),
+        # so the size has to come from the artifact, not from a default.
+        image_size = self._resolve_image_size()
         kwargs: dict[str, Any] = {
             "source": bgr,
             "conf": float(self.config.confidence if confidence is None else confidence),
             "iou": float(self.config.iou),
-            "imgsz": int(self.config.image_size),
+            "imgsz": image_size,
             "max_det": int(self.config.max_detections),
             "verbose": False,
         }
@@ -186,6 +197,28 @@ class UltralyticsDetector(ComponentDetector):
                     )
                 )
         return detections
+
+    def _resolve_image_size(self) -> int:
+        """The size this artifact will actually accept.
+
+        Returns the configured size for ``.pt`` weights and for ONNX graphs with
+        a dynamic spatial axis, since those genuinely resize. A fixed-shape ONNX
+        returns its own size instead: feeding it anything else raises
+        ``INVALID_ARGUMENT ... Got: 1280 Expected: 1536`` deep inside ONNX
+        Runtime, which surfaces as an opaque inference failure.
+        """
+
+        if self._fixed_image_size is None:
+            self._fixed_image_size = _onnx_fixed_image_size(self.model_path) or 0
+        if self._fixed_image_size > 0:
+            return self._fixed_image_size
+        return int(self.config.image_size)
+
+    @property
+    def image_size(self) -> int:
+        """The size inference will really run at, after the artifact is consulted."""
+
+        return self._resolve_image_size()
 
     def _get_model(self) -> Any:
         if self._model is not None:
@@ -288,6 +321,36 @@ def _intersection_over_union(first: BoundingBox, second: BoundingBox) -> float:
     intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
     union = first.area + second.area - intersection
     return intersection / union if union > 0 else 0.0
+
+
+def _onnx_fixed_image_size(path: Path) -> int | None:
+    """The square input size an ONNX graph is locked to, if it is locked at all.
+
+    ``None`` for non-ONNX files, for graphs whose spatial axes are dynamic
+    (exported with ``dynamic=True``, where the caller's size is honoured), for
+    non-square inputs, and whenever the file cannot be read -- in every one of
+    those cases the configured size remains the right answer, so a failure here
+    must not become a failure to detect.
+    """
+
+    if path.suffix.lower() != ".onnx" or not path.is_file():
+        return None
+    try:
+        import onnx
+    except ImportError:
+        return None
+    try:
+        graph = onnx.load(str(path)).graph
+        dims = graph.input[0].type.tensor_type.shape.dim
+    except Exception:
+        return None
+    if len(dims) != 4:
+        return None
+    # dim_value is 0 when the axis is dynamic (dim_param carries its name).
+    height, width = dims[2].dim_value, dims[3].dim_value
+    if height <= 0 or width <= 0 or height != width:
+        return None
+    return int(height)
 
 
 def _to_numpy(value: Any) -> np.ndarray:

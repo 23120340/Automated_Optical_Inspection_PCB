@@ -125,6 +125,7 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 # Notebook này in tiếng Việt và torch.onnx in emoji. Kaggle chạy UTF-8 nên không
 # sao, nhưng chạy lại trên console Windows cp1252 thì chính lệnh print sẽ ném
@@ -190,6 +191,12 @@ LABEL_MAPS = {
         "no_solder": "missing_solder", "missing_solder": "missing_solder",
         "missing_component": "missing_component",
         "good": "good", "normal": "good", "ok": "good",
+        # Quan sát trên lần chạy thật: nhãn thô là "component misalignment"
+        # (có dấu cách), 4192 instance -- nhóm LỚN NHẤT trong cả lần ghép, và
+        # là nguồn shift_component đáng kể duy nhất tìm được. Trước khi có dòng
+        # này nó bị bỏ lặng lẽ vì "không ánh xạ được".
+        "component_misalignment": "shift_component",
+        "misalignment": "shift_component",
     },
     "hf_soldering_boarding": {
         "bridge": "bridge", "micro_bridge": "bridge", "excess_solder": "excess",
@@ -219,6 +226,17 @@ IGNORE = {
         "solder_ball": "Lỗi thật nhưng không có trong taxonomy; gộp vào excess là giấu nó.",
         "solder_crack": "Như trên.",
         "solder_dross": "Như trên.",
+        # Cả hai đều quan sát được trên lần chạy thật.
+        "solder_residue": (
+            "619 mẫu. Cặn flux/thiếc là lỗi VỆ SINH, không phải lỗi hình dạng "
+            "mối hàn; taxonomy không có lớp tương đương, gộp vào excess là giấu "
+            "nhiễm bẩn sau một nhãn nói về lượng thiếc."
+        ),
+        "charred_solder": (
+            "275 mẫu. Thiếc cháy là lỗi QUÁ NHIỆT; lớp trông giống nhất là cold "
+            "lại là lỗi THIẾU nhiệt. Map vào đó là dạy model ngược nguyên nhân "
+            "vật lý."
+        ),
     },
     "hf_soldering_boarding": {
         "appearance": "Nhãn ngoại quan chung chung, không có lớp tương đương.",
@@ -237,7 +255,95 @@ def normalize_label(raw):
     return re.sub(r"[^a-z0-9]+", "_", str(raw).strip().lower()).strip("_")
 
 
+# Roboflow đổi tên mọi ảnh export thành `<gốc>_<ext>.rf.<md5>`, và sinh MỘT
+# file như vậy cho MỖI bản augment. Ba bản augment của cùng một tấm ảnh sẽ có
+# ba stem khác nhau.
+_ROBOFLOW_EXPORT = re.compile(
+    r"^(?P<stem>.+?)_(?:jpg|jpeg|png|bmp|tif|tiff)\.rf\.[0-9a-f]{6,}$", re.IGNORECASE
+)
+
+
+def source_group(stem):
+    """Gộp các bản augment về đúng tấm ảnh gốc sinh ra chúng.
+
+    Chia train/val giữ nguyên cả group ở một phía, nên một group phải có nghĩa
+    là "một cảnh thật". Các bản augment của Roboflow gần như trùng nhau; để
+    chúng thành group riêng thì bản 1 train còn bản 2 validate — đúng kiểu rò
+    rỉ mà việc chia theo group sinh ra để ngăn, và nó thổi phồng mọi con số
+    báo cáo mà không để lại dấu vết nào.
+
+    Tên không khớp mẫu Roboflow được trả về nguyên vẹn, nên hàm này vô hại với
+    mọi nguồn khác.
+    """
+    match = _ROBOFLOW_EXPORT.match(str(stem))
+    return match.group("stem") if match else str(stem)
+
+
 print(f"{len(LABEL_MAPS)} bảng ánh xạ, {sum(len(v) for v in IGNORE.values())} nhãn bị bỏ có lý do")
+
+# %% [markdown]
+# ## 1b. (tùy chọn) Tải nguồn Hugging Face `hf_soldering_boarding`
+#
+# Dataset này KHÔNG có file rời với URL để bấm tải trực tiếp — nó lưu dạng
+# bảng `{"image": ..., "text": <nhãn>}` (đã kiểm tra qua Hugging Face datasets
+# -server API: cột thật là `image` (ảnh) + `text` (chuỗi nhãn thô, ví dụ
+# `"bridge"`, `"excess_solder"`, `"empty"` — khớp đúng `LABEL_MAPS` đã có sẵn
+# ở trên). Phải tải qua thư viện `datasets` của Hugging Face rồi tự ghi ra
+# ảnh; không có trang nào để bạn tải file zip như Roboflow.
+#
+# Cell chỉ chạy khi nguồn này đang `enabled: True` ở CONFIG cell đầu tiên.
+# **Nhắc lại cảnh báo đã ghi trong SOURCES**: không license, nghi dữ liệu
+# sinh (repo anh em cùng tác giả tên `...-ControlNet`) — chỉ dùng bổ sung,
+# đừng để nó chiếm đa số một lớp nào.
+
+# %%
+# Lỗi mạng (Internet tắt trong Settings, Hub tạm nghẽn...) không được phép
+# chặn đứng cả Run All -- một nguồn hỏng thì bỏ qua đúng nguồn đó, các nguồn
+# khác (vd. soldef_ai) vẫn phải chạy tới cùng. Cùng triết lý với _load_cad
+# trong aoi_pipeline/pipeline.py: CAD thiếu/lỗi không được làm hỏng cả pipeline.
+_hf_source = next((s for s in SOURCES if s["name"] == "hf_soldering_boarding"), None)
+if _hf_source is not None and _hf_source["enabled"]:
+    import subprocess
+
+    try:
+        import datasets as hf_datasets
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "datasets"], check=True)
+        import datasets as hf_datasets
+
+    hf_root = Path(CONFIG["work_dir"]) / "hf_soldering_boarding_raw"
+    already_downloaded = hf_root.is_dir() and any(hf_root.rglob("*.jpg"))
+    if already_downloaded:
+        print(f"Đã có sẵn ở {hf_root} từ lần chạy trước, bỏ qua tải lại.")
+        _hf_source["root"] = str(hf_root)
+    else:
+        try:
+            hf_root.mkdir(parents=True, exist_ok=True)
+            hf_dataset = hf_datasets.load_dataset(
+                "ouvic215/Soldering-Data-Annotation-boarding", split="train"
+            )
+            hf_counts = Counter()
+            for index, row in enumerate(hf_dataset):
+                raw_label = normalize_label(row["text"])
+                class_dir = hf_root / raw_label
+                class_dir.mkdir(parents=True, exist_ok=True)
+                row["image"].convert("RGB").save(class_dir / f"{index:05d}.jpg", quality=95)
+                hf_counts[raw_label] += 1
+            print(f"Đã tải {sum(hf_counts.values())} ảnh -> {hf_root}")
+            print(f"Theo nhãn thô (chuỗi 'text' gốc, đã normalize): {dict(sorted(hf_counts.items()))}")
+            # Ghi thẳng vào root cấu hình, mọi cell sau (probe/read) dùng lại y
+            # hệt dữ liệu roboflow_soldering/local_export -- không cần reader riêng.
+            _hf_source["root"] = str(hf_root)
+        except Exception as exc:
+            print(f"!! Tải hf_soldering_boarding THẤT BẠI: {exc}")
+            print(
+                "   Nguyên nhân thường gặp: Internet đang TẮT trong Settings (panel bên "
+                "phải) -- bật lên rồi Restart Session, không chỉ Run lại cell này. Notebook "
+                "vẫn tiếp tục với các nguồn khác; nguồn này bị bỏ qua ở bước đọc dataset."
+            )
+            _hf_source["enabled"] = False
+else:
+    print("hf_soldering_boarding đang tắt (enabled=False) -- bỏ qua cell tải này.")
 
 # %% [markdown]
 # ## 2. Dò cấu trúc từng dataset
@@ -496,22 +602,61 @@ def read_csv_manifest(probe):
     return items
 
 
+def _coerce_yolo_names(raw_names):
+    if isinstance(raw_names, list):
+        return {i: str(n).strip() for i, n in enumerate(raw_names) if n}
+    if isinstance(raw_names, dict):
+        names = {}
+        for key, value in raw_names.items():
+            try:
+                index = int(key)
+            except (TypeError, ValueError):
+                continue
+            if value:
+                names[index] = str(value).strip()
+        return names
+    return {}
+
+
 def read_yolo(probe):
+    """Đọc annotation YOLO + tên lớp từ data.yaml.
+
+    Dùng parser YAML thật (`yaml.safe_load`), không dùng regex tự chế: một
+    export "yolo26" thật từ Roboflow đã ghi `names` theo kiểu block sequence
+    (`- tên` mỗi dòng) chứ không phải flow-list `[...]`. Đã kiểm tra trực
+    tiếp: regex cũ ở đây (khớp flow-list rồi quét dòng số:giá_trị) không khớp
+    kiểu này chút nào -- toàn bộ nhãn âm thầm rơi về chỉ số số ("7", "4", ...),
+    không khớp gì trong LABEL_MAPS, nên cả dataset (11832 annotation) bị coi
+    là "không ánh xạ được" và mất trắng dù không hề báo lỗi. Roboflow/
+    Ultralytics còn ghi `names` dưới cả dạng mapping (dict-style) tuỳ phiên
+    bản export nữa -- YAML thật đọc đúng mọi kiểu, không cần đoán từng kiểu.
+    """
     names = {}
     for candidate in Path(probe["root"]).rglob("*.yaml"):
         try:
             text = candidate.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        match = re.search(r"names\s*:\s*\[(.*?)\]", text, re.S)
-        if match:
-            parts = [i.strip().strip("'\"") for i in match.group(1).split(",")]
-            names = {i: n for i, n in enumerate(parts) if n}
+        try:
+            payload = yaml.safe_load(text)
+        except yaml.YAMLError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        names = _coerce_yolo_names(payload.get("names"))
+        if names:
             break
-        block = re.findall(r"^\s*(\d+)\s*:\s*(.+)$", text, re.M)
-        if block:
-            names = {int(i): n.strip().strip("'\"") for i, n in block}
-            break
+    if not names:
+        yaml_files = list(Path(probe["root"]).rglob("*.yaml"))
+        print(
+            f"  !! Không tìm được 'names' hợp lệ trong bất kỳ file yaml nào dưới "
+            f"{probe['root']} ({len(yaml_files)} file .yaml tìm thấy: "
+            f"{[p.name for p in yaml_files[:5]]}). Nhãn sẽ dùng chỉ số số thô "
+            f"(\"0\", \"1\", ...) -- gần như chắc chắn sẽ rơi hết vào "
+            f"'KHÔNG ÁNH XẠ ĐƯỢC' ở bước sau vì LABEL_MAPS dùng tên chữ. Kiểm tra "
+            f"xem export có kèm data.yaml không, hoặc dán nội dung file .yaml đó "
+            f"ra để map thủ công."
+        )
     items = []
     for label_file in probe["ann"]:
         label_file = Path(label_file)
@@ -534,7 +679,7 @@ def read_yolo(probe):
                 continue
             items.append({
                 "image": image, "label": names.get(index, str(index)),
-                "group": image.stem, "bbox": None, "yolo": (cx, cy, w, h),
+                "group": source_group(image.stem), "bbox": None, "yolo": (cx, cy, w, h),
             })
     return items
 
@@ -648,7 +793,19 @@ for source in SOURCES:
     print(f"\n=== {source['name']} ===")
     print(f"  đọc {len(raw)} annotation -> giữ {len(kept)}")
     print(f"  theo lớp: {dict(sorted(Counter(k['mapped'] for k in kept).items()))}")
-    print(f"  số group (board/ảnh gốc): {len({k['group'] for k in kept})}")
+    groups = {k["group"] for k in kept}
+    print(f"  số group (board/ảnh gốc): {len(groups)}")
+    # Bằng chứng cho việc gộp bản augment: nếu số file ảnh nhiều hơn hẳn số
+    # group thì Roboflow đã sinh nhiều bản augment cho cùng một ảnh gốc, và
+    # trước khi có source_group() chúng nằm ở các group riêng => rò rỉ val.
+    distinct_files = {str(k["image"]) for k in kept}
+    if len(distinct_files) > len(groups):
+        ratio = len(distinct_files) / max(1, len(groups))
+        print(
+            f"  gộp bản augment: {len(distinct_files)} file ảnh -> {len(groups)} "
+            f"ảnh gốc (~{ratio:.1f} bản/ảnh). Trước khi gộp, các bản này nằm ở "
+            f"group riêng nên có thể rơi vào cả train LẪN val."
+        )
     if ignored:
         print(f"  bỏ có chủ ý: {dict(ignored)}")
     if unmapped:

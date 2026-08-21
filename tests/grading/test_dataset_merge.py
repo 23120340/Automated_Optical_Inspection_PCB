@@ -17,6 +17,7 @@ from aoi_pipeline.grading.datasets import (
     load_source,
     merge_sources,
     probe_layout,
+    source_group,
 )
 from aoi_pipeline.grading.rules import JOINT_CLASSES
 
@@ -62,6 +63,155 @@ def test_coco_is_recognised(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert probe_layout(tmp_path).layout == "coco"
+
+
+def _yolo_pair(root: Path, split: str, name: str, class_index: int, box: tuple[float, float, float, float]) -> None:
+    _image(root / split / "images" / f"{name}.jpg")
+    labels_dir = root / split / "labels"
+    labels_dir.mkdir(parents=True, exist_ok=True)
+    cx, cy, w, h = box
+    (labels_dir / f"{name}.txt").write_text(f"{class_index} {cx} {cy} {w} {h}\n", encoding="utf-8")
+
+
+def test_yolo_is_recognised_and_names_list_style_resolves_real_labels(tmp_path: Path) -> None:
+    """Classic Roboflow YOLOv5/v8 export: ``names: ['a', 'b']`` flow-style list."""
+
+    _yolo_pair(tmp_path, "train", "img1", 0, (0.5, 0.5, 0.2, 0.2))
+    _yolo_pair(tmp_path, "train", "img2", 1, (0.5, 0.5, 0.3, 0.3))
+    (tmp_path / "data.yaml").write_text(
+        "train: train/images\nval: train/images\nnc: 2\n"
+        "names: ['bridge', 'good']\n",
+        encoding="utf-8",
+    )
+    probe = probe_layout(tmp_path)
+    assert probe.layout == "yolo"
+
+    records, report = load_source(SOURCES["roboflow_soldering"], tmp_path)
+    labels = sorted(r.label for r in records)
+    assert labels == ["bridge", "good"]
+    assert report["unmapped_labels"] == {}
+
+
+def test_yolo_names_block_sequence_style_resolves_real_labels(tmp_path: Path) -> None:
+    """This is the exact bug found on a real Kaggle run: a Roboflow "yolo26"
+    export wrote ``names`` as a YAML block sequence (``- bridge`` per line)
+    instead of the classic flow-style list. Verified directly: the old
+    hand-rolled regex (``names\\s*:\\s*\\[(.*?)\\]`` then a digit:value line
+    scan) returns no match at all for this shape, so every label silently
+    fell back to its raw numeric class index ("7", "4", ...) -- none of which
+    matched anything in LABEL_MAPS, so an entire 11832-annotation dataset was
+    reported as 0 kept / all unmapped, with no error. A real YAML parser
+    resolves this shape without having to special-case it."""
+
+    _yolo_pair(tmp_path, "train", "img1", 0, (0.5, 0.5, 0.2, 0.2))
+    _yolo_pair(tmp_path, "train", "img2", 1, (0.5, 0.5, 0.3, 0.3))
+    (tmp_path / "data.yaml").write_text(
+        "train: train/images\nval: train/images\nnc: 2\n"
+        "names:\n  - bridge\n  - good\n",
+        encoding="utf-8",
+    )
+    probe = probe_layout(tmp_path)
+    assert probe.layout == "yolo"
+
+    records, report = load_source(SOURCES["roboflow_soldering"], tmp_path)
+    labels = sorted(r.label for r in records)
+    assert labels == ["bridge", "good"]
+    assert report["unmapped_labels"] == {}
+
+
+def test_the_largest_roboflow_bucket_maps_to_shift_component(tmp_path: Path) -> None:
+    """``component misalignment`` (with a space) is 4192 instances on the real
+    export -- the biggest single bucket in the whole merge, and the only
+    substantial source of ``shift_component`` found anywhere. It was silently
+    dropped as unmapped until the label map covered it."""
+
+    _yolo_pair(tmp_path, "train", "img1", 0, (0.5, 0.5, 0.2, 0.2))
+    (tmp_path / "data.yaml").write_text(
+        "train: train/images\nnc: 1\nnames:\n  - component misalignment\n",
+        encoding="utf-8",
+    )
+    records, report = load_source(SOURCES["roboflow_soldering"], tmp_path)
+    assert [r.label for r in records] == ["shift_component"]
+    assert report["unmapped_labels"] == {}
+
+
+@pytest.mark.parametrize("raw", ["solder residue", "charred solder"])
+def test_defects_with_no_taxonomy_class_are_ignored_with_a_reason(
+    tmp_path: Path, raw: str
+) -> None:
+    """Charred solder is an OVER-heating defect; the nearest-looking class,
+    cold, is the UNDER-heating one. Mapping it there would teach the opposite
+    physical cause, so it is refused rather than approximated."""
+
+    _yolo_pair(tmp_path, "train", "img1", 0, (0.5, 0.5, 0.2, 0.2))
+    (tmp_path / "data.yaml").write_text(
+        f"train: train/images\nnc: 1\nnames:\n  - {raw}\n", encoding="utf-8"
+    )
+    records, report = load_source(SOURCES["roboflow_soldering"], tmp_path)
+    assert records == []
+    # Skipped on purpose with a recorded reason, not silently unmapped.
+    assert report["ignored_on_purpose"] == {raw: 1}
+    assert report["unmapped_labels"] == {}
+
+
+# --------------------------------------------------------------------------- #
+# Roboflow augmentation grouping
+# --------------------------------------------------------------------------- #
+
+
+def test_roboflow_augmented_copies_collapse_onto_their_source_photo() -> None:
+    """Roboflow renames exports to ``<original>_<ext>.rf.<md5>`` and emits one
+    per augmented copy. Left as separate groups, copy 1 can train while copy 2
+    validates -- the exact leak group-splitting exists to prevent, and it
+    inflates every reported number without leaving a trace."""
+
+    stems = [
+        "WIN_20221023_15_16_54_Pro_jpg.rf.5c7b7f809b7434e086988928701e5ada",
+        "WIN_20221023_15_16_54_Pro_jpg.rf.444d180c9112bd3168330f0b318ac6b3",
+        "WIN_20221023_15_16_54_Pro_jpg.rf.51fb873b2a6ccb8601389d91f7c75b8a",
+    ]
+    groups = {source_group(stem) for stem in stems}
+    assert groups == {"WIN_20221023_15_16_54_Pro"}
+
+
+def test_a_name_that_is_not_a_roboflow_export_is_left_alone() -> None:
+    """Inert for every other source -- collapsing unrelated names would merge
+    genuinely different scenes into one group and shrink the split."""
+
+    for stem in ("board_017", "WIN_20220329_15_23_17_Pro", "crop__0001"):
+        assert source_group(stem) == stem
+
+
+def test_augmented_copies_of_one_photo_stay_on_the_same_side_of_the_split(
+    tmp_path: Path,
+) -> None:
+    """The property that actually matters, measured through the real reader."""
+
+    for index, digest in enumerate(("a" * 32, "b" * 32, "c" * 32)):
+        _yolo_pair(
+            tmp_path, "train", f"shot1_jpg.rf.{digest}", 0, (0.5, 0.5, 0.2, 0.2)
+        )
+    (tmp_path / "data.yaml").write_text(
+        "train: train/images\nnc: 1\nnames:\n  - bridge\n", encoding="utf-8"
+    )
+    records, _ = load_source(SOURCES["roboflow_soldering"], tmp_path)
+
+    assert len(records) == 3
+    assert {r.group for r in records} == {"shot1"}, (
+        "three augmented copies of one photo must form one group, not three"
+    )
+
+
+def test_yolo_without_any_names_yaml_reports_numeric_labels_visibly(tmp_path: Path) -> None:
+    """No data.yaml at all: the fallback to raw class index is still allowed
+    (better than dropping the annotations outright), but it must show up in
+    unmapped_labels as digit-strings rather than disappear silently -- that
+    visibility is what let this exact failure mode get caught and fixed."""
+
+    _yolo_pair(tmp_path, "train", "img1", 0, (0.5, 0.5, 0.2, 0.2))
+    records, report = load_source(SOURCES["roboflow_soldering"], tmp_path)
+    assert records == []
+    assert report["unmapped_labels"] == {"0": 1}
 
 
 def _labelme_pair(directory: Path, name: str, shapes: list[dict]) -> None:

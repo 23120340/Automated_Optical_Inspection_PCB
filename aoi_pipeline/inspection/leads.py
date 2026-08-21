@@ -128,9 +128,12 @@ def fuse_detected_leads(
         return result
 
     assigned = assign_leads_to_components(bodies, leads, config)
-    result.unassigned_leads = sum(
-        1 for lead in leads if lead.confidence >= config.min_lead_confidence
-    ) - sum(len(items) for items in assigned.values())
+    confident = [lead for lead in leads if lead.confidence >= config.min_lead_confidence]
+    attached_ids = {
+        lead.detection_id for items in assigned.values() for lead in items
+    }
+    orphans = [lead for lead in confident if lead.detection_id not in attached_ids]
+    result.unassigned_leads = len(orphans)
     result.components_with_detected_leads = len(assigned)
 
     by_detection: dict[str, list[SolderJoint]] = {}
@@ -168,14 +171,35 @@ def fuse_detected_leads(
             result.used_derived += 1
         fused.extend(others)
 
+    # An orphan lead is not attached to any component -- but "belongs to no body"
+    # and "is not a joint" are different claims. Refusing to guess an owner is
+    # right; discarding a confident detection of a real pad is not.
+    if orphans and config.keep_unassigned_leads:
+        for index, lead in enumerate(orphans):
+            fused.append(
+                _joint_from_lead(
+                    lead, lead.detection_id, lead.label, "pad_only", index
+                )
+            )
+            result.used_detected += 1
+
     result.joints = fused
     if result.unassigned_leads:
-        result.warnings.append(
-            f"{result.unassigned_leads} lead detection(s) sat too far from any "
-            "component to be assigned; they were ignored rather than attached to "
-            "the nearest body. Raise LeadFusionConfig.max_lead_distance_ratio if "
-            "your leads really do stand that far off."
-        )
+        if config.keep_unassigned_leads:
+            result.warnings.append(
+                f"{result.unassigned_leads} lead detection(s) sat too far from any "
+                "component to be assigned to one, so each was kept as a standalone "
+                "ROI instead of being attached to the nearest body. That covers "
+                "test points and unpopulated footprints; set "
+                "LeadFusionConfig.keep_unassigned_leads=False to drop them."
+            )
+        else:
+            result.warnings.append(
+                f"{result.unassigned_leads} lead detection(s) sat too far from any "
+                "component and were DROPPED (keep_unassigned_leads=False). Raise "
+                "LeadFusionConfig.max_lead_distance_ratio if your leads really do "
+                "stand that far off."
+            )
     return result
 
 

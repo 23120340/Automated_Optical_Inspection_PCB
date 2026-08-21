@@ -65,6 +65,12 @@ CONFIG = {
     # ở CONFIG bị bỏ qua, Ultralytics tự đọc lại đúng cấu hình đã lưu trong
     # chính file checkpoint.
     "resume_from": None,  # vd: "/kaggle/input/pcb-detector-v2-checkpoint/last.pt"
+    # Bỏ qua train HOÀN TOÀN và export thẳng từ một .pt đã có. Dùng khi bạn đã
+    # có checkpoint tốt trong tay (vd. `best.pt` tải về từ một session đã chết)
+    # và chỉ cần lấy ra `best.onnx` + manifest. Cell val vẫn chạy nên metric
+    # trong manifest là đo thật trên chính trọng số được export, không phải
+    # con số chép lại. Ưu tiên cao hơn `resume_from`.
+    "export_from": None,  # vd: "/kaggle/input/pcb-detector-ckpt/best.pt"
     # 1536 thay vì 1280. Đây là đòn bẩy lớn nhất cho vật thể nhỏ, và cũng là
     # thứ tốn VRAM nhất — hạ xuống 1280 nếu OOM.
     "imgsz": 1536,
@@ -349,12 +355,27 @@ print(f"data yaml: {training_yaml}")
 # trực tiếp nhất cho mất cân bằng ở mức instance.
 #
 # Ultralytics tự lưu `last.pt`/`best.pt` sau **mỗi epoch** (không cần cấu hình
-# gì thêm), nên một lần train bị đứt giữa chừng không mất hết: tải `last.pt`
-# về, Add Input lại thành dataset, đặt `CONFIG["resume_from"]` trỏ vào nó rồi
-# Run All. Cell dưới tự rẽ nhánh: có `resume_from` thì tiếp tục đúng epoch,
-# optimizer state và mọi hyperparameter đã lưu trong chính checkpoint (mọi
-# tham số augmentation/epoch ở CONFIG bị bỏ qua lúc đó); không có thì train
-# mới như bình thường.
+# gì thêm), nên một lần train bị đứt giữa chừng không mất hết.
+#
+# Cell dưới có **ba chế độ**, xét theo thứ tự này:
+#
+# | CONFIG | Làm gì | Dùng khi |
+# |---|---|---|
+# | `export_from` | **Bỏ qua train**, nạp thẳng file .pt đó | Đã có checkpoint tốt trong tay, chỉ cần lấy `best.onnx` + manifest |
+# | `resume_from` | Train tiếp đúng epoch còn dở | Bị đứt giữa chừng, muốn chạy nốt |
+# | (không đặt gì) | Train mới từ đầu | Lần chạy đầu tiên |
+#
+# **Nếu bạn còn giữ `best.pt` từ một session đã chết: dùng `export_from`, đừng
+# resume.** `best.pt` là bản có fitness đỉnh, đã được chọn sẵn — resume chỉ chạy
+# thêm những epoch còn lại và không có gì đảm bảo chúng vượt được đỉnh đó (đúng
+# lý do sau resume thường không có best.pt mới). Export-only mất vài phút thay
+# vì hơn một giờ, và cell val vẫn đo metric thật trên chính trọng số đó.
+#
+# Khi resume, mọi tham số epoch/imgsz/augmentation ở CONFIG bị **bỏ qua** —
+# Ultralytics đọc lại đúng cấu hình đã lưu trong chính checkpoint.
+#
+# Cả ba chế độ đều **vẫn cần Add Input dataset gốc**: cell val chấm điểm trên
+# tập val của nó để sinh metric cho manifest.
 
 # %%
 import subprocess
@@ -365,7 +386,19 @@ except ImportError:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", "ultralytics"], check=True)
     from ultralytics import YOLO
 
-if CONFIG["resume_from"]:
+if CONFIG["export_from"]:
+    checkpoint = Path(CONFIG["export_from"])
+    if not checkpoint.is_file():
+        raise SystemExit(
+            f"export_from trỏ vào file không tồn tại: {checkpoint}. "
+            "Add Input dataset chứa file .pt rồi sửa lại đường dẫn."
+        )
+    print(f"Chế độ EXPORT-ONLY — bỏ qua train, dùng thẳng: {checkpoint}")
+    print("  Cell val phía dưới vẫn chạy, nên metric ghi vào manifest là đo")
+    print("  thật trên chính trọng số này.")
+    model = YOLO(str(checkpoint))
+    results = None
+elif CONFIG["resume_from"]:
     checkpoint = Path(CONFIG["resume_from"])
     if not checkpoint.is_file():
         raise SystemExit(
@@ -493,9 +526,14 @@ instance mới là ràng buộc. Ba phương án thực tế, theo thứ tự ch
    bước 5.5 — nó chỉ khiến nhánh "detected" hiếm khi được kích hoạt.
 
 2. GÁN NHÃN BOOTSTRAP (vừa phải, hiệu quả nhất).
-   Chạy `scripts/export_solder_dataset.py --overlays` trên board của bạn: nó
-   sinh sẵn ROI chân ứng viên. Người chỉ cần SỬA các box đó thay vì vẽ từ đầu —
-   nhanh hơn nhiều lần. Vài trăm ảnh board đã đủ vượt xa 186 instance hiện có.
+   Chạy `scripts/bootstrap_lead_labels.py` trên board của bạn: nó sinh sẵn box
+   chân/pad ở ĐỊNH DẠNG YOLO, mở thẳng được bằng LabelImg/CVAT/Roboflow. Người
+   chỉ cần SỬA box thay vì vẽ từ đầu — nhanh hơn nhiều lần. Quan trọng nhất là
+   nó tạo ra ẢNH MỚI: ràng buộc thật hiện nay là chỉ 30/670 ảnh train có chứa
+   pads/pins, nên nhân bản 6 lần chỉ là lặp lại đúng 30 tấm đó (precision 0.712
+   / recall 0.072 — dấu hiệu học thuộc, không phải học lớp).
+   ĐỪNG train thẳng lên nhãn chưa sửa: model sẽ chỉ học lại đúng công thức hình
+   học đã sinh ra chúng, điểm đẹp mà không thêm thông tin nào.
 
 3. THÊM DATASET (không chắc ăn).
    Roboflow 100 'printed-circuit-board' có class Pads/Pins, nhưng nhiều khả
@@ -518,16 +556,55 @@ from datetime import datetime, timezone
 artifacts = Path(CONFIG["artifact_dir"])
 artifacts.mkdir(parents=True, exist_ok=True)
 
-run_dir = Path(model.trainer.save_dir) if hasattr(model, "trainer") else work / "runs" / "detector_v2"
-for name in ("best.pt", "last.pt"):
-    source = run_dir / "weights" / name
-    if source.is_file():
-        shutil.copy2(source, artifacts / name)
-for pattern in ("*.png", "*.jpg", "results.csv", "args.yaml"):
-    for item in run_dir.glob(pattern):
-        shutil.copy2(item, artifacts / item.name)
+if CONFIG["export_from"]:
+    # Không có run nào trong session này; trọng số đến thẳng từ file đầu vào.
+    export_source = Path(CONFIG["export_from"])
+    shutil.copy2(export_source, artifacts / export_source.name)
+    weights_exported = export_source.name
+    print(f"Export thẳng từ {export_source}")
+else:
+    # `model.trainer` được __init__ đặt sẵn = None, nên hasattr() LUÔN True --
+    # phải kiểm tra giá trị, không kiểm tra sự tồn tại của thuộc tính.
+    trainer = getattr(model, "trainer", None)
+    run_dir = (
+        Path(trainer.save_dir) if trainer is not None
+        else work / "runs" / "detector_v2"
+    )
+    for name in ("best.pt", "last.pt"):
+        source = run_dir / "weights" / name
+        if source.is_file():
+            shutil.copy2(source, artifacts / name)
+    for pattern in ("*.png", "*.jpg", "results.csv", "args.yaml"):
+        for item in run_dir.glob(pattern):
+            shutil.copy2(item, artifacts / item.name)
 
-best = YOLO(str(artifacts / "best.pt"))
+    # Sau một lần RESUME, `best.pt` có thể KHÔNG tồn tại: Ultralytics chỉ ghi
+    # best.pt khi fitness của epoch hiện tại vượt `best_fitness` đọc từ
+    # checkpoint. Nếu đỉnh đã đạt TRƯỚC lúc đứt (và file best.pt cũ nằm trong
+    # session đã mất), các epoch chạy tiếp không ghi lại best.pt lần nào -- chỉ
+    # có last.pt. Trước đây cell này chết thẳng với FileNotFoundError sau nhiều
+    # giờ train, nên giờ nó lùi về last.pt và nói rõ đang export cái gì.
+    export_source = artifacts / "best.pt"
+    if not export_source.is_file():
+        fallback = artifacts / "last.pt"
+        if not fallback.is_file():
+            raise SystemExit(
+                f"Không tìm thấy best.pt lẫn last.pt trong {run_dir / 'weights'}. "
+                "Kiểm tra xem cell train có chạy xong không."
+            )
+        export_source = fallback
+        print(
+            "!! Không có best.pt -- export từ last.pt.\n"
+            "   Bình thường sau khi RESUME: đỉnh fitness đạt được trước lúc đứt\n"
+            "   nên các epoch chạy tiếp không ghi lại best.pt. last.pt là epoch\n"
+            "   cuối cùng, không phải epoch tốt nhất -- nhưng metric ở cell val\n"
+            "   phía trên cũng đo trên chính trọng số này, nên hai số vẫn khớp.\n"
+            "   Nếu bạn CÒN GIỮ best.pt từ session cũ: đặt CONFIG['export_from']\n"
+            "   trỏ vào nó và Run All, sẽ export đúng bản đỉnh đó."
+        )
+    weights_exported = export_source.name
+
+best = YOLO(str(export_source))
 onnx_path = best.export(
     format="onnx", imgsz=CONFIG["imgsz"], opset=CONFIG["opset"],
     dynamic=False, simplify=True, nms=False,
@@ -551,6 +628,52 @@ try:
 except ImportError:
     print("Không có onnx; không kiểm tra được export có tự chứa hay không.")
 
+# Đọc hợp đồng head TỪ CHÍNH FILE ĐÃ EXPORT, không chép lại CONFIG.
+#
+# YOLO26 export ra dạng end-to-end `(1, 300, 6)` -- NMS nằm trong graph và số
+# detection bị chặn cứng ở 300 -- BẤT KỂ `nms=False` ở lệnh export và
+# `end2end=False` trong CONFIG. Ghi lại niềm tin của CONFIG vào manifest sẽ tạo
+# ra một hợp đồng mô tả sai chính artifact nó đi kèm: khai `nms: external` và
+# `max_det: 2000` trong khi graph tự NMS và chỉ trả tối đa 300.
+#
+# App vẫn chạy đúng: `non_max_suppression` của Ultralytics nhận dạng theo shape
+# (`if prediction.shape[-1] == 6 or end2end`), nên `end2end=False` không phá gì.
+# Đã đo trên artifact thật: conf runtime vẫn tác dụng bình thường (0.10 -> 83
+# box với .pt, 90 với .onnx). Ràng buộc DUY NHẤT là trần 300 (ở conf=0.01,
+# .pt tìm 378 còn .onnx chặn đúng 300).
+head_contract = {
+    "declared_end2end": CONFIG["end2end"],
+    "nms": "external",
+    "max_det": CONFIG["max_det"],
+}
+try:
+    import onnx as _onnx
+
+    _shape = [
+        d.dim_value or d.dim_param
+        for d in _onnx.load(str(target)).graph.output[0].type.tensor_type.shape.dim
+    ]
+    head_contract["onnx_output_shape"] = _shape
+    if len(_shape) == 3 and _shape[-1] == 6:
+        head_contract.update(
+            {"nms": "internal", "actual_end2end": True, "max_det": int(_shape[1])}
+        )
+        print(
+            f"\nHead thực tế: end-to-end {tuple(_shape)} — NMS nằm TRONG graph, "
+            f"trần {_shape[1]} detection mỗi lần suy luận."
+        )
+        if int(_shape[1]) < int(CONFIG["max_det"]):
+            print(
+                f"  Lưu ý: CONFIG['max_det']={CONFIG['max_det']} KHÔNG với tới được; "
+                f"trần thật là {_shape[1]}. Với ảnh board dày đặc, hãy dựa vào chia "
+                f"tile (mỗi tile là một lần suy luận riêng) thay vì một lượt toàn ảnh."
+            )
+    else:
+        head_contract["actual_end2end"] = False
+        print(f"\nHead thực tế: one-to-many {tuple(_shape)} — NMS chạy ngoài, đúng như CONFIG.")
+except Exception as exc:  # pragma: no cover - chỉ là phần ghi chú manifest
+    head_contract["onnx_output_shape"] = f"không đọc được: {exc}"
+
 
 def sha256_of(path):
     digest = hashlib.sha256()
@@ -568,11 +691,17 @@ manifest = {
     "class_names": class_names,
     "lead_classes": [n for n in class_names if n.lower() in {"pads", "pins"}],
     "input": {"size": [CONFIG["imgsz"], CONFIG["imgsz"]], "color_space": "RGB"},
-    "head": {"end2end": CONFIG["end2end"], "nms": "external", "max_det": CONFIG["max_det"]},
+    "head": head_contract,
     "model": {
         "version": f"detector-v2-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}",
         "architecture": CONFIG["model"],
         "sha256": sha256_of(target),
+        # "last.pt" ở đây nghĩa là export từ epoch CUỐI chứ không phải epoch tốt
+        # nhất -- xảy ra sau resume. Ghi lại để sau còn truy được.
+        "exported_from": weights_exported,
+        "resumed_from": CONFIG["resume_from"],
+        "export_only_from": CONFIG["export_from"],
+        "trained_in_this_run": CONFIG["export_from"] is None,
     },
     "metrics": {
         "map50": float(metrics.box.map50),
