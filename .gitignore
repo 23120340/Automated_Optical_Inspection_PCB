@@ -34,3 +34,10 @@ Thumbs.db
 # these rules did not follow, so both got committed. Ignore the folder itself,
 # not the old names.
 legacy/
+
+# Model artifacts: gói .zip do notebook Kaggle xuất ra, không phải file nguồn.
+# Chỉ commit best.onnx + model_manifest.json; .pt và .zip nằm ngoài Git.
+models/*.zip
+models/pcb_detector_v2_artifacts.zip
+models/pcb_detector_v2_artifacts/
+models/pcb_solder_defect_artifacts/
