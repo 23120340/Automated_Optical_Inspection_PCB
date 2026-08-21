@@ -30,7 +30,7 @@ lần train bị đứt giữa chừng (mất mạng, đóng tab) không phải 
 
 **Bước 5 / 5.5 (crop + ROI mối hàn)** — điểm khó nhất của dự án: không dataset
 công khai nào gán nhãn chân/pad riêng, nên ROI mối hàn được **suy ra hình
-học** từ box linh kiện + topology chân (`aoi_pipeline/inspection/solder.py`),
+học** từ box linh kiện + topology chân (`aoi_pipeline/solder.py`),
 không phải detect trực tiếp. Ba lớp hợp nhất chồng lên trên, theo thứ tự ưu
 tiên và đều đã đo, không chỉ lý thuyết:
 

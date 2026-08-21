@@ -1,7 +1,7 @@
 # Automated Optical Inspection PCB
 
 Ứng dụng local có hai workspace: Golden Inspection dùng recipe cố định cho
-Position/Appearance, và pipeline thử nghiệm từ bước 0 đến bước 6.1:
+Position/Appearance, và pipeline thử nghiệm từ bước 0 đến bước 6.2:
 
 ```text
 0. Import ảnh
@@ -10,8 +10,14 @@ Position/Appearance, và pipeline thử nghiệm từ bước 0 đến bước 6
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
    → 5. Crop và xuất dữ liệu linh kiện
+   → 5.5. Suy ra ROI chân/mối hàn (hình học + CAD + detection chân)
    → 6.1. Phân loại family (accept/review/unknown)
+   → 6.2. Chấm lỗi mối hàn (luật đo + model + hợp nhất)
 ```
+
+Bước 6.2 là **mục riêng** trong điều hướng, không phải tab con của bước 4: nó
+có ROI riêng, hợp đồng model riêng và từ vựng verdict riêng, và nó mới là bước
+quyết định board có xuất xưởng được hay không.
 
 Hiện bước 0 dùng upload ảnh để có thể phát triển khi chưa gắn camera. Adapter
 camera/RTSP sẽ được thêm sau mà không thay đổi pipeline xử lý.
@@ -437,6 +443,33 @@ Hai lỗi đã sửa ở đường này, cả hai đều chỉ lộ ra sau nhi�
   `AttributeError: 'NoneType' object has no attribute 'save_dir'` ngay khi có
   đường không train. Nay kiểm tra giá trị thay vì sự tồn tại của thuộc tính.
 
+#### Kích thước ảnh do chính file ONNX quyết định
+
+Export `dynamic=False` khoá cứng input, và các model đang có khoá ở ba mức khác
+nhau: ver1 **1280**, ver2 **1536**, huggingface **640**. App từng hardcode 1280
+nên chỉ ver1 chạy được — nạp ver2 vào là nổ
+`INVALID_ARGUMENT ... Got: 1280 Expected: 1536`. Nay `UltralyticsDetector` tự
+đọc shape từ file (`onnx.load`, ~0.09s) và dùng đúng kích thước đó; `.pt` và
+ONNX `dynamic=True` vẫn theo config vì chúng thật sự resize được.
+
+YOLO26 còn export ra dạng end-to-end `(1, 300, 6)` — NMS nằm **trong** graph —
+bất kể `nms=False`. App vẫn chạy đúng vì `non_max_suppression` của Ultralytics
+nhận dạng theo shape (`if prediction.shape[-1] == 6 or end2end`), và đo trên
+artifact thật thì conf runtime vẫn tác dụng bình thường. Ràng buộc thật duy
+nhất là **trần 300 detection** mỗi lần suy luận, nên với board dày đặc hãy dựa
+vào chia tile thay vì một lượt toàn ảnh.
+
+Manifest của detector **không được app đọc** (`create_detector` chỉ nhận
+`model_path`), nên nếu nó ghi sai head thì sửa file JSON, đừng train lại:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\fix_detector_manifest.py `
+  <thư mục artifact>\model_manifest.json
+```
+
+Script đọc shape từ chính ONNX đi kèm, ghi lại `nms`/`max_det` cho đúng và
+chạy lại nhiều lần vẫn an toàn.
+
 #### Bootstrap nhãn chân từ board của bạn
 
 [`scripts/bootstrap_lead_labels.py`](scripts/bootstrap_lead_labels.py) chạy
@@ -636,13 +669,26 @@ việc 4 view thật sự được lật đúng chiều lẫn xác suất đư�
 
 ```text
 app/                 Streamlit UI và bridge
-aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.1
+aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.2
+  ├─ golden_compare.py, position.py, recipe.py, inspection.py
+  │                    Golden Inspection: recipe cố định, Position/Appearance
+  ├─ solder.py         5.5 · suy ROI chân hàn từ box + topology chân
+  ├─ leads.py          5.5 · ưu tiên detection chân thật, theo TỪNG chân
+  ├─ cad.py            5.5 · nạp và đăng ký CAD board
+  ├─ cad_fusion.py     5.5 · hợp nhất land CAD với ROI suy ra
+  └─ grading/          6.2 · đo vật lý → luật → model ONNX → hợp nhất
 tests/               Unit tests
-training/kaggle/     Notebook train detector bước 4 và classifier bước 6.1
+training/kaggle/     Notebook train detector (4), classifier (6.1), solder (6.2)
 models/              Nơi đặt model local (weights không commit Git)
-Docs/                Khảo sát dataset và kế hoạch pre-train 6.1
-scripts/             Setup/chạy app trên Windows
+Docs/                Khảo sát dataset, kế hoạch pre-train, báo cáo tiến độ
+scripts/             Setup/chạy app, bootstrap nhãn chân, kiểm tra artifact
 ```
+
+Package dùng **layout phẳng**: mọi module nằm thẳng trong `aoi_pipeline/`, chỉ
+`grading/` là subpackage vì năm module của nó là một tầng khép kín. Layout
+subpackage trước đây (`core/`, `inspection/`, `imaging/`, …) đã bị bỏ khi tích
+hợp Golden Compare — đừng tạo lại, mọi import hiện dùng dạng `from .models
+import ...`.
 
 ## Giới hạn hiện tại
 
