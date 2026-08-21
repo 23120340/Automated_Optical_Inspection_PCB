@@ -34,3 +34,7 @@ Thumbs.db
 # Local camera credentials from the legacy prototype
 Ver1/rtsp.txt
 Ver1/KCS_Inspec_PCBA_V2.exe
+
+models/pcb_detector_v2_artifacts.zip
+models/pcb_detector_v2_artifacts/
+models/pcb_solder_defect_artifacts/
