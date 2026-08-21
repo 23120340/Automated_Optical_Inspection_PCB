@@ -944,3 +944,80 @@ def test_display_survives_having_no_frame_and_no_pixels() -> None:
     image, detections = _two_part_board()
     crop = _bridge_solder(image, detections).crops[0]
     assert _roi_pixels_for_display(None, crop) is None
+
+
+# --------------------------------------------------------------------------- #
+# refine_to_metal phải quan sát được từ app
+# --------------------------------------------------------------------------- #
+
+
+def test_refine_records_both_ends_of_its_own_step() -> None:
+    """Measuring refine against the *final* box measures two stages at once --
+    de-confliction runs again after fusion. And measuring against the fractional
+    pre-refine box measures a rounding artefact: ``to_int`` widens a box outward,
+    so a ROI refine kept whole looked like it had grown by a pixel a side, which
+    on a 26x29 ROI reads as -11% shrink."""
+
+    image, detection = _chip_board()
+    config = SolderJointConfig(include_body_view=False, refine_to_metal=True)
+    joints = SolderJointCropper(config).derive(image, [detection])
+
+    refined = [j for j in joints if j.metadata.get("refined_to_metal")]
+    assert refined, "board này phải có ROI được siết"
+    for joint in refined:
+        before = joint.metadata["roi_before_refine"]["xyxy"]
+        after = joint.metadata["roi_after_refine"]["xyxy"]
+        before_area = (before[2] - before[0]) * (before[3] - before[1])
+        after_area = (after[2] - after[0]) * (after[3] - after[1])
+        assert after_area <= before_area, (
+            f"siết mà lại to ra: {before} -> {after}"
+        )
+        # Both ends are the integer boxes the step really worked on.
+        assert all(float(v).is_integer() for v in (*before, *after))
+
+
+def test_the_app_can_see_whether_refine_fired_and_by_how_much() -> None:
+    """From the app the stage used to be invisible: on by default, no toggle,
+    nothing in the table. You could not tell whether it had done anything."""
+
+    from app.streamlit_app import _shrink_percent, _solder_frame
+
+    image, detections = _two_part_board()
+    on = _bridge_solder(image, detections)
+    frame = _solder_frame(on.crops)
+
+    assert "refined" in frame.columns and "shrink_pct" in frame.columns
+    joints = [c for c in on.crops if c.kind == "joint"]
+    assert any(c.refined for c in joints), "phải có ROI được siết"
+
+    for crop in joints:
+        percent = _shrink_percent(crop)
+        if crop.refined and crop.roi_after_refine is not None:
+            assert percent is not None and percent >= 0.0, (
+                f"{crop.joint_id}: shrink {percent}"
+            )
+        else:
+            assert percent is None, "không siết thì phải là None, không phải 0%"
+
+
+def test_turning_refine_off_leaves_every_roi_alone() -> None:
+    """The toggle has to actually reach the core, or comparing on against off
+    in the app compares nothing."""
+
+    from types import SimpleNamespace
+
+    from app.pipeline_bridge import PipelineBridge
+
+    image, detections = _two_part_board()
+    wrapped = [SimpleNamespace(raw=item) for item in detections]
+
+    off = PipelineBridge(
+        config={"solder": {"enabled": True, "refine_to_metal": False}}
+    ).make_solder_crops(image, wrapped)
+    on = PipelineBridge(
+        config={"solder": {"enabled": True, "refine_to_metal": True}}
+    ).make_solder_crops(image, wrapped)
+
+    assert not any(c.refined for c in off.crops)
+    assert any(c.refined for c in on.crops)
+    assert [c.bbox for c in off.crops] != [c.bbox for c in on.crops]

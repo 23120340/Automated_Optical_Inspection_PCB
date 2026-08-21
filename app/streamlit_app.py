@@ -197,6 +197,7 @@ def _default_config() -> dict[str, Any]:
         # that a KeyError that killed the whole app on upload.
         "solder": {
             "enabled": True,
+            "refine_to_metal": True,
             "split_pins": False,
             "include_body_view": True,
             "terminal_outer_ratio": 0.45,
@@ -2918,6 +2919,16 @@ def _render_solder_settings() -> None:
             "Kèm ảnh toàn linh kiện + chân",
             value=bool(config.get("include_body_view", True)),
         )
+        refine = st.checkbox(
+            "Siết ROI về vùng kim loại thật",
+            value=bool(config.get("refine_to_metal", True)),
+            help=(
+                "Các tỉ lệ ở trên nói ROI nằm ĐÂU; chúng không biết land rộng "
+                "bao nhiêu. Bật thì ROI được thu về đúng vệt kim loại bên trong "
+                "nó. Tắt để so sánh — bảng ở tab 'Bảng nhãn 6.2' có cột "
+                "`refined` và `shrink_pct` cho biết nó đã làm gì."
+            ),
+        )
         terminal_outer = st.slider(
             "Nới đầu trục dài (nhân cạnh dài)",
             0.10,
@@ -2946,6 +2957,7 @@ def _render_solder_settings() -> None:
         config.update(
             {
                 "enabled": enabled,
+                "refine_to_metal": refine,
                 "split_pins": split_pins,
                 "include_body_view": include_body,
                 "terminal_outer_ratio": terminal_outer,
@@ -3018,6 +3030,30 @@ def _draw_solder_overlay(
     return overlay
 
 
+def _shrink_percent(crop: SolderCropRecord) -> float | None:
+    """How much of the derived ROI ``refine_to_metal`` cut away, as a percent.
+
+    Measured across the refine step alone, from the box before it to the box
+    right after it -- NOT to the final bbox. De-confliction runs again after
+    fusion, so the final box has been through two stages; comparing against it
+    once produced shrink figures as low as -11%, which reads as "shrinking made
+    it bigger" and is really "the later cut took less off a smaller box".
+
+    ``None`` means the ROI was left alone -- either the stage is off, or the
+    evidence inside was too weak to act on. Both are meaningful answers and
+    neither should read as 0%.
+    """
+
+    before, after = crop.roi_before_refine, crop.roi_after_refine
+    if not crop.refined or before is None or after is None:
+        return None
+    before_area = max(0, before[2] - before[0]) * max(0, before[3] - before[1])
+    if before_area <= 0:
+        return None
+    after_area = max(0, after[2] - after[0]) * max(0, after[3] - after[1])
+    return round(100.0 * (1.0 - after_area / before_area), 1)
+
+
 def _solder_frame(
     crops: list[SolderCropRecord],
     verdicts: list[SolderVerdictRecord] | None = None,
@@ -3053,6 +3089,9 @@ def _solder_frame(
                 "roi_height_px": crop.bbox[3] - crop.bbox[1],
                 "detector_confidence": crop.confidence,
                 "source": crop.source,
+                # --- what refine_to_metal did to this ROI -----------------
+                "refined": bool(crop.refined),
+                "shrink_pct": _shrink_percent(crop),
                 "designator": crop.designator or "",
                 "pin": crop.pin or "",
                 "net": crop.net or "",

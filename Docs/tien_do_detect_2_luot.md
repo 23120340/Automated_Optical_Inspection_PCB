@@ -221,3 +221,4 @@ nhiều. Dữ liệu mới là thứ quyết định.
 | 2026-08-21 | Giai đoạn B xong (B1–B5) | `lead_detection.py` + 15 test; 434/434 test pass |
 | 2026-08-21 | C0a–C0e: khảo sát + notebook | `Docs/dataset_lead_detection.md`, notebook lượt 2; 443/443 test pass |
 | 2026-08-21 | D3 — đánh giá camera Hikvision sẵn có | Quang học đủ, nén JPEG chặn phần hàn nguội |
+| 2026-08-21 | Cho `refine_to_metal` quan sát được từ app | Nút bật/tắt + cột `refined`/`shrink_pct`; đo trên board: siết 78/81 ROI, trung vị 16.1% |

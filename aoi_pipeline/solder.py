@@ -1015,7 +1015,19 @@ def refine_joint_to_metal(
 
     metadata = dict(joint.metadata)
     metadata["refined_to_metal"] = True
-    metadata["roi_before_refine"] = joint.bbox.to_dict()
+    # The integer box this function actually worked on, not ``joint.bbox``.
+    # ``to_int`` widens a fractional box outward, so recording the fractional
+    # one made a ROI that refine kept whole look like it had GROWN by up to a
+    # pixel a side -- on a 26x29 ROI that reads as -11% "shrink".
+    metadata["roi_before_refine"] = BoundingBox(
+        float(x1), float(y1), float(x2), float(y2)
+    ).to_dict()
+    # Both ends of this one step. The final bbox is not the other end:
+    # de-confliction runs again after fusion, so comparing the final box against
+    # the pre-refine box measures two stages at once and can even come out
+    # negative -- a refined box overlaps its neighbours less, so the later cut
+    # takes less off it.
+    metadata["roi_after_refine"] = refined.to_dict()
     return SolderJoint(
         detection_id=joint.detection_id,
         joint_id=joint.joint_id,

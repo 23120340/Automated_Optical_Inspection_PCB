@@ -105,6 +105,13 @@ class SolderCropRecord:
     designator: str | None = None
     pin: str | None = None
     net: str | None = None
+    # Did ``refine_to_metal`` move this ROI, and where was it before? The core
+    # records both, but they used to stop there, so from the app the stage was
+    # invisible: you could not tell whether it had fired, by how much, or what
+    # it would look like switched off.
+    refined: bool = False
+    roi_before_refine: tuple[int, int, int, int] | None = None
+    roi_after_refine: tuple[int, int, int, int] | None = None
     raw: Any = None
 
 
@@ -788,8 +795,18 @@ class PipelineBridge:
             # the same pixels, so it goes with it.
             confidence = None
             metadata = getattr(joint, "metadata", None)
-            if isinstance(metadata, dict) and "detector_confidence" in metadata:
+            if not isinstance(metadata, dict):
+                metadata = {}
+            if "detector_confidence" in metadata:
                 confidence = float(metadata["detector_confidence"])
+            def _boxed(key):
+                value = metadata.get(key)
+                if isinstance(value, dict) and isinstance(value.get("xyxy"), (list, tuple)):
+                    return tuple(int(round(float(v))) for v in value["xyxy"][:4])
+                return None
+
+            before_box = _boxed("roi_before_refine")
+            after_box = _boxed("roi_after_refine")
             records.append(
                 SolderCropRecord(
                     joint_id=str(getattr(joint, "joint_id", f"joint_{index:05d}")),
@@ -806,6 +823,9 @@ class PipelineBridge:
                     designator=getattr(joint, "designator", None),
                     pin=getattr(joint, "pin", None),
                     net=getattr(joint, "net", None),
+                    refined=bool(metadata.get("refined_to_metal", False)),
+                    roi_before_refine=before_box,
+                    roi_after_refine=after_box,
                     raw=raw_crop if keep_images else None,
                 )
             )
