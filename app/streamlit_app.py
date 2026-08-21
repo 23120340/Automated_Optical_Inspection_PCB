@@ -3243,6 +3243,23 @@ def _render_solder_rois() -> None:
                 "hẹp trường nhìn trước khi gán nhãn 6.2."
             )
 
+        # Step 6.2 lives one tab up, not in here. Say so: from inside this view
+        # the ROIs look like the end of the road, and someone who never opens
+        # the sibling tab concludes the grading stage was never built.
+        if result.verdicts:
+            st.caption(
+                f"Đã chấm {len(result.verdicts)} ROI ở tab **6.2 · Chấm lỗi hàn** "
+                "bên cạnh"
+                + (
+                    " — đang dùng model + luật đo."
+                    if result.graded_by_model
+                    else " — đang dùng luật đo. Nạp model 6.2 ở sidebar để thêm "
+                    "một tầng phân loại."
+                )
+            )
+        elif result.grading_error:
+            st.warning(f"Bước 6.2 lỗi: {result.grading_error}")
+
         # No grading tab here: step 6.2 has its own tab one level up. Rendering
         # it in both places drew the same widget twice and Streamlit refused the
         # duplicate key, which took the whole step-7 view down.
