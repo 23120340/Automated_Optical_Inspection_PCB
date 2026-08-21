@@ -254,31 +254,140 @@ Danh sách người dùng giao. Ghi ra trước khi làm, tích ngay khi xong.
 
 ### F — Nhập BOM
 
-- `[ ] CHƯA LÀM` **F1.** Đọc BOM (vị trí, toạ độ, kích thước từng linh kiện).
-- `[ ] CHƯA LÀM` **F2.** Đối chiếu detect ↔ BOM. **Linh kiện detect được ở
+- `[x] ĐÃ HOÀN THÀNH` **F1.** Đọc BOM — `aoi_pipeline/bom.py`. Nhận cả hai
+  dạng đều bị gọi là "BOM": một dòng mỗi linh kiện kèm toạ độ/kích thước, và
+  một dòng mỗi **loại** với danh sách designator `"R1, R2, R5"` kèm Quantity.
+  Dòng gộp được tách ra thành từng linh kiện. Quantity lệch với chính danh
+  sách của nó thì báo cảnh báo và **tin theo designator** — chúng gọi tên vị
+  trí thật. `CadComponent` được bổ sung `width`/`height` (trước chỉ `CadPad`
+  có kích thước).
+- `[x] ĐÃ HOÀN THÀNH` **F2.** Đối chiếu detect ↔ BOM. **Linh kiện detect được ở
   toạ độ mà BOM không có cũng là một lỗi** — không chỉ thiếu linh kiện.
-- `[ ] CHƯA LÀM` **F3.** UI nạp BOM + hiển thị đối chiếu.
+- `[x] ĐÃ HOÀN THÀNH` **F3.** UI nạp BOM ở sidebar + tab "Đối chiếu BOM" ở
+  bước 4, kèm 4 ô số (BOM / khớp / thiếu / không có trong BOM) và bảng phát
+  hiện xếp **lỗi lên đầu** — người vận hành đọc từ trên xuống, lỗi nằm dưới ba
+  dòng ghi nhận là lỗi bị bỏ qua. 8 test giao diện + 19 test logic.
+
+**Ranh giới quan trọng nhất của mục này:** BOM và CAD trả lời hai câu hỏi khác
+nhau. File CAD nói *land nằm ở đâu* và thường thiếu (thermal pad, shield, land
+cơ khí), nên `cad_fusion` coi detection không có trong CAD là **ghi nhận**.
+File BOM nói *board phải có những linh kiện nào* — nó đầy đủ theo định nghĩa,
+nên detection không có trong BOM là **LỖI**. `BillOfMaterials.complete` mang
+ranh giới này và **từ chối đoán** nó: đọc từ file thì mặc định đủ, nguồn một
+phần phải tự khai.
+
+Khi BOM không có toạ độ, đối chiếu chuyển sang **đếm theo lớp** — yếu hơn và
+thành thật về điều đó: nói được board thiếu một con trở, không nói được thiếu
+con nào. Vẫn bắt được thiếu/thừa, tức phần lớn công dụng của BOM.
 
 ### G — Thư mục model
 
-- `[ ] CHƯA LÀM` **G1.** Tách thư mục model dùng chính, copy model hiện dùng
+- `[x] ĐÃ HOÀN THÀNH` **G1.** Tách thư mục model dùng chính, copy model hiện dùng
   sang, giữ riêng một chỗ cho model người dùng tự lưu.
-- `[ ] CHƯA LÀM` **G2.** App nạp từ thư mục đó thay vì bắt upload mỗi lần.
+- `[x] ĐÃ HOÀN THÀNH` **G2.** App nạp từ thư mục đó thay vì bắt upload mỗi lần.
+
+`models/` chia theo **ai sở hữu file**: `active/` là model dự án đang dùng
+(commit kèm, clone về là chạy được), `archive/` là bản cũ giữ để đối chiếu và
+**không bao giờ tự nạp**, `library/` là chỗ bạn bỏ model riêng vào (gitignore,
+không đánh nhau khi pull). `aoi_pipeline/model_registry.py` chỉ liệt kê `.onnx`
+**có manifest bên cạnh** — thiếu manifest thì 6.1/6.2 từ chối nạp, nên chào mời
+một file không manifest chỉ dời thất bại sang một cú click sau. `.pt` mang
+pickle nên cũng không liệt kê.
 
 ### H — UI
 
-- `[ ] CHƯA LÀM` **H1.** Font Montserrat.
-- `[ ] CHƯA LÀM` **H2.** Thao tác dễ hơn.
+- `[x] ĐÃ HOÀN THÀNH` **H1.** Font Montserrat, **tự phục vụ từ repo**. App này
+  chạy ở xưởng, nơi một request tới `fonts.googleapis.com` nghĩa là trang hiện
+  bằng font dự phòng, hoặc treo chờ timeout. File `.woff2` nằm trong
+  `app/static/fonts/`, khai báo qua `[[theme.fontFaces]]` của Streamlit 1.61 và
+  bật `server.enableStaticServing`. Chỉ lấy hai subset `vietnamese` + `latin`
+  (228 KB cho 4 weight); các dải Cyrillic/Greek chiếm phần lớn 8 file của Google
+  và không có chữ nào dùng đến. `tests/test_theme_font.py` kiểm **cả file thật**,
+  vì chỗ dễ hỏng nhất là file font biến mất — khi đó config vẫn đúng, test cũ vẫn
+  xanh, và app im lặng rơi về Arial.
+- `[x] ĐÃ HOÀN THÀNH` **H2.** Sidebar trước đây vẽ danh sách 8 bước **hai lần**
+  — một khối HTML có trạng thái nhưng không bấm được, và một radio nhạt bên
+  dưới để điều hướng; người dùng phải đọc ở bảng trên rồi tìm lại đúng dòng đó
+  ở bảng dưới. Nay mỗi bước một dòng, bấm thẳng, dấu trạng thái đứng trước tên.
+  Mô tả ngắn chuyển vào tooltip. Gỡ 12 khối CSS chết.
 
 ### I — Model 6.2 hiện tại có dùng được không
 
-- `[ ] CHƯA LÀM` **I1.** Kiểm bằng test, kết luận rõ ràng, nêu hướng khắc phục
+- `[x] ĐÃ HOÀN THÀNH` **I1.** Kiểm bằng test, kết luận rõ ràng, nêu hướng khắc phục
   nếu không đạt.
+
+**Kết luận: chưa dùng để ra quyết định được.** Đầy đủ ở
+`Docs/danh_gia_model_6_2.md`, chốt lại bằng `tests/inspection/test_solder_model_assessment.py`.
+
+Ba bằng chứng, theo thứ tự nặng dần:
+
+| Nguồn | Số đo |
+|---|---|
+| Chính tập val của nó (manifest) | **46% mối hàn phải xem tay** ở ngưỡng 0.85 đang chạy; false_call 0.228 |
+| 119 ROI mối hàn thật của dự án | **61.3% bị gọi `bridge`**, chỉ **9.2%** gọi `good`; 11/119 vượt ngưỡng accept |
+| Cho ăn thứ không có mối hàn nào | nhiễu ngẫu nhiên → `bridge` **70.0%**; mảnh board bất kỳ → **68.3%** |
+
+Đọc cho đúng: model **không** hoàn toàn suy biến — chi-square 32.91 (dof 6,
+ngưỡng 12.59) bác được giả thuyết "hai phân bố là một", Mann-Whitney z = +2.71.
+Nhưng **80,4% phân bố đầu ra của nó giống hệt nhau** dù đưa mối hàn thật hay
+một mảnh board bất kỳ. Tín hiệu có thật, quá yếu để dựa vào.
+
+Nguyên nhân đọc thẳng từ manifest: mất cân bằng lớp **10,6×**; ba lớp (`cold`,
+`insufficient`, `shift_component`) học từ **một** nguồn duy nhất; và một trong
+ba nguồn train là **SolDef_AI**, đã đo là macro 1–3 µm/px so với 46 µm/px của
+board dự án.
+
+**Hướng khắc phục — điều quan trọng nhất là KHÔNG train lại bằng ba nguồn cũ.**
+Vấn đề không nằm ở kiến trúc, số epoch hay ngưỡng mà ở dữ liệu sai tỉ lệ chụp.
+Nên gán nhãn tốt/xấu **chung một lượt** với việc khoanh box cho lượt 2 (C3), và
+thu từ 7 lớp xuống nhị phân `good`/`not_good` trước khi mở rộng.
+
+Trong lúc chờ, ba chốt mặc định đang giữ model đúng chỗ nó xứng đáng
+(`model_accept_probability` 0.80, `escape_guard_enabled`,
+`disagreement_is_review`) — hệ quả là gần như mọi mối hàn vào hàng chờ xem tay:
+an toàn, không có giá trị tự động hoá, và **không đẩy board tốt thành phế phẩm**.
 
 ### J — Lượt 2 cho chân mối hàn
 
-- `[ ] CHƯA LÀM` **J1.** Agent con khảo sát dataset + chọn model.
-- `[ ] CHƯA LÀM` **J2.** Hoàn thiện đường ống theo kết quả khảo sát.
+- `[x] ĐÃ HOÀN THÀNH` **J1.** Agent con khảo sát dataset + chọn model. Kết quả
+  và **các chỗ tôi đo lại khác với đề xuất của nó** ghi ở
+  `Docs/dataset_lead_detection.md`, mục "Cập nhật 2026-08-22".
+- `[~] ĐANG LÀM` **J2.** Đường ống đã sẵn sàng; **còn chờ dữ liệu gán nhãn**
+  (C1–C3), không chờ code nữa.
+
+**Hai tham số trong kế hoạch ban đầu đều sai khi đem đo.**
+
+`imgsz`: khảo sát đề nghị 128–160. Đo trên board thật (36 linh kiện, ảnh
+1832×2560) thì cạnh dài của crop trải từ **25 px đến 462 px** — trung vị 48,
+p90 **168**, p99 **428**. Chọn theo trung vị là sai: imgsz nhỏ **thu nhỏ** crop
+lớn, mà crop lớn chính là IC và connector, những thứ **nhiều chân nhất**.
+
+| imgsz | crop bị thu nhỏ | pad tụt dưới 8 px | ms/crop |
+|---|---|---|---|
+| 128 | 4/36 | **1** | — |
+| 160 | 4/36 | **1** | — |
+| **256** | **2/36** | **0** | **19.6** |
+| 640 | 0/36 | 0 | 123.8 |
+
+⇒ đổi notebook lượt 2 sang **`imgsz=256`** (nhanh hơn 640 khoảng **5,2 lần**,
+không mất pad nào) và **`yolo11n`** thay vì `yolo11s` — với 10–20 board tự gán
+nhãn bạn có ~10–20k crop nhưng chỉ **10–20 cảnh độc lập**, model to hơn sẽ học
+thuộc danh tính board thay vì hình dạng pad.
+
+Gom lô: khảo sát đề nghị 64–256. Đo thì **lô 64 là cấu hình tệ nhất**:
+
+| Cỡ lô | 1 | 2 | **4** | 8 | 16 | 32 | 64 |
+|---|---|---|---|---|---|---|---|
+| ms/crop | 28.9 | 22.6 | **19.6** | 23.5 | 28.6 | 31.1 | 33.2 |
+
+Backend CPU vốn đã chia luồng **bên trong** một ảnh, nên lô lớn mất vào lưu
+lượng bộ nhớ nhiều hơn phần thắng. Đã cài `LeadDetectionConfig.batch_size = 4`
+và `detect_batch` **tuỳ chọn** trên protocol; detector không có nó vẫn chạy
+từng crop. GPU sẽ đổi điểm tối ưu này — **phải đo lại** trước khi tăng.
+
+Test bảo vệ **hợp đồng vị trí**: kết quả thứ *i* phải thuộc crop thứ *i*. Lệch
+một bậc là gán chân sang nhầm linh kiện mà **không có gì báo lỗi**. Lô trả về
+sai số lượng thì quay về gọi từng cái, chứ không ghép theo may rủi.
 
 ---
 
@@ -293,3 +402,9 @@ Danh sách người dùng giao. Ghi ra trước khi làm, tích ngay khi xong.
 | 2026-08-21 | C0a–C0e: khảo sát + notebook | `Docs/dataset_lead_detection.md`, notebook lượt 2; 443/443 test pass |
 | 2026-08-21 | D3 — đánh giá camera Hikvision sẵn có | Quang học đủ, nén JPEG chặn phần hàn nguội |
 | 2026-08-21 | Cho `refine_to_metal` quan sát được từ app | Nút bật/tắt + cột `refined`/`shrink_pct`; đo trên board: siết 78/81 ROI, trung vị 16.1% |
+| 2026-08-22 | G1–G2 — thư mục model + bộ chọn | `models/active|archive|library`, `model_registry.py`; 487 test pass, 0 skip |
+| 2026-08-22 | J1 — khảo sát vòng 2 | PCB-SAID đã kiểm chứng là ngõ cụt; tìm được Ulger (đúng tỉ lệ, không có box) |
+| 2026-08-22 | J — đo lại tham số lượt 2 | imgsz 640→256 (5,2× nhanh hơn), gom lô 4; 492 test pass |
+| 2026-08-22 | H1–H2 — Montserrat + gộp stepper | Font tự phục vụ 228 KB, sidebar hết vẽ 8 bước hai lần; 504 test pass |
+| 2026-08-22 | I1 — đánh giá model 6.2 | `Docs/danh_gia_model_6_2.md`: chưa dùng để quyết định được, 61% mối hàn bị gọi `bridge` |
+| 2026-08-22 | F1–F3 — nhập BOM + đối chiếu | `aoi_pipeline/bom.py` + UI; linh kiện ngoài BOM = LỖI; 531 test pass |
