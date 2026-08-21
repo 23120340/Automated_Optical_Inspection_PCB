@@ -258,8 +258,8 @@ class PipelineBridge:
         time, while the returned mask tracks remap padding.
         """
 
-        from aoi_pipeline.calibration import CameraCalibrationProfile, CameraUndistorter
-        from aoi_pipeline.image_io import ensure_bgr
+        from aoi_pipeline.imaging.calibration import CameraCalibrationProfile, CameraUndistorter
+        from aoi_pipeline.imaging.image_io import ensure_bgr
 
         source = ensure_bgr(image)
         preprocess_config = self.config.get("preprocess", self.config)
@@ -1092,7 +1092,7 @@ class PipelineBridge:
                 template_size_px=int(anchor_template_size_px),
                 search_margin_px=int(anchor_search_margin_px),
             )
-            from aoi_pipeline.detectors import detector_identifier
+            from aoi_pipeline.detection.detectors import detector_identifier
 
             runtime_detector = getattr(self.engine, "detector", None)
             if runtime_detector is None:

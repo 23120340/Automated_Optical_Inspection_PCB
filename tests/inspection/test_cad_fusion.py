@@ -32,9 +32,9 @@ from aoi_pipeline import (
     register_from_fiducials,
     save_cad_json,
 )
-from aoi_pipeline.detectors import MockComponentDetector
+from aoi_pipeline.detection.detectors import MockComponentDetector
 from aoi_pipeline.exporters import cad_findings_csv, solder_joints_csv
-from aoi_pipeline.solder import SolderJointCropper
+from aoi_pipeline.solder.geometry import SolderJointCropper
 
 IMAGE_SIZE = (600, 400)  # width, height
 PX_PER_MM = 8.0

@@ -10,13 +10,13 @@ from typing import Sequence
 
 import numpy as np
 
-from .alignment import PCBAligner
-from .board import PCBLocalizer
-from .cad import BoardCad, CadError, CadRegistration, load_cad, register_cad, register_from_fiducials
+from .imaging.alignment import PCBAligner
+from .imaging.board import PCBLocalizer
+from .solder.cad import BoardCad, CadError, CadRegistration, load_cad, register_cad, register_from_fiducials
 from .classification import ComponentClassifier, create_classifier
 from .config import PipelineConfig
-from .cropping import ComponentCropper
-from .detectors import (
+from .detection.cropping import ComponentCropper
+from .detection.detectors import (
     ComponentDetector,
     CVComponentDetector,
     UltralyticsDetector,
@@ -24,12 +24,12 @@ from .detectors import (
 )
 from .exceptions import DetectorConfigurationError
 from .grading.inspector import SolderInspector
-from .cad_fusion import FusionResult, fuse_solder_joints
-from .lead_detection import detect_leads_in_components
-from .leads import fuse_detected_leads, split_lead_detections
+from .solder.cad_fusion import FusionResult, fuse_solder_joints
+from .solder.lead_detection import detect_leads_in_components
+from .solder.leads import fuse_detected_leads, split_lead_detections
 from .exporters import export_json as write_json
 from .exporters import export_zip as write_zip
-from .image_io import ImageSource, load_image
+from .imaging.image_io import ImageSource, load_image
 from .models import (
     AlignmentResult,
     BoardRegion,
@@ -43,9 +43,9 @@ from .models import (
     SolderVerdict,
     utc_now_iso,
 )
-from .preprocessing import ImagePreprocessor
-from .solder import SolderJointCropper, deconflict_joint_rois
-from .tiling import detect_with_adaptive_tiling
+from .imaging.preprocessing import ImagePreprocessor
+from .solder.geometry import SolderJointCropper, deconflict_joint_rois
+from .detection.tiling import detect_with_adaptive_tiling
 
 
 class AOIPipeline:

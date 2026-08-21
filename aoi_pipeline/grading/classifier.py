@@ -23,7 +23,7 @@ import numpy as np
 
 from ..config import SolderGradingConfig
 from ..exceptions import ClassifierConfigurationError, ModelDependencyError
-from ..image_io import ensure_bgr, letterbox_normalize
+from ..imaging.image_io import ensure_bgr, letterbox_normalize
 from ..models import ClassProbability, softmax
 
 __all__ = [

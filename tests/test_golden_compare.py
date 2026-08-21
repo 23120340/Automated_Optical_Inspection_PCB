@@ -8,13 +8,13 @@ import numpy as np
 import pytest
 
 from aoi_pipeline import BoundingBox, Detection
-from aoi_pipeline.golden_compare import (
+from aoi_pipeline.golden.compare import (
     GoldenComparator,
     GoldenCompareConfig,
     _masked_ssim,
 )
-from aoi_pipeline.position import PositionMeasurer, PositionQualityGates
-from aoi_pipeline.recipe import (
+from aoi_pipeline.golden.position import PositionMeasurer, PositionQualityGates
+from aoi_pipeline.golden.recipe import (
     AppearanceThresholds,
     MetrologyCalibration,
     PositionTolerance,

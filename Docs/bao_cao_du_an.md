@@ -75,20 +75,20 @@ flowchart TD
 
 ### 1. Phân đoạn 0–3: Nạp ảnh, Hiệu chuẩn ống kính, Căn chỉnh & Định vị bo mạch
 
-* **Cổng tiếp nhận ảnh nghiêm ngặt (Step 0 - [`aoi_pipeline/image_io.py`](../aoi_pipeline/image_io.py)):**
+* **Cổng tiếp nhận ảnh nghiêm ngặt (Step 0 - [`aoi_pipeline/imaging/image_io.py`](../aoi_pipeline/imaging/image_io.py)):**
   * Thiết lập ngưỡng chất lượng tối thiểu $\ge 1280 \times 960\text{ px}$ ($1.23\text{ MP}$), dung lượng tối đa $64\text{ MB} / 50\text{ MP}$ để đảm bảo độ phân giải quang học cho linh kiện siêu nhỏ.
   * Chặn ảnh giả mạo hoặc ảnh nén suy hao nặng ngay từ đầu vào.
 
-* **Hiệu chuẩn Camera & Khử méo phi tuyến (Step 1 - [`aoi_pipeline/calibration.py`](../aoi_pipeline/calibration.py), [`aoi_pipeline/preprocessing.py`](../aoi_pipeline/preprocessing.py)):**
+* **Hiệu chuẩn Camera & Khử méo phi tuyến (Step 1 - [`aoi_pipeline/imaging/calibration.py`](../aoi_pipeline/imaging/calibration.py), [`aoi_pipeline/imaging/preprocessing.py`](../aoi_pipeline/imaging/preprocessing.py)):**
   * Xây dựng công cụ hiệu chuẩn mẫu bàn cờ ([`scripts/calibrate_camera.py`](../scripts/calibrate_camera.py)) ước lượng ma trận nội tại $K$ và hệ số méo Brown-Conrady $D$ với sai số tái chiếu $RMS < 0.5\text{ px}$.
   * **Sửa lỗi tương thích quan trọng:** Xử lý triệt để thay đổi shape trả về của corner detector trong OpenCV 5, bổ sung regression test bảo vệ.
   * Chuỗi tiền xử lý đa tầng: Cân bằng trắng Gray-World, lọc tương phản thích ứng CLAHE trên kênh $L$ (không gian màu LAB), khử nhiễu Non-Local Means / Bilateral / Gaussian, chuẩn hóa dải sáng Percentile Stretching (1.0%–99.0%), và làm nét Unsharp Masking.
 
-* **Căn chỉnh phối cảnh 2 tầng (Step 2 - [`aoi_pipeline/alignment.py`](../aoi_pipeline/alignment.py)):**
+* **Căn chỉnh phối cảnh 2 tầng (Step 2 - [`aoi_pipeline/imaging/alignment.py`](../aoi_pipeline/imaging/alignment.py)):**
   * Tầng 1 (Toàn cục nhanh): Trích xuất đặc trưng ORB, so khớp Brute-Force Matcher với Lowe's Ratio Test ($0.75$), ước lượng ma trận Homography $3 \times 3$ bằng RANSAC.
   * Tầng 2 (Tinh chỉnh sub-pixel): Tối ưu hóa hệ số tương quan tăng cường ECC (Enhanced Correlation Coefficient Maximization) với mô hình Affine/Euclidean, đưa bo mạch test khớp chính xác từng pixel với ảnh mẫu (*Golden Image*).
 
-* **Định vị & Khoanh vùng bo mạch (Step 3 - [`aoi_pipeline/board.py`](../aoi_pipeline/board.py)):**
+* **Định vị & Khoanh vùng bo mạch (Step 3 - [`aoi_pipeline/imaging/board.py`](../aoi_pipeline/imaging/board.py)):**
   * Phân tích kênh Saturation (HSV), kết hợp phân ngưỡng Otsu tự động và Canny edge detector thích ứng theo Median.
   * Áp dụng phép toán hình thái học Morphological Close & Open, phân cấp đường viền ngoài (*RETR_EXTERNAL*) và tính bao chữ nhật tối thiểu (*MinAreaRect*) để tách trọn vẹn PCB ra khỏi nền bàn gá và bóng đổ.
 
@@ -96,12 +96,12 @@ flowchart TD
 
 ### 2. Phân đoạn 4: Phát hiện linh kiện (Component Detection) & Adaptive Tiling
 
-* **Mô hình YOLO26s thế hệ mới ([`aoi_pipeline/detectors.py`](../aoi_pipeline/detectors.py)):**
+* **Mô hình YOLO26s thế hệ mới ([`aoi_pipeline/detection/detectors.py`](../aoi_pipeline/detection/detectors.py)):**
   * Tích hợp kiến trúc YOLO26 với cơ chế STAL (Small-Target-Aware Label Assignment) tối ưu cho vật thể siêu nhỏ.
   * Huấn luyện phiên bản Detector v2 trên Kaggle ([`training/kaggle/pcb_detector_v2_kaggle.py`](../training/kaggle/pcb_detector_v2_kaggle.py)): độ phân giải $1536\text{ px}$, kỹ thuật oversampling cho các lớp hiếm (`pads`, `pins`) có trần an toàn, `copy_paste` augmentation ($0.30$), và cơ chế resume thông minh từ `last.pt`.
   * Hỗ trợ nạp mô hình linh hoạt qua ONNX Runtime và PyTorch (`.pt`), tự động đọc cấu hình input shape từ metadata của file ONNX.
 
-* **Thuật toán chia lưới thích ứng (Adaptive Tiling - [`aoi_pipeline/tiling.py`](../aoi_pipeline/tiling.py)):**
+* **Thuật toán chia lưới thích ứng (Adaptive Tiling - [`aoi_pipeline/detection/tiling.py`](../aoi_pipeline/detection/tiling.py)):**
   * Giải quyết triệt để bài toán mất chi tiết của linh kiện siêu nhỏ ($0402, 0201$) trên ảnh toàn mạch độ phân giải cao ($4\text{K}/8\text{K}$).
   * Tự động phân chia ảnh thành các cửa sổ con linh hoạt $640\text{–}1280\text{ px}$ với độ chồng lấp $20\%$.
   * Thiết lập **Vùng sở hữu trung tâm (Ownership Zone)** nhằm loại bỏ hiện tượng linh kiện bị cắt làm đôi ở mép tile.
@@ -111,11 +111,11 @@ flowchart TD
 
 ### 3. Phân đoạn 5 & 5.5: Cắt ảnh chuẩn hóa, Suy luận hình học ROI mối hàn & Hợp nhất 3 lớp
 
-* **Cắt ảnh & Chuẩn hóa (Step 5 - [`aoi_pipeline/cropping.py`](../aoi_pipeline/cropping.py)):**
+* **Cắt ảnh & Chuẩn hóa (Step 5 - [`aoi_pipeline/detection/cropping.py`](../aoi_pipeline/detection/cropping.py)):**
   * Trích xuất Sub-pixel từ ảnh gốc độ phân giải cao, mở rộng viền động $15\%$ ($0.15 \times \max(W, H)$).
   * Chuẩn hóa Letterbox với viền xám trung tính ($114$), bảo toàn tỷ lệ khung hình trước khi đưa vào mạng phân loại.
 
-* **Suy luận ROI mối hàn đa hình thái (Step 5.5 - [`aoi_pipeline/solder.py`](../aoi_pipeline/solder.py)):**
+* **Suy luận ROI mối hàn đa hình thái (Step 5.5 - [`aoi_pipeline/solder/geometry.py`](../aoi_pipeline/solder/geometry.py)):**
   * Khắc phục rào cản thiếu dữ liệu gán nhãn chân/pad từ các tập dữ liệu công khai bằng **thuật toán suy luận hình học không gian**:
     * **Linh kiện 2 đầu cực (Two-terminal: Resistor, Capacitor, Diode):** Tự động sinh 2 ROI mối hàn đối xứng ở hai đầu theo hướng xoay linh kiện.
     * **Linh kiện nhiều chân (Multi-pin IC / QFP / SOP):** Tính toán ma trận năng lượng biên Laplacian trên 4 cạnh để loại bỏ cạnh không có chân; dùng phép chiếu 1D Intensity Profile phân rã dải chân thành từng ROI chân hàn độc lập.
@@ -123,9 +123,9 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Bounding Box Linh Kiện"] --> B["Suy luận Hình học Ban đầu<br/>(Two-terminal / Multi-pin / Laplacian 1D)"]
-    B --> C{"Có Lead Detection thật?<br/>(aoi_pipeline/leads.py)"}
+    B --> C{"Có Lead Detection thật?<br/>(aoi_pipeline/solder/leads.py)"}
     C -- "Có theo từng chân" --> D["Ưu tiên Box Lead thật<br/>(Chân còn lại giữ ROI suy luận)"]
-    C -- "Không" --> E{"Có dữ liệu CAD?<br/>(aoi_pipeline/cad_fusion.py)"}
+    C -- "Không" --> E{"Có dữ liệu CAD?<br/>(aoi_pipeline/solder/cad_fusion.py)"}
     D --> E
     E -- "Có CAD" --> F["Hợp nhất CAD & Bù sai lệch cục bộ"]
     E -- "Không" --> G["Giữ nguyên ROI hiện tại"]
@@ -135,8 +135,8 @@ flowchart TD
 ```
 
 * **Kiến trúc Hợp nhất ROI 3 tầng (Multi-layer Fusion):**
-  1. **Tầng 1 - Ưu tiên Lead Detection thật ([`aoi_pipeline/leads.py`](../aoi_pipeline/leads.py)):** Áp dụng theo *từng chân độc lập*. Nếu AI chỉ nhận dạng được 1 đầu, đầu còn lại vẫn duy trì ROI suy luận hình học; các pad phát hiện riêng lẻ được giữ làm ROI độc lập (`pad_only`).
-  2. **Tầng 2 - Hợp nhất CAD/Pick-and-place ([`aoi_pipeline/cad.py`](../aoi_pipeline/cad.py), [`aoi_pipeline/cad_fusion.py`](../aoi_pipeline/cad_fusion.py)):** Nạp tọa độ thiết kế từ CAD/BOM/Pick-and-place, tự động bù sai lệch cục bộ (*Local Offset*) cho từng linh kiện.
+  1. **Tầng 1 - Ưu tiên Lead Detection thật ([`aoi_pipeline/solder/leads.py`](../aoi_pipeline/solder/leads.py)):** Áp dụng theo *từng chân độc lập*. Nếu AI chỉ nhận dạng được 1 đầu, đầu còn lại vẫn duy trì ROI suy luận hình học; các pad phát hiện riêng lẻ được giữ làm ROI độc lập (`pad_only`).
+  2. **Tầng 2 - Hợp nhất CAD/Pick-and-place ([`aoi_pipeline/solder/cad.py`](../aoi_pipeline/solder/cad.py), [`aoi_pipeline/solder/cad_fusion.py`](../aoi_pipeline/solder/cad_fusion.py)):** Nạp tọa độ thiết kế từ CAD/BOM/Pick-and-place, tự động bù sai lệch cục bộ (*Local Offset*) cho từng linh kiện.
   3. **Tầng 3 - Siết theo kim loại thật (`refine_to_metal`):** Tự động co ROI dự đoán về đúng đường bao kim loại thực tế bên trong. Thực nghiệm đo được cải thiện IoU từ **0.24 lên 0.70** trên bo mạch tổng hợp và tối ưu trên **16/24 ROI** bo mạch thực tế.
 
 ---
@@ -208,7 +208,7 @@ flowchart LR
 
 ### 6. Phân hệ Golden Inspection: Metrology, Position Check & Golden Compare
 
-Nhóm đã hoàn thiện trọn vẹn phân hệ **Golden Inspection** ([`aoi_pipeline/recipe.py`](../aoi_pipeline/recipe.py), [`aoi_pipeline/position.py`](../aoi_pipeline/position.py), [`aoi_pipeline/golden_compare.py`](../aoi_pipeline/golden_compare.py), [`aoi_pipeline/inspection.py`](../aoi_pipeline/inspection.py)) đáp ứng tiêu chuẩn kiểm định công nghiệp khắt khe:
+Nhóm đã hoàn thiện trọn vẹn phân hệ **Golden Inspection** ([`aoi_pipeline/golden/recipe.py`](../aoi_pipeline/golden/recipe.py), [`aoi_pipeline/golden/position.py`](../aoi_pipeline/golden/position.py), [`aoi_pipeline/golden/compare.py`](../aoi_pipeline/golden/compare.py), [`aoi_pipeline/golden/inspector.py`](../aoi_pipeline/golden/inspector.py)) đáp ứng tiêu chuẩn kiểm định công nghiệp khắt khe:
 
 ```mermaid
 sequenceDiagram
@@ -233,7 +233,7 @@ sequenceDiagram
     O->>O: Final Board Status (Tách biệt lỗi dịch chuyển vs lỗi ngoại quan)
 ```
 
-* **Data Contract & Recipe Schema 1.1 ([`aoi_pipeline/recipe.py`](../aoi_pipeline/recipe.py)):**
+* **Data Contract & Recipe Schema 1.1 ([`aoi_pipeline/golden/recipe.py`](../aoi_pipeline/golden/recipe.py)):**
   * Chuẩn hóa schema `aoi-inspection-recipe/1.1`. Toàn bộ ảnh Golden, anchor, template và mask lossless đều được mã hóa băm SHA-256 độc lập.
   * Thiết lập hệ quy chiếu tọa độ chuẩn `golden_board_pixels`.
   * Hỗ trợ xuất/nhập gói Recipe nén ZIP chứa file `recipe.json` và toàn bộ tài sản ảnh liên quan.
@@ -242,13 +242,13 @@ sequenceDiagram
   * Sử dụng các điểm neo cơ sở (*Fiducials / Mounting Holes / Stable Patches*) với biến đổi Partial Affine / Similarity.
   * Thiết lập cơ chế **Fail-closed**: Nếu inlier ratio thấp, sai số phần dư (*Reprojection Residual*) vượt ngưỡng, hoặc canvas overlap không đủ, hệ thống lập tức dừng lại và gán cờ `INVALID`, ngăn chặn việc kiểm định trên ảnh căn chỉnh sai.
 
-* **Kiểm tra vị trí và đo lường kích thước (Position Check Metrology - [`aoi_pipeline/position.py`](../aoi_pipeline/position.py)):**
+* **Kiểm tra vị trí và đo lường kích thước (Position Check Metrology - [`aoi_pipeline/golden/position.py`](../aoi_pipeline/golden/position.py)):**
   * Quét vị trí 2 giai đoạn: Tìm kiếm thô (*Coarse Search*) bằng Template Matching $\rightarrow$ Tinh chỉnh sub-pixel bằng nội suy cực trị Parabol 2D và tối ưu Euclidean Rotation.
   * Tính toán chính xác độ lệch $\Delta x\text{ px}, \Delta y\text{ px}, \Delta\theta^\circ$, quy đổi sang đơn vị milimét ($\Delta x\text{ mm}, \Delta y\text{ mm}$) thông qua hệ số hiệu chuẩn thực tế.
   * Kiểm soát góc xoay tuần hoàn ($180^\circ$ cho linh kiện 2 cực đối xứng).
   * Xử lý trường hợp không tin cậy (*Low confidence*): Trả về `unmeasurable` / `missing_candidate`, tuyệt đối không tạo số đo giả.
 
-* **So sánh ngoại quan Golden Compare ([`aoi_pipeline/golden_compare.py`](../aoi_pipeline/golden_compare.py)):**
+* **So sánh ngoại quan Golden Compare ([`aoi_pipeline/golden/compare.py`](../aoi_pipeline/golden/compare.py)):**
   * **Bù sai lệch tư thế cục bộ (Local Pose Compensation):** Thực hiện biến đổi ngược tư thế đã đo được trước khi so sánh hình thái, giúp linh kiện chỉ bị lệch vị trí nhẹ không bị đánh trượt oan lỗi ngoại quan (*Appearance Defect*).
   * Đánh giá đa chiều: Chỉ số tương đồng cấu trúc (SSIM), Tương quan chéo chuẩn hóa (NCC), Mặt nạ chênh lệch cường độ sáng (Diff Mask) và phân tích các đốm bất thường (*Anomaly Blobs*).
   * Tách bạch 3 trạng thái phán quyết độc lập: `position_status`, `appearance_status` và `final_board_status`.

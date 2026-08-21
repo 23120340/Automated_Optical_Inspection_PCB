@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from .exceptions import ExportError
-from .image_io import encode_image
+from .imaging.image_io import encode_image
 from .models import PipelineRun
 from .overlays import (
     render_annotations,

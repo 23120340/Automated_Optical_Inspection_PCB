@@ -178,7 +178,7 @@ gantt
 ```
 
 ### Phase 1: Hiệu chuẩn Hình học & Phân đoạn Ngữ nghĩa Đa lớp (Tuần 1–4)
-- Viết module `aoi_pipeline/calibration.py` tính `pixels_per_mm` và hiệu chỉnh phối cảnh homography.
+- Viết module `aoi_pipeline/imaging/calibration.py` tính `pixels_per_mm` và hiệu chỉnh phối cảnh homography.
 - Huấn luyện mô hình phân đoạn ngữ nghĩa `SegFormer-B0` phân chia 4 lớp vật lý ($M_{\text{substrate}}, M_{\text{copper}}, M_{\text{pad}}, M_{\text{silk}}$).
 - Nghiệm thu: mIoU phân đoạn ngữ nghĩa $\ge 0.88$.
 
@@ -195,7 +195,7 @@ gantt
 ### Phase 4: Xây dựng Module Xuất CAD & Tự động sinh Recipe (Tuần 11–12)
 - Tạo module lõi `aoi_pipeline/digitizer.py`.
 - Tạo các exporter: `export_pads_csv()`, `export_placement_csv()`, `export_ipc356()`, `export_recipe_json()`.
-- Kiểm tra tính tương thích 100% với bộ nạp `CAD_LOADERS` trong [`aoi_pipeline/cad.py`](../aoi_pipeline/cad.py).
+- Kiểm tra tính tương thích 100% với bộ nạp `CAD_LOADERS` trong [`aoi_pipeline/solder/cad.py`](../aoi_pipeline/solder/cad.py).
 
 ### Phase 5: Tích hợp Giao diện UI Streamlit & Đánh giá Thực tế (Tuần 13–14)
 - Thêm workspace **"Số hóa Mạch PCB (PCB Digitization)"** trên giao diện Streamlit:

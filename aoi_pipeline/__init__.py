@@ -1,14 +1,14 @@
 """OpenCV/Ultralytics/ONNX-ready AOI PCB pipeline for steps 0 through 6.1."""
 
-from .alignment import AnchorMatch, PCBAligner, StrictAlignmentResult
-from .board import PCBLocalizer
+from .imaging.alignment import AnchorMatch, PCBAligner, StrictAlignmentResult
+from .imaging.board import PCBLocalizer
 from .classification import (
     ComponentClassifier,
     MANIFEST_SCHEMA,
     ONNXComponentClassifier,
     create_classifier,
 )
-from .calibration import (
+from .imaging.calibration import (
     CalibrationRun,
     CameraCalibrationProfile,
     CameraUndistorter,
@@ -35,8 +35,8 @@ from .config import (
     TilingConfig,
     terminal_geometry,
 )
-from .cropping import ComponentCropper
-from .detectors import (
+from .detection.cropping import ComponentCropper
+from .detection.detectors import (
     CVComponentDetector,
     ComponentDetector,
     MockComponentDetector,
@@ -67,9 +67,9 @@ from .overlays import (
     render_solder_overlay,
     render_verdict_overlay,
 )
-from .golden_compare import GoldenComparator, GoldenCompareConfig, GoldenCompareResult
-from .image_io import encode_image, ensure_bgr, letterbox_normalize, load_image
-from .cad import (
+from .golden.compare import GoldenComparator, GoldenCompareConfig, GoldenCompareResult
+from .imaging.image_io import encode_image, ensure_bgr, letterbox_normalize, load_image
+from .solder.cad import (
     CAD_LOADERS,
     BoardCad,
     CadComponent,
@@ -84,14 +84,14 @@ from .cad import (
     register_from_fiducials,
     save_cad_json,
 )
-from .cad_fusion import CadFinding, FusionResult, fuse_solder_joints
-from .leads import (
+from .solder.cad_fusion import CadFinding, FusionResult, fuse_solder_joints
+from .solder.leads import (
     LEAD_CLASSES,
     LeadFusionResult,
     fuse_detected_leads,
     split_lead_detections,
 )
-from .solder import (
+from .solder.geometry import (
     ComponentFrame,
     SolderJointCropper,
     derive_solder_joints,
@@ -110,7 +110,7 @@ from .grading.rules import (
     grade_component_by_rules,
     grade_joint_by_rules,
 )
-from .inspection import (
+from .golden.inspector import (
     AOIInspector,
     DetectionSummary,
     InspectionConfig,
@@ -134,9 +134,9 @@ from .models import (
     PreprocessResult,
 )
 from .pipeline import AOIPipeline
-from .position import PositionMeasurer, PositionQualityGates, PositionResult
-from .preprocessing import ImagePreprocessor
-from .recipe import (
+from .golden.position import PositionMeasurer, PositionQualityGates, PositionResult
+from .imaging.preprocessing import ImagePreprocessor
+from .golden.recipe import (
     AppearanceThresholds,
     AlignmentAnchor,
     AlignmentQualityGates,
@@ -158,7 +158,7 @@ from .recipe import (
     save_recipe,
     validate_recipe_assets,
 )
-from .tiling import (
+from .detection.tiling import (
     InferenceTile,
     TiledDetectionBatch,
     detect_with_adaptive_tiling,

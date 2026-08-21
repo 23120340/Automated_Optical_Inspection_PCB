@@ -34,14 +34,14 @@ lần train bị đứt giữa chừng (mất mạng, đóng tab) không phải 
 
 **Bước 5 / 5.5 (crop + ROI mối hàn)** — điểm khó nhất của dự án: không dataset
 công khai nào gán nhãn chân/pad riêng, nên ROI mối hàn được **suy ra hình
-học** từ box linh kiện + topology chân (`aoi_pipeline/solder.py`),
+học** từ box linh kiện + topology chân (`aoi_pipeline/solder/geometry.py`),
 không phải detect trực tiếp. Ba lớp hợp nhất chồng lên trên, theo thứ tự ưu
 tiên và đều đã đo, không chỉ lý thuyết:
 
-1. **Lead/pad detection thật** (`aoi_pipeline/leads.py`) thắng khi có, theo
+1. **Lead/pad detection thật** (`aoi_pipeline/solder/leads.py`) thắng khi có, theo
    *từng chân* chứ không theo cả linh kiện — model chỉ thấy một đầu thì đầu
    kia vẫn giữ ROI suy ra.
-2. **CAD fusion** (`aoi_pipeline/cad.py`, `cad_fusion.py`) — hợp nhất khi có file
+2. **CAD fusion** (`aoi_pipeline/solder/cad.py`, `cad_fusion.py`) — hợp nhất khi có file
    CAD board, hiệu chỉnh cục bộ từng linh kiện, không thay thế detector.
 3. **Siết theo kim loại thật** (`refine_to_metal`) — thu ROI về đúng vùng kim
    loại bên trong nó, đo được cải thiện IoU 0.24→0.70 trên board tổng hợp và

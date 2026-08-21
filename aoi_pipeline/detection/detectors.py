@@ -17,10 +17,10 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .config import CVDetectorConfig, ModelDetectorConfig
-from .exceptions import DetectorConfigurationError, ModelDependencyError
-from .image_io import ensure_bgr
-from .models import BoundingBox, Detection, intersection_over_union
+from ..config import CVDetectorConfig, ModelDetectorConfig
+from ..exceptions import DetectorConfigurationError, ModelDependencyError
+from ..imaging.image_io import ensure_bgr
+from ..models import BoundingBox, Detection, intersection_over_union
 
 
 class ComponentDetector(ABC):

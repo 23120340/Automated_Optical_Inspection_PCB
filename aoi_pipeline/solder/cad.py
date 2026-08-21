@@ -1,10 +1,10 @@
 """CAD board data: a normalized model, format loaders and image registration.
 
 This is the half of step 5.5 that knows where the lands *really* are. The
-derived geometry in :mod:`aoi_pipeline.inspection.solder` infers ROI positions from a
+derived geometry in :mod:`aoi_pipeline.golden.inspector.solder` infers ROI positions from a
 detector box plus a per-class terminal topology; CAD replaces that inference
 with measured coordinates. Neither one supersedes the other -- see
-:mod:`aoi_pipeline.inspection.fusion`, which merges them and uses each to check the other.
+:mod:`aoi_pipeline.golden.inspector.fusion`, which merges them and uses each to check the other.
 
 Nothing here is required. With no CAD file the pipeline behaves exactly as it
 did before, and every function in this module is simply never called.
@@ -35,7 +35,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 import cv2
 import numpy as np
 
-from .exceptions import AOIPipelineError
+from ..exceptions import AOIPipelineError
 
 __all__ = [
     "BoardCad",

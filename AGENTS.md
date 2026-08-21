@@ -27,9 +27,9 @@ Phần cứng được coi là hoàn chỉnh và ổn định. Không mở rộn
    - `aoi_pipeline/pipeline.py`
    - `aoi_pipeline/models.py`
    - `aoi_pipeline/config.py`
-   - `aoi_pipeline/alignment.py`
-   - `aoi_pipeline/detectors.py`
-   - `aoi_pipeline/cropping.py`
+   - `aoi_pipeline/imaging/alignment.py`
+   - `aoi_pipeline/detection/detectors.py`
+   - `aoi_pipeline/detection/cropping.py`
    - `aoi_pipeline/exporters.py`
    - `app/pipeline_bridge.py`
    - các test liên quan.
@@ -52,7 +52,7 @@ Nếu code hiện tại đã khác `Docs/thiet_ke_position_va_golden_compare.md`
 ### `AOIPipeline` và `AOIInspector`
 
 - Không phá behavior hiện có của `AOIPipeline.run()`.
-- Thêm `AOIInspector` trong module riêng, ưu tiên `aoi_pipeline/inspection.py`.
+- Thêm `AOIInspector` trong module riêng, ưu tiên `aoi_pipeline/golden/inspector.py`.
 - `AOIInspector` là orchestration/service class, không phải model AI.
 - Có thể thêm facade vào `AOIPipeline` sau khi core ổn định, nhưng không duplicate logic.
 
@@ -123,7 +123,7 @@ Không bắt đầu bằng UI. Thực hiện theo các vertical milestone sau:
 
 ### Phase 3 — Position X/Y MVP
 
-1. Thêm `aoi_pipeline/position.py`.
+1. Thêm `aoi_pipeline/golden/position.py`.
 2. Fixed ROI + template search + translation refinement.
 3. Quality gate, unit conversion và tolerance.
 4. Test fractional shifts, sign, boundary, missing và bbox jitter independence.
@@ -132,7 +132,7 @@ Không bắt đầu bằng UI. Thực hiện theo các vertical milestone sau:
 ### Phase 4 — Rotation và Golden Compare
 
 1. Thêm Euclidean pose refinement và angle periodicity.
-2. Thêm `aoi_pipeline/golden_compare.py`.
+2. Thêm `aoi_pipeline/golden/compare.py`.
 3. Pose compensation, masks, metrics và anomaly blobs.
 4. Test shifted-only, missing, shape/color change và illumination perturbation.
 5. Chạy toàn bộ test.

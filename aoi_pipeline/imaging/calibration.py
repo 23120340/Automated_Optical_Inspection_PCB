@@ -10,7 +10,7 @@ from typing import Any, Mapping, Sequence
 import cv2
 import numpy as np
 
-from .exceptions import CalibrationProfileError
+from ..exceptions import CalibrationProfileError
 from .image_io import ensure_bgr
 
 

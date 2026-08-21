@@ -8,8 +8,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from aoi_pipeline.inspection import AOIInspector
-from aoi_pipeline.recipe import load_recipe
+from aoi_pipeline.golden.inspector import AOIInspector
+from aoi_pipeline.golden.recipe import load_recipe
 
 
 def main() -> None:

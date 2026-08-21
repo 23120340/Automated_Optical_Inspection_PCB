@@ -27,10 +27,10 @@ from typing import Sequence
 import cv2
 import numpy as np
 
-from .config import SolderJointConfig, terminal_geometry
-from .image_io import encode_image, ensure_bgr, letterbox_normalize
-from .models import BoundingBox, Detection, SolderJoint, SolderJointCrop
-from .grading.features import segment_solder
+from ..config import SolderJointConfig, terminal_geometry
+from ..imaging.image_io import encode_image, ensure_bgr, letterbox_normalize
+from ..models import BoundingBox, Detection, SolderJoint, SolderJointCrop
+from ..grading.features import segment_solder
 
 __all__ = [
     "ComponentFrame",

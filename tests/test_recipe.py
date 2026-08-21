@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from aoi_pipeline import BoundingBox, Detection
-from aoi_pipeline.recipe import (
+from aoi_pipeline.golden.recipe import (
     AppearanceThresholds,
     MetrologyCalibration,
     PositionTolerance,

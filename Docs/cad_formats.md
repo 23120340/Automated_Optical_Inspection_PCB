@@ -21,7 +21,7 @@ từ box của detector cộng topology chân của class. CAD không thay thế
 
 Muốn thêm định dạng khác (KiCad `.kicad_pcb`, ODB++, Gerber…), viết một hàm
 `load_x(path, units) -> BoardCad` rồi đăng ký vào `CAD_LOADERS` trong
-[cad.py](../aoi_pipeline/cad.py). Không chỗ nào khác phải sửa: cả script lẫn UI
+[cad.py](../aoi_pipeline/solder/cad.py). Không chỗ nào khác phải sửa: cả script lẫn UI
 đều đọc từ registry đó.
 
 ## `pads_csv` — định dạng chuẩn hoá

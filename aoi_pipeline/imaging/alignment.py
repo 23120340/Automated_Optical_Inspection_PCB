@@ -10,11 +10,11 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .config import AlignmentConfig
-from .exceptions import AlignmentError, RecipeValidationError
+from ..config import AlignmentConfig
+from ..exceptions import AlignmentError, RecipeValidationError
 from .image_io import ensure_bgr
-from .models import AlignmentResult, shape_dict
-from .recipe import AlignmentAnchor, InspectionRecipe, validate_recipe_assets
+from ..models import AlignmentResult, shape_dict
+from ..golden.recipe import AlignmentAnchor, InspectionRecipe, validate_recipe_assets
 
 
 @dataclass(frozen=True, slots=True)

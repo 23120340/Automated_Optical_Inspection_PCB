@@ -15,9 +15,9 @@ from typing import Any
 
 import numpy as np
 
-from .config import TilingConfig
-from .image_io import ensure_bgr
-from .models import BoundingBox, Detection, intersection_over_smaller, intersection_over_union
+from ..config import TilingConfig
+from ..imaging.image_io import ensure_bgr
+from ..models import BoundingBox, Detection, intersection_over_smaller, intersection_over_union
 
 
 @dataclass(frozen=True, slots=True)

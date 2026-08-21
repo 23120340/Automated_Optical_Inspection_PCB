@@ -29,9 +29,9 @@ from typing import Any, Sequence
 import numpy as np
 
 from .cad import BoardCad, CadComponent, CadRegistration, classes_agree, is_informative_label
-from .config import FusionConfig, terminal_geometry
-from .models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
-from .solder import ComponentFrame, derive_solder_joints
+from ..config import FusionConfig, terminal_geometry
+from ..models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
+from .geometry import ComponentFrame, derive_solder_joints
 
 __all__ = [
     "CadFinding",

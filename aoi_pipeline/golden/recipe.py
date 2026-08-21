@@ -18,8 +18,8 @@ from typing import Any, Mapping, Sequence
 import cv2
 import numpy as np
 
-from .exceptions import RecipeValidationError
-from .models import BoundingBox, Detection
+from ..exceptions import RecipeValidationError
+from ..models import BoundingBox, Detection
 
 
 RECIPE_SCHEMA_VERSION = "aoi-inspection-recipe/1.1"

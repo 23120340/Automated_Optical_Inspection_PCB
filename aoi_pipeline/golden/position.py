@@ -15,8 +15,8 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .image_io import ensure_bgr, read_asset_under_root
-from .models import Detection
+from ..imaging.image_io import ensure_bgr, read_asset_under_root
+from ..models import Detection
 from .recipe import MetrologyCalibration, SlotRecipe
 
 

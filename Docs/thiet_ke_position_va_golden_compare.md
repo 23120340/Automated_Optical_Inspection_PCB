@@ -27,18 +27,18 @@ Import
 
 Các thành phần có thể tái sử dụng:
 
-- `aoi_pipeline/calibration.py`: camera intrinsic calibration và undistort.
-- `aoi_pipeline/alignment.py`: ORB/homography và ECC fallback.
-- `aoi_pipeline/detectors.py`: `best.onnx`/`best.pt` detector adapter và CV demo.
-- `aoi_pipeline/tiling.py`: adaptive tiled inference và merge detection.
-- `aoi_pipeline/cropping.py`: crop cho classifier.
+- `aoi_pipeline/imaging/calibration.py`: camera intrinsic calibration và undistort.
+- `aoi_pipeline/imaging/alignment.py`: ORB/homography và ECC fallback.
+- `aoi_pipeline/detection/detectors.py`: `best.onnx`/`best.pt` detector adapter và CV demo.
+- `aoi_pipeline/detection/tiling.py`: adaptive tiled inference và merge detection.
+- `aoi_pipeline/detection/cropping.py`: crop cho classifier.
 - `aoi_pipeline/classification.py`: family classifier ONNX.
 - `app/pipeline_bridge.py`, `app/streamlit_app.py`: UI bridge và Streamlit workflow.
 - `aoi_pipeline/exporters.py`: JSON/ZIP hiện tại.
 
 Các thiếu hụt đối với inspection:
 
-- `main` chưa có `aoi_pipeline/recipe.py` hoặc persistent slot ID.
+- `main` chưa có `aoi_pipeline/golden/recipe.py` hoặc persistent slot ID.
 - `Detection.detection_id` được sinh ngẫu nhiên, không đại diện cho một vị trí cố định trên board.
 - Alignment hiện cho phép `resize_fallback`; kết quả đó không hợp lệ cho đo lường.
 - ORB trên toàn board có thể lấy feature từ chính linh kiện lỗi và làm lệch phép biến đổi.
@@ -62,7 +62,7 @@ Không dùng tâm bbox của `best.onnx` làm phép đo cuối vì bbox có th�
 ### 3.2. Giữ `AOIPipeline`, thêm `AOIInspector`
 
 - `AOIPipeline` tiếp tục phục vụ discovery/detection/crop/classification và giữ tương thích với test hiện có.
-- Thêm `AOIInspector` trong `aoi_pipeline/inspection.py` cho luồng production yêu cầu recipe và strict alignment.
+- Thêm `AOIInspector` trong `aoi_pipeline/golden/inspector.py` cho luồng production yêu cầu recipe và strict alignment.
 - Không nhồi ngay inspection state vào `AOIPipeline.run()` vì run hiện cho phép không có Golden và có fallback phục vụ demo.
 - Có thể thêm facade mỏng `AOIPipeline.inspect(...)` sau này, nhưng facade phải ủy quyền cho `AOIInspector`.
 
@@ -283,10 +283,10 @@ Ví dụ kết quả slot:
 
 ### File mới
 
-- `aoi_pipeline/recipe.py`: schema, validation, enrollment, load/save recipe.
-- `aoi_pipeline/position.py`: local pose estimation và tolerance decision.
-- `aoi_pipeline/golden_compare.py`: pose compensation, metrics, anomaly mask.
-- `aoi_pipeline/inspection.py`: `AOIInspector` và board decision.
+- `aoi_pipeline/golden/recipe.py`: schema, validation, enrollment, load/save recipe.
+- `aoi_pipeline/golden/position.py`: local pose estimation và tolerance decision.
+- `aoi_pipeline/golden/compare.py`: pose compensation, metrics, anomaly mask.
+- `aoi_pipeline/golden/inspector.py`: `AOIInspector` và board decision.
 - `tests/test_recipe.py`.
 - `tests/test_position.py`.
 - `tests/test_golden_compare.py`.
@@ -296,7 +296,7 @@ Ví dụ kết quả slot:
 
 - `aoi_pipeline/models.py`: runtime result dataclasses nếu không đặt trong module riêng.
 - `aoi_pipeline/config.py`: recipe/alignment/position/compare configs.
-- `aoi_pipeline/alignment.py`: strict anchor-based alignment; giữ API cũ tương thích.
+- `aoi_pipeline/imaging/alignment.py`: strict anchor-based alignment; giữ API cũ tương thích.
 - `aoi_pipeline/__init__.py`: public exports.
 - `aoi_pipeline/exporters.py`: `positions.csv`, `appearance.csv`, overlay và anomaly masks.
 - `app/pipeline_bridge.py`: adapter cho enrollment/inspection.

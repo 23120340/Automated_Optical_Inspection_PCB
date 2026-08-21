@@ -536,7 +536,7 @@ bước 6.2 cần; co nó lại quanh vài pixel sáng là giấu mất lỗi.
 
 ### Kết hợp thuật toán và model ở bước 5.5
 
-[`aoi_pipeline/leads.py`](aoi_pipeline/leads.py) — **ưu tiên
+[`aoi_pipeline/solder/leads.py`](aoi_pipeline/solder/leads.py) — **ưu tiên
 detection thật, quay về hình học suy ra ở chỗ không có**, và chọn **theo từng
 chân, không theo từng linh kiện**:
 
@@ -612,7 +612,7 @@ model train trên Kaggle. Hai việc thật, không phải lý thuyết:
 
 ### 1. Nghi vấn: tiền xử lý bước 1 có thể đang lệch miền so với model đã train
 
-`ImagePreprocessor` ([aoi_pipeline/preprocessing.py](aoi_pipeline/preprocessing.py))
+`ImagePreprocessor` ([aoi_pipeline/imaging/preprocessing.py](aoi_pipeline/imaging/preprocessing.py))
 mặc định bật cả 5 bước: denoise, white-balance, CLAHE, normalize luminance,
 unsharp mask — chạy trên **mọi** ảnh trước khi đưa vào cả detector lẫn crop cho
 hai classifier. Đã kiểm tra cả 3 notebook train (detector v1/v2, classifier v2,
@@ -668,28 +668,55 @@ việc 4 view thật sự được lật đúng chiều lẫn xác suất đư�
 
 ## Cấu trúc dự án
 
+Thư mục nhóm theo **bước của pipeline** — cùng cách cả dự án vẫn được mô tả, nên
+tìm code của một bước là mở đúng thư mục mang tên bước đó.
+
 ```text
-app/                 Streamlit UI và bridge
-aoi_pipeline/        Pipeline OpenCV/model cho bước 0–6.2
-  ├─ golden_compare.py, position.py, recipe.py, inspection.py
-  │                    Golden Inspection: recipe cố định, Position/Appearance
-  ├─ solder.py         5.5 · suy ROI chân hàn từ box + topology chân
-  ├─ leads.py          5.5 · ưu tiên detection chân thật, theo TỪNG chân
-  ├─ cad.py            5.5 · nạp và đăng ký CAD board
-  ├─ cad_fusion.py     5.5 · hợp nhất land CAD với ROI suy ra
-  └─ grading/          6.2 · đo vật lý → luật → model ONNX → hợp nhất
-tests/               Unit tests
-training/kaggle/     Notebook train detector (4), classifier (6.1), solder (6.2)
-models/              Nơi đặt model local (weights không commit Git)
-Docs/                Khảo sát dataset, kế hoạch pre-train, báo cáo tiến độ
-scripts/             Setup/chạy app, bootstrap nhãn chân, kiểm tra artifact
+app/                    Streamlit UI và bridge sang pipeline
+aoi_pipeline/
+  ├─ models.py          Kiểu dữ liệu và hàm hình học dùng chung (BoundingBox, IoU…)
+  ├─ config.py          Toàn bộ dataclass cấu hình của mọi bước
+  ├─ exceptions.py      Cây ngoại lệ
+  ├─ pipeline.py        Facade AOIPipeline: ghép các bước lại
+  │
+  ├─ imaging/           Bước 0–3 · từ file ảnh tới vùng board đã căn chỉnh
+  │    image_io · preprocessing · calibration · alignment · board
+  ├─ detection/         Bước 4–5 · tìm linh kiện rồi cắt ra
+  │    detectors · tiling · cropping
+  ├─ solder/            Bước 5.5 · chân hàn nằm ở đâu
+  │    geometry · leads · lead_detection · cad · cad_fusion
+  ├─ classification.py  Bước 6.1 · phân loại họ linh kiện
+  ├─ grading/           Bước 6.2 · đo vật lý → luật → model ONNX → hợp nhất
+  │    features · rules · classifier · inspector · datasets
+  ├─ golden/            Golden Inspection · workspace riêng, không thuộc 0–6.2
+  │    recipe · inspector · position · compare
+  ├─ exporters.py       Xuất JSON/CSV/ZIP
+  └─ overlays.py        Vẽ chồng lên ảnh
+
+tests/                  Unit test, gương theo cấu trúc trên
+training/kaggle/        Notebook train: detector (4), classifier (6.1),
+                        solder (6.2), lead detector (lượt 2)
+models/                 Model local — chỉ commit .onnx + model_manifest.json
+Docs/                   Khảo sát dataset, kế hoạch, báo cáo, yêu cầu phần cứng
+scripts/                Setup/chạy app, bootstrap nhãn chân, kiểm artifact
 ```
 
-Package dùng **layout phẳng**: mọi module nằm thẳng trong `aoi_pipeline/`, chỉ
-`grading/` là subpackage vì năm module của nó là một tầng khép kín. Layout
-subpackage trước đây (`core/`, `inspection/`, `imaging/`, …) đã bị bỏ khi tích
-hợp Golden Compare — đừng tạo lại, mọi import hiện dùng dạng `from .models
-import ...`.
+### Vì sao trước đây là layout phẳng, và vì sao đổi
+
+Bản trước ghi *"dùng layout phẳng, đừng tạo lại subpackage"*. Lời cảnh báo đó có
+lý do thật: một lần merge từng tạo thư mục `inspection/` trong khi đã có
+`inspection.py`, và hai thứ cùng tên ở cùng cấp làm hỏng import. Làm phẳng là
+cách chữa nhanh, không phải kết luận rằng phẳng thì tốt hơn.
+
+Lần này gom nhóm nhưng **đổi tên để không còn cặp nào trùng**: `solder.py` thành
+`solder/geometry.py`, `inspection.py` thành `golden/inspector.py`,
+`golden_compare.py` thành `golden/compare.py`. Không có module nào cùng tên với
+thư mục chứa nó.
+
+Bề mặt công khai không đổi: `aoi_pipeline/__init__.py` vẫn export đúng **145
+tên** như trước, và một test đối chiếu để không ai làm rơi tên nào. Import trong
+package dùng dạng tương đối theo tầng: `from ..models import ...` từ trong một
+subpackage, `from .leads import ...` giữa các module cùng nhóm.
 
 ## Giới hạn hiện tại
 

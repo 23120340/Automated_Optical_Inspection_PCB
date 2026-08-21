@@ -45,7 +45,7 @@ import numpy as np  # noqa: E402
 from aoi_pipeline import AOIPipeline, AOIPipelineError, PipelineConfig, load_image  # noqa: E402
 from aoi_pipeline.config import PreprocessConfig  # noqa: E402
 from aoi_pipeline.models import Detection  # noqa: E402
-from aoi_pipeline.preprocessing import ImagePreprocessor  # noqa: E402
+from aoi_pipeline.imaging.preprocessing import ImagePreprocessor  # noqa: E402
 
 IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
 STEPS = ("denoise", "white_balance", "clahe", "normalize", "sharpen")

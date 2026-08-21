@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from aoi_pipeline import BoundingBox, LeadDetectionConfig
-from aoi_pipeline.lead_detection import component_crop_window
+from aoi_pipeline.solder.lead_detection import component_crop_window
 
 NOTEBOOK = (
     Path(__file__).resolve().parents[2]

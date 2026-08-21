@@ -82,7 +82,7 @@ Mục tiêu: có chỗ cắm model detect chân, chạy được ngay cả khi *
   `enabled`, `crop_margin_ratio` 0.35, `crop_margin_min_px` 6, `min_crop_px` 24,
   `confidence` 0.25, `min_lead_px` 3. Chỉ đọc khi caller đưa section vào, không
   để key lạ bật nhầm.
-- `[x] HOÀN THÀNH` **B2.** Module mới `aoi_pipeline/lead_detection.py`:
+- `[x] HOÀN THÀNH` **B2.** Module mới `aoi_pipeline/solder/lead_detection.py`:
   `component_crop_window` (crop kèm biên để lộ fillet ra ngoài thân),
   `to_board_coordinates` (quy đổi), `detect_leads_in_components` (chạy cả loạt).
   **Toàn bộ câu chuyện toạ độ chỉ là một phép cộng** — crop là cửa sổ cắt thẳng

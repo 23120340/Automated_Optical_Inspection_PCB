@@ -10,7 +10,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .image_io import ensure_bgr, read_asset_under_root
+from ..imaging.image_io import ensure_bgr, read_asset_under_root
 from .position import PositionResult
 from .recipe import SlotRecipe
 

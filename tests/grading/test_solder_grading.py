@@ -26,7 +26,7 @@ from aoi_pipeline import (
     solder_verdicts_csv,
 )
 from aoi_pipeline.models import SolderJoint, SolderJointCrop
-from aoi_pipeline.detectors import MockComponentDetector
+from aoi_pipeline.detection.detectors import MockComponentDetector
 from aoi_pipeline.grading.classifier import ONNXSolderClassifier
 from aoi_pipeline.grading.rules import grade_joint_by_rules
 

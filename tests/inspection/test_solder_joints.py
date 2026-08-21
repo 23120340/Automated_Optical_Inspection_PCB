@@ -21,10 +21,10 @@ from aoi_pipeline import (
     derive_solder_joints,
     terminal_geometry,
 )
-from aoi_pipeline.cropping import ComponentCropper
+from aoi_pipeline.detection.cropping import ComponentCropper
 from aoi_pipeline.exporters import solder_joints_csv
 from aoi_pipeline.overlays import render_solder_overlay
-from aoi_pipeline.solder import deconflict_joint_rois, estimate_component_angle
+from aoi_pipeline.solder.geometry import deconflict_joint_rois, estimate_component_angle
 
 BOARD_SIZE = (400, 700)
 
@@ -299,7 +299,7 @@ def test_solder_aware_padding_uses_a_wider_margin_along_the_long_axis() -> None:
 
 def test_solder_joints_csv_has_one_row_per_crop_and_a_label_column(tmp_path: Path) -> None:
     from aoi_pipeline import AOIPipeline, PipelineConfig
-    from aoi_pipeline.detectors import MockComponentDetector
+    from aoi_pipeline.detection.detectors import MockComponentDetector
 
     image, detection = _chip_board()
     pipeline = AOIPipeline(PipelineConfig(), detector=MockComponentDetector([detection]))
@@ -433,7 +433,7 @@ def _bare_joint(bbox: BoundingBox, kind: str = "joint", position: str = "termina
 def test_refinement_shrinks_a_roi_onto_its_land() -> None:
     """Ratios place the ROI; only the pixels know how wide the land is."""
 
-    from aoi_pipeline.solder import refine_joint_to_metal
+    from aoi_pipeline.solder.geometry import refine_joint_to_metal
 
     image = _blank_board()
     cv2.rectangle(image, (40, 40), (60, 60), (215, 215, 215), -1)
@@ -450,7 +450,7 @@ def test_refinement_leaves_an_empty_roi_alone() -> None:
     """A land with no solder must stay a big empty ROI -- that emptiness is the
     evidence step 6.2 needs, and collapsing it would hide the defect."""
 
-    from aoi_pipeline.solder import refine_joint_to_metal
+    from aoi_pipeline.solder.geometry import refine_joint_to_metal
 
     joint = _bare_joint(BoundingBox(20, 20, 80, 80))
     refined = refine_joint_to_metal(joint, _blank_board(), SolderJointConfig())
@@ -459,7 +459,7 @@ def test_refinement_leaves_an_empty_roi_alone() -> None:
 
 
 def test_refinement_ignores_a_speck() -> None:
-    from aoi_pipeline.solder import refine_joint_to_metal
+    from aoi_pipeline.solder.geometry import refine_joint_to_metal
 
     image = _blank_board()
     image[50, 50] = (240, 240, 240)
@@ -469,7 +469,7 @@ def test_refinement_ignores_a_speck() -> None:
 
 
 def test_refinement_never_touches_the_body_view() -> None:
-    from aoi_pipeline.solder import refine_joint_to_metal
+    from aoi_pipeline.solder.geometry import refine_joint_to_metal
 
     image = _blank_board()
     cv2.rectangle(image, (40, 40), (60, 60), (215, 215, 215), -1)
@@ -772,7 +772,7 @@ def test_the_lead_free_sides_are_not_saved_by_the_corner_pads() -> None:
     does not (0.26)."""
 
     from aoi_pipeline.grading.features import segment_solder
-    from aoi_pipeline.solder import (
+    from aoi_pipeline.solder.geometry import (
         _band_core_rect,
         _component_frame,
         _local_rect_to_bbox,

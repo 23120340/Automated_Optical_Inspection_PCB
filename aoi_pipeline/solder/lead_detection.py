@@ -18,7 +18,7 @@ it returns nothing and step 5.5 keeps its derived geometry unchanged, so the
 pipeline behaves exactly as before until a model exists.
 
 The detections it returns carry the ``pads``/``pins`` labels that
-:mod:`aoi_pipeline.leads` already knows how to fuse, per terminal rather than
+:mod:`aoi_pipeline.solder.leads` already knows how to fuse, per terminal rather than
 per component.
 """
 
@@ -28,9 +28,9 @@ from typing import Protocol, Sequence
 
 import numpy as np
 
-from .config import LeadDetectionConfig
-from .image_io import ensure_bgr
-from .models import BoundingBox, Detection
+from ..config import LeadDetectionConfig
+from ..imaging.image_io import ensure_bgr
+from ..models import BoundingBox, Detection
 
 __all__ = [
     "LeadDetector",

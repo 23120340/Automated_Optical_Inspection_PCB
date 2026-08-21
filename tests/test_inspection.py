@@ -14,10 +14,10 @@ from aoi_pipeline import (
     Detection,
     MockComponentDetector,
 )
-from aoi_pipeline.golden_compare import GoldenComparator, GoldenCompareConfig
-from aoi_pipeline.inspection import InspectionConfig, _associate_candidates
-from aoi_pipeline.position import PositionMeasurer, PositionQualityGates
-from aoi_pipeline.recipe import (
+from aoi_pipeline.golden.compare import GoldenComparator, GoldenCompareConfig
+from aoi_pipeline.golden.inspector import InspectionConfig, _associate_candidates
+from aoi_pipeline.golden.position import PositionMeasurer, PositionQualityGates
+from aoi_pipeline.golden.recipe import (
     AlignmentAnchor,
     AlignmentQualityGates,
     AlignmentRecipe,

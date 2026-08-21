@@ -10,7 +10,7 @@ So this module does not choose between the two approaches. It prefers a real
 detection and falls back to the derived ROI per *terminal*, not per component --
 a detector that finds one end of a chip resistor and misses the other must not
 cost the pipeline the end it missed. That is the same precedence already used
-for CAD in :mod:`aoi_pipeline.inspection.fusion`, for the same reason: losing a
+for CAD in :mod:`aoi_pipeline.golden.inspector.fusion`, for the same reason: losing a
 joint is worse than inspecting one twice.
 
 The whole module is inert when the detector reports no lead classes, which is
@@ -23,8 +23,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
-from .config import LeadFusionConfig
-from .models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
+from ..config import LeadFusionConfig
+from ..models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
 
 __all__ = [
     "LEAD_CLASSES",

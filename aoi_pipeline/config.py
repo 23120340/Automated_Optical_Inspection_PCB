@@ -365,7 +365,7 @@ class CadConfig:
     """
 
     path: str | None = None
-    # ``auto`` sniffs the format; otherwise name one of ``aoi_pipeline.inspection.cad.CAD_LOADERS``.
+    # ``auto`` sniffs the format; otherwise name one of ``aoi_pipeline.golden.inspector.cad.CAD_LOADERS``.
     fmt: str = "auto"
     units: str = "mm"
     # Boards are inspected one side at a time; ``None`` keeps every component.

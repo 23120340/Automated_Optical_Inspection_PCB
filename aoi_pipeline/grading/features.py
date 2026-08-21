@@ -23,7 +23,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from ..image_io import ensure_bgr
+from ..imaging.image_io import ensure_bgr
 from ..models import SolderFeatures
 
 __all__ = [

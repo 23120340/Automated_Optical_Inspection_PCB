@@ -3,7 +3,7 @@
 #
 # Notebook này train model cho **giai đoạn C** của hướng detect 2 lượt
 # (`Docs/tien_do_detect_2_luot.md`). Đường ống phía app đã sẵn sàng
-# (`aoi_pipeline/lead_detection.py`); thứ còn thiếu duy nhất là model này.
+# (`aoi_pipeline/solder/lead_detection.py`); thứ còn thiếu duy nhất là model này.
 #
 # ## Vì sao cần notebook riêng, không dùng lại detector cũ
 #
@@ -234,7 +234,7 @@ if looks_unreviewed and not CONFIG["allow_unreviewed_labels"]:
         "Dữ liệu trông như chưa được sửa nhãn.\n\n"
         "Box do bootstrap sinh ra là PHỎNG ĐOÁN HÌNH HỌC, không phải sự thật.\n"
         "Train trên chúng chỉ dạy model chép lại hình học đã có sẵn trong\n"
-        "aoi_pipeline/solder.py — không thêm được thông tin nào mới, và thừa\n"
+        "aoi_pipeline/solder/geometry.py — không thêm được thông tin nào mới, và thừa\n"
         "hưởng luôn các lỗi hình học đã biết.\n\n"
         "Việc cần làm: mở dataset trong LabelImg/CVAT/Roboflow, KÉO box về\n"
         "đúng vùng kim loại, XOÁ box trên chỗ không phải chân, và quan trọng\n"
@@ -259,7 +259,7 @@ print("Cổng nhãn: OK")
 
 # %%
 def component_crop_window(box, image_width, image_height):
-    """Bản sao của aoi_pipeline.lead_detection.component_crop_window.
+    """Bản sao của aoi_pipeline.solder.lead_detection.component_crop_window.
 
     Chép lại thay vì import, vì notebook chạy trên Kaggle không có repo. Hai
     bản này phải khớp — lệch là lệch phân bố train/inference.
@@ -696,7 +696,7 @@ print("\nĐã đóng gói:", str(ARTIFACTS) + ".zip")
 #
 # ```python
 # from aoi_pipeline import AOIPipeline
-# from aoi_pipeline.detectors import UltralyticsDetector
+# from aoi_pipeline.detection.detectors import UltralyticsDetector
 # from aoi_pipeline.config import ModelDetectorConfig
 #
 # pipeline = AOIPipeline(
@@ -709,7 +709,7 @@ print("\nĐã đóng gói:", str(ARTIFACTS) + ".zip")
 # )
 # ```
 #
-# Từ đó `aoi_pipeline/leads.py` tự lo phần còn lại: chân đo được **thắng** hình
+# Từ đó `aoi_pipeline/solder/leads.py` tự lo phần còn lại: chân đo được **thắng** hình
 # học suy ra, theo từng chân chứ không theo cả linh kiện, và chân nào lượt 2
 # không thấy thì vẫn giữ ROI suy ra. Không có gì khác trong pipeline phải đổi.
 #
@@ -722,6 +722,6 @@ print("\nĐã đóng gói:", str(ARTIFACTS) + ".zip")
 # - Chạy theo lô, đừng chạy từng cái một.
 # - Đo thời gian chu kỳ thật trước khi hứa với dây chuyền.
 #
-# `aoi_pipeline/lead_detection.py` hiện gọi từng crop một cho dễ đọc và dễ test.
+# `aoi_pipeline/solder/lead_detection.py` hiện gọi từng crop một cho dễ đọc và dễ test.
 # Khi có model thật và đo được nút thắt ở đây thì hãy đổi sang chạy lô — đừng
 # tối ưu trước khi đo.

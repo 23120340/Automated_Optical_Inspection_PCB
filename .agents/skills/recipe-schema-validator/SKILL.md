@@ -34,7 +34,7 @@ Validate a recipe file programmatically via Python:
 
 ```python
 from pathlib import Path
-from aoi_pipeline.recipe import load_recipe, validate_recipe_assets
+from aoi_pipeline.golden.recipe import load_recipe, validate_recipe_assets
 
 recipe_dir = Path("path/to/recipe")
 recipe = load_recipe(recipe_dir / "recipe.json", recipe_dir)

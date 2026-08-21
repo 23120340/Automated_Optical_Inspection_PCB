@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from aoi_pipeline import BoundingBox, Detection, LeadDetectionConfig, PipelineConfig
-from aoi_pipeline.lead_detection import (
+from aoi_pipeline.solder.lead_detection import (
     component_crop_window,
     detect_leads_in_components,
     to_board_coordinates,

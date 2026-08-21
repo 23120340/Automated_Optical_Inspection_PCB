@@ -12,12 +12,12 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .alignment import PCBAligner, StrictAlignmentResult
-from .detectors import ComponentDetector, CVComponentDetector, detector_identifier
-from .exceptions import InvalidImageError
-from .golden_compare import GoldenComparator, GoldenCompareResult
-from .image_io import ensure_bgr
-from .models import BoundingBox, Detection, utc_now_iso
+from ..imaging.alignment import PCBAligner, StrictAlignmentResult
+from ..detection.detectors import ComponentDetector, CVComponentDetector, detector_identifier
+from ..exceptions import InvalidImageError
+from .compare import GoldenComparator, GoldenCompareResult
+from ..imaging.image_io import ensure_bgr
+from ..models import BoundingBox, Detection, utc_now_iso
 from .position import PositionMeasurer, PositionResult
 from .recipe import GOLDEN_COORDINATE_SPACE, InspectionRecipe, SlotRecipe
 

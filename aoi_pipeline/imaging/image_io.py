@@ -12,7 +12,7 @@ from typing import BinaryIO
 import cv2
 import numpy as np
 
-from .exceptions import InvalidImageError
+from ..exceptions import InvalidImageError
 
 
 ImageSource = str | Path | bytes | bytearray | memoryview | BinaryIO | np.ndarray

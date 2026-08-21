@@ -162,7 +162,7 @@ vẫn hoạt động, chỉ là detector chưa giúp được gì cho phần nà
 
 ## Cách kết hợp thuật toán và model ở bước 5.5
 
-Đã cài trong [`aoi_pipeline/leads.py`](../../aoi_pipeline/leads.py).
+Đã cài trong [`aoi_pipeline/solder/leads.py`](../../aoi_pipeline/solder/leads.py).
 Quy tắc: **ưu tiên detection thật, quay về hình học suy ra ở chỗ không có** — và
 điều quan trọng là chọn **theo từng chân, không theo từng linh kiện**:
 

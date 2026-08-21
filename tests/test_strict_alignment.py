@@ -9,10 +9,10 @@ import cv2
 import numpy as np
 import pytest
 
-import aoi_pipeline.alignment as alignment_module
+import aoi_pipeline.imaging.alignment as alignment_module
 from aoi_pipeline import BoundingBox, Detection, PCBAligner
-from aoi_pipeline.alignment import AnchorMatch
-from aoi_pipeline.recipe import (
+from aoi_pipeline.imaging.alignment import AnchorMatch
+from aoi_pipeline.golden.recipe import (
     AlignmentAnchor,
     AlignmentQualityGates,
     AlignmentRecipe,

@@ -13,7 +13,7 @@ import numpy as np
 
 from .config import ClassificationConfig
 from .exceptions import ClassifierConfigurationError, ModelDependencyError
-from .image_io import ensure_bgr
+from .imaging.image_io import ensure_bgr
 from .models import ClassProbability, ComponentClassification, ComponentCrop, softmax
 
 

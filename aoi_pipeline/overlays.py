@@ -11,7 +11,7 @@ from typing import Sequence
 import cv2
 import numpy as np
 
-from .image_io import ensure_bgr
+from .imaging.image_io import ensure_bgr
 from .models import PipelineRun, SolderJoint
 
 __all__ = [
