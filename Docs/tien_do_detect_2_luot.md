@@ -408,3 +408,5 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-22 | H1–H2 — Montserrat + gộp stepper | Font tự phục vụ 228 KB, sidebar hết vẽ 8 bước hai lần; 504 test pass |
 | 2026-08-22 | I1 — đánh giá model 6.2 | `Docs/danh_gia_model_6_2.md`: chưa dùng để quyết định được, 61% mối hàn bị gọi `bridge` |
 | 2026-08-22 | F1–F3 — nhập BOM + đối chiếu | `aoi_pipeline/bom.py` + UI; linh kiện ngoài BOM = LỖI; 531 test pass |
+| 2026-08-22 | Sửa notebook chết ở cell xuất ONNX | Thiếu `onnxscript` trên torch 2.10; thêm `scripts/export_classifier_onnx.py`; 548 test pass |
+| 2026-08-22 | So model v2 với model cũ | `Docs/so_sanh_model_v2.md`: detector ver2 **kém hơn** ver1, classifier v2 **tốt hơn** nhưng chậm 26× |
