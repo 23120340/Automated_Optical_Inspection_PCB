@@ -203,3 +203,120 @@ def test_the_default_for_each_stage_is_still_found() -> None:
         entry = find_active(kind)
         assert entry is not None, f"không thấy model mặc định cho {kind}"
         assert entry.model_path.is_file()
+
+
+# --------------------------------------------------------------------------
+# `active/` phải thật sự tự nạp
+#
+# `find_active()` được viết ra cho việc này nhưng suốt một thời gian không ai
+# gọi, nên mọi phiên mở ra với bộ chọn ở "— không dùng —" và bước 4 báo đang
+# chạy CV demo — người dùng phải chọn tay đúng cái model đã được đặt làm mặc
+# định. `models/README.md` thì ghi "active/ = model app tự nạp", tức tài liệu
+# nói một đằng, code làm một nẻo.
+# --------------------------------------------------------------------------
+
+
+def test_a_fresh_session_already_has_the_active_models_loaded() -> None:
+    from streamlit.testing.v1 import AppTest
+
+    app = AppTest.from_file(
+        str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
+    app.session_state["workspace_mode"] = "pipeline_lab"
+    app.run()
+
+    assert not app.exception
+    for key, folder in (
+        ("component_model_name", "detector"),
+        ("classifier_model_name", "classifier"),
+        ("solder_model_name", "solder"),
+    ):
+        assert app.session_state[key], f"{key} vẫn trống sau khi khởi tạo"
+        assert folder in app.session_state[key]
+
+
+def test_the_picker_shows_the_active_model_as_chosen_not_as_unused() -> None:
+    """Ô chọn ghi "— không dùng —" trong khi model đang được nạp là nói dối
+    người dùng về trạng thái của hệ thống."""
+
+    from streamlit.testing.v1 import AppTest
+
+    app = AppTest.from_file(
+        str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
+    app.session_state["workspace_mode"] = "pipeline_lab"
+    app.run()
+
+    choices = {s.key: s.value for s in app.sidebar.selectbox}
+    for key in ("component_model_choice", "classifier_model_choice",
+                "solder_model_choice"):
+        assert key in choices, f"thiếu bộ chọn {key}"
+        assert "đang dùng" in choices[key], (
+            f"{key} đang là {choices[key]!r}, phải là model trong active/"
+        )
+
+
+def test_a_model_the_user_picked_is_not_reset_on_the_next_rerun() -> None:
+    """Tự điền chỉ được phép điền vào ô TRỐNG. Giật lựa chọn của người dùng về
+    mặc định ở mỗi lần bấm nút thì tính năng chọn model thành vô dụng."""
+
+    from streamlit.testing.v1 import AppTest
+
+    app = AppTest.from_file(
+        str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
+    app.session_state["workspace_mode"] = "pipeline_lab"
+    app.run()
+
+    app.session_state["classifier_model_path"] = "/mot/duong/dan/khac.onnx"
+    app.session_state["classifier_model_name"] = "cua-toi/best.onnx"
+    app.run()
+
+    assert app.session_state["classifier_model_name"] == "cua-toi/best.onnx"
+
+
+def test_uploading_a_model_survives_the_next_rerun() -> None:
+    """Kịch bản thật đứng sau bản sửa: ô chọn nhớ giá trị của nó qua các lần
+    chạy lại và bỏ qua ``index``. Nếu nó cứ thấy lệch với session là áp đặt,
+    thì file vừa tải lên bị nó giật về model cũ ngay lần rerun kế tiếp — mất
+    im lặng, và người dùng chỉ thấy "sao model của tôi không có tác dụng".
+    """
+
+    from streamlit.testing.v1 import AppTest
+
+    app = AppTest.from_file(
+        str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
+    app.session_state["workspace_mode"] = "pipeline_lab"
+    app.run()
+    assert app.session_state["classifier_model_name"]        # đã tự nạp
+
+    # Giả lập _set_model: một nguồn KHÁC ô chọn đặt lại đường dẫn.
+    app.session_state["classifier_model_path"] = "/tmp/toi-vua-tai-len.onnx"
+    app.session_state["classifier_model_name"] = "toi-vua-tai-len.onnx"
+    app.run()
+
+    assert app.session_state["classifier_model_name"] == "toi-vua-tai-len.onnx", (
+        "ô chọn đã ghi đè lên model vừa tải lên"
+    )
+
+
+def test_removing_a_model_sticks() -> None:
+    """Đây chính là lý do lần trước việc gán sẵn model bị bỏ đi — xem
+    ``test_no_model_artifact_is_seeded_from_disk``. Nạp mặc định ở MỌI lần chạy
+    lại thì nút "Gỡ model" trông như hỏng: bấm xong nó quay lại ngay.
+
+    Nên phải nạp một lần cho mỗi phiên, không phải mỗi lần rerun.
+    """
+
+    from streamlit.testing.v1 import AppTest
+
+    app = AppTest.from_file(
+        str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
+    app.session_state["workspace_mode"] = "pipeline_lab"
+    app.run()
+    assert app.session_state["component_model_name"]
+
+    app.session_state["component_model_path"] = None
+    app.session_state["component_model_name"] = None
+    app.run()
+
+    assert app.session_state["component_model_name"] is None, (
+        "model đã gỡ lại được nạp về ở lần chạy lại kế tiếp"
+    )

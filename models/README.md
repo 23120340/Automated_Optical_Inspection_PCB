@@ -35,7 +35,7 @@ tin nhất: tên thư mục do người đặt và có thể lệch, manifest do
 
 | | ý nghĩa | git |
 |---|---|---|
-| `active/` | Model app tự nạp. Một thư mục cho mỗi bước | commit kèm |
+| `active/` | Model app tự nạp **khi mở phiên mới**. Một thư mục cho mỗi bước | commit kèm |
 | `archive/` | Bản cũ giữ để đối chiếu. **Không bao giờ tự nạp** | commit kèm |
 | `library/` | Của bạn. Thả vào là hiện trong bộ chọn | **bỏ qua** |
 
@@ -43,6 +43,11 @@ tin nhất: tên thư mục do người đặt và có thể lệch, manifest do
 phải tên phiên bản — vì câu hỏi ở đó là "cái gì đang chạy", và app tìm mặc định
 theo đúng đường dẫn `active/<bước>/best.onnx`. Đổi tên các thư mục này sẽ làm
 app không tìm thấy model mặc định nữa.
+
+Việc nạp diễn ra **một lần cho mỗi phiên**, không phải mỗi lần chạy lại. Nhờ
+thế nút "Gỡ model" vẫn gỡ được: nạp lại ở mọi rerun thì bấm gỡ xong model quay
+về ngay, và nút trông như hỏng. Muốn nạp lại sau khi gỡ thì chọn nó trong ô
+"Chọn từ thư mục models/".
 
 `archive/` và `library/` dùng **`<bước>-<kiến trúc>-<ngày>`**:
 

@@ -102,3 +102,82 @@ def test_the_stylesheet_agrees_with_the_theme() -> None:
             assert stack.split(",")[0].strip().strip('"') in {
                 "Consolas", "monospace",
             }, f"font-family không phải Montserrat và không phải monospace: {line.strip()}"
+
+
+# --------------------------------------------------------------------------
+# Sidebar nền tối: chữ phải đọc được
+#
+# Lỗi thật, 2026-08-22: selectbox và đầu expander trong sidebar là chữ gần
+# trắng trên nền TRẮNG. Nguyên nhân không phải chọn màu xấu mà là hai nửa của
+# cùng một quyết định nằm ở hai nơi: nền widget do `secondaryBackgroundColor`
+# quyết định (sáng, cho toàn app), còn màu chữ bị một luật CSS quét
+# `[data-testid="stSidebar"] * { color: ... }` ép sang sáng.
+#
+# Nay cả hai khai ở `[theme.sidebar]`, và test dưới đo tỉ lệ tương phản thật
+# thay vì tin vào mắt người viết CSS.
+# --------------------------------------------------------------------------
+
+
+def _luminance(hex_colour: str) -> float:
+    """Độ sáng tương đối theo WCAG."""
+
+    value = hex_colour.lstrip("#")
+    channels = [int(value[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+              for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(foreground: str, background: str) -> float:
+    a, b = _luminance(foreground), _luminance(background)
+    lighter, darker = max(a, b), min(a, b)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def test_the_sidebar_declares_its_own_palette() -> None:
+    """Không có section này thì widget trong sidebar lấy màu sáng của toàn app,
+    và mọi cách sửa còn lại chỉ là đè CSS lên từng widget một."""
+
+    assert "sidebar" in _config()["theme"], "thiếu [theme.sidebar]"
+
+
+def test_sidebar_text_is_readable_on_both_of_its_backgrounds() -> None:
+    """Hai nền, không phải một. `backgroundColor` là nền sidebar,
+    `secondaryBackgroundColor` là nền của widget bên trong nó — selectbox, đầu
+    expander, ô nhập. Chính cái thứ hai là chỗ đã hỏng."""
+
+    sidebar = _config()["theme"]["sidebar"]
+    text = sidebar["textColor"]
+    for key in ("backgroundColor", "secondaryBackgroundColor"):
+        ratio = _contrast(text, sidebar[key])
+        assert ratio >= 4.5, (
+            f"chữ {text} trên {key} {sidebar[key]} chỉ tương phản {ratio:.2f}:1, "
+            "dưới mức 4.5:1 của WCAG AA — đây đúng là kiểu lỗi 'không đọc được chữ'"
+        )
+
+
+def test_the_sidebar_background_is_actually_dark() -> None:
+    """Nếu ai đó đổi nó sang màu sáng, test tương phản ở trên vẫn có thể xanh
+    (chữ tối trên nền sáng cũng đọc được) nhưng sidebar sẽ không còn khớp phần
+    còn lại của thiết kế."""
+
+    sidebar = _config()["theme"]["sidebar"]
+    assert _luminance(sidebar["backgroundColor"]) < 0.1
+
+
+def test_the_sidebar_section_did_not_swallow_the_app_wide_theme_keys() -> None:
+    """Bẫy của TOML: mọi khoá sau một table header thuộc về table đó. Đặt
+    `[theme.sidebar]` vào giữa các khoá của `[theme]` sẽ nuốt phần còn lại —
+    đã xảy ra, và `font` cùng `baseFontSize` rơi vào sidebar, tức Montserrat
+    chỉ áp cho sidebar."""
+
+    theme = _config()["theme"]
+    for key in ("font", "baseFontSize", "fontFaces"):
+        assert key in theme, (
+            f"`{key}` không còn trong [theme] — nhiều khả năng một table header "
+            "được chèn vào trước nó và nuốt mất"
+        )
+    assert "font" not in theme["sidebar"], (
+        "sidebar khai font riêng; nếu là cố ý thì bỏ dòng này, còn không thì "
+        "đây là dấu hiệu [theme.sidebar] đang nằm sai chỗ"
+    )

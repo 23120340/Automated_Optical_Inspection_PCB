@@ -76,3 +76,26 @@ family = "Montserrat"
 url = "app/static/fonts/montserrat-latin-700.woff2"
 weight = "700"
 style = "normal"
+
+# --- Sidebar: nền tối, nên phải có palette RIÊNG -------------------------
+# Trước đây sidebar được tô tối bằng CSS, còn màu chữ ép bằng một luật quét
+# `[data-testid="stSidebar"] * { color: ... }`. Luật đó đổi màu CHỮ nhưng
+# không đổi màu NỀN của widget, mà nền widget do `secondaryBackgroundColor`
+# quyết định — và nó đang là #FFFFFF cho toàn app. Kết quả: selectbox và đầu
+# expander là chữ gần trắng trên nền trắng, không đọc được.
+#
+# Streamlit 1.61 cho khai báo palette riêng cho sidebar. Làm ở đây thì mọi
+# widget bên trong — selectbox, expander, ô nhập, uploader — tự lấy đúng màu,
+# kể cả widget thêm về sau. Đè bằng CSS thì mỗi widget mới lại là một lần sửa.
+[theme.sidebar]
+backgroundColor = "#071525"
+secondaryBackgroundColor = "#0E253D"
+textColor = "#DCE9F5"
+primaryColor = "#34DAE3"
+borderColor = "#1C3A56"
+linkColor = "#51DBE4"
+codeBackgroundColor = "#0B1C2F"
+codeTextColor = "#9FD8E0"
+showWidgetBorder = true
+# Bo goc, truoc day dat rieng cho expander bang CSS.
+baseRadius = "0.6rem"

@@ -224,6 +224,57 @@ def _default_config() -> dict[str, Any]:
     }
 
 
+def _adopt_active_models() -> None:
+    """Nạp sẵn model trong ``models/active/`` khi phiên mới bắt đầu.
+
+    ``models/active/`` được định nghĩa là "cái app tự nạp", nhưng trước đây
+    không ai gọi :func:`find_active`, nên mọi phiên đều mở ra với bộ chọn ở
+    "— không dùng —" và bước 4 báo đang chạy CV demo. Người dùng phải chọn tay
+    đúng cái model đã được đặt làm mặc định.
+
+    Chạy **một lần cho mỗi phiên**, không phải mỗi lần chạy lại. Khác biệt này
+    quan trọng: bấm "Gỡ model" rồi mà mỗi rerun lại nạp về thì nút gỡ trông như
+    hỏng. Đây đúng là lý do lần trước việc gán sẵn model bị bỏ đi -- xem
+    ``tests/test_solder_model_upload.py::test_no_model_artifact_is_seeded_from_disk``.
+
+    Lần này khác ở chỗ: đường dẫn lấy từ :func:`find_active` nên file chắc chắn
+    tồn tại, và chỉ ``.onnx`` mới được liệt kê nên không có gì phải xác nhận
+    pickle.
+    """
+
+    if st.session_state.get("active_models_adopted"):
+        return
+    st.session_state.active_models_adopted = True
+
+    for slot, (kind, path_key, name_key, manifest_key) in _MODEL_SLOTS.items():
+        if st.session_state.get(path_key):
+            continue
+        entry = find_active(kind)
+        if entry is None:
+            continue
+        # Thiếu manifest thì 6.1/6.2 từ chối nạp; điền vào đây chỉ dời thất bại
+        # sang lúc chạy. Detector không cần manifest nên vẫn nạp được.
+        if manifest_key is not None and not entry.has_manifest:
+            continue
+        st.session_state[path_key] = str(entry.model_path)
+        st.session_state[name_key] = entry.name
+        if manifest_key is not None and entry.manifest_path is not None:
+            st.session_state[manifest_key] = str(entry.manifest_path)
+            st.session_state[f"{manifest_key.rsplit('_', 1)[0]}_name"] = (
+                entry.manifest_path.name
+            )
+        if slot == "solder":
+            grading = st.session_state.config["solder_grading"]
+            grading["model_path"] = str(entry.model_path)
+            if entry.manifest_path is not None:
+                grading["manifest_path"] = str(entry.manifest_path)
+        if slot == "component":
+            # .onnx không mang pickle nên không có gì phải xác nhận.
+            st.session_state.pt_model_trusted = (
+                entry.model_path.suffix.lower() != ".pt"
+            )
+
+
 def _init_state() -> None:
     # No model is seeded from disk, the detector included. Every artifact enters
     # through the sidebar uploader, which is the only thing that records a
@@ -245,6 +296,9 @@ def _init_state() -> None:
         "board_model_path": None,
         "board_model_name": None,
         "board_model_digest": None,
+        # Model trong models/active/ được nạp MỘT LẦN mỗi phiên; cờ này nhớ
+        # rằng đã nạp rồi, để "Gỡ model" không bị rerun nạp lại.
+        "active_models_adopted": False,
         "component_model_path": None,
         "component_model_name": None,
         "component_model_digest": None,
@@ -299,6 +353,7 @@ def _init_state() -> None:
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+    _adopt_active_models()
 
 
 def _load_css() -> None:
@@ -518,6 +573,10 @@ def _remove_model(kind: str) -> None:
     st.session_state[f"{kind}_model_path"] = None
     st.session_state[f"{kind}_model_name"] = None
     st.session_state[f"{kind}_model_digest"] = None
+    # Ô chọn nhớ giá trị của nó qua các lần chạy lại. Không xoá thì nó vẫn hiện
+    # tên model vừa gỡ, tức giao diện nói một đằng còn trạng thái một nẻo.
+    for key in (f"{kind}_model_choice", f"{kind}_model_choice_applied"):
+        st.session_state.pop(key, None)
     if kind == "board":
         _invalidate_after(2)
     elif kind == "component":
@@ -1363,13 +1422,31 @@ def _render_model_picker(slot: str) -> bool:
             "bản cũ = models/archive/, không tự nạp"
         ),
     )
+
+    # Chỉ hành động khi NGƯỜI DÙNG vừa đổi ô chọn.
+    #
+    # Widget có ``key`` thì Streamlit nhớ giá trị của nó qua các lần chạy lại và
+    # bỏ qua ``index``. Nếu chỉ so ô chọn với đường dẫn trong session rồi thấy
+    # lệch là áp đặt, thì bất kỳ thứ gì khác đổi đường dẫn đó sẽ bị ô chọn giật
+    # về ngay lần chạy lại kế tiếp. Cụ thể: tải model lên bằng nút upload rồi
+    # thì lần rerun sau ô chọn vẫn còn nhớ model cũ, và nó **âm thầm vứt bỏ**
+    # file vừa tải.
+    #
+    # Nên mốc so sánh là "lần cuối CHÍNH Ô CHỌN NÀY áp cái gì", không phải
+    # trạng thái hiện tại của session.
+    applied_key = f"{slot}_model_choice_applied"
+    previously_applied = st.session_state.get(applied_key)
+    if chosen == previously_applied:
+        return False
+    st.session_state[applied_key] = chosen
+
     if chosen == labels[0]:
         return False
     entry = entries[labels.index(chosen) - 1]
-    if not current or Path(current) != entry.model_path:
-        _use_model_entry(slot, entry)
-        return True
-    return False
+    if current and Path(current) == entry.model_path:
+        return False
+    _use_model_entry(slot, entry)
+    return True
 
 
 def _set_bom(upload: Any, complete: bool) -> None:

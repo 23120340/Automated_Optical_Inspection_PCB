@@ -195,6 +195,13 @@ ui._init_state()
 if {with_model!r}:
     st.session_state.config["solder_grading"]["model_path"] = {model!r}
     st.session_state.config["solder_grading"]["manifest_path"] = {manifest!r}
+else:
+    # Từ 2026-08-22 `_init_state` nạp sẵn model trong models/active/, nên
+    # "không có model" phải được dựng ra tường minh chứ không còn là mặc định.
+    st.session_state.config["solder_grading"]["model_path"] = None
+    st.session_state.config["solder_grading"]["manifest_path"] = None
+    st.session_state.solder_model_path = None
+    st.session_state.solder_manifest_path = None
 
 bridge = PipelineBridge(config=ui._engine_config())
 preprocessed = bridge.preprocess(image)
@@ -248,6 +255,9 @@ def test_step_seven_renders_real_verdicts_without_a_model(tmp_path: Path) -> Non
 
     harness = _render_step_seven(tmp_path, with_model=False)
     assert not harness.exception, [str(e.value) for e in harness.exception]
+    # Từ 2026-08-22 app tự nạp model trong models/active/, nên "không có model"
+    # phải được dựng ra một cách tường minh. Kịch bản vẫn đáng kiểm: lớp luật
+    # vật lý là thứ đáng tin nhất ở 6.2 và phải đứng một mình được.
     assert _written(harness, "VERDICTS") != "VERDICTS `0`"
     assert "GRADED_BY_MODEL `False`" == _written(harness, "GRADED_BY_MODEL")
     labels = [metric.label for metric in harness.metric]

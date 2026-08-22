@@ -64,30 +64,26 @@ body,
   padding: 1.25rem 1rem 1rem;
 }
 
-[data-testid="stSidebar"] * {
-  color: #dce9f5;
-}
+/* KHÔNG đặt `[data-testid="stSidebar"] * { color: ... }` ở đây.
+ *
+ * Luật đó đổi màu CHỮ của mọi thứ trong sidebar nhưng không đổi màu NỀN của
+ * widget — nền widget do `secondaryBackgroundColor` quyết định, và nó là màu
+ * sáng cho toàn app. Kết quả là selectbox và đầu expander thành chữ gần trắng
+ * trên nền trắng. Màu chữ sidebar nay khai ở `[theme.sidebar]` trong
+ * .streamlit/config.toml, nơi Streamlit tô cả nền lẫn chữ cùng một lúc. */
 
-[data-testid="stSidebar"] [data-testid="stExpander"] {
-  background: #0b1c2f;
-  border: 1px solid #1c3a57;
-  border-radius: 10px;
-}
+/* Nền và màu chữ của widget trong sidebar đến từ `[theme.sidebar]`. Những
+ * luật dưới đây chỉ thêm thứ theme không diễn đạt được — viền nét đứt của
+ * vùng thả file, và một nền đậm hơn cho nút bên trong nó. Giá trị màu lấy
+ * đúng từ bảng màu trong config.toml để chỉ có MỘT bảng màu. */
 
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
-  background: #0e253d;
-  border-color: #2a5275;
-}
-
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] small,
-[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] span {
-  color: #a9bfd3 !important;
+  border-style: dashed;
 }
 
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
-  background: #15344f;
+  background: #15344f;      /* sáng hơn secondaryBackgroundColor một bậc */
   border-color: #285475;
-  color: #eaf5ff;
 }
 
 .sidebar-brand {
