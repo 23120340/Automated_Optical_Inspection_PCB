@@ -11,7 +11,7 @@ Checkpoint tự mô tả — nó mang `model_name`, `input_size`, `class_names`,
 cần dataset, không cần GPU.
 
     python scripts/export_classifier_onnx.py best_state.pt ^
-        --out models/library/classifier_v2 --temperature 0.60
+        --out models/library/classifier-convnext_base-20260822 --temperature 0.60
 
 Phần hiệu chỉnh (`--temperature`) không nằm trong checkpoint vì nó được tính ở
 bước sau. Không truyền thì manifest ghi 1.0 **và ghi rõ là chưa hiệu chỉnh**,
@@ -112,7 +112,11 @@ def export_onnx(model, dummy, path: Path, opset: int) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkpoint", type=Path, help="best_state.pt từ notebook 6.1")
-    parser.add_argument("--out", type=Path, default=Path("models/library/classifier_v2"))
+    parser.add_argument(
+        "--out", type=Path, default=None,
+        help="Thư mục đích. Bỏ trống thì tự đặt tên theo quy ước của "
+             "models/README.md: <bước>-<kiến trúc>-<ngày>.",
+    )
     parser.add_argument("--opset", type=int, default=18)
     parser.add_argument(
         "--temperature", type=float, default=None,
@@ -156,6 +160,13 @@ def main() -> int:
     # và máy chạy script này thường không dư bộ nhớ.
     del checkpoint["state_dict"]
 
+    if args.out is None:
+        # Quy ước trong models/README.md: <bước>-<kiến trúc>-<ngày>. Tự đặt tên
+        # thay vì để một mặc định cứng, vì hai lần chạy sẽ ghi đè lên nhau mà
+        # không báo gì. Checkpoint không mang ngày tạo, nên dùng ngày hôm nay.
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+        args.out = Path("models/library") / f"classifier-{model_name}-{stamp}"
+        print(f"  chưa truyền --out, dùng {args.out}")
     args.out.mkdir(parents=True, exist_ok=True)
     onnx_path = args.out / "best.onnx"
     dummy = torch.zeros(1, 3, input_size, input_size)
