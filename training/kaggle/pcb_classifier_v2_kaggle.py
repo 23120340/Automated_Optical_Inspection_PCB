@@ -791,12 +791,28 @@ artifacts.mkdir(parents=True, exist_ok=True)
 onnx_path = artifacts / "best.onnx"
 
 dummy = torch.zeros(1, 3, CONFIG["input_size"], CONFIG["input_size"])
-torch.onnx.export(
-    model_cpu, dummy, str(onnx_path),
+# torch >= 2.9 mặc định dynamo=True, và đường đó uỷ quyền cho `onnxscript`.
+# Image Kaggle KHÔNG có gói đó, nên mặc định mới làm hỏng đúng cell cuối cùng
+# của notebook -- sau khi toàn bộ tính toán đã xong. Đã xảy ra 2026-08-22:
+# ModuleNotFoundError: No module named 'onnxscript'.
+#
+# Thử bộ xuất TorchScript trước vì nó không cần thêm gói nào, và **giữ đúng
+# opset được yêu cầu** -- đường dynamo âm thầm nâng opset lên bản nó hỗ trợ
+# (đo được: yêu cầu 12, nhận về 18). Bộ cũ đã deprecated nên vẫn có dự phòng.
+_export_kwargs = dict(
     input_names=["input"], output_names=["logits"],
     dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
     opset_version=CONFIG["opset"],
 )
+try:
+    torch.onnx.export(model_cpu, dummy, str(onnx_path), dynamo=False, **_export_kwargs)
+    onnx_exporter = "torchscript"
+except Exception as exc:
+    print(f"Bộ xuất TorchScript không dùng được ({type(exc).__name__}: {exc});"
+          " chuyển sang dynamo. Cần `pip install onnxscript` nếu chưa có.")
+    torch.onnx.export(model_cpu, dummy, str(onnx_path), dynamo=True, **_export_kwargs)
+    onnx_exporter = "dynamo"
+print(f"Bộ xuất ONNX: {onnx_exporter}")
 
 try:
     import onnx
@@ -871,6 +887,7 @@ manifest = {
         "tta": CONFIG["tta"],
         "epochs_run": len(history),
         "seed": SEED,
+        "onnx_exporter": onnx_exporter,
     },
 }
 (artifacts / "model_manifest.json").write_text(

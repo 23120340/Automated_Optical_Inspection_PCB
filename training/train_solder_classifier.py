@@ -316,14 +316,24 @@ def main(argv: list[str] | None = None) -> int:
     output.mkdir(parents=True, exist_ok=True)
     onnx_path = output / "best.onnx"
     dummy = torch.zeros(1, 3, args.image_size, args.image_size)
-    torch.onnx.export(
-        model, dummy, str(onnx_path),
+    # torch >= 2.9 defaults to dynamo=True, and that path delegates to
+    # `onnxscript`. Where it is missing the export dies at the very end of a
+    # run, after every hour of compute has been spent. The TorchScript exporter
+    # needs no extra package and honours the requested opset -- the dynamo path
+    # silently raises it to whatever it implements (measured: asked 12, got 18).
+    export_kwargs = dict(
         input_names=["input"], output_names=["logits"],
         dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
         # 18, not 17: newer torch exporters emit 18 and then fail the automatic
         # down-conversion, leaving an 18 graph plus a confusing error either way.
         opset_version=18,
     )
+    try:
+        torch.onnx.export(model, dummy, str(onnx_path), dynamo=False, **export_kwargs)
+    except Exception as exc:  # noqa: BLE001 - the legacy exporter is deprecated
+        print(f"TorchScript exporter unavailable ({type(exc).__name__}: {exc}); "
+              "falling back to dynamo, which needs onnxscript installed.")
+        torch.onnx.export(model, dummy, str(onnx_path), dynamo=True, **export_kwargs)
     _collapse_external_data(onnx_path)
     _verify_onnx(onnx_path, model, dummy, torch)
 

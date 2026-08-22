@@ -1058,21 +1058,15 @@ import onnxruntime as ort
 model = model.cpu().eval()
 dummy = torch.zeros(1, 3, CONFIG["input_size"], CONFIG["input_size"], dtype=torch.float32)
 onnx_path = ARTIFACT_DIR / "best.onnx"
-exporter = "dynamo"
+# TorchScript trước, dynamo sau. Đường dynamo uỷ quyền cho `onnxscript`, gói
+# mà image Kaggle không có, nên thử nó trước nghĩa là in một traceback đáng sợ
+# ở mọi lần chạy rồi mới rơi về dự phòng. Nó cũng âm thầm nâng opset lên bản nó
+# hỗ trợ, trong khi đường cũ giữ đúng opset được yêu cầu.
+#
+# Lưu ý hai đường nhận kwarg khác nhau: `dynamic_axes` cho TorchScript,
+# `dynamic_shapes` cho dynamo. Đổi chỗ mà quên điều này thì dự phòng cũng hỏng.
+exporter = "legacy"
 try:
-    torch.onnx.export(
-        model,
-        (dummy,),
-        onnx_path,
-        input_names=["images"],
-        output_names=["logits"],
-        dynamic_shapes={"images": {0: "batch"}},
-        opset_version=18,
-        dynamo=True,
-    )
-except Exception as exc:
-    print("Dynamo exporter không tương thích runtime hiện tại; dùng legacy fallback:", exc)
-    exporter = "legacy"
     torch.onnx.export(
         model,
         dummy,
@@ -1082,6 +1076,19 @@ except Exception as exc:
         dynamic_axes={"images": {0: "batch"}, "logits": {0: "batch"}},
         opset_version=17,
         dynamo=False,
+    )
+except Exception as exc:
+    print("Bộ xuất TorchScript không dùng được; chuyển sang dynamo:", exc)
+    exporter = "dynamo"
+    torch.onnx.export(
+        model,
+        (dummy,),
+        onnx_path,
+        input_names=["images"],
+        output_names=["logits"],
+        dynamic_shapes={"images": {0: "batch"}},
+        opset_version=18,
+        dynamo=True,
     )
 
 onnx_model = onnx.load(onnx_path)
