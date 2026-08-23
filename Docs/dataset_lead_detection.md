@@ -294,3 +294,24 @@ dùng được, phải viết code riêng.
 **Đòn bẩy rẻ:** lượt 1 đã biết lớp linh kiện. Dùng làm tiên nghiệm — một model
 chung + hậu xử lý theo **số pad kỳ vọng** suy từ topology lớp. Nên làm trước vì
 không nhân số nhãn phải gán.
+
+---
+
+## Bổ sung 2026-08-23 — 52 model "PCB defect" trên Hugging Face
+
+Đã khảo sát và **loại toàn bộ**. Chi tiết ở `Docs/khao_sat_model_huggingface.md`.
+
+Ứng viên tốt nhất (bộ ba keremberke YOLOv8, nhóm duy nhất có mAP công bố) đã
+tải về chạy thật: nạp được, chạy đúng trên ảnh của chính họ, nhưng trên board
+46 µm/px của dự án thì **đầu ra không đổi khi thêm 6 mối hàn chập nhân tạo**.
+Dataset của họ là 189 ảnh 640×480, mất cân bằng lớp 17× (`dry_joint` chỉ 44
+instance), không khai giấy phép.
+
+Bảng tổng kết bốn nguồn đã kiểm chứng nay là:
+
+| Nguồn | Vì sao không dùng được |
+|---|---|
+| SolDef_AI | đúng nhãn từng mối hàn, sai tỉ lệ 20 lần |
+| PCB-SAID | ảnh cào web 640×480, nhãn theo linh kiện |
+| Ulger | đúng tỉ lệ, **không có box** |
+| keremberke | 189 ảnh 640×480, không chuyển được sang 46 µm/px |
