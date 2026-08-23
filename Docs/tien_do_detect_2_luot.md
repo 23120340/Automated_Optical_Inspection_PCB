@@ -408,3 +408,11 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-22 | H1–H2 — Montserrat + gộp stepper | Font tự phục vụ 228 KB, sidebar hết vẽ 8 bước hai lần; 504 test pass |
 | 2026-08-22 | I1 — đánh giá model 6.2 | `Docs/danh_gia_model_6_2.md`: chưa dùng để quyết định được, 61% mối hàn bị gọi `bridge` |
 | 2026-08-22 | F1–F3 — nhập BOM + đối chiếu | `aoi_pipeline/bom.py` + UI; linh kiện ngoài BOM = LỖI; 531 test pass |
+| 2026-08-23 | Đánh giá model trong app | `aoi_pipeline/model_feedback.py` + mục ở cuối trang bước 4/6.1/6.2; lưu toạ độ, gắn sha256 model; 605 test |
+| 2026-08-23 | Gộp Golden vào đường ống | Bỏ workspace riêng; Golden = bước 3.5, ngay sau khoanh vùng board; 610 test |
+| 2026-08-23 | Đo lại TOÀN BỘ model | `scripts/benchmark_models.py` + `Docs/bench/bench_20260823.json`; bảng xếp hạng dựng lại từ một lần chạy duy nhất |
+| 2026-08-24 | Feedback bằng chuột | Bấm thẳng vào box sai / chỗ bỏ sót; ghi kèm `box_size` cho lượt train sau; 615 test |
+| 2026-08-24 | Gộp hồ sơ board | Golden + BOM + CAD/pick-and-place vào một ô multiselect; lộ CAD ra UI lần đầu; 619 test |
+| 2026-08-24 | Fiducial cho bước 3 | `aoi_pipeline/imaging/fiducials.py`; bấm tay là đường tin cậy, dò tự động chỉ đề xuất; 630 test |
+| 2026-08-24 | Kế hoạch fine-tune tại chỗ | `Docs/ke_hoach_fine_tune_cuc_bo.md`; đo trên máy này: khả thi ở imgsz 256, ~1–5 giờ |
+| 2026-08-24 | Bản đồ kiểm tra + kế hoạch chụp | `aoi_pipeline/inspection_map.py`; board 197×148 mm → 4 khung, 0 linh kiện lọt; 646 test |
