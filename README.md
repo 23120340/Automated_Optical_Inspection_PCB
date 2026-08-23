@@ -1,7 +1,9 @@
 # Automated Optical Inspection PCB
 
-Ứng dụng local có hai workspace: Golden Inspection dùng recipe cố định cho
-Position/Appearance, và pipeline thử nghiệm từ bước 0 đến bước 6.2:
+Ứng dụng local là **một đường ống liền mạch, bước 0 đến bước 8**. Golden
+Inspection là bước 8 chứ không còn là một workspace riêng: nó vốn đã kiểm chính
+tấm ảnh nạp ở bước 0, nên tách ra chỉ bắt người dùng nạp lại đúng những thứ đã
+nạp.
 
 ```text
 0. Import ảnh
@@ -38,7 +40,8 @@ Sau đó mở địa chỉ Streamlit hiển thị trong terminal, mặc định 
 
 ## Golden Inspection
 
-Workspace mặc định của UI là **Golden Inspection**:
+Golden Inspection là **bước 8** của đường ống. Ảnh board cần kiểm là ảnh đã
+nạp ở bước 0; Golden Image và detector nạp ở sidebar như mọi tài nguyên khác.
 
 1. Nạp Golden Image ở sidebar. Ảnh JPEG đầu vào demo được chấp nhận, nhưng
    recipe luôn lưu lại Golden, anchor, template và mask dưới dạng PNG lossless.
@@ -688,7 +691,7 @@ aoi_pipeline/
   ├─ classification.py  Bước 6.1 · phân loại họ linh kiện
   ├─ grading/           Bước 6.2 · đo vật lý → luật → model ONNX → hợp nhất
   │    features · rules · classifier · inspector · datasets
-  ├─ golden/            Golden Inspection · workspace riêng, không thuộc 0–6.2
+  ├─ golden/            Golden Inspection · bước 8 của đường ống
   │    recipe · inspector · position · compare
   ├─ exporters.py       Xuất JSON/CSV/ZIP
   └─ overlays.py        Vẽ chồng lên ảnh

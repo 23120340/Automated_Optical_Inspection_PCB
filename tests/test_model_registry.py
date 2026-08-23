@@ -221,7 +221,6 @@ def test_a_fresh_session_already_has_the_active_models_loaded() -> None:
 
     app = AppTest.from_file(
         str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
-    app.session_state["workspace_mode"] = "pipeline_lab"
     app.run()
 
     assert not app.exception
@@ -242,7 +241,6 @@ def test_the_picker_shows_the_active_model_as_chosen_not_as_unused() -> None:
 
     app = AppTest.from_file(
         str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
-    app.session_state["workspace_mode"] = "pipeline_lab"
     app.run()
 
     choices = {s.key: s.value for s in app.sidebar.selectbox}
@@ -262,7 +260,6 @@ def test_a_model_the_user_picked_is_not_reset_on_the_next_rerun() -> None:
 
     app = AppTest.from_file(
         str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
-    app.session_state["workspace_mode"] = "pipeline_lab"
     app.run()
 
     app.session_state["classifier_model_path"] = "/mot/duong/dan/khac.onnx"
@@ -283,7 +280,6 @@ def test_uploading_a_model_survives_the_next_rerun() -> None:
 
     app = AppTest.from_file(
         str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
-    app.session_state["workspace_mode"] = "pipeline_lab"
     app.run()
     assert app.session_state["classifier_model_name"]        # đã tự nạp
 
@@ -309,7 +305,6 @@ def test_removing_a_model_sticks() -> None:
 
     app = AppTest.from_file(
         str(PROJECT_ROOT / "app" / "streamlit_app.py"), default_timeout=180)
-    app.session_state["workspace_mode"] = "pipeline_lab"
     app.run()
     assert app.session_state["component_model_name"]
 

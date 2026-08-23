@@ -54,7 +54,6 @@ def _detection(index: int):
 
 def _app(step: int, *, detections=None) -> AppTest:
     instance = AppTest.from_file(APP, default_timeout=180)
-    instance.session_state["workspace_mode"] = "pipeline_lab"
     instance.run()
     instance.session_state["input_image"] = np.random.default_rng(1).integers(
         0, 255, (600, 800, 3), dtype=np.uint8)
@@ -118,7 +117,6 @@ def test_it_stays_quiet_when_there_is_no_image_at_all() -> None:
     xuống sẽ vô nghĩa."""
 
     app = AppTest.from_file(APP, default_timeout=180)
-    app.session_state["workspace_mode"] = "pipeline_lab"
     app.session_state["active_step"] = 4
     app.run()
     assert not app.exception

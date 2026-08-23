@@ -126,3 +126,39 @@ def test_no_renderer_calls_a_name_that_does_not_exist() -> None:
 
         walk(table)
         assert missing == set(), f"{path.name}: tên chưa định nghĩa {sorted(missing)}"
+
+
+# --------------------------------------------------------------------------
+# Golden Inspection là một BƯỚC, không phải một workspace riêng
+# --------------------------------------------------------------------------
+
+
+def test_golden_inspection_is_a_step_in_the_pipeline() -> None:
+    """Nó vốn đã kiểm chính tấm ảnh của bước 0, nên tách ra một chế độ riêng
+    chỉ bắt người dùng nạp lại đúng những thứ đã nạp."""
+
+    names = {index: name for index, name, *_ in ui.STEP_DEFINITIONS}
+    assert names[8] == "Golden Inspection"
+    assert "8: _render_step_eight" in inspect.getsource(ui.main)
+
+
+def test_the_workspace_switch_is_gone_from_the_sidebar() -> None:
+    source = Path(ui.__file__).read_text(encoding="utf-8")
+    assert "workspace_mode" not in source, (
+        "còn sót chế độ workspace; Golden nay là bước 8 của cùng một đường ống"
+    )
+
+
+def test_resetting_the_source_image_clears_the_golden_run_too() -> None:
+    """Bước 8 kiểm chính ảnh của bước 0, nên ảnh mới thì kết quả cũ là kết quả
+    của một board khác. Recipe thì KHÔNG bị xoá — nó dựng từ ảnh Golden riêng
+    và sống lâu hơn từng board."""
+
+    source = inspect.getsource(ui._invalidate_after)
+    # Bỏ dòng chú thích ra: chúng nhắc tới `inspection_recipe` để giải thích vì
+    # sao nó KHÔNG có mặt, và đó không phải là code.
+    code = chr(10).join(
+        line for line in source.splitlines() if not line.strip().startswith("#")
+    )
+    assert '8: "inspection_run"' in code
+    assert "inspection_recipe" not in code

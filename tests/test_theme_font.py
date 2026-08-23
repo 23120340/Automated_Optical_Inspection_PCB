@@ -181,3 +181,58 @@ def test_the_sidebar_section_did_not_swallow_the_app_wide_theme_keys() -> None:
         "sidebar khai font riêng; nếu là cố ý thì bỏ dòng này, còn không thì "
         "đây là dấu hiệu [theme.sidebar] đang nằm sai chỗ"
     )
+
+
+# --------------------------------------------------------------------------
+# Vùng thả file trong sidebar
+#
+# Lỗi thật, 2026-08-23: dòng "256MB per file · PNG, JPG, TIF" là chữ trắng trên
+# nền trắng, không đọc được gì. Nguyên nhân giống hệt lần trước — một luật CSS
+# **không giới hạn phạm vi** đặt nền sáng cho MỌI vùng thả file, kể cả trong
+# sidebar, nơi `[theme.sidebar]` đặt chữ màu gần trắng. Nửa quyết định này ở
+# CSS, nửa kia ở config, và không ai đối chiếu chúng.
+# --------------------------------------------------------------------------
+
+
+def _rule_body(css: str, selector: str) -> str:
+    """Thân của luật có selector đúng bằng chuỗi này."""
+
+    import re
+
+    match = re.search(
+        r"(?:^|\})\s*" + re.escape(selector) + r"\s*\{([^}]*)\}", css, re.M)
+    return match.group(1) if match else ""
+
+
+def test_the_sidebar_dropzone_is_dark_so_its_caption_can_be_read() -> None:
+    css = STYLES_PATH.read_text(encoding="utf-8")
+    body = _rule_body(
+        css, '[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]')
+    assert body, "không còn luật riêng cho vùng thả file trong sidebar"
+
+    import re
+
+    match = re.search(r"background:\s*(#[0-9a-fA-F]{6})", body)
+    assert match, "luật này phải tự đặt nền, không được để luật chung áp nền sáng"
+
+    sidebar = _config()["theme"]["sidebar"]
+    ratio = _contrast(sidebar["textColor"], match.group(1))
+    assert ratio >= 4.5, (
+        f"chữ {sidebar['textColor']} trên nền vùng thả file {match.group(1)} chỉ "
+        f"tương phản {ratio:.2f}:1 — đây đúng là lỗi 'không thấy chữ 256MB'"
+    )
+
+
+def test_the_light_dropzone_rule_cannot_reach_the_sidebar() -> None:
+    """`stAppViewContainer` BAO CẢ sidebar, nên khoanh vùng bằng nó là vô hiệu.
+    Phải là `stMain`, thứ thật sự loại sidebar ra."""
+
+    css = STYLES_PATH.read_text(encoding="utf-8")
+    assert '[data-testid="stMain"] [data-testid="stFileUploaderDropzone"]' in css
+    for line in css.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('[data-testid="stFileUploaderDropzone"]'):
+            raise AssertionError(
+                "luật vùng thả file không giới hạn phạm vi sẽ với tới cả sidebar: "
+                f"{stripped}"
+            )

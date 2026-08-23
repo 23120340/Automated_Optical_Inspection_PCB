@@ -23,7 +23,6 @@ APP = str(Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py")
 @pytest.fixture
 def app() -> AppTest:
     instance = AppTest.from_file(APP, default_timeout=180)
-    instance.session_state["workspace_mode"] = "pipeline_lab"
     instance.run()
     return instance
 

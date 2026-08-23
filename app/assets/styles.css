@@ -77,7 +77,16 @@ body,
  * vùng thả file, và một nền đậm hơn cho nút bên trong nó. Giá trị màu lấy
  * đúng từ bảng màu trong config.toml để chỉ có MỘT bảng màu. */
 
+/* Vùng thả file trong sidebar phải dùng nền TỐI của sidebar.
+ *
+ * Luật chung ở cuối file đặt `background: rgba(255,255,255,.8)` cho MỌI vùng
+ * thả file, không giới hạn phạm vi. Trong sidebar thì nền sáng đó gặp chữ
+ * gần trắng của `[theme.sidebar]` — dòng "256MB per file · PNG, JPG, TIF"
+ * thành trắng trên trắng, không đọc được gì. Đúng cùng loại lỗi đã sửa hôm
+ * qua: một nửa quyết định (nền) ở một chỗ, nửa kia (màu chữ) ở chỗ khác. */
 [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+  background: #0e253d;
+  border: 1px dashed #2a5275;
   border-style: dashed;
 }
 
@@ -512,7 +521,8 @@ body,
   padding: 0.85rem;
 }
 
-[data-testid="stFileUploaderDropzone"] {
+/* Chỉ vùng ngoài sidebar. Trong sidebar nền là tối — xem luật ở trên. */
+[data-testid="stMain"] [data-testid="stFileUploaderDropzone"] {
   background: rgba(255, 255, 255, 0.8);
   border: 1px dashed #9fb4c5;
   border-radius: 10px;

@@ -106,6 +106,7 @@ STEP_DEFINITIONS = (
     (5, "Cắt linh kiện", "Crop + normalize + export", "CUT"),
     (6, "Phân loại linh kiện", "Family + accept/review/unknown", "CLS"),
     (7, "Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD"),
+    (8, "Golden Inspection", "Recipe + so sánh với board chuẩn", "GLD"),
 )
 SOLDER_ROI_COLORS = {
     "joint": (0, 200, 255),  # BGR amber
@@ -297,7 +298,6 @@ def _init_state() -> None:
     # skip both, could not be restored after "Gỡ model", and named a file the
     # repo no longer has now that the detectors live under kaggle/ver*.
     defaults: dict[str, Any] = {
-        "workspace_mode": "golden_inspection",
         "active_step": 0,
         "pending_navigation": None,
         "input_image": None,
@@ -478,6 +478,10 @@ def _invalidate_after(step: int) -> None:
         5: "crops",
         6: "classification_result",
         7: "solder_result",
+        # Golden Inspection kiểm CHÍNH tấm ảnh của bước 0, nên ảnh mới thì kết
+        # quả cũ là kết quả của board khác. `inspection_recipe` KHÔNG nằm ở đây:
+        # recipe dựng từ ảnh Golden riêng và sống lâu hơn từng board.
+        8: "inspection_run",
     }
     # Bounded by STEP_DEFINITIONS, not by a literal: a hard-coded 7 here is what
     # let step 6.2 be added to the navigation while staying invisible to state
@@ -1032,68 +1036,6 @@ def _status_dot(status: str) -> str:
     }.get(status, "○")
 
 
-def _render_inspection_sidebar_resources() -> None:
-    st.markdown(
-        '<div class="sidebar-section-label">GOLDEN INSPECTION</div>',
-        unsafe_allow_html=True,
-    )
-    with st.expander("1 · Golden Image", expanded=True):
-        upload = st.file_uploader(
-            "Ảnh board chuẩn",
-            type=["png", "jpg", "jpeg", "tif", "tiff"],
-            key="inspection_golden_uploader",
-        )
-        if upload is not None:
-            try:
-                _set_reference(upload)
-            except ValueError as exc:
-                st.error(str(exc))
-        if st.session_state.reference_name:
-            st.success(st.session_state.reference_name)
-            st.caption("Recipe sẽ lưu Golden và mọi ROI thành PNG lossless.")
-            if st.button("Gỡ Golden", key="remove_inspection_golden", width="stretch"):
-                st.session_state.ignored_uploads["reference"] = (
-                    st.session_state.reference_digest
-                )
-                st.session_state.reference_image = None
-                st.session_state.reference_name = None
-                st.session_state.reference_digest = None
-                st.session_state.inspection_recipe = None
-                st.session_state.inspection_run = None
-                st.rerun()
-
-    with st.expander("2 · Ảnh test", expanded=True):
-        upload = st.file_uploader(
-            "Ảnh board cần kiểm tra",
-            type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
-            key="inspection_test_uploader",
-        )
-        if upload is not None:
-            try:
-                _set_source(upload.name, upload.getvalue())
-            except ValueError as exc:
-                st.error(str(exc))
-        if st.session_state.input_name:
-            st.success(st.session_state.input_name)
-
-    with st.expander("3 · Component detector", expanded=True):
-        upload = st.file_uploader(
-            "Detector (.onnx/.pt)",
-            type=["onnx", "pt"],
-            key="inspection_component_model_uploader",
-            help=(
-                "Chưa nạp thì Golden Inspection dùng CV demo. Detector đã train "
-                "nằm ở models/active/detector/best.onnx."
-            ),
-        )
-        if upload is not None:
-            _set_model(upload, "component")
-        _render_model_asset("component")
-    st.caption(
-        "Golden/Test chỉ được xử lý trong phiên local. Không có thao tác GitHub hoặc upload mạng."
-    )
-
-
 #: Dấu trạng thái đứng trước tên bước. Ký tự thay cho màu vì sidebar tối và
 #: một chấm màu nhỏ ở đó rất khó phân biệt, nhất là với người nhìn màu kém.
 _STATUS_GLYPH = {
@@ -1148,24 +1090,8 @@ def _render_sidebar() -> bool:
             """,
             unsafe_allow_html=True,
         )
-        st.radio(
-            "Workspace",
-            options=["golden_inspection", "pipeline_lab"],
-            format_func=lambda value: (
-                "Golden Inspection" if value == "golden_inspection" else "Pipeline 0–6.1"
-            ),
-            horizontal=True,
-            label_visibility="collapsed",
-            key="workspace_mode",
-        )
-        if st.session_state.workspace_mode == "golden_inspection":
-            _render_inspection_sidebar_resources()
-            st.markdown(
-                f'<div class="sidebar-version">LOCAL · v{APP_VERSION}</div>',
-                unsafe_allow_html=True,
-            )
-            return False
-        st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–6.1</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–6.2 · GOLDEN</div>',
+                    unsafe_allow_html=True)
         _render_stepper()
 
         st.markdown('<div class="sidebar-section-label">TÀI NGUYÊN</div>', unsafe_allow_html=True)
@@ -3600,7 +3526,19 @@ def _render_inspect_board_mode() -> None:
         _render_inspection_result(result)
 
 
-def _render_inspection_workspace() -> None:
+def _render_step_eight() -> None:
+    """Golden Inspection, nay là một bước của đường ống chứ không phải một
+    workspace riêng.
+
+    Nó vốn đã kiểm **chính tấm ảnh của bước 0** (`_render_inspect_board_mode`
+    đọc `st.session_state.input_image`), nên tách nó ra một chế độ riêng chỉ
+    làm người dùng phải nạp lại đúng những thứ đã nạp: ảnh test là ảnh bước 0,
+    ảnh Golden là mục "Golden Image / Reference" ở sidebar, và detector là mục
+    model ở sidebar. Ba khối tài nguyên riêng của workspace cũ vì thế đã bỏ
+    hẳn chứ không chuyển chỗ.
+    """
+
+    _render_step_heading(8)
     _render_inspection_header()
     build_tab, inspect_tab = st.tabs(["Build Recipe", "Inspect Board"])
     with build_tab:
@@ -3623,7 +3561,7 @@ def _render_footer() -> None:
     st.markdown(
         """
         <div class="app-footer">
-          <span>AOI PCB WORKBENCH · STEPS 0–6.2</span>
+          <span>AOI PCB WORKBENCH · STEPS 0–6.2 · GOLDEN</span>
           <span>Local session · dữ liệu không được upload ra ngoài bởi UI</span>
         </div>
         """,
@@ -4369,11 +4307,6 @@ def main() -> None:
     _init_state()
     _load_css()
     quick_run = _render_sidebar()
-    if st.session_state.workspace_mode == "golden_inspection":
-        _render_inspection_workspace()
-        _render_activity_log()
-        _render_footer()
-        return
     _render_header()
     if quick_run:
         _run_all()
@@ -4387,6 +4320,7 @@ def main() -> None:
         5: _render_step_five,
         6: _render_step_six,
         7: _render_step_seven,
+        8: _render_step_eight,
     }
     renderers[st.session_state.active_step]()
     _render_activity_log()
