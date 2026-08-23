@@ -118,6 +118,47 @@ class BoardConfig:
 
 
 @dataclass(slots=True)
+class FiducialConfig:
+    """Dò fiducial mark để neo board, thay cho việc bắt buộc có ảnh golden.
+
+    Fiducial theo IPC-7351 là pad đồng tròn đường kính ~1 mm với cửa sổ mask
+    rộng gấp 2–3 lần. Ở 46 µm/px (thang đo được của dự án) thì 1 mm là ~22 px
+    đường kính; ở 25 µm/px là ~40 px; ở 92 µm/px là ~11 px. Dải bán kính mặc
+    định phủ cả ba, nên không phải chỉnh khi đổi camera.
+    """
+
+    enabled: bool = True
+    #: Bán kính tính bằng pixel. Rộng có chủ ý — hẹp lại thì mỗi lần đổi ống
+    #: kính là một lần dò hụt, và dò hụt thì im lặng.
+    min_radius_px: float = 4.0
+    max_radius_px: float = 30.0
+    #: So với nền CỤC BỘ: vành fiducial sáng so với vùng quanh nó, không so
+    #: với cả ảnh. Đo được trên board thật: vành ~150-180 trong khi phân vị 99
+    #: của cả ảnh là 239, nên ngưỡng toàn cục bỏ qua nó hoàn toàn.
+    background_kernel: int = 31
+    local_lift: float = 0.06        # phần của 255
+    #: 4πA/P²; 1.0 là tròn hoàn hảo.
+    min_circularity: float = 0.70
+    max_aspect: float = 1.35
+    #: Đốm phải nổi hơn vành xung quanh — đây là thứ phân biệt fiducial với
+    #: một mảng đồng lớn cũng sáng.
+    min_contrast: float = 0.05
+    ring_ratio: float = 3.0
+    #: Fiducial là VÀNH sáng quanh lõi TỐI. Đốm loé trên linh kiện thì sáng
+    #: đặc ở giữa — đây là thứ phân biệt hai loại, và bỏ nó đi thì bộ dò nhận
+    #: toàn đốm loé.
+    require_dark_core: bool = True
+    min_ring_lift: float = 0.04
+    close_kernel: int = 3
+    max_count: int = 8
+    #: Ba đốm chụm một góc thường là một linh kiện bóng, không phải ba mốc.
+    min_spread: float = 0.25
+    #: Fiducial nằm LÙI VÀO so với mép board, nên bao lồi của chúng nhỏ hơn
+    #: board. Phần nới này là ước lượng, không phải đo.
+    board_margin_ratio: float = 0.06
+
+
+@dataclass(slots=True)
 class CVDetectorConfig:
     """Heuristic proposal detector used before a trained model is available."""
 
@@ -571,6 +612,7 @@ class PipelineConfig:
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
     alignment: AlignmentConfig = field(default_factory=AlignmentConfig)
     board: BoardConfig = field(default_factory=BoardConfig)
+    fiducials: FiducialConfig = field(default_factory=FiducialConfig)
     cv_detector: CVDetectorConfig = field(default_factory=CVDetectorConfig)
     model_detector: ModelDetectorConfig = field(default_factory=ModelDetectorConfig)
     tiling: TilingConfig = field(default_factory=TilingConfig)

@@ -44,6 +44,7 @@ from aoi_pipeline.bom import (  # noqa: E402
     reconcile_bom,
 )
 from streamlit_image_coordinates import streamlit_image_coordinates  # noqa: E402
+from aoi_pipeline.imaging.fiducials import find_fiducials  # noqa: E402
 from aoi_pipeline.models import BoundingBox  # noqa: E402
 from aoi_pipeline.model_feedback import (  # noqa: E402
     ERROR_KINDS,
@@ -400,6 +401,10 @@ def _init_state() -> None:
         "cad_name": None,
         "cad_digest": None,
         "cad_components": 0,
+        # Fiducial: toạ độ pixel các mốc dùng để khoanh board mà không cần ảnh
+        # golden. Chỉ một lần cho mỗi loại board, rồi dùng lại.
+        "fiducials": [],
+        "fiducial_note": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -928,7 +933,11 @@ def _execute_board(bridge: PipelineBridge) -> BoardResult:
     if source is None:
         raise RuntimeError("Chưa có ảnh đầu vào.")
     st.session_state.statuses[3] = "running"
-    result = bridge.detect_board(source)
+    marks = list(st.session_state.fiducials)
+    # Dưới 3 mốc thì không chốt được xoay + tịnh tiến + tỉ lệ, nên đừng gửi đi
+    # một nửa dữ kiện: để bridge dò contour như cũ.
+    result = bridge.detect_board(
+        source, fiducials=marks if len(marks) >= 3 else None)
     st.session_state.board_result = result
     _invalidate_after(3)
     _record_stage(3, result)
@@ -2511,8 +2520,88 @@ def _render_step_two() -> None:
         _render_metrics(st.session_state.alignment_result.metrics)
 
 
+def _render_fiducial_picker() -> None:
+    """Chỉ các fiducial mark để neo vùng board, thay cho việc phải có ảnh golden.
+
+    Bấm chuột chứ không dò tự động là lựa chọn có cân nhắc. Bộ dò tự động
+    (`aoi_pipeline.imaging.fiducials`) chạy được, nhưng đo trên board thật của
+    dự án thì nó chưa tìm ra FID4/FID6 mà lại nhận nhầm các đốm loé trên linh
+    kiện — và một mốc sai thì cả hệ toạ độ sai theo, im lặng. Ba cú bấm một
+    lần cho mỗi loại board thì chắc chắn, và kết quả dùng lại được mãi.
+
+    Nút dò tự động vẫn có, nhưng nó chỉ **đề xuất**: kết quả hiện ra để người
+    dùng xác nhận hoặc bỏ, không bao giờ tự áp.
+    """
+
+    frame = _analysis_image()
+    if frame is None:
+        return
+    height, width = frame.shape[:2]
+    marks: list[tuple[float, float]] = list(st.session_state.fiducials)
+
+    st.markdown("##### Fiducial — neo vùng board")
+    st.caption(
+        "Bấm vào từng mốc trên ảnh. Từ **3 mốc** trở lên, vùng board được suy "
+        "từ chúng thay vì dò contour. Không có mốc nào thì bước 3 chạy như cũ."
+    )
+
+    scale = min(1.0, 760 / max(1, width))
+    canvas = (cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+              if scale < 1.0 else frame.copy())
+    for order, (mx, my) in enumerate(marks, start=1):
+        centre = (int(round(mx * scale)), int(round(my * scale)))
+        cv2.circle(canvas, centre, 14, (0, 235, 255), 2)
+        cv2.putText(canvas, str(order), (centre[0] + 17, centre[1] + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 235, 255), 2)
+
+    picker, controls = st.columns([1.9, 1.0], gap="large")
+    with picker:
+        point = _feedback_click("fiducial_canvas", canvas, scale)
+        if point is not None:
+            st.session_state.fiducials = marks + [(float(point[0]), float(point[1]))]
+            st.rerun()
+
+    with controls:
+        st.metric("Mốc đã chỉ", len(marks))
+        if len(marks) >= 3:
+            st.success("Đủ để neo vùng board.")
+        elif marks:
+            st.info(f"Cần thêm {3 - len(marks)} mốc nữa.")
+        if marks and st.button("Xoá mốc cuối", width="stretch"):
+            st.session_state.fiducials = marks[:-1]
+            _invalidate_after(2)
+            st.rerun()
+        if marks and st.button("Xoá hết mốc", width="stretch"):
+            st.session_state.fiducials = []
+            st.session_state.fiducial_note = None
+            _invalidate_after(2)
+            st.rerun()
+        if st.button("Thử dò tự động", width="stretch",
+                     help="Chỉ ĐỀ XUẤT. Kết quả hiện ra để bạn xác nhận, "
+                          "không tự áp — một mốc sai làm cả hệ toạ độ sai."):
+            found = find_fiducials(frame)
+            if found.usable:
+                st.session_state.fiducials = [
+                    (item.x, item.y) for item in found.fiducials[:4]
+                ]
+                st.session_state.fiducial_note = (
+                    f"Dò tự động đề xuất {len(found.fiducials)} mốc — "
+                    "kiểm bằng mắt trước khi chạy bước 3."
+                )
+            else:
+                st.session_state.fiducial_note = (
+                    f"Dò tự động không tìm đủ mốc (thấy {len(found.fiducials)}). "
+                    f"Lý do loại: {found.rejected}. Chỉ tay chắc chắn hơn."
+                )
+            st.rerun()
+        if st.session_state.fiducial_note:
+            st.caption(st.session_state.fiducial_note)
+
+
 def _render_step_three() -> None:
     _render_step_heading(3)
+    _render_fiducial_picker()
+    st.divider()
     source = _analysis_image()
     if source is None:
         _render_empty("Thiếu ảnh đầu vào", "Hoàn thành bước 0 trước khi khoanh vùng PCB.")

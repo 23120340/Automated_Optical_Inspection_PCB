@@ -75,7 +75,7 @@ class AOIPipeline:
             raise DetectorConfigurationError("Pass either detector or model_path, not both")
         self.preprocessor = ImagePreprocessor(self.config.preprocess)
         self.aligner = PCBAligner(self.config.alignment)
-        self.localizer = PCBLocalizer(self.config.board)
+        self.localizer = PCBLocalizer(self.config.board, self.config.fiducials)
         self.detector = detector or create_detector(
             model_path,
             mode=self.config.detector_mode,
@@ -125,10 +125,20 @@ class AOIPipeline:
 
         return self.aligner.align(image, reference)
 
-    def detect_board(self, image: np.ndarray) -> BoardRegion:
-        """Step 3: locate the PCB region."""
+    def detect_board(
+        self,
+        image: np.ndarray,
+        fiducials: Sequence[tuple[float, float]] | None = None,
+    ) -> BoardRegion:
+        """Step 3: locate the PCB region.
 
-        return self.localizer.locate(image)
+        With three or more ``fiducials`` the region comes from them instead of
+        from contours. Contour finding looks for the largest rectangle-ish
+        blob, which fails on the cases that matter: a background the same
+        colour as the board, a partly covered board, or two boards in frame.
+        """
+
+        return self.localizer.locate(image, fiducials)
 
     def detect_components(
         self,
