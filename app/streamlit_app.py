@@ -12,6 +12,7 @@ from __future__ import annotations
 import collections
 from collections.abc import Mapping, Sequence
 import csv
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import html
@@ -41,6 +42,20 @@ from aoi_pipeline.bom import (  # noqa: E402
     BomError,
     load_bom,
     reconcile_bom,
+)
+from aoi_pipeline.models import BoundingBox  # noqa: E402
+from aoi_pipeline.model_feedback import (  # noqa: E402
+    ERROR_KINDS,
+    FeedbackEntry,
+    FeedbackError,
+    FeedbackTargetRef,
+    ModelIdentity,
+    append_feedback,
+    entries_for_source,
+    error_label,
+    feedback_root,
+    load_feedback,
+    preprocess_identity,
 )
 from aoi_pipeline.model_registry import (  # noqa: E402
     ModelEntry,
@@ -345,6 +360,11 @@ def _init_state() -> None:
             "solder_model": None,
             "solder_manifest": None,
         },
+        # Đánh giá model: chỗ người vận hành ghi nhận model sai ở từng bước.
+        # ``feedback_reload_token`` làm mất hiệu lực cache đọc sau mỗi lần ghi.
+        "feedback_reload_token": uuid4().hex,
+        "feedback_locator": None,       # ảnh thu nhỏ để định vị, dựng 1 lần/board
+        "feedback_locator_key": None,   # digest:stage nó được dựng cho
         # BOM: hợp đồng lắp ráp. ``None`` = chưa nạp, và mọi đối chiếu bị bỏ qua.
         "bom": None,
         "bom_name": None,
@@ -1603,6 +1623,397 @@ def _render_bom_reconciliation(detections: Sequence[Any]) -> None:
                      hide_index=True, width="stretch")
 
 
+# --------------------------------------------------------------------------
+# Đánh giá model: người vận hành ghi lại chỗ model sai, ngay trong trang của
+# bước đó. Lưu toạ độ chứ không lưu ảnh -- xem aoi_pipeline/model_feedback.py.
+# --------------------------------------------------------------------------
+
+#: Bước nào đánh giá model nào, và tiêu đề hiển thị.
+_FEEDBACK_STAGES = {
+    "detection": (4, "component", "model phát hiện linh kiện"),
+    "classification": (6, "classifier", "model phân loại 6.1"),
+    "solder": (7, "solder", "model chấm mối hàn 6.2"),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class _FeedbackTarget:
+    """Một dòng kết quả chọn được, đã làm phẳng.
+
+    Ba bước trả về ba kiểu bản ghi chẳng liên quan gì nhau; hàm render dùng
+    chung không nên phải biết cả ba.
+    """
+
+    record_id: str
+    record_type: str
+    display: str
+    bbox: tuple[int, int, int, int]
+    model_label: str | None = None
+    model_decision: str | None = None
+    model_probability: float | None = None
+
+
+def _detection_targets(result: Any) -> list[_FeedbackTarget]:
+    if not isinstance(result, DetectionResult):
+        return []
+    return [
+        _FeedbackTarget(
+            record_id=item.detection_id, record_type="detection",
+            display=f"{item.detection_id} · {item.label}"
+                    + (f" {item.confidence:.2f}" if item.confidence is not None else ""),
+            bbox=tuple(int(v) for v in item.bbox),
+            model_label=item.label, model_probability=item.confidence,
+        )
+        for item in result.detections
+    ]
+
+
+def _classification_targets(result: Any, crops: Sequence[Any]) -> list[_FeedbackTarget]:
+    """``ClassificationRecord`` không mang bbox, phải nối qua ``crop_id``."""
+
+    if not isinstance(result, ClassificationResult):
+        return []
+    crop_by_id = {crop.crop_id: crop for crop in crops}
+    targets = []
+    for item in result.classifications:
+        crop = crop_by_id.get(item.crop_id)
+        if crop is None:
+            continue
+        targets.append(_FeedbackTarget(
+            record_id=item.crop_id, record_type="classification",
+            display=f"{item.crop_id} · {item.family} {item.probability:.2f} · {item.decision}",
+            bbox=tuple(int(v) for v in crop.bbox),
+            model_label=item.family, model_decision=item.decision,
+            model_probability=item.probability,
+        ))
+    return targets
+
+
+def _solder_targets(result: Any) -> list[_FeedbackTarget]:
+    if not isinstance(result, SolderResult):
+        return []
+    return [
+        _FeedbackTarget(
+            record_id=item.joint_id, record_type="solder_verdict",
+            display=f"{item.joint_id} · {item.label} · {item.decision}",
+            bbox=tuple(int(v) for v in item.bbox),
+            model_label=item.label, model_decision=item.decision,
+            model_probability=item.probability,
+        )
+        for item in result.verdicts
+    ]
+
+
+def _model_identity(slot: str) -> ModelIdentity:
+    """Model nào đang trả lời ở bước này, đủ để nhận ra nó sau khi bị thay.
+
+    Đọc sha256 từ MANIFEST, không phải từ ``*_model_digest``: khoá đó chỉ được
+    đặt ở đường upload, còn model nạp từ ``models/active/`` -- nay là mặc định
+    -- luôn để nó là None.
+    """
+
+    kind, path_key, name_key, _ = _MODEL_SLOTS[slot]
+    raw_path = st.session_state.get(path_key)
+    if not raw_path:
+        return ModelIdentity(slot=slot, kind=kind, loaded=False)
+
+    path = Path(raw_path)
+    entry = next(
+        (candidate for candidate in discover_models(kind, require_manifest=False)
+         if candidate.model_path == path),
+        None,
+    )
+    if entry is None:
+        # Model tải lên nằm ở thư mục tạm, không thuộc registry.
+        entry = ModelEntry(name=path.name, kind=kind, model_path=path,
+                           manifest_path=None, origin="upload")
+    summary = entry.summary()
+    return ModelIdentity(
+        slot=slot, kind=kind, loaded=True,
+        name=st.session_state.get(name_key) or entry.name,
+        origin=entry.origin, sha256=summary.sha256, version=summary.version,
+        architecture=summary.architecture, created=summary.created,
+    )
+
+
+def _feedback_signature() -> str:
+    """Chữ ký rẻ để biết log có đổi không: tên + mtime + cỡ, cộng token ghi."""
+
+    try:
+        files = sorted(feedback_root().glob("**/*.jsonl"))
+        stamp = ";".join(
+            f"{item.name}:{item.stat().st_mtime_ns}:{item.stat().st_size}"
+            for item in files
+        )
+    except OSError:
+        stamp = "khong-doc-duoc"
+    return f"{stamp}|{st.session_state.feedback_reload_token}"
+
+
+@st.cache_data(show_spinner=False)
+def _feedback_entries(signature: str) -> tuple[list[FeedbackEntry], list[str]]:
+    del signature                    # chỉ để làm khoá cache
+    return load_feedback()
+
+
+def _feedback_crop(entry: FeedbackEntry) -> np.ndarray | None:
+    """Pixel đằng sau một bản ghi, cắt lại tại chỗ.
+
+    Trong phiên thì không cần file nào: khi digest khớp ảnh đang mở và khung
+    phân tích vẫn đúng cỡ đã đo, khung đã nằm sẵn trong bộ nhớ. Khi không khớp
+    thì trả None chứ **không** cắt đại -- người vận hành nhìn nhầm chỗ còn tệ
+    hơn không nhìn gì.
+    """
+
+    frame = _analysis_image()
+    if frame is None:
+        return None
+    if entry.source_sha256 != st.session_state.input_digest:
+        return None
+    if frame.shape[:2] != (entry.analysis_height, entry.analysis_width):
+        return None
+    x1, y1, x2, y2 = entry.clamped_bbox(frame.shape[1], frame.shape[0])
+    patch = frame[y1:y2, x1:x2]
+    return patch if patch.size else None
+
+
+def _feedback_locator(box: tuple[int, int, int, int]) -> np.ndarray | None:
+    """Ảnh board thu nhỏ, có vẽ khung đang chọn, để biết mình đang ở đâu.
+
+    Phần đắt là thu nhỏ khung 14 MP; làm một lần cho mỗi board rồi giữ trong
+    session. Mỗi lần kéo thanh trượt chỉ tốn một bản sao ảnh 640px và một hình
+    chữ nhật -- khoảng 50 KB, so với 1.2 MB nếu gửi cả ảnh board mỗi lần.
+    """
+
+    frame = _analysis_image()
+    if frame is None:
+        return None
+    space = _analysis_coordinate_space()
+    key = f"{st.session_state.input_digest}:{space['stage']}:{frame.shape[0]}x{frame.shape[1]}"
+    if st.session_state.feedback_locator_key != key:
+        long_side = max(frame.shape[:2])
+        scale = min(1.0, 640.0 / long_side) if long_side else 1.0
+        st.session_state.feedback_locator = cv2.resize(
+            frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
+        ) if scale < 1.0 else frame.copy()
+        st.session_state.feedback_locator_key = key
+
+    small = st.session_state.feedback_locator
+    if small is None:
+        return None
+    canvas = small.copy()
+    ratio_x = canvas.shape[1] / frame.shape[1]
+    ratio_y = canvas.shape[0] / frame.shape[0]
+    x1, y1, x2, y2 = box
+    cv2.rectangle(
+        canvas,
+        (int(x1 * ratio_x), int(y1 * ratio_y)),
+        (max(int(x2 * ratio_x), int(x1 * ratio_x) + 1),
+         max(int(y2 * ratio_y), int(y1 * ratio_y) + 1)),
+        (0, 200, 255), 2,
+    )
+    return canvas
+
+
+def _feedback_runtime_mode(stage: str) -> str:
+    """Ngữ cảnh chạy lúc ghi, để sau này lọc được ra."""
+
+    if stage == "detection":
+        return "MODEL" if st.session_state.component_model_path else "CV DEMO"
+    if stage == "solder":
+        result = st.session_state.solder_result
+        if isinstance(result, SolderResult):
+            return "MODEL" if result.graded_by_model else "rules-only"
+    return "MODEL" if st.session_state.get(_MODEL_SLOTS[
+        _FEEDBACK_STAGES[stage][1]][1]) else "chưa nạp model"
+
+
+def _render_model_feedback(stage: str, targets: Sequence[_FeedbackTarget]) -> None:
+    """Mục "model sai ở đây", đặt cuối trang của chính bước đó.
+
+    Một hàm dùng chung cho cả ba bước: chúng chỉ khác nhau ở danh sách dòng
+    chọn được, từ vựng lỗi và model đang bị đánh giá. Ba bản sao sẽ là ba chỗ
+    để sửa cùng một lỗi trạng thái widget và bỏ sót hai.
+    """
+
+    step, slot, title = _FEEDBACK_STAGES[stage]
+    frame = _analysis_image()
+    if frame is None:
+        return
+
+    identity = _model_identity(slot)
+    entries, problems = _feedback_entries(_feedback_signature())
+    mine = entries_for_source(entries, st.session_state.input_digest or "", stage=stage)
+
+    st.divider()
+    with st.expander(f"🔎 Đánh giá model — ghi nhận chỗ sai ({len(mine)} đã ghi cho ảnh này)"):
+        st.caption(
+            f"Đang đánh giá **{title}**: {identity.display}. "
+            "Bản ghi chỉ giữ toạ độ và ghi chú, ảnh được cắt lại khi cần xem."
+        )
+        if problems:
+            st.caption(f"⚠ {len(problems)} dòng trong log đọc không được, đã bỏ qua.")
+
+        mode = st.radio(
+            "Cách đánh dấu",
+            ["Chọn từ kết quả", "Kính lúp (model bỏ sót)"],
+            horizontal=True, key=f"fb_{stage}_mode",
+            help="Chọn từ kết quả cho toạ độ chính xác tuyệt đối. Kính lúp dùng "
+                 "khi model không tìm ra gì để mà chọn.",
+        )
+
+        picked: _FeedbackTarget | None = None
+        box: tuple[int, int, int, int] | None = None
+        left, right = st.columns([1.1, 1.0], gap="large")
+
+        with left:
+            if mode == "Chọn từ kết quả":
+                if not targets:
+                    st.info(
+                        "Bước này chưa có kết quả nào để chọn. Dùng **kính lúp** "
+                        "nếu muốn báo model không tìm ra gì."
+                    )
+                else:
+                    labels = [item.display for item in targets]
+                    chosen = st.selectbox("Mục bị sai", labels, key=f"fb_{stage}_target")
+                    picked = targets[labels.index(chosen)]
+                    box = picked.bbox
+            else:
+                height, width = frame.shape[:2]
+                cx = st.slider("Tâm X", 0, max(width - 1, 1), width // 2,
+                               key=f"fb_{stage}_cx")
+                cy = st.slider("Tâm Y", 0, max(height - 1, 1), height // 2,
+                               key=f"fb_{stage}_cy")
+                size = st.select_slider(
+                    "Kích thước ô", options=(32, 48, 64, 96, 128, 192, 256, 384),
+                    value=96, key=f"fb_{stage}_size",
+                    help="Thang nhân, vì một thanh trượt tuyến tính sẽ tiêu phần lớn "
+                         "hành trình vào những cỡ không ai dùng.",
+                )
+                half = size // 2
+                box = BoundingBox(
+                    float(cx - half), float(cy - half),
+                    float(cx + half), float(cy + half),
+                ).clamp(width, height).to_int()
+
+            if box is not None:
+                locator = _feedback_locator(box)
+                if locator is not None:
+                    _show_image(locator, "Vị trí trên board")
+
+        with right:
+            if box is not None:
+                x1, y1, x2, y2 = box
+                patch = frame[y1:y2, x1:x2]
+                if patch.size:
+                    _show_image(patch, f"Vùng đã chọn · {x2 - x1}×{y2 - y1} px")
+
+        if box is None:
+            return
+
+        with st.form(f"fb_{stage}_form"):
+            kinds = ERROR_KINDS[stage]
+            kind_code = st.selectbox(
+                "Loại lỗi", [code for code, _ in kinds],
+                format_func=lambda code: error_label(stage, code),
+            )
+            expected = st.text_input(
+                "Đáng lẽ phải là", value="",
+                help="Nhãn đúng, nếu bạn biết. Đây là thứ biến log thành một tập "
+                     "đánh giá dùng được, không chỉ là ghi chú.",
+            )
+            default_note = (
+                f"Model nói: {picked.model_label} "
+                f"({picked.model_probability:.2f})" if picked and picked.model_label
+                and picked.model_probability is not None else ""
+            )
+            comment = st.text_area(
+                "Ghi chú", value=default_note, max_chars=1000,
+                help="Sai như thế nào, và vì sao bạn cho là sai.",
+            )
+            if st.form_submit_button("Ghi nhận lỗi này", type="primary"):
+                space = _analysis_coordinate_space()
+                try:
+                    entry = FeedbackEntry(
+                        stage=stage, step=step, bbox=box, error_kind=kind_code,
+                        model=identity,
+                        source_name=st.session_state.input_name or "",
+                        source_sha256=st.session_state.input_digest or "",
+                        analysis_width=int(space["width"] or frame.shape[1]),
+                        analysis_height=int(space["height"] or frame.shape[0]),
+                        analysis_stage=int(space["stage"]),
+                        image_role=str(space["image_role"]),
+                        preprocess=preprocess_identity(st.session_state.config.get("preprocess")),
+                        origin="result_row" if picked else "magnifier",
+                        target=FeedbackTargetRef(
+                            record_type=picked.record_type if picked else None,
+                            record_id=picked.record_id if picked else None,
+                            model_label=picked.model_label if picked else None,
+                            model_decision=picked.model_decision if picked else None,
+                            model_probability=picked.model_probability if picked else None,
+                        ),
+                        expected_label=expected.strip() or None,
+                        comment=comment.strip(),
+                        runtime_mode=_feedback_runtime_mode(stage),
+                    )
+                    written = append_feedback(entry)
+                except FeedbackError as exc:
+                    st.error(str(exc))
+                except OSError as exc:
+                    st.error(
+                        f"Không ghi được vào {feedback_root()}: {exc}. "
+                        "Đặt biến môi trường AOI_FEEDBACK_DIR để ghi ra chỗ khác."
+                    )
+                else:
+                    st.session_state.feedback_reload_token = uuid4().hex
+                    st.session_state.messages.append(
+                        f"Đã ghi nhận lỗi {stage}: {error_label(stage, kind_code)}"
+                    )
+                    st.success(f"Đã ghi vào {written.name}.")
+                    st.rerun()
+
+        _render_feedback_history(stage, mine, identity)
+
+
+def _render_feedback_history(
+    stage: str, mine: Sequence[FeedbackEntry], identity: ModelIdentity
+) -> None:
+    """Những gì đã ghi cho ảnh này, kèm nút xem lại crop."""
+
+    if not mine:
+        return
+    st.markdown("##### Đã ghi nhận cho ảnh này")
+    for entry in sorted(mine, key=lambda item: item.recorded_at, reverse=True)[:20]:
+        other_model = entry.model.compare_key != identity.compare_key
+        head = (
+            f"{entry.recorded_at[:16].replace('T', ' ')} · "
+            f"**{error_label(entry.stage, entry.error_kind)}**"
+        )
+        if other_model:
+            head += " · ⚠ ghi nhận trên model khác"
+        with st.expander(head):
+            columns = st.columns([1.0, 1.6])
+            with columns[0]:
+                patch = _feedback_crop(entry)
+                if patch is not None:
+                    _show_image(patch)
+                else:
+                    st.caption(
+                        "Không dựng lại được vùng ảnh: ảnh đang mở khác ảnh lúc "
+                        f"ghi (digest {entry.source_sha256[:12]}…), hoặc cấu hình "
+                        "tiền xử lý đã đổi."
+                    )
+            with columns[1]:
+                st.caption(f"Khung {entry.bbox} · {entry.origin}")
+                if entry.expected_label:
+                    st.markdown(f"Đáng lẽ là: **{entry.expected_label}**")
+                if entry.comment:
+                    st.markdown(entry.comment)
+                st.caption(f"Model: {entry.model.display} · chạy ở chế độ {entry.runtime_mode}")
+    if len(mine) > 20:
+        st.caption(f"Hiện 20 bản ghi mới nhất trong tổng số {len(mine)}.")
+
+
 def _render_model_asset(kind: str) -> None:
     name = st.session_state[f"{kind}_model_name"]
     if not name:
@@ -2264,6 +2675,11 @@ def _render_step_four() -> None:
             file_name=f"{_safe_name(st.session_state.input_name or 'pcb')}_annotated.png",
             mime="image/png",
         )
+    # Ngoài khối `if` ở trên, có chủ ý: "detector không tìm thấy gì ở đây" là
+    # điều đáng ghi nhận nhất, và nó chỉ xảy ra khi KHÔNG có detection nào.
+    _render_model_feedback(
+        "detection", _detection_targets(st.session_state.detection_result)
+    )
 
 
 def _render_step_five() -> None:
@@ -2341,6 +2757,68 @@ def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:
     )
 
 
+def _render_classification_content(crops: Sequence[Any]) -> None:
+    """Cột phải của bước 6.1, tách khỏi phần bố cục.
+
+    `return` sớm ở đây trước kia thoát khỏi CẢ hàm render bước 6, nên mọi
+    thứ đặt sau khối cột không bao giờ được vẽ khi classifier chưa chạy --
+    đúng lúc mục đánh giá model cần có mặt nhất.
+    """
+
+    result = st.session_state.classification_result
+    if not isinstance(result, ClassificationResult):
+        _render_empty(
+            "Chưa có kết quả phân loại",
+            "Nạp model và manifest rồi chạy bước 6.1. Nhãn detector không được dùng thay thế.",
+        )
+        return
+    items = result.classifications
+    table_tab, stats_tab, review_tab = st.tabs(
+        ["Classification table", "Family stats", "Review queue"]
+    )
+    with table_tab:
+        if items:
+            st.dataframe(
+                _classifications_frame(items),
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "probability": st.column_config.NumberColumn(format="%.4f"),
+                    "unknown_score": st.column_config.NumberColumn(format="%.4f"),
+                },
+            )
+        else:
+            st.warning("Model không trả về classification nào.")
+    with stats_tab:
+        if items:
+            frame = _classifications_frame(items)
+            left, right = st.columns(2)
+            with left:
+                st.markdown("##### Theo family")
+                st.bar_chart(frame.groupby("family").size().sort_values(ascending=False))
+            with right:
+                st.markdown("##### Theo quyết định")
+                st.bar_chart(frame.groupby("decision").size())
+    with review_tab:
+        crop_by_id = {crop.crop_id: crop for crop in crops}
+        queue = [item for item in items if item.decision != "accept"]
+        if not queue:
+            st.success("Không có crop trong hàng đợi review/unknown.")
+        for offset in range(0, min(len(queue), 60), 4):
+            columns = st.columns(4)
+            for column, item in zip(columns, queue[offset : offset + 4]):
+                with column:
+                    crop = crop_by_id.get(item.crop_id)
+                    if crop is not None:
+                        _show_image(crop.image)
+                    st.caption(
+                        f"**{item.family}** · {item.decision}\n\n"
+                        f"p={item.probability:.3f} · {item.crop_id}"
+                    )
+    _render_result_notice(result)
+    _render_metrics(result.metrics)
+
+
 def _render_step_six() -> None:
     _render_step_heading(6)
     crops: list[CropRecord] = st.session_state.crops
@@ -2383,58 +2861,11 @@ def _render_step_six() -> None:
         )
 
     with content:
-        result = st.session_state.classification_result
-        if not isinstance(result, ClassificationResult):
-            _render_empty(
-                "Chưa có kết quả phân loại",
-                "Nạp model và manifest rồi chạy bước 6.1. Nhãn detector không được dùng thay thế.",
-            )
-            return
-        items = result.classifications
-        table_tab, stats_tab, review_tab = st.tabs(
-            ["Classification table", "Family stats", "Review queue"]
-        )
-        with table_tab:
-            if items:
-                st.dataframe(
-                    _classifications_frame(items),
-                    hide_index=True,
-                    width="stretch",
-                    column_config={
-                        "probability": st.column_config.NumberColumn(format="%.4f"),
-                        "unknown_score": st.column_config.NumberColumn(format="%.4f"),
-                    },
-                )
-            else:
-                st.warning("Model không trả về classification nào.")
-        with stats_tab:
-            if items:
-                frame = _classifications_frame(items)
-                left, right = st.columns(2)
-                with left:
-                    st.markdown("##### Theo family")
-                    st.bar_chart(frame.groupby("family").size().sort_values(ascending=False))
-                with right:
-                    st.markdown("##### Theo quyết định")
-                    st.bar_chart(frame.groupby("decision").size())
-        with review_tab:
-            crop_by_id = {crop.crop_id: crop for crop in crops}
-            queue = [item for item in items if item.decision != "accept"]
-            if not queue:
-                st.success("Không có crop trong hàng đợi review/unknown.")
-            for offset in range(0, min(len(queue), 60), 4):
-                columns = st.columns(4)
-                for column, item in zip(columns, queue[offset : offset + 4]):
-                    with column:
-                        crop = crop_by_id.get(item.crop_id)
-                        if crop is not None:
-                            _show_image(crop.image)
-                        st.caption(
-                            f"**{item.family}** · {item.decision}\n\n"
-                            f"p={item.probability:.3f} · {item.crop_id}"
-                        )
-        _render_result_notice(result)
-        _render_metrics(result.metrics)
+        _render_classification_content(crops)
+    _render_model_feedback(
+        "classification",
+        _classification_targets(st.session_state.classification_result, crops),
+    )
 
 
 def _encode_png(image: np.ndarray) -> bytes:
@@ -3927,6 +4358,11 @@ def _render_step_seven() -> None:
             )
         else:
             _render_solder_grading(result)
+
+    # Ngoài cả hai tab: mục đánh giá thuộc về cả bước, không riêng tab nào.
+    _render_model_feedback(
+        "solder", _solder_targets(st.session_state.solder_result)
+    )
 
 
 def main() -> None:

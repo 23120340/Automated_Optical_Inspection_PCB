@@ -74,6 +74,16 @@ _VERSION_PATHS = (
     ("run_name",),
     ("version",),
 )
+#: Danh tính BỀN của một model. Tên file luôn là ``best.onnx``, tên thư mục do
+#: người đặt và có thể lệch, đường dẫn thì riêng từng máy — chỉ sha256 gắn với
+#: chính artifact. Đây là khoá để một bản ghi đánh giá còn ý nghĩa sau khi
+#: model bị thay.
+_SHA256_PATHS = (
+    ("model", "sha256"),
+    ("sha256",),
+    ("model", "digest"),
+    ("onnx", "sha256"),
+)
 #: Chỉ số đầu bảng của từng loại model, xếp theo thứ tự ưu tiên. Cặp
 #: (đường dẫn, nhãn hiển thị).
 _HEADLINE_METRICS = (
@@ -120,6 +130,9 @@ class ModelSummary:
     version: str | None = None
     metric_name: str | None = None
     metric_value: float | None = None
+    #: Thêm sau cùng, có mặc định, để ``ModelSummary() == ModelSummary()`` giữ
+    #: nguyên. KHÔNG đưa vào ``as_line()``: nhãn bộ chọn không được dài thêm.
+    sha256: str | None = None
 
     @property
     def metric(self) -> str | None:
@@ -134,7 +147,10 @@ class ModelSummary:
         return " · ".join(parts)
 
 
-def _summarise(manifest: Mapping[str, Any] | None) -> ModelSummary:
+def _summarise(
+    manifest: Mapping[str, Any] | None,
+    filename: str | None = None,
+) -> ModelSummary:
     if not manifest:
         return ModelSummary()
     architecture = _first(manifest, _ARCHITECTURE_PATHS)
@@ -148,12 +164,19 @@ def _summarise(manifest: Mapping[str, Any] | None) -> ModelSummary:
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             metric_name, metric_value = display, float(value)
             break
+    # Schema cũ của detector ghi digest theo TÊN FILE dưới ``files``, không
+    # phải ở một chỗ cố định. Thử đường đó trước khi rơi về các vị trí chung.
+    paths = _SHA256_PATHS
+    if filename:
+        paths = (("files", filename, "sha256"),) + paths
+    digest = _first(manifest, paths)
     return ModelSummary(
         architecture=str(architecture) if architecture else None,
         created=str(created)[:10] if created else None,
         version=(lambda v: str(v) if v else None)(_first(manifest, _VERSION_PATHS)),
         metric_name=metric_name,
         metric_value=metric_value,
+        sha256=str(digest) if digest else None,
     )
 
 
@@ -179,7 +202,7 @@ class ModelEntry:
             return 0.0
 
     def summary(self) -> ModelSummary:
-        return _summarise(self.manifest())
+        return _summarise(self.manifest(), self.model_path.name)
 
     @property
     def label(self) -> str:

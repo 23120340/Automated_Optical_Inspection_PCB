@@ -95,9 +95,15 @@ hình thức.
 
 ## Model nào đang tốt nhất?
 
-Xem `Docs/so_sanh_model_v2.md` — đã đo trên board thật, không chỉ đọc manifest.
-Tóm tắt: **detector bản 2026-08-17 tốt hơn bản đang dùng**, còn classifier
-convnext tốt hơn về chất lượng nhưng chậm hơn 26 lần.
+**`Docs/xep_hang_model.md`** — xếp hạng theo từng bước, kèm dòng "nên bật cái
+nào". Mọi số ở đó đo trên board thật, không chỉ đọc manifest.
+
+Tóm tắt: **detector bản 2026-08-17 tốt hơn bản đang bật** (64 linh kiện so với
+36 trên cùng một ảnh); classifier convnext tốt hơn về chất lượng nhưng chậm gấp
+26 lần; model mối hàn 6.2 chưa dùng để ra quyết định được.
+
+Bảng đó chỉ đo trên **một board chuẩn**. Thứ làm nó chính xác dần là mục
+**"Đánh giá model"** ở cuối trang mỗi bước trong app — xem `feedback/README.md`.
 
 ## Ghi chú: chế độ `end2end` của detector
 

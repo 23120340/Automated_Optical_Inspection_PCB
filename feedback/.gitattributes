@@ -1,0 +1,8 @@
+# Hai người thêm hai dòng khác nhau thì gộp máy móc được: mỗi dòng là một bản
+# ghi độc lập, không có cú pháp nào bắc qua giữa các dòng để mà hỏng. Trùng lặp
+# do merge là vô hại — bộ đọc gộp theo `entry_id`.
+*.jsonl merge=union
+
+# Không có dòng này thì Python trên Windows ghi CRLF và file đổi toàn bộ mỗi
+# lần một người dùng Linux chạm vào.
+*.jsonl text eol=lf
