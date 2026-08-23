@@ -45,6 +45,14 @@ from aoi_pipeline.bom import (  # noqa: E402
 )
 from streamlit_image_coordinates import streamlit_image_coordinates  # noqa: E402
 from aoi_pipeline.imaging.fiducials import find_fiducials  # noqa: E402
+from aoi_pipeline.inspection_map import (  # noqa: E402
+    MapError,
+    build_from_bom,
+    build_from_cad,
+    crop_boxes_for_capture,
+    plan_capture_regions,
+    uncovered,
+)
 from aoi_pipeline.models import BoundingBox  # noqa: E402
 from aoi_pipeline.model_feedback import (  # noqa: E402
     ERROR_KINDS,
@@ -2301,6 +2309,115 @@ def _render_metrics(metrics: dict[str, Any]) -> None:
         column.metric(key.replace("_", " ").title(), rendered)
 
 
+def _build_inspection_map() -> Any | None:
+    """Bản đồ từ nguồn tham chiếu tốt nhất đang có.
+
+    Thứ tự có lý do: CAD/pick-and-place cho designator + toạ độ + góc xoay +
+    kích thước, tức mọi thứ cần. BOM chỉ dựng được khi nó có cột toạ độ. Golden
+    image **không** dựng được bản đồ — nó là ảnh, muốn ra toạ độ vẫn phải
+    detect, mà detect chính là thứ bản đồ này sinh ra để dẫn đường.
+    """
+
+    cad_path = st.session_state.config.get("cad", {}).get("path")
+    if cad_path:
+        try:
+            return build_from_cad(load_cad(Path(cad_path)))
+        except (CadError, MapError) as exc:
+            st.warning(f"Không dựng được bản đồ từ CAD: {exc}")
+    bom = st.session_state.bom
+    if bom is not None:
+        try:
+            return build_from_bom(bom)
+        except MapError as exc:
+            st.info(str(exc))
+    return None
+
+
+def _render_inspection_map() -> None:
+    """Bản đồ linh kiện cần kiểm, và board phải chụp mấy khung để phủ hết."""
+
+    st.markdown("##### Bản đồ kiểm tra & kế hoạch chụp")
+    board_map = _build_inspection_map()
+    if board_map is None:
+        st.caption(
+            "Chưa có nguồn dựng được bản đồ. Nạp **CAD / pick-and-place** (hoặc "
+            "một BOM có cột toạ độ) ở mục *Dữ liệu tham chiếu* trên sidebar."
+        )
+        return
+
+    x1, y1, x2, y2 = board_map.extent
+    span_x, span_y = x2 - x1, y2 - y1
+    columns = st.columns(4)
+    columns[0].metric("Linh kiện", len(board_map))
+    columns[1].metric("Có kích thước", board_map.with_size())
+    columns[2].metric("Bề ngang", f"{span_x:.0f} mm")
+    columns[3].metric("Bề dọc", f"{span_y:.0f} mm")
+
+    st.caption(
+        "Trường nhìn lấy từ camera của bạn. Khuyến nghị ở "
+        "`Docs/yeu_cau_phan_cung_camera.md`: cảm biến 20 MP cho ~137 × 91 mm ở "
+        "25 µm/px."
+    )
+    left, right, third = st.columns(3)
+    fov_w = left.number_input("Trường nhìn ngang (mm)", 5.0, 1000.0, 137.0, 1.0,
+                              key="map_fov_w")
+    fov_h = right.number_input("Trường nhìn dọc (mm)", 5.0, 1000.0, 91.0, 1.0,
+                               key="map_fov_h")
+    overlap = third.slider(
+        "Chồng lấn", 0.0, 0.5, 0.15, 0.05, key="map_overlap",
+        help="Không chồng lấn thì một linh kiện nằm đúng đường ranh bị cắt đôi "
+             "ở cả hai khung và KHÔNG khung nào kiểm được nó.",
+    )
+
+    try:
+        regions = plan_capture_regions(board_map, fov_w, fov_h, overlap=overlap)
+    except MapError as exc:
+        st.error(str(exc))
+        return
+    missed = uncovered(board_map, regions)
+
+    stats = st.columns(3)
+    stats[0].metric("Số khung phải chụp", len(regions))
+    stats[1].metric("Lưới", f"{max(r.row for r in regions) + 1} × "
+                            f"{max(r.column for r in regions) + 1}")
+    stats[2].metric("Linh kiện lọt", len(missed))
+
+    if missed:
+        st.warning(
+            f"**{len(missed)} linh kiện không khung nào phủ trọn** nên sẽ không "
+            f"được kiểm: {', '.join(missed[:12])}"
+            + ("…" if len(missed) > 12 else "")
+            + ". Tăng chồng lấn hoặc dùng trường nhìn rộng hơn."
+        )
+    else:
+        st.success("Mọi linh kiện đều nằm trọn trong ít nhất một khung.")
+
+    st.dataframe(
+        pd.DataFrame([
+            {
+                "khung": region.index,
+                "hàng": region.row, "cột": region.column,
+                "tâm X (mm)": round(region.center_x, 1),
+                "tâm Y (mm)": round(region.center_y, 1),
+                "số linh kiện": len(region.designators),
+            }
+            for region in regions
+        ]),
+        hide_index=True, width="stretch", height=240,
+    )
+
+    st.download_button(
+        "Tải kế hoạch chụp (JSON)",
+        json.dumps({"map": board_map.to_dict(),
+                    "regions": [r.to_dict() for r in regions]},
+                   indent=2, ensure_ascii=False).encode("utf-8"),
+        file_name="ke_hoach_chup.json", mime="application/json",
+        help="Toạ độ tâm từng khung, tính bằng mm. Đây là chỗ nối với bàn máy "
+             "hoặc phần điều khiển camera của bạn — app này cố tình không tự "
+             "điều khiển phần cứng nó chưa từng chạy thử.",
+    )
+
+
 def _render_step_zero() -> None:
     _render_step_heading(0)
     st.info("Chế độ hiện tại: **Import ảnh local**. Adapter camera sẽ được nối khi có camera tại lab.")
@@ -2359,6 +2476,9 @@ def _render_step_zero() -> None:
                 st.session_state.active_step = 1
                 st.session_state.pending_navigation = 1
                 st.rerun()
+
+    st.divider()
+    _render_inspection_map()
 
 
 def _render_step_one() -> None:
