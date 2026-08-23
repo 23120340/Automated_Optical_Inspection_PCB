@@ -1,5 +1,13 @@
 # Khảo sát model "PCB defect" trên Hugging Face
 
+> ## ⚠ ĐỌC PHẦN ĐÍNH CHÍNH Ở CUỐI TRƯỚC
+>
+> **Mục 1 dưới đây (loại keremberke) là SAI.** Đo lại cùng ngày cho thấy model
+> đó *có* đọc được lỗi hàn thật ở đúng thang chụp của dự án. Phần đầu được giữ
+> nguyên để thấy sai ở đâu, không phải để dùng.
+>
+> Nhảy thẳng tới **"ĐÍNH CHÍNH 2026-08-23"** ở cuối file.
+
 > Đo 2026-08-23. Dựa trên bảng so sánh 52 model do bạn tổng hợp
 > (`huggingface.co/models?search=pcb+de`).
 >
@@ -166,3 +174,118 @@ ro thấp, nhưng đó là lý do bộ chọn model của app **không liệt k�
 
 *Ghi chú: trang tìm kiếm còn 1 trang nữa (23 model) chưa khảo sát. Dựa trên
 phân bố của 52 kết quả đầu, kỳ vọng hợp lý là chúng thuộc nhóm 3–6.*
+
+---
+
+# ĐÍNH CHÍNH 2026-08-23 — kết luận ở trên SAI về keremberke
+
+Người dùng phản biện: "có thể là do ảnh test của tôi chứ không phải do model,
+vì sau này sẽ dùng camera quét". Phản biện đúng, và khi đem kiểm chứng thì
+**kết luận loại keremberke ở mục 1 là sai**.
+
+## Ba sai lầm trong phần khảo sát ở trên
+
+**1. Nhầm số điểm ảnh với thang chụp.** Tôi xếp keremberke chung với PCB-SAID
+vì "cùng 640×480". Nhưng 640×480 nói về *số điểm ảnh*, không nói về *µm/px*.
+Một khung 640×480 chụp một vùng nhỏ vẫn rất mịn.
+
+Đo lại bằng pitch chân SOIC 1.27 mm — đúng thước đã dùng cho board dự án:
+
+| | µm/px |
+|---|---|
+| keremberke | **~33** |
+| Board dự án hiện tại | 46 |
+| Camera mục tiêu | 25 |
+
+Ảnh của họ **nằm giữa** hiện tại và mục tiêu, không phải macro.
+
+**2. Đọc "0 box trên board chuẩn" thành thất bại.** `golden.png` là board
+**chuẩn** — không có lỗi để tìm. Không ra box chính là hành vi *đúng*. Tôi đã
+lấy nó làm bằng chứng model hỏng.
+
+**3. Phép thử lỗi nhân tạo quá thô.** Tôi vẽ đường thẳng để giả làm mối hàn
+chập. Model học từ **ảnh chụp**, chưa từng thấy nét vẽ, nên nó không phản ứng —
+và điều đó không nói gì về khả năng bắt lỗi thật.
+
+## Đo lại cho đúng
+
+### Model chịu được thang chụp tới đâu
+
+Lấy chính tập test của họ (79 lỗi có nhãn), thu nhỏ dần để mô phỏng camera thô
+hơn. Thu nhỏ một ảnh mịn mô phỏng đúng một camera thô; phóng to thì không tạo
+ra chi tiết, nên chỉ làm được một chiều.
+
+| Hệ số | µm/px | Recall |
+|---|---|---|
+| 1.00 | 33 (gốc) | 0.595 |
+| 0.72 | **46 (board bạn)** | **0.544** |
+| 0.50 | 66 | 0.494 |
+| 0.36 | 92 | 0.430 |
+
+**Suy giảm rất từ tốn.** Ở 46 µm/px model vẫn giữ 0.544, chỉ kém gốc 9%. Nếu
+thang chụp là nguyên nhân thì recall đã sụp ở đây. Nó không sụp.
+
+### Model có bắt được lỗi THẬT ở thang của bạn không
+
+Lấy 6 ảnh chụp thật chứa 38 lỗi thật, thu về đúng 46 µm/px, dán vào giữa board
+dự án:
+
+| Model | box | trong vùng có lỗi |
+|---|---|---|
+| **keremberke yolov8m** | 36 | **36 (100%)** |
+| keremberke yolov8n | 31 | 25 |
+| SolDef_AI | 6 | 6 (toàn `spike`) |
+| detector dự án *(đối chứng)* | 280 | 41 — nó tìm linh kiện, đúng vai |
+
+`yolov8m` đặt **toàn bộ** box vào đúng vùng có lỗi. Và nó **có** gọi
+`Dry_joint` (5 box ở conf 0.25 trên một ảnh) — lớp mà mục 1 ở trên nói "chưa
+lần nào xuất hiện". Câu đó sai vì tôi chỉ cho nó xem board không có lỗi.
+
+## Kết luận đã sửa
+
+**Thang chụp không phải rào cản** — cả 46 µm/px hiện tại lẫn 25 µm/px tương
+lai. keremberke yolov8m **đọc được lỗi hàn thật ở đúng thang chụp của bạn**.
+
+**Nhưng vẫn còn một điều chưa chứng minh được:** liệu nó có chạy trên board
+*của bạn*, chụp bằng camera *của bạn*, với lỗi *thật của dây chuyền* hay không.
+Mọi phép đo trên đều dùng ảnh của chính họ — cùng camera, cùng ánh sáng, cùng
+loại board. Đó là câu hỏi **miền ảnh**, và không có board lỗi thật thì không
+trả lời được.
+
+Điều mất cân bằng lớp (17×, `dry_joint` chỉ 44 instance) và dataset 189 ảnh vẫn
+đúng, và vẫn là lý do đừng kỳ vọng nó thay thế được một model train trên dữ
+liệu của chính dây chuyền. Nhưng chúng là lý do để **kỳ vọng vừa phải**, không
+phải lý do để loại.
+
+## Việc nên làm — 10 phút, và nó quyết định
+
+Chụp **một board có lỗi thật** bằng camera hiện tại, rồi:
+
+```bash
+curl -L -o yolov8m-pcb.pt \
+  https://huggingface.co/keremberke/yolov8m-pcb-defect-segmentation/resolve/main/best.pt
+```
+
+```python
+from ultralytics import YOLO
+model = YOLO("yolov8m-pcb.pt")          # ultralytics 8.4.104 nạp được
+for result in model.predict("board_loi.jpg", conf=0.25, imgsz=640):
+    result.save("ket_qua.jpg")
+```
+
+- **Nó khoanh trúng lỗi** → có một điểm khởi đầu miễn phí, và việc gán nhãn
+  chuyển từ "vẽ từ đầu" sang "sửa box có sẵn" — rẻ hơn nhiều.
+- **Nó không thấy gì** → mới là lúc kết luận miền ảnh chặn, và tự gán nhãn là
+  đường duy nhất.
+
+Đừng cài `ultralyticsplus` / `ultralytics==8.0.23` theo model card — sẽ hạ cấp
+thư viện và phá bước 4.
+
+## Còn về camera
+
+Nâng cấp camera vẫn đáng, nhưng **không phải để cứu các model này** — chúng đã
+chạy được ở 46 µm/px. Lý do nâng cấp nằm ở chỗ khác, đã ghi trong
+`Docs/yeu_cau_phan_cung_camera.md`: kiểm tra fillet cần 15–25 µm/px, và hàn
+nguội cần **hướng chiếu sáng** đúng chứ không chỉ độ phân giải — "đèn chiếu
+phẳng thì mối hàn tốt và mối hàn nguội trông như nhau ở bất kỳ độ phân giải
+nào".

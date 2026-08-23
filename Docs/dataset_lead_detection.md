@@ -299,19 +299,27 @@ không nhân số nhãn phải gán.
 
 ## Bổ sung 2026-08-23 — 52 model "PCB defect" trên Hugging Face
 
-Đã khảo sát và **loại toàn bộ**. Chi tiết ở `Docs/khao_sat_model_huggingface.md`.
+Chi tiết ở `Docs/khao_sat_model_huggingface.md`. **Kết luận đã được sửa trong
+cùng ngày** — bản đầu loại keremberke là sai, xem mục "ĐÍNH CHÍNH" ở cuối file
+đó.
 
-Ứng viên tốt nhất (bộ ba keremberke YOLOv8, nhóm duy nhất có mAP công bố) đã
-tải về chạy thật: nạp được, chạy đúng trên ảnh của chính họ, nhưng trên board
-46 µm/px của dự án thì **đầu ra không đổi khi thêm 6 mối hàn chập nhân tạo**.
-Dataset của họ là 189 ảnh 640×480, mất cân bằng lớp 17× (`dry_joint` chỉ 44
-instance), không khai giấy phép.
+**keremberke YOLOv8m: chưa loại, đang chờ một board lỗi thật để kết luận.** Đo
+lại cho thấy ảnh của họ ở **~33 µm/px** (không phải macro — trước đó tôi nhầm
+"640×480" là thang chụp, trong khi đó chỉ là số điểm ảnh). Model suy giảm rất
+từ tốn theo thang: recall 0.595 ở 33 µm/px xuống 0.544 ở 46 µm/px. Và trên 6
+ảnh chụp thật chứa 38 lỗi thật, thu về 46 µm/px, nó đặt **36/36 box vào đúng
+vùng có lỗi**.
 
-Bảng tổng kết bốn nguồn đã kiểm chứng nay là:
+Nó không ra box trên board của dự án vì **board đó là board chuẩn, không có
+lỗi**. Điều chưa chứng minh được là **miền ảnh**: board của bạn, camera của
+bạn, lỗi thật của dây chuyền.
 
-| Nguồn | Vì sao không dùng được |
+Bảng tổng kết các nguồn đã kiểm chứng:
+
+| Nguồn | Trạng thái |
 |---|---|
-| SolDef_AI | đúng nhãn từng mối hàn, sai tỉ lệ 20 lần |
-| PCB-SAID | ảnh cào web 640×480, nhãn theo linh kiện |
-| Ulger | đúng tỉ lệ, **không có box** |
-| keremberke | 189 ảnh 640×480, không chuyển được sang 46 µm/px |
+| SolDef_AI | Loại — sai tỉ lệ 20 lần; ở 46 µm/px chỉ ra 6 box, toàn `spike` |
+| PCB-SAID | Loại — không có link tải, nhãn theo linh kiện |
+| Ulger | Loại — đúng tỉ lệ nhưng **không có box** |
+| **keremberke** | **Chưa loại** — chạy được ở 46 µm/px, cần thử trên board lỗi thật |
+| Roboflow Universe | **Chưa kiểm chứng** — có nhãn `Dry_joint`/`Cold Solder` nhưng cần API key |
