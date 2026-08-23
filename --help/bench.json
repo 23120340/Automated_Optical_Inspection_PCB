@@ -1,0 +1,11 @@
+{
+  "protocol": {
+    "tile_px": 1024,
+    "confidence": 0.25,
+    "images": {},
+    "note": "Mọi model chạy trên CÙNG các ô này, trong CÙNG một tiến trình."
+  },
+  "detector": {},
+  "classifier": {},
+  "solder": {}
+}

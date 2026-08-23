@@ -98,12 +98,25 @@ hình thức.
 **`Docs/xep_hang_model.md`** — xếp hạng theo từng bước, kèm dòng "nên bật cái
 nào". Mọi số ở đó đo trên board thật, không chỉ đọc manifest.
 
-Tóm tắt: **detector bản 2026-08-17 tốt hơn bản đang bật** (64 linh kiện so với
-36 trên cùng một ảnh); classifier convnext tốt hơn về chất lượng nhưng chậm gấp
-26 lần; model mối hàn 6.2 chưa dùng để ra quyết định được.
+Tóm tắt của lần đo lại 2026-08-23 (5 ảnh board, một lần chạy duy nhất):
 
-Bảng đó chỉ đo trên **một board chuẩn**. Thứ làm nó chính xác dần là mục
-**"Đánh giá model"** ở cuối trang mỗi bước trong app — xem `feedback/README.md`.
+- **Detector đang bật là bản kém nhất trong ba bản** — 121 box so với 203 và
+  213, và **không tìm được gì trên 2/5 ảnh** trong khi hai bản kia vẫn ra 20 và
+  8 box.
+- **Classifier: cả hai bản đều yếu trên crop thật** — chỉ tự động chấp nhận
+  4,2% và 12,2% số crop. convnext nhỉnh hơn nhưng chậm ~33 lần.
+- **Model mối hàn 6.2 không phân biệt được mối hàn với mảnh board bất kỳ**:
+  gọi `bridge` cho 50,2% ROI thật và 50,3% mảnh ngẫu nhiên.
+
+Muốn kiểm lại thì chạy trên board của bạn — mọi con số trong bảng phải khớp:
+
+```bash
+python scripts/benchmark_models.py <thư-mục-kết-quả> <ảnh1> <ảnh2> ...
+```
+
+Điểm yếu còn lại của bảng: **không có nhãn người**. Thứ làm nó chính xác dần là
+mục **"Đánh giá model"** ở cuối trang mỗi bước trong app — xem
+`feedback/README.md`.
 
 ## Ghi chú: chế độ `end2end` của detector
 

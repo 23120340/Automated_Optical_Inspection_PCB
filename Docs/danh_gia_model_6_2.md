@@ -104,6 +104,25 @@ trường hợp với tỉ lệ gần bằng nhau. Tín hiệu thật, nhưng qu
 
 Giả thuyết (b) là chính. Lượt 2 sẽ giúp, nhưng không đủ.
 
+### Đo lại trên mẫu lớn hơn — 2026-08-23
+
+Mọi con số ở trên đo trên **một** ảnh (119 ROI). Lần đo lại dùng **5 ảnh board,
+664 ROI**, cùng giao thức, qua `scripts/benchmark_models.py`:
+
+| | 1 ảnh (119 ROI) | **5 ảnh (664 ROI)** |
+|---|---|---|
+| `bridge` trên ROI thật | 61,3% | **50,2%** |
+| `bridge` trên mảnh ngẫu nhiên | 68,3% | **50,3%** |
+| chồng lấn hai phân bố | 0,804 | **0,816** |
+| vượt ngưỡng chấp nhận | 9,2% | **4,4%** |
+| confidence trung vị | 0,547 | **0,470** |
+
+Kết luận **không đổi, và mạnh hơn**: trên mẫu lớn, `bridge` chiếm 50,2% ROI thật
+so với 50,3% mảnh board ngẫu nhiên — với lớp chiếm một nửa đầu ra, model không
+phân biệt được hai thứ đó. Tỉ lệ vượt ngưỡng chấp nhận còn tụt xuống 4,4%.
+
+Dùng số của lần 5 ảnh khi trích dẫn; số 1 ảnh giữ lại để thấy chúng cùng hướng.
+
 ## Hiện tại pipeline đang xử lý thế nào — và đang đúng
 
 `SolderGradingConfig` mặc định đã giữ model ở đúng chỗ nó xứng đáng:

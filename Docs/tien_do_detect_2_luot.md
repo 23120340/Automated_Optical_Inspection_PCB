@@ -324,12 +324,12 @@ Ba bằng chứng, theo thứ tự nặng dần:
 | Nguồn | Số đo |
 |---|---|
 | Chính tập val của nó (manifest) | **46% mối hàn phải xem tay** ở ngưỡng 0.85 đang chạy; false_call 0.228 |
-| 119 ROI mối hàn thật của dự án | **61.3% bị gọi `bridge`**, chỉ **9.2%** gọi `good`; 11/119 vượt ngưỡng accept |
+| 664 ROI mối hàn thật (5 ảnh, đo lại 2026-08-23) | **50.2% bị gọi `bridge`**; chỉ **4.4%** vượt ngưỡng chấp nhận |
 | Cho ăn thứ không có mối hàn nào | nhiễu ngẫu nhiên → `bridge` **70.0%**; mảnh board bất kỳ → **68.3%** |
 
 Đọc cho đúng: model **không** hoàn toàn suy biến — chi-square 32.91 (dof 6,
 ngưỡng 12.59) bác được giả thuyết "hai phân bố là một", Mann-Whitney z = +2.71.
-Nhưng **80,4% phân bố đầu ra của nó giống hệt nhau** dù đưa mối hàn thật hay
+Nhưng **81,6% phân bố đầu ra của nó giống hệt nhau** dù đưa mối hàn thật hay
 một mảnh board bất kỳ. Tín hiệu có thật, quá yếu để dựa vào.
 
 Nguyên nhân đọc thẳng từ manifest: mất cân bằng lớp **10,6×**; ba lớp (`cold`,
@@ -408,5 +408,3 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-22 | H1–H2 — Montserrat + gộp stepper | Font tự phục vụ 228 KB, sidebar hết vẽ 8 bước hai lần; 504 test pass |
 | 2026-08-22 | I1 — đánh giá model 6.2 | `Docs/danh_gia_model_6_2.md`: chưa dùng để quyết định được, 61% mối hàn bị gọi `bridge` |
 | 2026-08-22 | F1–F3 — nhập BOM + đối chiếu | `aoi_pipeline/bom.py` + UI; linh kiện ngoài BOM = LỖI; 531 test pass |
-| 2026-08-22 | Sửa notebook chết ở cell xuất ONNX | Thiếu `onnxscript` trên torch 2.10; thêm `scripts/export_classifier_onnx.py`; 548 test pass |
-| 2026-08-22 | So model v2 với model cũ | `Docs/so_sanh_model_v2.md`: detector ver2 **kém hơn** ver1, classifier v2 **tốt hơn** nhưng chậm 26× |

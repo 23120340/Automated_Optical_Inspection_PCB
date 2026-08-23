@@ -1,0 +1,228 @@
+{
+  "protocol": {
+    "tile_px": 1024,
+    "confidence": 0.25,
+    "images": {
+      "golden.png": [
+        1024,
+        1024
+      ],
+      "sample.jpg": [
+        1024,
+        1024
+      ],
+      "golden-image.jpg": [
+        1024,
+        1024
+      ],
+      "9e6aa662a8d6298870c7.jpg": [
+        1024,
+        1024
+      ],
+      "ae9d715779e3f8bda1f2.jpg": [
+        1024,
+        946
+      ]
+    },
+    "note": "Mọi model chạy trên CÙNG các ô này, trong CÙNG một tiến trình."
+  },
+  "detector": {
+    "models": {
+      "detector": {
+        "origin": "active",
+        "architecture": "yolo26s",
+        "created": "2026-08-20",
+        "sha256": "99ced68285a5802982d2d4475ec29cc2e8c27749a2477ccae950c2e543feec4d",
+        "map50_manifest": 0.505157118048442,
+        "size_mb": 39.0,
+        "counts": {
+          "golden.png": 36,
+          "sample.jpg": 49,
+          "golden-image.jpg": 36,
+          "9e6aa662a8d6298870c7.jpg": 0,
+          "ae9d715779e3f8bda1f2.jpg": 0
+        },
+        "total": 121,
+        "seconds_median": 2.45,
+        "seconds_total": 12.13,
+        "confidence_median": 0.427,
+        "classes": {
+          "diode": 43,
+          "capacitor": 24,
+          "resistor": 23,
+          "ic": 15,
+          "display": 12,
+          "transistor": 4
+        },
+        "pads_pins": 0
+      },
+      "detector-yolo26s-20260817": {
+        "origin": "archive",
+        "architecture": "yolo26s",
+        "created": "2026-08-17",
+        "sha256": "a26151e0fab23eb089824e058ab42b12fe48581bc040a82a9f4523ac4fdbabd0",
+        "map50_manifest": 0.578791448105906,
+        "size_mb": 38.7,
+        "counts": {
+          "golden.png": 64,
+          "sample.jpg": 67,
+          "golden-image.jpg": 64,
+          "9e6aa662a8d6298870c7.jpg": 8,
+          "ae9d715779e3f8bda1f2.jpg": 0
+        },
+        "total": 203,
+        "seconds_median": 1.0,
+        "seconds_total": 16.71,
+        "confidence_median": 0.367,
+        "classes": {
+          "capacitor": 61,
+          "resistor": 55,
+          "diode": 47,
+          "ic": 25,
+          "led": 6,
+          "connector": 5,
+          "transistor": 3,
+          "inductor": 1
+        },
+        "pads_pins": 0
+      },
+      "detector-yolov8-huggingface-20260704": {
+        "origin": "archive",
+        "architecture": "yolov8",
+        "created": "2026-07-04",
+        "sha256": "bfc398bb93ce61d9d7d00389db51b651bd90c4e2141163a0ae6dad79a247ae29",
+        "map50_manifest": null,
+        "size_mb": 44.8,
+        "counts": {
+          "golden.png": 61,
+          "sample.jpg": 65,
+          "golden-image.jpg": 61,
+          "9e6aa662a8d6298870c7.jpg": 20,
+          "ae9d715779e3f8bda1f2.jpg": 6
+        },
+        "total": 213,
+        "seconds_median": 0.17,
+        "seconds_total": 0.82,
+        "confidence_median": 0.618,
+        "classes": {
+          "resistor": 44,
+          "capacitor": 43,
+          "diode": 37,
+          "ic": 34,
+          "transistor": 21,
+          "connector": 8,
+          "buzzer": 7,
+          "inductor": 6,
+          "clock": 3,
+          "battery": 3,
+          "relay": 3,
+          "display": 2,
+          "led": 2
+        },
+        "pads_pins": 0
+      }
+    },
+    "agreement": {
+      "detector ↔ detector-yolo26s-20260817": {
+        "shared": 87,
+        "same_label": 81,
+        "only_first": 34,
+        "only_second": 116
+      },
+      "detector ↔ detector-yolov8-huggingface-20260704": {
+        "shared": 70,
+        "same_label": 36,
+        "only_first": 51,
+        "only_second": 143
+      },
+      "detector-yolo26s-20260817 ↔ detector-yolov8-huggingface-20260704": {
+        "shared": 110,
+        "same_label": 70,
+        "only_first": 93,
+        "only_second": 103
+      }
+    }
+  },
+  "classifier": {
+    "crops": 213,
+    "cut_with": "detector-yolov8-huggingface-20260704",
+    "models": {
+      "classifier": {
+        "origin": "active",
+        "architecture": "efficientnet_b0",
+        "created": "2026-08-18",
+        "sha256": "1c6d1e9da7390bcb0dff1cbbe112ee3e277639f772629cf22228099c31ca981c",
+        "size_mb": 16.1,
+        "input_px": 224,
+        "class_count": 16,
+        "ms_per_crop": 9.1,
+        "confidence_median": 0.511,
+        "confidence_p10": 0.259,
+        "auto_accept_085": "9/213",
+        "auto_accept_rate": 0.042,
+        "agrees_with_detector": "113/213",
+        "agree_rate": 0.531,
+        "metric_manifest": "acc 0.958047292143402"
+      },
+      "classifier-convnext_base-20260822": {
+        "origin": "library",
+        "architecture": "convnext_base",
+        "created": "2026-08-22",
+        "sha256": "615d0f588bcb98ed09fa1775ec943b616d21e0dd691288915195424580e5c627",
+        "size_mb": 350.5,
+        "input_px": 288,
+        "class_count": 17,
+        "ms_per_crop": 305.6,
+        "confidence_median": 0.628,
+        "confidence_p10": 0.297,
+        "auto_accept_085": "26/213",
+        "auto_accept_rate": 0.122,
+        "agrees_with_detector": "112/213",
+        "agree_rate": 0.526,
+        "metric_manifest": "acc 0.9539"
+      }
+    }
+  },
+  "solder": {
+    "name": "solder/best.onnx",
+    "architecture": "mobilenet_v3_small",
+    "sha256": "6e1a56288eaac6d78a8e98383b6bcf9b420d1cff1d5bbcf918f6afc36711e303",
+    "rois": 664,
+    "roi_labels": {
+      "bridge": 333,
+      "shift_component": 144,
+      "excess": 49,
+      "insufficient": 48,
+      "good": 43,
+      "missing_solder": 36,
+      "cold": 11
+    },
+    "control_labels": {
+      "bridge": 334,
+      "excess": 122,
+      "missing_solder": 49,
+      "good": 48,
+      "shift_component": 46,
+      "cold": 41,
+      "insufficient": 24
+    },
+    "distribution_overlap": 0.816,
+    "confidence_median": 0.47,
+    "above_accept": "29/664",
+    "accept_threshold": 0.85,
+    "val_review_rate": 0.45693069306930695,
+    "val_escape": 0.009821976672805401,
+    "val_false_call": 0.22762148337595908,
+    "class_imbalance": 10.6,
+    "single_source_classes": [
+      "cold",
+      "insufficient",
+      "shift_component"
+    ],
+    "sources": [
+      "hf_soldering_boarding",
+      "roboflow_soldering",
+      "soldef_ai"
+    ]
+  }
+}
