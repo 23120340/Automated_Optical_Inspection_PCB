@@ -35,14 +35,42 @@ def _detection(label: str, x: float, y: float, detection_id: str) -> Detection:
     )
 
 
-def test_the_bom_uploader_is_on_the_sidebar(app: AppTest) -> None:
+def _enable_bom(app: AppTest) -> AppTest:
+    """Bật nguồn BOM trong ô hồ sơ board.
+
+    Từ khi Golden/BOM/CAD gộp vào một ô, ô nạp của mỗi nguồn chỉ hiện khi nguồn
+    đó được bật — sidebar không còn dựng sẵn ba ô upload cho ba thứ mà phần lớn
+    phiên làm việc không dùng tới.
+    """
+
+    app.sidebar.multiselect(key="reference_sources").set_value(
+        ["BOM — danh sách linh kiện"]).run()
+    return app
+
+
+def test_the_bom_uploader_appears_once_the_source_is_enabled(app: AppTest) -> None:
+    assert not any(item.key == "bom_uploader" for item in app.sidebar.get("file_uploader")), (
+        "chưa bật nguồn BOM thì không nên dựng sẵn ô nạp"
+    )
+    _enable_bom(app)
     assert any(item.key == "bom_uploader" for item in app.sidebar.get("file_uploader"))
+
+
+def test_the_three_reference_sources_live_in_one_box(app: AppTest) -> None:
+    """Golden, BOM và CAD/pick-and-place nói về cùng một board, nên chúng thuộc
+    về một chỗ chứ không phải ba ô rời rạc trên sidebar."""
+
+    picker = app.sidebar.multiselect(key="reference_sources")
+    assert picker.options == [
+        "Golden image", "BOM — danh sách linh kiện", "CAD / pick-and-place",
+    ]
 
 
 def test_completeness_defaults_to_complete(app: AppTest) -> None:
     """Mặc định phải là "đủ board". Đây là cái quyết định linh kiện lạ bị coi
     là LỖI hay chỉ là ghi nhận, và mặc định lỏng sẽ để lỗi trôi qua im lặng."""
 
+    _enable_bom(app)
     checkbox = next(item for item in app.sidebar.checkbox if item.key == "bom_complete")
     assert checkbox.value is True
 

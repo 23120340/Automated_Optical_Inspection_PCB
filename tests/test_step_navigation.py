@@ -26,10 +26,32 @@ def _step_indices() -> list[int]:
 
 
 def test_step_indices_are_unique_and_contiguous_from_zero() -> None:
+    """Chỉ số nội bộ phải phủ kín 0..N-1, nhưng KHÔNG cần tăng dần theo thứ tự
+    hiển thị: Golden Inspection mang chỉ số 8 mà đứng ở vị trí 3.5 trong đường
+    ống. Chỉ số là khoá của `renderers`/`statuses`; thứ tự công việc do
+    `STEP_ORDER` giữ."""
+
     indices = _step_indices()
-    assert indices == sorted(indices)
-    assert len(set(indices)) == len(indices)
-    assert indices == list(range(len(indices)))
+    assert len(set(indices)) == len(indices), "chỉ số trùng nhau"
+    assert sorted(indices) == list(range(len(indices))), "chỉ số phải phủ kín 0..N-1"
+
+
+def test_the_displayed_numbers_are_unique_and_follow_the_work_order() -> None:
+    """Số hiển thị mới là thứ người dùng đọc. Hai bước cùng số là mơ hồ."""
+
+    shown = [row[4] for row in ui.STEP_DEFINITIONS]
+    assert len(set(shown)) == len(shown), f"số hiển thị trùng: {shown}"
+    assert [float(value) for value in shown] == sorted(float(v) for v in shown), (
+        "số hiển thị phải tăng dần theo thứ tự trong bảng"
+    )
+
+
+def test_golden_inspection_sits_after_the_board_roi_step() -> None:
+    """Nó chỉ cần ảnh đã căn và vùng board — không cần detect hay phân loại.
+    Đặt nó cuối danh sách chỉ vì được thêm sau cùng là sai thứ tự công việc."""
+
+    order = [row[1] for row in ui.STEP_DEFINITIONS]
+    assert order.index("Golden Inspection") == order.index("Khoanh vùng PCB") + 1
 
 
 @pytest.fixture(scope="module")
@@ -86,8 +108,10 @@ def test_resetting_a_step_invalidates_every_later_step() -> None:
     the last step holding stale results from a previous board."""
 
     source = inspect.getsource(ui._invalidate_after)
-    assert "len(STEP_DEFINITIONS)" in source, (
-        "_invalidate_after phải chạy tới hết STEP_DEFINITIONS, không dùng số cứng"
+    assert "STEP_ORDER" in source, (
+        "_invalidate_after phải đi theo STEP_ORDER, không dùng số cứng và không "
+        "dùng range() — từ khi Golden thành bước 3.5 thì 'các bước sau' không "
+        "còn trùng với 'chỉ số lớn hơn'"
     )
     covered = {int(index) for index in re.findall(r"^\s*(\d+): \"\w+\",", source, re.M)}
     missing = [step for step in _step_indices() if step not in covered]
@@ -162,3 +186,24 @@ def test_resetting_the_source_image_clears_the_golden_run_too() -> None:
     )
     assert '8: "inspection_run"' in code
     assert "inspection_recipe" not in code
+
+
+def test_rerunning_detection_does_not_wipe_the_golden_result() -> None:
+    """Hệ quả thật của việc Golden thành bước 3.5: nó phụ thuộc ảnh đã căn và
+    vùng board, KHÔNG phụ thuộc detect. Chạy lại detect mà xoá kết quả Golden
+    là bắt người dùng làm lại một việc chẳng liên quan.
+
+    Với `range(step+1, ...)` cũ thì điều này sai: Golden mang chỉ số 8 nên mọi
+    bước đều xoá nó.
+    """
+
+    order = list(ui.STEP_ORDER)
+    golden = 8
+    detect = 4
+    assert order.index(golden) < order.index(detect), "Golden phải đứng trước detect"
+
+    after_detect = order[order.index(detect) + 1:]
+    assert golden not in after_detect, "chạy lại detect không được xoá kết quả Golden"
+
+    after_board = order[order.index(3) + 1:]
+    assert golden in after_board, "đổi vùng board thì kết quả Golden phải bị xoá"

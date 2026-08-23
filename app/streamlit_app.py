@@ -36,7 +36,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from aoi_pipeline.solder.cad import CadError, register_cad  # noqa: E402
+from aoi_pipeline.solder.cad import CadError, load_cad, register_cad  # noqa: E402
 from aoi_pipeline.bom import (  # noqa: E402
     BillOfMaterials,
     BomError,
@@ -98,17 +98,34 @@ MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 # does not import the core at load time; a drift test asserts they still match.
 CLASSIFIER_MANIFEST_SCHEMA = "pcb-component-classifier/1.0"
 SOLDER_MANIFEST_SCHEMA = "pcb-solder-defect-classifier/1.0"
+#: (chỉ số nội bộ, tên, mô tả, mã, số hiển thị)
+#:
+#: Chỉ số nội bộ là khoá của `renderers` và của `statuses`; nó KHÔNG đổi khi
+#: thứ tự hiển thị đổi. Số hiển thị mới là thứ người dùng thấy, và dự án vốn
+#: đã dùng số lẻ ở chỗ khác (`5.5 · ROI chân hàn`, `6.1`, `6.2`), nên Golden
+#: Inspection là **3.5**: nó chỉ cần ảnh đã căn và vùng board, không cần
+#: detect hay phân loại. Đặt nó ở cuối chỉ vì nó được thêm sau cùng là sai
+#: thứ tự công việc.
 STEP_DEFINITIONS = (
-    (0, "Thu thập ảnh", "Import ảnh PCB", "IN"),
-    (1, "Tiền xử lý", "Undistort và chuẩn hóa", "FX"),
-    (2, "Căn chỉnh PCB", "Golden image + homography", "AL"),
-    (3, "Khoanh vùng PCB", "Xác định board ROI", "ROI"),
-    (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI"),
-    (5, "Cắt linh kiện", "Crop + normalize + export", "CUT"),
-    (6, "Phân loại linh kiện", "Family + accept/review/unknown", "CLS"),
-    (7, "Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD"),
-    (8, "Golden Inspection", "Recipe + so sánh với board chuẩn", "GLD"),
+    (0, "Thu thập ảnh", "Import ảnh PCB", "IN", "0"),
+    (1, "Tiền xử lý", "Undistort và chuẩn hóa", "FX", "1"),
+    (2, "Căn chỉnh PCB", "Golden image + homography", "AL", "2"),
+    (3, "Khoanh vùng PCB", "Xác định board ROI", "ROI", "3"),
+    (8, "Golden Inspection", "Recipe + so sánh với board chuẩn", "GLD", "3.5"),
+    (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI", "4"),
+    (5, "Cắt linh kiện", "Crop + normalize + export", "CUT", "5"),
+    (6, "Phân loại linh kiện", "Family + accept/review/unknown", "CLS", "6.1"),
+    (7, "Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD", "6.2"),
 )
+
+#: Chỉ số nội bộ -> hàng của nó. Tra theo VỊ TRÍ trong tuple sẽ sai ngay khi
+#: thứ tự hiển thị khác thứ tự chỉ số.
+STEP_BY_INDEX = {row[0]: row for row in STEP_DEFINITIONS}
+
+#: Thứ tự công việc thật, theo chỉ số nội bộ. `_invalidate_after` dùng nó chứ
+#: không dùng `range()`: sau khi Golden thành 3.5, "các bước sau" không còn
+#: trùng với "chỉ số lớn hơn".
+STEP_ORDER = tuple(row[0] for row in STEP_DEFINITIONS)
 SOLDER_ROI_COLORS = {
     "joint": (0, 200, 255),  # BGR amber
     "body": (255, 170, 0),   # BGR blue
@@ -232,6 +249,14 @@ def _default_config() -> dict[str, Any]:
             "terminal_outer_ratio": 0.45,
             "lead_outer_ratio": 0.26,
             "target_size": 128,
+        },
+        # Hồ sơ CAD / pick-and-place. `PipelineConfig` đã đọc mục này từ trước;
+        # chỉ có giao diện là chưa bao giờ lộ nó ra.
+        "cad": {
+            "path": None,
+            "fmt": "auto",
+            "units": "mm",
+            "side": "top",
         },
         "solder_grading": {
             "enabled": True,
@@ -370,6 +395,11 @@ def _init_state() -> None:
         "bom": None,
         "bom_name": None,
         "bom_complete": True,
+        # Hồ sơ board: CAD / pick-and-place. `cad_summary` là kết quả hợp nhất
+        # ở bước 6.2, không phải file nguồn — nên tên riêng cho nguồn.
+        "cad_name": None,
+        "cad_digest": None,
+        "cad_components": 0,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -484,11 +514,11 @@ def _invalidate_after(step: int) -> None:
         # recipe dựng từ ảnh Golden riêng và sống lâu hơn từng board.
         8: "inspection_run",
     }
-    # Bounded by STEP_DEFINITIONS, not by a literal: a hard-coded 7 here is what
-    # let step 6.2 be added to the navigation while staying invisible to state
-    # reset, and the same literal in the statuses dict raised KeyError: 7 on the
-    # very first render.
-    for candidate in range(step + 1, len(STEP_DEFINITIONS)):
+    # Đi theo STEP_ORDER, không theo `range()`: từ khi Golden Inspection thành
+    # bước 3.5 thì "các bước sau" không còn trùng với "chỉ số lớn hơn". Một số
+    # cứng ở đây từng làm bước 6.2 vô hình với việc reset trạng thái.
+    position = STEP_ORDER.index(step)
+    for candidate in STEP_ORDER[position + 1:]:
         st.session_state[result_keys[candidate]] = [] if candidate == 5 else None
         st.session_state.statuses[candidate] = "pending"
         st.session_state.latencies.pop(candidate, None)
@@ -1061,12 +1091,12 @@ def _render_stepper() -> None:
     vào tooltip: nó có ích lúc học quy trình và chỉ chiếm chỗ sau đó.
     """
 
-    for step, name, description, code in STEP_DEFINITIONS:
+    for step, name, description, code, shown in STEP_DEFINITIONS:
         status = st.session_state.statuses[step]
         active = step == st.session_state.active_step
         glyph = _STATUS_GLYPH.get(status, "·")
         if st.button(
-            f"{glyph}  {step}. {name}",
+            f"{glyph}  {shown}. {name}",
             key=f"stepnav_{step}",
             width="stretch",
             type="primary" if active else "secondary",
@@ -1074,6 +1104,117 @@ def _render_stepper() -> None:
         ):
             st.session_state.active_step = step
             st.rerun()
+
+
+#: Bốn nguồn nói về cùng một board nhưng mỗi nguồn một khía cạnh, và chúng bổ
+#: sung chứ không thay thế nhau: Golden nói board TRÔNG thế nào, BOM nói board
+#: PHẢI CÓ những gì, CAD/pick-and-place nói mỗi linh kiện NẰM ĐÂU.
+_REFERENCE_SOURCES = {
+    "golden": (
+        "Golden image",
+        "Ảnh một board đã biết là tốt. Dùng để căn ảnh ở bước 2 và so sánh ở "
+        "bước 3.5.",
+    ),
+    "bom": (
+        "BOM — danh sách linh kiện",
+        "Board phải có những linh kiện nào. Dùng để đối chiếu ở bước 4: linh "
+        "kiện ở toạ độ BOM không có là một lỗi.",
+    ),
+    "cad": (
+        "CAD / pick-and-place",
+        "Toạ độ và góc xoay từng linh kiện. Dùng ở bước 6.2 để đặt ROI chân "
+        "hàn theo land thật thay vì suy ra từ hình học.",
+    ),
+}
+
+
+def _render_reference_golden() -> None:
+    reference_upload = st.file_uploader(
+        "Ảnh board chuẩn",
+        type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
+        key="reference_uploader",
+    )
+    if reference_upload is not None:
+        try:
+            _set_reference(reference_upload)
+        except ValueError as exc:
+            st.error(str(exc))
+    if st.session_state.reference_name:
+        st.success(st.session_state.reference_name)
+        if st.button("Gỡ reference", width="stretch"):
+            st.session_state.ignored_uploads["reference"] = st.session_state.reference_digest
+            st.session_state.reference_image = None
+            st.session_state.reference_name = None
+            st.session_state.reference_digest = None
+            _invalidate_after(1)
+            st.rerun()
+
+
+def _render_reference_bom() -> None:
+    bom_upload = st.file_uploader(
+        "File BOM (.csv)",
+        type=["csv"],
+        key="bom_uploader",
+        help=(
+            "Nhận cả hai dạng: một dòng mỗi linh kiện kèm toạ độ và kích "
+            "thước, hoặc một dòng mỗi loại với danh sách designator "
+            '("R1, R2, R5") và cột Quantity.'
+        ),
+    )
+    complete = st.checkbox(
+        "BOM này liệt kê đủ mọi linh kiện của board",
+        key="bom_complete",
+        help=(
+            "Bật (mặc định): linh kiện tìm thấy ở chỗ BOM không có sẽ bị "
+            "báo LỖI — linh kiện thừa, đặt nhầm chỗ, hoặc vật lạ. Tắt nếu "
+            "file chỉ liệt kê một phần; khi đó nó chỉ là ghi nhận."
+        ),
+    )
+    if bom_upload is not None:
+        try:
+            _set_bom(bom_upload, complete)
+        except BomError as exc:
+            st.error(str(exc))
+    bom = st.session_state.bom
+    if bom is not None:
+        st.success(f"{st.session_state.bom_name} · {len(bom)} linh kiện")
+        st.caption(
+            ("có toạ độ" if bom.has_positions else "không có toạ độ")
+            + (" · đủ board" if bom.complete else " · một phần")
+        )
+        for warning in bom.warnings[:3]:
+            st.caption(f"⚠ {warning}")
+        if st.button("Gỡ BOM", width="stretch"):
+            _remove_bom()
+            st.rerun()
+
+
+def _render_reference_cad() -> None:
+    upload = st.file_uploader(
+        "CAD / pick-and-place (.csv, .json, IPC-356)",
+        type=["csv", "json", "ipc", "net", "txt"],
+        key="cad_uploader",
+        help="Nhận file centroid/pick-and-place, danh sách pad, IPC-D-356A hoặc "
+             "CAD JSON. Định dạng được đoán từ nội dung, không theo đuôi file.",
+    )
+    if upload is not None:
+        try:
+            _set_cad(upload)
+        except CadError as exc:
+            st.error(str(exc))
+    if st.session_state.cad_name:
+        st.success(f"{st.session_state.cad_name} · "
+                   f"{st.session_state.cad_components} linh kiện")
+        if st.button("Gỡ CAD", key="remove_cad", width="stretch"):
+            _remove_cad()
+            st.rerun()
+
+
+_RESOURCE_RENDERERS = {
+    "golden": _render_reference_golden,
+    "bom": _render_reference_bom,
+    "cad": _render_reference_cad,
+}
 
 
 def _render_sidebar() -> bool:
@@ -1091,49 +1232,46 @@ def _render_sidebar() -> bool:
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="sidebar-section-label">WORKFLOW · 0–6.2 · GOLDEN</div>',
+        st.markdown('<div class="sidebar-section-label">WORKFLOW · 0 → 6.2</div>',
                     unsafe_allow_html=True)
         _render_stepper()
 
-        st.markdown('<div class="sidebar-section-label">TÀI NGUYÊN</div>', unsafe_allow_html=True)
-        with st.expander("BOM — danh sách linh kiện", expanded=False):
-            bom_upload = st.file_uploader(
-                "File BOM (.csv)",
-                type=["csv"],
-                key="bom_uploader",
-                help=(
-                    "Nhận cả hai dạng: một dòng mỗi linh kiện kèm toạ độ và kích "
-                    "thước, hoặc một dòng mỗi loại với danh sách designator "
-                    '("R1, R2, R5") và cột Quantity.'
-                ),
+        st.markdown('<div class="sidebar-section-label">HỒ SƠ BOARD</div>',
+                    unsafe_allow_html=True)
+        with st.expander("Dữ liệu tham chiếu — board này phải trông thế nào",
+                         expanded=False):
+            st.caption(
+                "Ba nguồn, mỗi nguồn nói một khía cạnh khác nhau về board. Có "
+                "cái nào thì bật cái đó — không cái nào bắt buộc, và chúng bổ "
+                "sung chứ không thay thế nhau."
             )
-            complete = st.checkbox(
-                "BOM này liệt kê đủ mọi linh kiện của board",
-                key="bom_complete",
-                help=(
-                    "Bật (mặc định): linh kiện tìm thấy ở chỗ BOM không có sẽ bị "
-                    "báo LỖI — linh kiện thừa, đặt nhầm chỗ, hoặc vật lạ. Tắt nếu "
-                    "file chỉ liệt kê một phần; khi đó nó chỉ là ghi nhận."
-                ),
+            already = [
+                key for key, present in (
+                    ("golden", bool(st.session_state.reference_name)),
+                    ("bom", st.session_state.bom is not None),
+                    ("cad", bool(st.session_state.cad_name)),
+                ) if present
+            ]
+            chosen = st.multiselect(
+                "Nguồn đang dùng",
+                options=list(_REFERENCE_SOURCES),
+                default=already,
+                format_func=lambda key: _REFERENCE_SOURCES[key][0],
+                key="reference_sources",
+                help="Bỏ chọn chỉ ẩn ô nạp đi, KHÔNG gỡ dữ liệu đã nạp — dùng "
+                     "nút Gỡ cho việc đó.",
             )
-            if bom_upload is not None:
-                try:
-                    _set_bom(bom_upload, complete)
-                except BomError as exc:
-                    st.error(str(exc))
-            bom = st.session_state.bom
-            if bom is not None:
-                st.success(f"{st.session_state.bom_name} · {len(bom)} linh kiện")
-                st.caption(
-                    ("có toạ độ" if bom.has_positions else "không có toạ độ")
-                    + (" · đủ board" if bom.complete else " · một phần")
-                )
-                for warning in bom.warnings[:3]:
-                    st.caption(f"⚠ {warning}")
-                if st.button("Gỡ BOM", width="stretch"):
-                    _remove_bom()
-                    st.rerun()
+            for position, key in enumerate(chosen):
+                if position:
+                    st.divider()
+                st.caption(_REFERENCE_SOURCES[key][1])
+                _RESOURCE_RENDERERS[key]()
+            if not chosen:
+                st.caption("Chưa bật nguồn nào. Đường ống vẫn chạy, chỉ là không "
+                           "có gì để đối chiếu.")
 
+        st.markdown('<div class="sidebar-section-label">CAMERA</div>',
+                    unsafe_allow_html=True)
         with st.expander("Camera calibration", expanded=False):
             calibration_upload = st.file_uploader(
                 "Profile hiệu chỉnh (.json)",
@@ -1156,27 +1294,6 @@ def _render_sidebar() -> bool:
                 st.caption(summary)
                 if st.button("Gỡ calibration profile", width="stretch"):
                     _remove_calibration_profile()
-                    st.rerun()
-
-        with st.expander("Golden Image / Reference", expanded=False):
-            reference_upload = st.file_uploader(
-                "Ảnh board chuẩn",
-                type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
-                key="reference_uploader",
-            )
-            if reference_upload is not None:
-                try:
-                    _set_reference(reference_upload)
-                except ValueError as exc:
-                    st.error(str(exc))
-            if st.session_state.reference_name:
-                st.success(st.session_state.reference_name)
-                if st.button("Gỡ reference", width="stretch"):
-                    st.session_state.ignored_uploads["reference"] = st.session_state.reference_digest
-                    st.session_state.reference_image = None
-                    st.session_state.reference_name = None
-                    st.session_state.reference_digest = None
-                    _invalidate_after(1)
                     st.rerun()
 
         st.markdown(
@@ -1410,6 +1527,40 @@ def _set_bom(upload: Any, complete: bool) -> None:
         f"Đã nạp BOM {upload.name}: {len(bom)} linh kiện"
         + (", có toạ độ" if bom.has_positions else ", KHÔNG có toạ độ")
     )
+
+
+def _set_cad(upload: Any) -> None:
+    """Nạp CAD hoặc pick-and-place. Định dạng được đoán từ nội dung.
+
+    Nạp thử ngay lúc này thay vì đợi bước 6.2: một file sai định dạng phát
+    hiện lúc bấm upload thì sửa được ngay, còn phát hiện lúc chạy hợp nhất ROI
+    thì nó hiện ra như "CAD không khớp" và người dùng đi tìm nhầm chỗ.
+    """
+
+    data = upload.getvalue()
+    if not data:
+        raise CadError("File CAD rỗng.")
+    digest = _digest(data)
+    if digest == st.session_state.cad_digest:
+        return
+    path = _materialize_upload(upload.name, data)
+    board = load_cad(Path(path))          # ném CadError nếu không đọc được
+    st.session_state.config["cad"]["path"] = path
+    st.session_state.cad_name = upload.name
+    st.session_state.cad_digest = digest
+    st.session_state.cad_components = len(board.components)
+    _invalidate_after(6)
+    st.session_state.messages.append(
+        f"Đã nạp {board.source_format}: {upload.name} · {len(board.components)} linh kiện"
+    )
+
+
+def _remove_cad() -> None:
+    st.session_state.config["cad"]["path"] = None
+    st.session_state.cad_name = None
+    st.session_state.cad_digest = None
+    st.session_state.cad_components = 0
+    _invalidate_after(6)
 
 
 def _remove_bom() -> None:
@@ -2088,7 +2239,7 @@ def _render_header() -> None:
 
 
 def _render_step_heading(step: int) -> None:
-    _, name, description, code = STEP_DEFINITIONS[step]
+    _, name, description, code, shown = STEP_BY_INDEX[step]
     status = st.session_state.statuses[step]
     st.markdown(
         f"""
