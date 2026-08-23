@@ -43,6 +43,7 @@ from aoi_pipeline.bom import (  # noqa: E402
     load_bom,
     reconcile_bom,
 )
+from streamlit_image_coordinates import streamlit_image_coordinates  # noqa: E402
 from aoi_pipeline.models import BoundingBox  # noqa: E402
 from aoi_pipeline.model_feedback import (  # noqa: E402
     ERROR_KINDS,
@@ -363,8 +364,8 @@ def _init_state() -> None:
         # Đánh giá model: chỗ người vận hành ghi nhận model sai ở từng bước.
         # ``feedback_reload_token`` làm mất hiệu lực cache đọc sau mỗi lần ghi.
         "feedback_reload_token": uuid4().hex,
-        "feedback_locator": None,       # ảnh thu nhỏ để định vị, dựng 1 lần/board
-        "feedback_locator_key": None,   # digest:stage nó được dựng cho
+        "feedback_canvas": None,        # ảnh thu nhỏ để bấm, dựng 1 lần/board
+        "feedback_canvas_key": None,    # digest:kích thước nó được dựng cho
         # BOM: hợp đồng lắp ráp. ``None`` = chưa nạp, và mọi đối chiếu bị bỏ qua.
         "bom": None,
         "bom_name": None,
@@ -1703,42 +1704,107 @@ def _feedback_crop(entry: FeedbackEntry) -> np.ndarray | None:
     return patch if patch.size else None
 
 
-def _feedback_locator(box: tuple[int, int, int, int]) -> np.ndarray | None:
-    """Ảnh board thu nhỏ, có vẽ khung đang chọn, để biết mình đang ở đâu.
+#: Chiều ngang ảnh chọn vùng. Đủ to để bấm trúng một linh kiện 60 px, đủ nhỏ
+#: để JPEG của nó chỉ vài chục KB — ảnh này gửi lại mỗi lần rerun.
+_FEEDBACK_CANVAS_WIDTH = 760
+
+
+def _feedback_canvas(
+    targets: Sequence[_FeedbackTarget],
+    highlight: int | None,
+) -> tuple[np.ndarray, float] | None:
+    """Ảnh board thu nhỏ có vẽ sẵn mọi box, kèm tỉ lệ thu nhỏ.
 
     Phần đắt là thu nhỏ khung 14 MP; làm một lần cho mỗi board rồi giữ trong
-    session. Mỗi lần kéo thanh trượt chỉ tốn một bản sao ảnh 640px và một hình
-    chữ nhật -- khoảng 50 KB, so với 1.2 MB nếu gửi cả ảnh board mỗi lần.
+    session. Mỗi lần bấm chỉ tốn một bản sao ảnh 760 px cộng vài hình chữ nhật.
     """
 
     frame = _analysis_image()
     if frame is None:
         return None
-    space = _analysis_coordinate_space()
-    key = f"{st.session_state.input_digest}:{space['stage']}:{frame.shape[0]}x{frame.shape[1]}"
-    if st.session_state.feedback_locator_key != key:
-        long_side = max(frame.shape[:2])
-        scale = min(1.0, 640.0 / long_side) if long_side else 1.0
-        st.session_state.feedback_locator = cv2.resize(
-            frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
-        ) if scale < 1.0 else frame.copy()
-        st.session_state.feedback_locator_key = key
+    key = f"{st.session_state.input_digest}:{frame.shape[0]}x{frame.shape[1]}"
+    if st.session_state.feedback_canvas_key != key:
+        scale = min(1.0, _FEEDBACK_CANVAS_WIDTH / max(1, frame.shape[1]))
+        st.session_state.feedback_canvas = (
+            cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+            if scale < 1.0 else frame.copy()
+        )
+        st.session_state.feedback_canvas_key = key
 
-    small = st.session_state.feedback_locator
-    if small is None:
+    base = st.session_state.feedback_canvas
+    if base is None:
         return None
-    canvas = small.copy()
-    ratio_x = canvas.shape[1] / frame.shape[1]
-    ratio_y = canvas.shape[0] / frame.shape[0]
-    x1, y1, x2, y2 = box
-    cv2.rectangle(
-        canvas,
-        (int(x1 * ratio_x), int(y1 * ratio_y)),
-        (max(int(x2 * ratio_x), int(x1 * ratio_x) + 1),
-         max(int(y2 * ratio_y), int(y1 * ratio_y) + 1)),
-        (0, 200, 255), 2,
+    scale = base.shape[1] / frame.shape[1]
+    canvas = base.copy()
+    for index, target in enumerate(targets):
+        x1, y1, x2, y2 = (int(round(value * scale)) for value in target.bbox)
+        chosen = index == highlight
+        cv2.rectangle(canvas, (x1, y1), (x2, y2),
+                      (0, 235, 255) if chosen else (150, 150, 150),
+                      3 if chosen else 1)
+    return canvas, scale
+
+
+def _feedback_click(key: str, canvas: np.ndarray, scale: float) -> tuple[int, int] | None:
+    """Toạ độ vừa bấm, quy về pixel của ảnh phân tích. None nếu chưa bấm mới.
+
+    Component trả toạ độ theo ảnh **hiển thị** kèm luôn chiều ngang hiển thị,
+    nên quy đổi là chính xác chứ không phải đoán.
+
+    `unix_time` phân biệt một cú bấm MỚI với giá trị cũ mà component trả lại ở
+    mọi lần chạy lại. Không lọc theo nó thì mỗi lần gõ một ký tự bình luận là
+    một lần "bấm" lặp lại, và ô chọn nhảy về chỗ cũ.
+    """
+
+    value = streamlit_image_coordinates(
+        canvas, width=canvas.shape[1], key=key,
+        image_format="JPEG", jpeg_quality=80, cursor="crosshair",
     )
-    return canvas
+    if not value:
+        return None
+    stamp_key = f"{key}_stamp"
+    stamp = value.get("unix_time")
+    if stamp is not None and st.session_state.get(stamp_key) == stamp:
+        return None                      # giá trị cũ, không phải cú bấm mới
+    st.session_state[stamp_key] = stamp
+    return _click_to_source(value, canvas.shape[1], scale)
+
+
+def _click_to_source(
+    value: Mapping[str, Any], canvas_width: int, scale: float
+) -> tuple[int, int]:
+    """Toạ độ bấm -> pixel của ảnh phân tích.
+
+    Hai lần thu nhỏ chồng lên nhau, và quên một trong hai là lệch chỗ:
+
+    1. ảnh phân tích -> canvas (hệ số ``scale``, do ta chọn)
+    2. canvas -> kích thước thật trên màn hình (trình duyệt co theo bề rộng cột)
+
+    Component trả kèm bề rộng đã hiển thị, nên bậc thứ hai đo được chứ không
+    phải đoán.
+    """
+
+    shown_width = float(value.get("width") or canvas_width)
+    ratio = canvas_width / max(shown_width, 1.0) / max(scale, 1e-9)
+    return int(round(float(value["x"]) * ratio)), int(round(float(value["y"]) * ratio))
+
+
+def _target_under(targets: Sequence[_FeedbackTarget], point: tuple[int, int]) -> int | None:
+    """Box nào nằm dưới điểm vừa bấm.
+
+    Chọn box NHỎ NHẤT chứa điểm: linh kiện nhỏ hay nằm lọt trong box của một
+    connector hay IC lớn, và người bấm vào con nhỏ thì ý họ là con nhỏ.
+    """
+
+    x, y = point
+    best, best_area = None, None
+    for index, target in enumerate(targets):
+        x1, y1, x2, y2 = target.bbox
+        if x1 <= x <= x2 and y1 <= y <= y2:
+            area = (x2 - x1) * (y2 - y1)
+            if best_area is None or area < best_area:
+                best, best_area = index, area
+    return best
 
 
 def _feedback_runtime_mode(stage: str) -> str:
@@ -1782,60 +1848,87 @@ def _render_model_feedback(stage: str, targets: Sequence[_FeedbackTarget]) -> No
 
         mode = st.radio(
             "Cách đánh dấu",
-            ["Chọn từ kết quả", "Kính lúp (model bỏ sót)"],
+            ["Bấm vào box bị sai", "Bấm vào chỗ model bỏ sót"],
             horizontal=True, key=f"fb_{stage}_mode",
-            help="Chọn từ kết quả cho toạ độ chính xác tuyệt đối. Kính lúp dùng "
-                 "khi model không tìm ra gì để mà chọn.",
+            help="Cách 1 dùng khi model ĐÃ khoanh nhưng khoanh sai. Cách 2 dùng "
+                 "khi model không khoanh gì cả — bấm vào giữa chỗ bị sót.",
         )
+        by_click = mode == "Bấm vào box bị sai"
 
         picked: _FeedbackTarget | None = None
         box: tuple[int, int, int, int] | None = None
-        left, right = st.columns([1.1, 1.0], gap="large")
+        box_size: int | None = None
+        height, width = frame.shape[:2]
 
+        if by_click and not targets:
+            st.info(
+                "Bước này chưa khoanh được gì để mà bấm. Chuyển sang **Bấm vào "
+                "chỗ model bỏ sót**."
+            )
+            return
+
+        if not by_click:
+            box_size = st.select_slider(
+                "Kích thước ô", options=(32, 48, 64, 96, 128, 192, 256, 384),
+                value=96, key=f"fb_{stage}_size",
+                help="Chỉnh trước, rồi bấm vào ảnh — chỗ bấm là TÂM ô. Thang nhân "
+                     "vì thanh trượt tuyến tính tiêu phần lớn hành trình vào "
+                     "những cỡ không ai dùng.",
+            )
+
+        selected_key = f"fb_{stage}_selected"
+        drawn = targets if by_click else ()
+        prepared = _feedback_canvas(drawn, st.session_state.get(selected_key))
+        if prepared is None:
+            return
+        canvas, scale = prepared
+
+        left, right = st.columns([1.6, 1.0], gap="large")
         with left:
-            if mode == "Chọn từ kết quả":
-                if not targets:
-                    st.info(
-                        "Bước này chưa có kết quả nào để chọn. Dùng **kính lúp** "
-                        "nếu muốn báo model không tìm ra gì."
-                    )
+            st.caption(
+                "Bấm vào box bị sai." if by_click
+                else f"Bấm vào giữa chỗ bị sót — ô {box_size}×{box_size} px sẽ đặt quanh điểm bấm."
+            )
+            point = _feedback_click(f"fb_{stage}_canvas", canvas, scale)
+            if point is not None:
+                if by_click:
+                    found = _target_under(targets, point)
+                    st.session_state[selected_key] = found
+                    if found is None:
+                        st.warning("Chỗ vừa bấm không nằm trong box nào. Bấm lại vào một box.")
                 else:
-                    labels = [item.display for item in targets]
-                    chosen = st.selectbox("Mục bị sai", labels, key=f"fb_{stage}_target")
-                    picked = targets[labels.index(chosen)]
-                    box = picked.bbox
-            else:
-                height, width = frame.shape[:2]
-                cx = st.slider("Tâm X", 0, max(width - 1, 1), width // 2,
-                               key=f"fb_{stage}_cx")
-                cy = st.slider("Tâm Y", 0, max(height - 1, 1), height // 2,
-                               key=f"fb_{stage}_cy")
-                size = st.select_slider(
-                    "Kích thước ô", options=(32, 48, 64, 96, 128, 192, 256, 384),
-                    value=96, key=f"fb_{stage}_size",
-                    help="Thang nhân, vì một thanh trượt tuyến tính sẽ tiêu phần lớn "
-                         "hành trình vào những cỡ không ai dùng.",
-                )
-                half = size // 2
-                box = BoundingBox(
-                    float(cx - half), float(cy - half),
-                    float(cx + half), float(cy + half),
-                ).clamp(width, height).to_int()
+                    st.session_state[f"fb_{stage}_point"] = point
+                st.rerun()
 
-            if box is not None:
-                locator = _feedback_locator(box)
-                if locator is not None:
-                    _show_image(locator, "Vị trí trên board")
+        if by_click:
+            index = st.session_state.get(selected_key)
+            if index is None or index >= len(targets):
+                with right:
+                    st.info("Chưa chọn box nào. Bấm vào một box trong ảnh bên trái.")
+                return
+            picked = targets[index]
+            box = picked.bbox
+        else:
+            point = st.session_state.get(f"fb_{stage}_point")
+            if point is None:
+                with right:
+                    st.info("Chưa bấm chỗ nào. Bấm vào ảnh bên trái.")
+                return
+            half = (box_size or 96) // 2
+            box = BoundingBox(
+                float(point[0] - half), float(point[1] - half),
+                float(point[0] + half), float(point[1] + half),
+            ).clamp(width, height).to_int()
 
         with right:
-            if box is not None:
-                x1, y1, x2, y2 = box
-                patch = frame[y1:y2, x1:x2]
-                if patch.size:
-                    _show_image(patch, f"Vùng đã chọn · {x2 - x1}×{y2 - y1} px")
-
-        if box is None:
-            return
+            x1, y1, x2, y2 = box
+            patch = frame[y1:y2, x1:x2]
+            if patch.size:
+                _show_image(patch, f"Vùng đã chọn · {x2 - x1}×{y2 - y1} px")
+            if picked is not None:
+                st.caption(f"**{picked.display}**")
+            elif box_size is not None:
+                st.caption(f"Ô {box_size}×{box_size} px quanh điểm bấm")
 
         with st.form(f"fb_{stage}_form"):
             kinds = ERROR_KINDS[stage]
@@ -1871,6 +1964,7 @@ def _render_model_feedback(stage: str, targets: Sequence[_FeedbackTarget]) -> No
                         image_role=str(space["image_role"]),
                         preprocess=preprocess_identity(st.session_state.config.get("preprocess")),
                         origin="result_row" if picked else "magnifier",
+                        box_size=box_size,
                         target=FeedbackTargetRef(
                             record_type=picked.record_type if picked else None,
                             record_id=picked.record_id if picked else None,

@@ -257,6 +257,11 @@ class FeedbackEntry:
     image_role: str = "input"
     preprocess: dict[str, Any] = field(default_factory=dict)
     origin: str = "result_row"          # result_row | magnifier
+    # Cạnh ô người dùng chọn ở chế độ kính lúp, tính bằng pixel ảnh phân tích.
+    # `bbox` cũng mang kích thước, NHƯNG nó bị cắt khi ô chạm mép ảnh -- lúc đó
+    # kích thước thật đã mất. Giữ riêng để lượt train sau đọc được ý định của
+    # người ghi, không phải phần còn lại sau khi cắt.
+    box_size: int | None = None
     target: FeedbackTargetRef = field(default_factory=FeedbackTargetRef)
     expected_label: str | None = None
     comment: str = ""
@@ -298,6 +303,7 @@ class FeedbackEntry:
             "bbox": [int(value) for value in self.bbox],
             "coordinate_space": "analysis_image_pixels",
             "origin": self.origin,
+            "box_size": self.box_size,
             "expected_label": self.expected_label,
             "comment": self.comment,
             "runtime_mode": self.runtime_mode,
@@ -351,6 +357,7 @@ class FeedbackEntry:
             image_role=str(source.get("image_role", "input")),
             preprocess=dict(source.get("preprocess") or {}),
             origin=str(value.get("origin", "result_row")),
+            box_size=(int(value["box_size"]) if value.get("box_size") else None),
             target=FeedbackTargetRef.from_dict(value.get("target")),
             expected_label=value.get("expected_label"),
             comment=str(value.get("comment", "")),

@@ -128,12 +128,16 @@ def test_it_stays_quiet_when_there_is_no_image_at_all() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_choosing_a_result_row_records_that_row_s_exact_box(feedback_dir) -> None:
+def test_clicking_a_box_records_that_box_s_exact_coordinates(feedback_dir) -> None:
+    """AppTest không bấm được vào một component tuỳ biến, nên đặt thẳng trạng
+    thái mà cú bấm sẽ đặt. Phần số học quy đổi toạ độ được kiểm riêng ở
+    `test_a_click_maps_back_through_both_downscales`."""
+
     detections = [_detection(0), _detection(1)]
     app = _app(4, detections=detections)
 
-    app.selectbox(key="fb_detection_target").select(
-        f"{detections[1].detection_id} · capacitor 0.61").run()
+    app.session_state["fb_detection_selected"] = 1
+    app.run()
     submit = [b for b in app.button if "Ghi nhận" in (b.label or "")]
     assert submit, "không thấy nút Ghi nhận"
     submit[0].click().run()
@@ -149,11 +153,13 @@ def test_choosing_a_result_row_records_that_row_s_exact_box(feedback_dir) -> Non
     assert entry.stage == "detection" and entry.step == 4
 
 
-def test_the_magnifier_records_the_box_it_previewed(feedback_dir) -> None:
+def test_clicking_an_empty_spot_records_a_box_of_the_chosen_size(feedback_dir) -> None:
+    """Chế độ 2: chỉnh cỡ ô trước, chỗ bấm là TÂM ô."""
+
     app = _app(4)
-    app.radio(key="fb_detection_mode").set_value("Kính lúp (model bỏ sót)").run()
-    app.slider(key="fb_detection_cx").set_value(200).run()
-    app.slider(key="fb_detection_cy").set_value(150).run()
+    app.radio(key="fb_detection_mode").set_value("Bấm vào chỗ model bỏ sót").run()
+    app.session_state["fb_detection_point"] = (200, 150)
+    app.run()
 
     submit = [b for b in app.button if "Ghi nhận" in (b.label or "")]
     submit[0].click().run()
@@ -165,6 +171,7 @@ def test_the_magnifier_records_the_box_it_previewed(feedback_dir) -> None:
     assert entry.target.record_id is None
     # Ô mặc định 96 px quanh tâm (200, 150).
     assert entry.bbox == (152, 102, 248, 198)
+    assert entry.box_size == 96, "kích thước ô phải được ghi lại cho lượt train sau"
 
 
 def test_the_entry_carries_the_digest_of_the_model_it_judges(feedback_dir) -> None:
@@ -175,6 +182,8 @@ def test_the_entry_carries_the_digest_of_the_model_it_judges(feedback_dir) -> No
     from aoi_pipeline.model_registry import find_active
 
     app = _app(4, detections=[_detection(0)])
+    app.session_state["fb_detection_selected"] = 0
+    app.run()
     submit = [b for b in app.button if "Ghi nhận" in (b.label or "")]
     submit[0].click().run()
 
@@ -191,6 +200,8 @@ def test_a_recording_made_with_no_model_says_so(feedback_dir) -> None:
     lọc ra được."""
 
     app = _app(4, detections=[_detection(0)])
+    app.session_state["fb_detection_selected"] = 0
+    app.run()
     app.session_state["component_model_path"] = None
     app.session_state["component_model_name"] = None
     app.run()
@@ -211,6 +222,8 @@ def test_a_recording_made_with_no_model_says_so(feedback_dir) -> None:
 
 def test_a_saved_entry_comes_back_in_the_history(feedback_dir) -> None:
     app = _app(4, detections=[_detection(0)])
+    app.session_state["fb_detection_selected"] = 0
+    app.run()
     submit = [b for b in app.button if "Ghi nhận" in (b.label or "")]
     submit[0].click().run()
 
@@ -241,3 +254,59 @@ def test_an_entry_from_another_image_is_not_shown_for_this_one(feedback_dir) -> 
         if "Đánh giá model" in (item.label or "")
     ]
     assert heading and "(0 đã ghi" in heading[0], heading
+
+
+# --------------------------------------------------------------------------
+# Số học của cú bấm
+#
+# Hai lần thu nhỏ chồng lên nhau, và quên một trong hai là ghi nhận lệch chỗ:
+#   1. ảnh phân tích -> canvas (hệ số do ta chọn)
+#   2. canvas -> kích thước thật trên màn hình (trình duyệt co theo bề rộng cột)
+# Component trả kèm bề rộng đã hiển thị, nên bậc thứ hai đo được, không phải đoán.
+# --------------------------------------------------------------------------
+
+
+def test_a_click_maps_back_through_both_downscales() -> None:
+    import app.streamlit_app as ui
+
+    # Ảnh phân tích 1600 px -> canvas 800 px (scale 0.5) -> hiển thị 400 px.
+    # Bấm ở giữa ảnh hiển thị phải ra giữa ảnh phân tích.
+    point = ui._click_to_source({"x": 200, "y": 100, "width": 400}, 800, 0.5)
+    assert point == (800, 400)
+
+
+def test_a_click_needs_no_correction_when_nothing_was_scaled() -> None:
+    import app.streamlit_app as ui
+
+    assert ui._click_to_source({"x": 37, "y": 12, "width": 640}, 640, 1.0) == (37, 12)
+
+
+def test_a_missing_display_width_falls_back_to_the_canvas_width() -> None:
+    """Nếu component không nói bề rộng thì giả định nó hiện đúng cỡ canvas —
+    sai còn hơn là chia cho không."""
+
+    import app.streamlit_app as ui
+
+    assert ui._click_to_source({"x": 10, "y": 10}, 500, 1.0) == (10, 10)
+
+
+def test_clicking_a_small_box_inside_a_big_one_picks_the_small_one() -> None:
+    """Linh kiện nhỏ hay nằm lọt trong box của một IC hay connector lớn. Người
+    bấm vào con nhỏ thì ý họ là con nhỏ."""
+
+    import app.streamlit_app as ui
+
+    big = ui._FeedbackTarget(record_id="big", record_type="detection",
+                             display="big", bbox=(0, 0, 200, 200))
+    small = ui._FeedbackTarget(record_id="small", record_type="detection",
+                               display="small", bbox=(50, 50, 80, 80))
+    assert ui._target_under([big, small], (60, 60)) == 1
+    assert ui._target_under([big, small], (10, 10)) == 0
+
+
+def test_clicking_empty_space_selects_nothing() -> None:
+    import app.streamlit_app as ui
+
+    box = ui._FeedbackTarget(record_id="a", record_type="detection",
+                             display="a", bbox=(0, 0, 10, 10))
+    assert ui._target_under([box], (500, 500)) is None
