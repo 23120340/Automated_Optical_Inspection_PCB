@@ -118,15 +118,20 @@ def derive_solder_joints(
         rects = _multi_pin_rects(frame, config)
 
     if geometry == "multi_pin" and image is not None:
-        rects = _filter_bands_by_energy(
-            rects, image, frame, image_width, image_height, config
+        # Mọi phép ĐỌC ẢNH chạy trên dải định vị; mọi thứ TRẢ RA dựng từ dải đo.
+        probes = _multi_pin_rects(frame, config, locator=True)
+        probes = _filter_bands_by_energy(
+            probes, image, frame, image_width, image_height, config
         )
-        rects = _filter_bands_by_evenness(
-            rects, image, frame, image_width, image_height, config
+        probes = _filter_bands_by_evenness(
+            probes, image, frame, image_width, image_height, config
         )
+        surviving = {probe.position for probe in probes}
+        rects = [rect for rect in rects if rect.position in surviving] or rects
         if config.split_pins:
             rects = _split_bands_into_pins(
-                rects, image, frame, image_width, image_height, config
+                rects, image, frame, image_width, image_height, config,
+                probes={probe.position: probe for probe in probes},
             )
 
     if config.include_body_view and rects:
@@ -459,12 +464,43 @@ def _pad_only_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_L
     ]
 
 
-def _multi_pin_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
-    inner, outer = _capped_depth(
-        config.lead_inner_ratio * frame.span,
-        config.lead_outer_ratio * frame.span,
-        config,
-    )
+def _multi_pin_rects(
+    frame: ComponentFrame,
+    config: SolderJointConfig,
+    *,
+    locator: bool = False,
+) -> list[_LocalRect]:
+    """Bốn dải chu vi. ``locator=True`` cho dải hẹp dùng để *tìm* chân.
+
+    Tìm chân và đo chân là hai câu hỏi khác nhau. Câu đầu chỉ cần nhìn sát mép
+    thân, nơi chân nối vào package -- với ra xa chỉ rước thêm chữ lụa. Câu sau
+    thì phải với ra tới pad và fillet, nếu không thì cắt mất đúng thứ cần chấm.
+    """
+
+    if locator and (
+        config.lead_locator_inner_ratio is not None
+        or config.lead_locator_outer_ratio is not None
+    ):
+        inner_ratio = (
+            config.lead_inner_ratio
+            if config.lead_locator_inner_ratio is None
+            else config.lead_locator_inner_ratio
+        )
+        outer_ratio = (
+            config.lead_outer_ratio
+            if config.lead_locator_outer_ratio is None
+            else config.lead_locator_outer_ratio
+        )
+        # Dải định vị KHÔNG bị áp trần mm: trần đó nói về "một pad to bao
+        # nhiêu", còn dải này không phải là ROI đo.
+        inner = inner_ratio * frame.span
+        outer = outer_ratio * frame.span
+    else:
+        inner, outer = _capped_depth(
+            config.lead_inner_ratio * frame.span,
+            config.lead_outer_ratio * frame.span,
+            config,
+        )
     depth = inner + outer
     # Bands run past the body corners so corner pins are not clipped.
     offset_x = frame.length / 2.0 + (outer - inner) / 2.0
@@ -726,6 +762,7 @@ def _split_bands_into_pins(
     image_width: int,
     image_height: int,
     config: SolderJointConfig,
+    probes: dict[str, _LocalRect] | None = None,
 ) -> list[_LocalRect]:
     """Cut each lead band into one ROI per pin, or keep the band if unsure.
 
@@ -739,7 +776,10 @@ def _split_bands_into_pins(
     bgr = ensure_bgr(image)
     result: list[_LocalRect] = []
     for rect in rects:
-        split = _split_one_band(rect, bgr, frame, image_width, image_height, config)
+        split = _split_one_band(
+            rect, bgr, frame, image_width, image_height, config,
+            probe=(probes or {}).get(rect.position),
+        )
         result.extend(split if split else [rect])
     return result
 
@@ -751,8 +791,23 @@ def _split_one_band(
     image_width: int,
     image_height: int,
     config: SolderJointConfig,
+    probe: _LocalRect | None = None,
 ) -> list[_LocalRect] | None:
-    patch = _band_patch(rect, image, frame, image_width, image_height)
+    # ``probe`` là dải định vị: cùng chiều dài dọc theo cạnh, chỉ khác độ sâu.
+    # Biên dạng 1-D đọc từ nó, còn ROI trả ra dựng theo ``rect``, nên phép chia
+    # theo tỉ lệ chuyển thẳng được giữa hai dải.
+    #
+    # Đọc **cả hai** rồi giữ cái có pitch đều hơn. Lý do: hai dải hỏng theo hai
+    # kiểu ngược nhau, và số đốm không phân biệt được.
+    #
+    # * Dải đo sâu nên với tới cả chữ lụa: trên D201 nó ra 7 đốm, 3 trong đó là
+    #   chữ -- pitch loạn.
+    # * Dải định vị nông nên trên linh kiện có chân thò xa thân thì tín hiệu
+    #   yếu và hai chân kề nhau dính làm một: trên fixture SOIC nó ra 5 đốm cho
+    #   6 chân -- vẫn đều, nhưng thiếu.
+    #
+    # Độ đều tách được đúng hai ca đó, còn "cái nào nhiều đốm hơn" thì không.
+    patch = _band_patch(probe or rect, image, frame, image_width, image_height)
     if patch is None:
         return None
 

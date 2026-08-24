@@ -169,9 +169,25 @@ def test_energy_filter_can_be_disabled() -> None:
     assert len(_by_kind(joints, "joint")) == 4
 
 
+def _band_split_config(**kwargs) -> SolderJointConfig:
+    """Cấu hình tách chân trên **dải đo**, tức chế độ trước khi có dải định vị.
+
+    Bản ship tách riêng một dải nông để định vị (xem
+    ``lead_locator_outer_ratio``). Các test dưới đây kiểm chính bộ **tách chân**,
+    nên chúng ghim mode cũ để câu hỏi được kiểm không bị đổi.
+    """
+
+    return SolderJointConfig(
+        split_pins=True,
+        lead_locator_inner_ratio=None,
+        lead_locator_outer_ratio=None,
+        **kwargs,
+    )
+
+
 def test_split_pins_finds_one_roi_per_lead() -> None:
     image, detection = _soic_board(pins=6)
-    joints = _by_kind(_joints(detection, image, SolderJointConfig(split_pins=True)), "joint")
+    joints = _by_kind(_joints(detection, image, _band_split_config()), "joint")
     assert len(joints) == 12
     assert all(joint.pin_index is not None for joint in joints)
 
@@ -1050,7 +1066,7 @@ def test_split_pins_still_covers_the_gap_a_bridge_lives_in() -> None:
     """
 
     image, detection = _soic_board(pins=6)
-    joints = _by_kind(_joints(detection, image, SolderJointConfig()), "joint")
+    joints = _by_kind(_joints(detection, image, _band_split_config()), "joint")
 
     assert all(joint.pin_index is not None for joint in joints), (
         "mặc định phải tách theo chân"
@@ -1334,3 +1350,103 @@ def test_the_pixel_scale_reaches_the_cad_path_too() -> None:
         "hai đối tượng vẫn tách rời khi dựng trực tiếp -- đó là lý do "
         "register_cad_to_image phải gán cả hai"
     )
+
+
+# --------------------------------------------------------------------------
+# P3 — dải ĐỊNH VỊ tách khỏi dải ĐO
+# --------------------------------------------------------------------------
+
+
+def _soic_with_standoff(standoff: int, pins: int = 6):
+    """SOIC có chân bắt đầu từ mép thân và thò ra ngoài ``standoff`` px."""
+
+    image = np.full((*BOARD_SIZE, 3), (40, 70, 45), np.uint8)
+    cv2.rectangle(image, (440, 120), (560, 190), (20, 20, 20), -1)
+    for index in range(pins):
+        y = 128 + index * 11
+        cv2.rectangle(image, (440 - standoff, y), (441, y + 6), (215, 215, 215), -1)
+        cv2.rectangle(image, (559, y), (560 + standoff, y + 6), (215, 215, 215), -1)
+    return image, Detection("ic", 0.95, BoundingBox(440, 120, 560, 190))
+
+
+def test_the_locator_strip_is_shallower_than_the_measurement_roi() -> None:
+    """Tìm chân và đo chân là hai câu hỏi khác nhau.
+
+    Câu đầu chỉ cần nhìn sát mép thân — với ra xa chỉ rước thêm chữ lụa. Câu
+    sau phải với tới pad và fillet, nếu không thì cắt mất đúng thứ cần chấm.
+    """
+
+    from aoi_pipeline.solder.geometry import ComponentFrame, _multi_pin_rects
+
+    config = SolderJointConfig()
+    frame = ComponentFrame(500.0, 155.0, 0.0, 120.0, 70.0)
+    measure = _multi_pin_rects(frame, config)
+    locate = _multi_pin_rects(frame, config, locator=True)
+
+    def depth(rect):
+        return min(rect.width, rect.height)
+
+    assert depth(locate[0]) < depth(measure[0])
+
+
+def test_the_locator_survives_leads_that_barely_clear_the_body() -> None:
+    """Đây là lý do dải định vị **không** đặt độ sâu ngoài bằng 0.
+
+    Đo trên chân thò ra từ 6 % đến 43 % bề ngang thân: dải định vị hiện tại
+    (trong 0,20 / ngoài 0,10) cho **đúng 12 ROI cho 12 chân ở mọi mức**, còn
+    chế độ cũ — định vị bằng chính dải đo — chỉ ra 2 ROI khi chân thò ít, tức
+    bộ tách chân bỏ cuộc và cả một hàng chân bị gộp làm một.
+    """
+
+    for standoff in (4, 10, 22):
+        image, detection = _soic_with_standoff(standoff)
+        joints = _by_kind(_joints(detection, image, SolderJointConfig()), "joint")
+        assert len(joints) == 12, f"thò ra {standoff} px cho {len(joints)} ROI"
+
+
+def test_zeroing_the_locator_reach_loses_leads_on_a_gull_wing_package() -> None:
+    """Trực giác "IC không mở box" nếu làm thẳng tay thì hỏng.
+
+    Chân gull-wing của SOIC nằm **ngoài** đường bao thân, nên dải sâu 0 nằm
+    trọn trong thân tối và không thấy đủ đốm. Đo trên board của dự án: U201 đi
+    từ 8 ROI (đủ 8 chân) xuống còn 4.
+    """
+
+    image, detection = _soic_with_standoff(14)
+    proper = _by_kind(_joints(detection, image, SolderJointConfig()), "joint")
+    flattened = _by_kind(
+        _joints(
+            detection,
+            image,
+            SolderJointConfig(lead_locator_inner_ratio=0.14, lead_locator_outer_ratio=0.0),
+        ),
+        "joint",
+    )
+    assert len(flattened) < len(proper)
+
+
+def test_the_split_is_fragile_at_low_contrast_and_that_is_known() -> None:
+    """Ghi lại một điểm yếu đã đo, thay vì giấu nó.
+
+    Trên fixture SOIC, kết quả tách chân lật **chỉ vì màu nền**: nền (40,70,45)
+    cho 12/12 còn nền (40,90,40) cho 10/12, với cùng độ sáng chân. Dải định vị
+    nông có ít tín hiệu hơn nên nhạy hơn với chuyện này.
+
+    Đã thử ba rào chắn để tự phát hiện ca xấu — so số đốm, so độ đều của pitch,
+    so tương phản biên dạng — **không cái nào tách được** ca này khỏi ca thật
+    trên board (tương phản dải định vị: fixture hỏng 60–67, board thật chạy tốt
+    ở 45 và 78). Nên đây là giới hạn đã biết, không phải chuyện đã giải xong.
+    """
+
+    def rois(background):
+        image = np.full((*BOARD_SIZE, 3), background, np.uint8)
+        cv2.rectangle(image, (440, 120), (560, 190), (20, 20, 20), -1)
+        for index in range(6):
+            y = 128 + index * 11
+            cv2.rectangle(image, (424, y), (441, y + 6), (215, 215, 215), -1)
+            cv2.rectangle(image, (559, y), (576, y + 6), (215, 215, 215), -1)
+        detection = Detection("ic", 0.95, BoundingBox(440, 120, 560, 190))
+        return len(_by_kind(_joints(detection, image, SolderJointConfig()), "joint"))
+
+    assert rois((40, 70, 45)) == 12
+    assert rois((40, 90, 40)) < 12

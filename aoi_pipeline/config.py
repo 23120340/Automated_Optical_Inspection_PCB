@@ -302,6 +302,45 @@ class SolderJointConfig:
     # --- multi-pin geometry, as fractions of the shorter box side -----------
     lead_inner_ratio: float = 0.14
     lead_outer_ratio: float = 0.26
+    # Dải dùng để ĐỊNH VỊ hàng chân, tách khỏi dải dùng để ĐO.
+    #
+    # Cùng một dải đang làm cả hai việc, nên thu nó lại đổi luôn cả ba thứ:
+    # chỗ tìm chân, chỗ đo, và ngưỡng tương đối của bộ lọc dải. Đo được hậu quả
+    # trên board của dự án khi hạ ``lead_outer_ratio``:
+    #
+    #     outer   U201        D201       D202
+    #     0.26    8 ROI/0     7/3        4/1
+    #     0.10    9/0         4/0        11/4
+    #     0.00    8/0         4/2        11/5
+    #
+    # U201 không đổi (P2 đã xử lý xong), còn D202 **tệ hẳn đi**: dải nông có ít
+    # kim loại hơn nên ngưỡng tương đối 0,35 × đỉnh tụt xuống, nhiều dải yếu lọt
+    # qua rồi bị tách nhỏ. Nên muốn "IC không mở box" thì phải thu đúng dải định
+    # vị, giữ nguyên ROI đo.
+    #
+    # Chọn 0,20/0,10 sau khi quét 16 thiết lập trên ba con multi-pin của board
+    # (U201 SOIC-8, D201 và D202 SOT-23), chấm điểm với **bỏ sót chân nặng gấp
+    # 5 lần ROI thừa** vì bỏ sót là escape còn ROI thừa chỉ tốn công soát:
+    #
+    #     thiết lập                U201      D201      D202   sót  ROI lụa
+    #     mặc định cũ           8/0/-0    7/3/-0    4/1/-0     0        4
+    #     outer 0,10 inner 0,20 8/0/-0    4/0/-0    4/0/-0     0        0
+    #     outer 0,00 inner 0,14 4/0/-4    3/1/-1    6/2/-0     5        3
+    #
+    # (ô = tổng ROI / ROI trên chữ lụa / số chân bỏ sót)
+    #
+    # Dòng cuối là lý do **không** đặt outer = 0 như trực giác "IC không mở
+    # box": dải sâu 0 nằm trọn trong thân, mà chân gull-wing của SOIC thì nằm
+    # NGOÀI đường bao thân -- nên biên dạng không thấy đủ đốm, bộ tách chân bỏ
+    # cuộc và U201 mất một nửa số chân.
+    #
+    # Bán kính ảnh hưởng đã đo: đúng **1 trong 39** linh kiện đổi số ROI, và đó
+    # chính là con đang sinh ROI giả. 38 con còn lại không đổi một pixel.
+    #
+    # Cảnh báo: hai tham số này chỉnh trên **3 linh kiện của 1 ảnh**. Đó là ít.
+    # Đặt ``None`` để quay lại hành vi cũ (locator dùng chung dải với ROI đo).
+    lead_locator_inner_ratio: float | None = 0.20
+    lead_locator_outer_ratio: float | None = 0.10
     # A perimeter band with no lead metal in it is dropped. ``None`` disables
     # the check and keeps all four bands.
     lead_band_energy_ratio: float | None = 0.35
