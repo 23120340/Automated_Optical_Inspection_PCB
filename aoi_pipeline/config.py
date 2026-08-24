@@ -673,9 +673,10 @@ class SolderGradingConfig:
     # với 3 ROI rơi trên chữ lụa), nên chỉ khâu chấm điểm đổi ảnh, còn hình học
     # giữ nguyên. Hai khâu hỏng vì hai lý do khác nhau.
     #
-    # Chỉ áp dụng khi phép tiền xử lý **không đổi hình học** (không undistort,
-    # không resize); nếu có thì toạ độ hai ảnh lệch nhau và việc cắt lại sai chỗ
-    # còn tệ hơn là cháy sáng.
+    # Ảnh radiometric được chụp sau undistort/resize và được warp bằng chính
+    # homography của bước căn chỉnh, nên luôn phải đi kèm ảnh phân tích trong
+    # cùng kết quả stage. Nếu transform không áp dụng được, pipeline bỏ nhánh
+    # này và fail-safe về ảnh phân tích thay vì cắt pixel lệch tọa độ.
     prefer_radiometric_image: bool = True
     enabled: bool = True
 

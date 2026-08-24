@@ -68,6 +68,12 @@ class ImagePreprocessor:
                 output = cv2.resize(output, new_size, interpolation=cv2.INTER_AREA)
                 operations.append(f"resize:{new_size[0]}x{new_size[1]}")
 
+        # This is the measurement/radiometric domain: all mandatory geometry
+        # has run, while no global photometric enhancement has.  Capture it at
+        # the boundary instead of trying to reconstruct it from the original
+        # frame later (which cannot reproduce undistort or resize safely).
+        radiometric = np.ascontiguousarray(output.copy())
+
         if self.config.denoise and self.config.denoise_strength > 0:
             strength = int(np.clip(self.config.denoise_strength, 1, 30))
             method = self.config.denoise_method
@@ -126,6 +132,7 @@ class ImagePreprocessor:
             scale=scale,
             warnings=warnings,
             metrics=metrics,
+            radiometric_image=radiometric,
         )
 
 

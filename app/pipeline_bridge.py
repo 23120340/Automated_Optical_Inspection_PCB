@@ -34,6 +34,13 @@ class StageResult:
     message: str = ""
     metrics: dict[str, Any] = field(default_factory=dict)
     raw: Any = None
+    # Optional un-enhanced frame in the exact same coordinate space as
+    # ``image``.  It is carried explicitly between UI stages so preprocessing a
+    # Golden Image cannot mutate the board frame behind step 6.2.
+    # Keyword-only preserves the positional constructor ABI of every result
+    # subclass: adding a normal base field here would silently shift e.g. a
+    # legacy BoardResult(..., bbox) argument into this slot.
+    radiometric_image: np.ndarray | None = field(default=None, kw_only=True)
 
 
 @dataclass
@@ -405,6 +412,7 @@ class PipelineBridge:
                         **_extract_metrics(raw),
                     },
                     raw=raw,
+                    radiometric_image=_extract_radiometric_image(raw, output.shape),
                 )
             except Exception as exc:
                 if undistort_required:
@@ -439,6 +447,8 @@ class PipelineBridge:
         self,
         image: np.ndarray,
         reference: np.ndarray | None = None,
+        *,
+        radiometric_image: np.ndarray | None = None,
         **kwargs: Any,
     ) -> StageResult:
         started = time.perf_counter()
@@ -448,11 +458,18 @@ class PipelineBridge:
                 mode="SKIPPED",
                 message="Chưa có Golden Image/reference; giữ nguyên ảnh đầu vào.",
                 metrics={"elapsed_ms": _elapsed_ms(started)},
+                radiometric_image=_matching_frame(radiometric_image, image.shape),
             )
 
         if self.engine is not None and hasattr(self.engine, "align"):
             try:
-                raw = _call_supported(self.engine.align, image, reference=reference, **kwargs)
+                raw = _call_supported(
+                    self.engine.align,
+                    image,
+                    reference=reference,
+                    radiometric_image=radiometric_image,
+                    **kwargs,
+                )
                 output = _extract_image(raw, ("image", "aligned_image", "warped_image", "output"))
                 if output is None:
                     raise ValueError("AlignmentResult không chứa ảnh đầu ra")
@@ -487,6 +504,7 @@ class PipelineBridge:
                         ),
                         metrics=metrics,
                         raw=raw,
+                        radiometric_image=_extract_radiometric_image(raw, output.shape),
                     )
                 return StageResult(
                     image=output,
@@ -494,6 +512,7 @@ class PipelineBridge:
                     message=core_message or f"Căn chỉnh bởi AOIPipeline ({method}).",
                     metrics=metrics,
                     raw=raw,
+                    radiometric_image=_extract_radiometric_image(raw, output.shape),
                 )
             except Exception as exc:
                 fallback_note = f"AOIPipeline lỗi ({type(exc).__name__}: {exc}); dùng ORB demo."
@@ -769,6 +788,7 @@ class PipelineBridge:
         output_dir: str | None = None,
         *,
         keep_images: bool = False,
+        radiometric_image: np.ndarray | None = None,
         **kwargs: Any,
     ) -> SolderResult:
         """Derive step-5.5 solder ROIs through the core pipeline.
@@ -855,7 +875,11 @@ class PipelineBridge:
                 )
             )
         joints = sum(1 for item in records if item.kind == "joint")
-        verdicts, graded_by_model, grading_error = self._grade_solder(image, raw_crops)
+        verdicts, graded_by_model, grading_error = self._grade_solder(
+            image,
+            raw_crops,
+            radiometric_image=radiometric_image,
+        )
         fusion = getattr(self.engine, "last_fusion", None)
         used_cad = bool(getattr(fusion, "used_cad", False))
         findings = [
@@ -938,7 +962,11 @@ class PipelineBridge:
             return ([], True, f"{type(exc).__name__}: {exc}")
 
     def _grade_solder(
-        self, image: np.ndarray, raw_crops: Sequence[Any]
+        self,
+        image: np.ndarray,
+        raw_crops: Sequence[Any],
+        *,
+        radiometric_image: np.ndarray | None = None,
     ) -> tuple[list[SolderVerdictRecord], bool, str | None]:
         """Run step 6.2 over the ROIs the core just produced.
 
@@ -953,7 +981,12 @@ class PipelineBridge:
         if engine is None or not hasattr(engine, "grade_solder"):
             return ([], False, "AOIPipeline không có grade_solder; bước 6.2 chưa sẵn sàng.")
         try:
-            raw_verdicts = engine.grade_solder(raw_crops, image)
+            raw_verdicts = _call_supported(
+                engine.grade_solder,
+                raw_crops,
+                image,
+                radiometric_image=radiometric_image,
+            )
         except Exception as exc:  # noqa: BLE001 - reported, not hidden
             return ([], False, f"{type(exc).__name__}: {exc}")
 
@@ -1342,6 +1375,23 @@ def _extract_image(raw: Any, names: Sequence[str]) -> np.ndarray | None:
         return raw
     candidate = _attr(raw, names)
     return candidate if isinstance(candidate, np.ndarray) else None
+
+
+def _matching_frame(
+    frame: np.ndarray | None,
+    shape: Sequence[int],
+) -> np.ndarray | None:
+    """Return a contiguous auxiliary frame only when its canvas is exact."""
+
+    if not isinstance(frame, np.ndarray) or frame.ndim not in (2, 3):
+        return None
+    if tuple(frame.shape[:2]) != tuple(shape[:2]):
+        return None
+    return np.ascontiguousarray(frame)
+
+
+def _extract_radiometric_image(raw: Any, shape: Sequence[int]) -> np.ndarray | None:
+    return _matching_frame(_attr(raw, ("radiometric_image",), None), shape)
 
 
 def _extract_metrics(raw: Any) -> dict[str, Any]:

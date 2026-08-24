@@ -1198,7 +1198,17 @@ def _execute_alignment(bridge: PipelineBridge) -> StageResult:
     # execution needs to mirror it explicitly.
     if reference is not None and isinstance(st.session_state.preprocess_result, StageResult):
         reference = bridge.preprocess(reference).image
-    result = bridge.align(source, reference=reference)
+    preprocess_result = st.session_state.preprocess_result
+    radiometric_image = (
+        preprocess_result.radiometric_image
+        if isinstance(preprocess_result, StageResult)
+        else None
+    )
+    result = bridge.align(
+        source,
+        reference=reference,
+        radiometric_image=radiometric_image,
+    )
     st.session_state.alignment_result = result
     _invalidate_after(2)
     _record_stage(2, result)
@@ -1218,6 +1228,11 @@ def _skip_alignment(_: PipelineBridge) -> StageResult:
         mode="SKIPPED",
         message="Người dùng chọn bỏ qua căn chỉnh; Golden Image vẫn được giữ trong phiên.",
         metrics={"elapsed_ms": 0.0},
+        radiometric_image=(
+            st.session_state.preprocess_result.radiometric_image
+            if isinstance(st.session_state.preprocess_result, StageResult)
+            else None
+        ),
     )
     st.session_state.alignment_result = result
     _invalidate_after(2)
@@ -4835,7 +4850,22 @@ def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
         return None
     st.session_state.statuses[7] = "running"
     try:
-        result = bridge.make_solder_crops(source, detection_result.detections)
+        alignment_result = st.session_state.alignment_result
+        preprocess_result = st.session_state.preprocess_result
+        radiometric_image = (
+            alignment_result.radiometric_image
+            if isinstance(alignment_result, StageResult)
+            else (
+                preprocess_result.radiometric_image
+                if isinstance(preprocess_result, StageResult)
+                else None
+            )
+        )
+        result = bridge.make_solder_crops(
+            source,
+            detection_result.detections,
+            radiometric_image=radiometric_image,
+        )
     except Exception as exc:
         st.session_state.solder_result = None
         st.session_state.statuses[7] = "error"

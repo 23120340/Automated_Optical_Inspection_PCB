@@ -8,6 +8,7 @@ from pathlib import Path
 from collections.abc import Mapping
 from typing import Sequence
 
+import cv2
 import numpy as np
 
 from .imaging.alignment import PCBAligner
@@ -87,10 +88,6 @@ class AOIPipeline:
             model_config=self.config.model_detector,
         )
         self.last_detection_metrics: dict[str, object] = {}
-        # Ảnh cùng hệ toạ độ với ảnh phân tích nhưng CHƯA qua tăng cường quang
-        # học. ``preprocess`` tự đặt khi phép tiền xử lý không đổi hình học.
-        # Bước 6.2 chấm điểm trên nó; xem ``prefer_radiometric_image``.
-        self.radiometric_image: np.ndarray | None = None
         self.cropper = ComponentCropper(self.config.crop)
         self.solder_cropper = SolderJointCropper(self.config.solder)
         self.solder_inspector = SolderInspector(self.config.solder_grading)
@@ -151,34 +148,39 @@ class AOIPipeline:
 
         return load_image(source)
 
-    _GEOMETRIC_OPERATIONS = ("undistort", "resize")
-
     def preprocess(self, image: np.ndarray) -> PreprocessResult:
         """Step 1: optionally undistort, then resize and enhance an image.
 
-        Also keeps the *un-enhanced* frame when the run did nothing geometric,
-        so step 6.2 can measure on pixels that were not clipped. See
-        ``SolderGradingConfig.prefer_radiometric_image``.
+        The returned result carries both the enhanced analysis frame and its
+        un-enhanced, geometrically identical radiometric frame.  No frame is
+        stored on the pipeline instance, so preprocessing a Golden Image cannot
+        replace the board pixels that a later stage will grade.
         """
 
-        result = self.preprocessor.process(image)
-        moved = any(
-            operation.startswith(self._GEOMETRIC_OPERATIONS)
-            for operation in result.operations
-        )
-        # Cùng hệ toạ độ mới dùng được. Nếu phép tiền xử lý có undistort hoặc
-        # resize thì hai ảnh lệch nhau, và cắt lại sai chỗ còn tệ hơn cháy sáng.
-        self.radiometric_image = (
-            None if moved or image.shape != result.image.shape else load_image(image)
-        )
-        return result
+        return self.preprocessor.process(image)
 
     def align(
-        self, image: np.ndarray, reference: np.ndarray | None = None
+        self,
+        image: np.ndarray,
+        reference: np.ndarray | None = None,
+        *,
+        radiometric_image: np.ndarray | None = None,
     ) -> AlignmentResult:
-        """Step 2: align an image to a golden/reference image."""
+        """Step 2: align analysis and radiometric frames as one bundle.
 
-        return self.aligner.align(image, reference)
+        ``radiometric_image`` must already share the analysis coordinate space.
+        It is warped with the exact source-to-reference homography returned by
+        the aligner.  When that transform cannot be applied safely, the
+        auxiliary frame is set to ``None`` instead of leaving stale pixels.
+        """
+
+        result = self.aligner.align(image, reference)
+        result.radiometric_image = _warp_auxiliary_frame(
+            radiometric_image,
+            source_shape=image.shape,
+            alignment=result,
+        )
+        return result
 
     def detect_board(
         self,
@@ -495,6 +497,8 @@ class AOIPipeline:
         self,
         crops: Sequence[SolderJointCrop],
         image: np.ndarray | None = None,
+        *,
+        radiometric_image: np.ndarray | None = None,
     ) -> list[SolderVerdict]:
         """Step 6.2: measure every solder ROI and call it.
 
@@ -503,13 +507,19 @@ class AOIPipeline:
         training cycle to finish.
         """
 
-        crops, image = self._radiometric_crops(crops, image)
+        crops, image = self._radiometric_crops(
+            crops,
+            image,
+            radiometric_image=radiometric_image,
+        )
         return self.solder_inspector.inspect(crops, image)
 
     def _radiometric_crops(
         self,
         crops: Sequence[SolderJointCrop],
         image: np.ndarray | None,
+        *,
+        radiometric_image: np.ndarray | None = None,
     ) -> tuple[Sequence[SolderJointCrop], np.ndarray | None]:
         """Re-cut the ROIs from the un-enhanced frame, when there is one.
 
@@ -519,7 +529,7 @@ class AOIPipeline:
         to the rule layer change, because that is the stage the clipping hurts.
         """
 
-        source = self.radiometric_image
+        source = radiometric_image
         if not self.config.solder_grading.prefer_radiometric_image or source is None:
             return crops, image
         if image is not None and image.shape[:2] != source.shape[:2]:
@@ -591,7 +601,11 @@ class AOIPipeline:
         if reference is not None:
             decoded_reference = load_image(reference)
             reference_image = self.preprocess(decoded_reference).image
-        aligned = self.align(preprocessed.image, reference_image)
+        aligned = self.align(
+            preprocessed.image,
+            reference_image,
+            radiometric_image=preprocessed.radiometric_image,
+        )
         board = self.detect_board(aligned.image)
         detections = self.detect_components(aligned.image, board)
         crops = self.make_crops(aligned.image, detections, crop_dir)
@@ -600,7 +614,11 @@ class AOIPipeline:
         )
         fusion = self.last_fusion
         classifications = self.classify_components(crops)
-        solder_verdicts = self.grade_solder(solder_crops, aligned.image)
+        solder_verdicts = self.grade_solder(
+            solder_crops,
+            aligned.image,
+            radiometric_image=aligned.radiometric_image,
+        )
 
         warnings = list(preprocessed.warnings)
         if not aligned.success:
@@ -688,3 +706,55 @@ def _source_name(source: ImageSource) -> str:
     if hasattr(source, "name") and isinstance(source.name, str):
         return Path(source.name).name
     return "uploaded_image"
+
+
+def _warp_auxiliary_frame(
+    frame: np.ndarray | None,
+    *,
+    source_shape: Sequence[int],
+    alignment: AlignmentResult,
+) -> np.ndarray | None:
+    """Apply an alignment result to an auxiliary frame, or fail closed.
+
+    ``AlignmentResult.homography`` is source-to-reference for every legacy
+    method, including identity, disabled-resize and resize fallback.  Reusing
+    it is the only way to keep the radiometric pixels on the same canvas as the
+    analysis image without estimating a second, potentially different warp.
+    """
+
+    if frame is None or frame.ndim not in (2, 3):
+        return None
+    if tuple(frame.shape[:2]) != tuple(source_shape[:2]):
+        return None
+    matrix = alignment.homography
+    if matrix is None or alignment.image is None:
+        return None
+    matrix = np.asarray(matrix, dtype=np.float64)
+    if matrix.shape != (3, 3) or not np.all(np.isfinite(matrix)):
+        return None
+    try:
+        condition = float(np.linalg.cond(matrix))
+    except np.linalg.LinAlgError:
+        return None
+    # OpenCV accepts singular homographies and quietly returns a constant
+    # border image.  Treat singular or numerically unusable transforms as a
+    # failed auxiliary warp; grading the fabricated pixels would be worse than
+    # falling back to the aligned analysis frame.
+    if not np.isfinite(condition) or condition > 1.0e12:
+        return None
+    target_height, target_width = alignment.image.shape[:2]
+    if target_height <= 0 or target_width <= 0:
+        return None
+    try:
+        warped = cv2.warpPerspective(
+            frame,
+            matrix,
+            (int(target_width), int(target_height)),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+        )
+    except cv2.error:
+        return None
+    if warped.shape[:2] != (target_height, target_width):
+        return None
+    return np.ascontiguousarray(warped)

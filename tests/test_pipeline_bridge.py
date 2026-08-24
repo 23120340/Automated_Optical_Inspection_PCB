@@ -15,6 +15,7 @@ import pytest
 from aoi_pipeline import BoundingBox, Detection, MockComponentDetector
 from aoi_pipeline import CameraCalibrationProfile
 from app.pipeline_bridge import (
+    BoardResult,
     ClassificationRecord,
     ClassificationResult,
     CropRecord,
@@ -27,6 +28,16 @@ from app.pipeline_bridge import (
 )
 
 
+def test_stage_radiometric_field_does_not_shift_subclass_positional_arguments() -> None:
+    image = np.zeros((4, 5, 3), dtype=np.uint8)
+    bbox = (1, 2, 3, 4)
+
+    result = BoardResult(image, "PIPELINE", "ok", {}, None, bbox)
+
+    assert result.bbox == bbox
+    assert result.radiometric_image is None
+
+
 def test_bridge_exposes_failed_alignment_as_fallback() -> None:
     bridge = PipelineBridge()
     source = np.zeros((80, 100, 3), dtype=np.uint8)
@@ -36,6 +47,21 @@ def test_bridge_exposes_failed_alignment_as_fallback() -> None:
     assert result.metrics["success"] is False
     assert result.metrics["method"] == "resize_fallback"
     assert "không đạt gate" in result.message
+
+
+def test_bridge_keeps_radiometric_frame_when_alignment_is_skipped() -> None:
+    bridge = PipelineBridge()
+    source = np.zeros((80, 100, 3), dtype=np.uint8)
+    radiometric = np.full_like(source, 73)
+
+    result = bridge.align(
+        source,
+        reference=None,
+        radiometric_image=radiometric,
+    )
+
+    assert result.mode == "SKIPPED"
+    assert np.array_equal(result.radiometric_image, radiometric)
 
 
 def test_bridge_exposes_full_image_board_fallback() -> None:
@@ -215,6 +241,36 @@ def test_solder_segment_failure_does_not_remove_roi_grading() -> None:
     assert len(result.verdicts) == 1
     assert result.verdicts[0].decision == "accept"
     assert result.grading_error is None
+
+
+def test_bridge_forwards_the_explicit_radiometric_frame_to_grading() -> None:
+    radiometric = np.full((40, 50, 3), 73, dtype=np.uint8)
+
+    class Engine:
+        solder_inspector = SimpleNamespace(warnings=[])
+
+        def __init__(self) -> None:
+            self.seen = None
+
+        def grade_solder(self, crops, image, *, radiometric_image=None):
+            del crops, image
+            self.seen = radiometric_image
+            return []
+
+    engine = Engine()
+    bridge = PipelineBridge.__new__(PipelineBridge)
+    bridge.engine = engine
+
+    verdicts, used_model, error = bridge._grade_solder(
+        np.zeros_like(radiometric),
+        [],
+        radiometric_image=radiometric,
+    )
+
+    assert verdicts == []
+    assert used_model is False
+    assert error is None
+    assert engine.seen is radiometric
 
 
 def test_bridge_builds_and_inspects_recipe_through_core(tmp_path: Path) -> None:

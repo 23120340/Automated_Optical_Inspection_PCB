@@ -176,6 +176,11 @@ class PreprocessResult:
     scale: float = 1.0
     warnings: list[str] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=dict)
+    # Same geometry as ``image``, before denoise/white-balance/CLAHE/
+    # normalization/sharpening.  Keeping the two frames in one result prevents
+    # a later preprocess call (for example the Golden Image) from replacing
+    # the board pixels that step 6.2 must measure.
+    radiometric_image: np.ndarray | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -185,6 +190,7 @@ class PreprocessResult:
             "scale": float(self.scale),
             "warnings": self.warnings,
             "metrics": self.metrics,
+            "radiometric_shape": shape_dict(self.radiometric_image),
         }
 
 
@@ -201,6 +207,10 @@ class AlignmentResult:
     inlier_ratio: float = 0.0
     correlation: float | None = None
     message: str = ""
+    # The un-enhanced frame warped by the exact same source-to-reference
+    # transform as ``image``.  ``None`` is fail-safe: grading may fall back to
+    # the analysis pixels, but it must never crop an unaligned auxiliary frame.
+    radiometric_image: np.ndarray | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,6 +225,7 @@ class AlignmentResult:
             "inlier_ratio": float(self.inlier_ratio),
             "correlation": None if self.correlation is None else float(self.correlation),
             "message": self.message,
+            "radiometric_shape": shape_dict(self.radiometric_image),
         }
 
 
