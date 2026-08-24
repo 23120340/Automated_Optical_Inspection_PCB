@@ -1,0 +1,1154 @@
+{
+  "coordinate_space": "golden_board_pixels",
+  "frames": [
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9834484916260617,
+      "correlation": null,
+      "frame_id": "row_000000.jpg",
+      "good_matches": 1251,
+      "homography": [
+        [
+          1.0011996372786411,
+          0.000221707285946025,
+          21.901990748380562
+        ],
+        [
+          -0.0005557777915811636,
+          0.9996564629659461,
+          1.2356735377891606
+        ],
+        [
+          7.0555035912288e-07,
+          -7.216555827965844e-07,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9128697042366107,
+      "inliers": 1142,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "832efd1c7a33dcb9adace73badfa6e0defcc0d519c7dc7663d835311ea6291e8",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.96941049604601,
+      "correlation": null,
+      "frame_id": "row_000031.jpg",
+      "good_matches": 698,
+      "homography": [
+        [
+          1.0053242974283385,
+          -0.0055184205057914465,
+          34.98108263366035
+        ],
+        [
+          0.00894306009749902,
+          0.9976227377555826,
+          -14.546530349520284
+        ],
+        [
+          7.2820733049763756e-06,
+          -6.896757071001153e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8553008595988538,
+      "inliers": 597,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "f37121af66cbc7c8f5b340f63eb66bc7728a17b0b8f85c567b382376fd93d834",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9848170780413771,
+      "correlation": null,
+      "frame_id": "row_000062.jpg",
+      "good_matches": 1059,
+      "homography": [
+        [
+          0.9993876527978697,
+          -0.01588532123676942,
+          -3.0527549361878643
+        ],
+        [
+          0.015543561803968887,
+          1.0010952623734053,
+          -20.86652090576868
+        ],
+        [
+          -1.5079013855168566e-06,
+          8.471032319692563e-07,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9017941454202077,
+      "inliers": 955,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "8e26e468d40c77bb8add1b93c6f6d16bb3e32fe60b5b3d62d40c277b213292c1",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9779308783981682,
+      "correlation": null,
+      "frame_id": "row_000093.jpg",
+      "good_matches": 860,
+      "homography": [
+        [
+          0.9994775330592423,
+          -0.01681519013557554,
+          -6.454519273657381
+        ],
+        [
+          0.016965651607025758,
+          0.9908647035642851,
+          -0.17928537880907244
+        ],
+        [
+          3.6410803363324905e-06,
+          -1.0033912575292179e-05,
+          0.9999999999999999
+        ]
+      ],
+      "inlier_ratio": 0.9069767441860465,
+      "inliers": 780,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "f0d75cb4c4b3257bc9021e01aa1ee27cde4461c9e47444d6571939b0325632be",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9652661288175307,
+      "correlation": null,
+      "frame_id": "row_000124.jpg",
+      "good_matches": 1353,
+      "homography": [
+        [
+          1.0003370901482251,
+          -0.012937927852872311,
+          51.204687887531435
+        ],
+        [
+          0.012500267601444121,
+          1.0005006946447357,
+          -10.668914155129386
+        ],
+        [
+          6.654838065313689e-07,
+          -1.1154161497215382e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9157427937915743,
+      "inliers": 1239,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "f1c61e3574f8c7a67ca740df23972fc541d7c19e9d4b278cef6a67586e37baad",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9555875069893761,
+      "correlation": null,
+      "frame_id": "row_000155.jpg",
+      "good_matches": 830,
+      "homography": [
+        [
+          0.9972550797895916,
+          -0.0005663304173511424,
+          47.188835189454934
+        ],
+        [
+          0.0012327667755243803,
+          1.0007579391989796,
+          -13.659178258461438
+        ],
+        [
+          -3.13610558302027e-06,
+          2.104144276860544e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8903614457831325,
+      "inliers": 739,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "18aaff367d8bc1593067812544cb13cbc6ac8320d6727bfb9b4e9d125316cada",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9699383603589211,
+      "correlation": null,
+      "frame_id": "row_000186.jpg",
+      "good_matches": 1003,
+      "homography": [
+        [
+          0.9995361718909136,
+          -0.006983335855021859,
+          -21.483206689720703
+        ],
+        [
+          0.006006130522420739,
+          0.997086076620591,
+          9.663318644234586
+        ],
+        [
+          6.850192508522758e-07,
+          -4.087527239961398e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9132602193419741,
+      "inliers": 916,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "7290b26b8bdeb59af76ef52a30bee6222dcd853e861ad66fde27ca4a162b9a23",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9836228932023324,
+      "correlation": null,
+      "frame_id": "row_000217.jpg",
+      "good_matches": 893,
+      "homography": [
+        [
+          0.988912439729752,
+          -0.0006845747633597864,
+          16.090741537574903
+        ],
+        [
+          0.00360299078624261,
+          0.9996145261320475,
+          3.024708414675501
+        ],
+        [
+          -9.499252130501044e-06,
+          2.5159540737639495e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9014557670772676,
+      "inliers": 805,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "636594cb6b1954b9fd475bfa27a773628495755af8ebc5fa30c89bf974012a66",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9912839151156908,
+      "correlation": null,
+      "frame_id": "row_000248.jpg",
+      "good_matches": 1000,
+      "homography": [
+        [
+          0.9939617220409179,
+          -0.010572286868183362,
+          1.5394422320899785
+        ],
+        [
+          0.009344408543462539,
+          0.9970933815538707,
+          -5.333053909582775
+        ],
+        [
+          -5.059538573308219e-06,
+          2.821289804130043e-06,
+          0.9999999999999999
+        ]
+      ],
+      "inlier_ratio": 0.882,
+      "inliers": 882,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "014c7b19ff8f0e71d50bd63caf982d3861131a9c32229ef40a80b51702e27504",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.981185930718641,
+      "correlation": null,
+      "frame_id": "row_000279.jpg",
+      "good_matches": 873,
+      "homography": [
+        [
+          1.0060397953021014,
+          -0.02405972044846896,
+          11.34291621381093
+        ],
+        [
+          0.032540303624251546,
+          1.0136287168856957,
+          -28.471501782839198
+        ],
+        [
+          3.0262437492365087e-06,
+          1.1388419373760104e-05,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8533791523482245,
+      "inliers": 745,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "b7371eb40046dfb5f01634540694c2519b68fa871d17d74aabb8538eb9ddc033",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9707125169741992,
+      "correlation": null,
+      "frame_id": "row_000310.jpg",
+      "good_matches": 708,
+      "homography": [
+        [
+          0.9893361121844084,
+          -0.013768792767410689,
+          43.50620636419192
+        ],
+        [
+          0.009878000512619032,
+          0.9949367412759201,
+          -10.179949601574338
+        ],
+        [
+          -9.11395438664288e-06,
+          -1.4668689871264029e-06,
+          0.9999999999999999
+        ]
+      ],
+      "inlier_ratio": 0.8375706214689266,
+      "inliers": 593,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "bbf688b67536d17380d9e9a4960f881bac846712f8f6770a872af1d66416b211",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9675932582474639,
+      "correlation": null,
+      "frame_id": "row_000341.jpg",
+      "good_matches": 1338,
+      "homography": [
+        [
+          1.0022334727800655,
+          -0.024780377304460817,
+          48.908868034556875
+        ],
+        [
+          0.024307700429499986,
+          1.000322553427939,
+          -21.084724128098838
+        ],
+        [
+          3.0416951688557407e-06,
+          -1.99513061329081e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9200298953662183,
+      "inliers": 1231,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "268c6d96f5e74f4ae2c5676025204dc436dfc1007dc18e0c0cc3d9db4e17e597",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9618113800356791,
+      "correlation": null,
+      "frame_id": "row_000372.jpg",
+      "good_matches": 1086,
+      "homography": [
+        [
+          1.0005979210813314,
+          -0.012962844569761704,
+          37.54874264411507
+        ],
+        [
+          0.013226020759722528,
+          1.0013307079942835,
+          -27.81614837234662
+        ],
+        [
+          1.5363837117889766e-07,
+          6.419260867971573e-07,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9152854511970534,
+      "inliers": 994,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "2c32e6a46bda3892049bf0be0c4f34972c7b49ecfe49ecd68101ac1ba2ef2c35",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9832208376600899,
+      "correlation": null,
+      "frame_id": "row_000403.jpg",
+      "good_matches": 892,
+      "homography": [
+        [
+          1.0024054538536018,
+          -0.006153432346297459,
+          16.196748766587778
+        ],
+        [
+          0.0016135572298563892,
+          0.9930533704590879,
+          7.0534603089696155
+        ],
+        [
+          5.644883426735491e-06,
+          -9.196910684139693e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8890134529147982,
+      "inliers": 793,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "0b9d5ff527ed628ec526555cc611716319f58d977ada76eecd39081ce384c2b8",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9704961791410389,
+      "correlation": null,
+      "frame_id": "row_000434.jpg",
+      "good_matches": 1198,
+      "homography": [
+        [
+          0.9992849814536164,
+          -0.003733066235829307,
+          27.62689468819838
+        ],
+        [
+          0.004213456554833849,
+          1.001354111739514,
+          9.35050101972268
+        ],
+        [
+          -1.552929999994444e-06,
+          1.7195839416043244e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9315525876460768,
+      "inliers": 1116,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "2bff24ba76705741675734946386c7ee855bfdb83b77e16cc5583817b9763a5e",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9564848097558378,
+      "correlation": null,
+      "frame_id": "row_000465.jpg",
+      "good_matches": 1143,
+      "homography": [
+        [
+          0.9835327196952064,
+          -0.009102474403768736,
+          45.23386392074095
+        ],
+        [
+          0.00015241308418162544,
+          0.985177223747245,
+          16.145609432724363
+        ],
+        [
+          -8.382185582798265e-06,
+          -7.815164018856111e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9090113735783028,
+      "inliers": 1039,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "0a42061f922b0e637c85ff9b75c9f7bff09e4e2385c24ee2fce27ce61be1b58b",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9758833240141651,
+      "correlation": null,
+      "frame_id": "row_000496.jpg",
+      "good_matches": 1063,
+      "homography": [
+        [
+          0.9889702539176243,
+          -0.028404562874665768,
+          39.48713429143514
+        ],
+        [
+          0.02289492703718082,
+          0.9897831533440111,
+          -12.396743237057766
+        ],
+        [
+          -4.665812267581602e-06,
+          -9.852667630970675e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8908748824082785,
+      "inliers": 947,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "e278600b237a4c3e44c154b56cb7c6541ab779dc6aa24c4698b1f136abf63a1c",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9686356737758607,
+      "correlation": null,
+      "frame_id": "row_000527.jpg",
+      "good_matches": 1239,
+      "homography": [
+        [
+          0.9978181696139284,
+          0.006009454862746608,
+          33.702699677815446
+        ],
+        [
+          -0.007892619956599895,
+          0.9984918504398628,
+          10.997069515683595
+        ],
+        [
+          -9.59305716355018e-07,
+          -7.984697491533403e-07,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9346246973365617,
+      "inliers": 1158,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "caf39274efc032c4f347590e188821d21a0799e1e461915ee4979dad6e8649e7",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.994636153047368,
+      "correlation": null,
+      "frame_id": "row_000558.jpg",
+      "good_matches": 1115,
+      "homography": [
+        [
+          1.0062193794220353,
+          -0.0013214107868630438,
+          2.1310892813764957
+        ],
+        [
+          0.007673973686454064,
+          1.0062858445939262,
+          -1.3475471936324022
+        ],
+        [
+          3.865247431233972e-06,
+          3.318256373155978e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9210762331838565,
+      "inliers": 1027,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "434b1d7bbd5316f3a678d1ba4effb184a0d435a80a297d8f58e2005e473dd906",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 1.0,
+      "correlation": 1.0,
+      "frame_id": "row_000589.jpg",
+      "good_matches": 0,
+      "homography": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 1.0,
+      "inliers": 0,
+      "message": "Selected Golden source; identity transform",
+      "method": "selected_reference_identity",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 0,
+      "source_keypoints": 0,
+      "source_sha256": "6bcbd478e1ede7e7cdd6a55ce1e184994cddb2d724f416056569e26e3e5ef3ce",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9765310062039034,
+      "correlation": null,
+      "frame_id": "row_000620.jpg",
+      "good_matches": 1463,
+      "homography": [
+        [
+          1.0014722626443349,
+          -0.002102268408829719,
+          28.89218137306003
+        ],
+        [
+          0.0014683261039788354,
+          0.9996908128873452,
+          -5.479384843675167
+        ],
+        [
+          1.2374055756832786e-06,
+          -1.7320118664712133e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9302802460697197,
+      "inliers": 1361,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "afd55f50cbc7ec651d4f6cd6c4acc746b34c21dfc23d204b7c03b6151e08144a",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9876780626780627,
+      "correlation": null,
+      "frame_id": "row_000651.jpg",
+      "good_matches": 942,
+      "homography": [
+        [
+          0.992601627409928,
+          -0.0073807248269771066,
+          13.605203900104792
+        ],
+        [
+          0.004005301100181632,
+          0.9938976313968941,
+          3.0589434389798926
+        ],
+        [
+          -3.7204042003119343e-06,
+          -3.421194983132573e-06,
+          0.9999999999999999
+        ]
+      ],
+      "inlier_ratio": 0.8885350318471338,
+      "inliers": 837,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "1ee990efbbb02686317488bf01bb1a09e84ef55552eb4d0e4f80699000a5741c",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9965172937135554,
+      "correlation": null,
+      "frame_id": "row_000682.jpg",
+      "good_matches": 1014,
+      "homography": [
+        [
+          1.0041358626215517,
+          0.005640629685552826,
+          -2.6413844133359308
+        ],
+        [
+          -0.0037715661255362837,
+          1.0033200783820089,
+          2.6097049692607266
+        ],
+        [
+          4.6129117518865965e-06,
+          -1.4167291683160865e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8915187376725838,
+      "inliers": 904,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "99eef853faead8f2c1972a7395054bfd9b15c33431719418c236d0c00fc68fa4",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9948551535000133,
+      "correlation": null,
+      "frame_id": "row_000713.jpg",
+      "good_matches": 945,
+      "homography": [
+        [
+          1.0198350935974343,
+          0.0058742839334382626,
+          4.120414821784786
+        ],
+        [
+          0.0036325252998676625,
+          1.0186981978071705,
+          -8.64723519822743
+        ],
+        [
+          5.25564709517646e-06,
+          6.878544463408022e-06,
+          0.9999999999999999
+        ]
+      ],
+      "inlier_ratio": 0.8804232804232804,
+      "inliers": 832,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "89d953df631d248200d999f5fd48c32e313d241de0b1969f7fe321b5a861c5df",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9597591660675773,
+      "correlation": null,
+      "frame_id": "row_000744.jpg",
+      "good_matches": 888,
+      "homography": [
+        [
+          1.006495739752667,
+          -0.003774930142895305,
+          54.614561820184804
+        ],
+        [
+          0.00473068816064164,
+          1.0074642910544642,
+          -0.08541434931342098
+        ],
+        [
+          -1.066290137087957e-06,
+          -4.472473925246745e-07,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9076576576576577,
+      "inliers": 806,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "9a2b9fd2e8a8f8ea1f5e73609fef483e52c6b3fffd49a53e5fccfa3d9ed876e5",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.956711132412067,
+      "correlation": null,
+      "frame_id": "row_000775.jpg",
+      "good_matches": 743,
+      "homography": [
+        [
+          1.0031321616345243,
+          0.0010478770389776085,
+          47.468369437401414
+        ],
+        [
+          -0.0022030623555980744,
+          1.0099277780990963,
+          11.58023204765271
+        ],
+        [
+          -6.347086483754627e-06,
+          7.690940968902781e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8317631224764468,
+      "inliers": 618,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "c6598a2a4f686c4e8226c66f8111684382de8d693fd1b2e21c765109195e8357",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9978632478632479,
+      "correlation": null,
+      "frame_id": "row_000806.jpg",
+      "good_matches": 971,
+      "homography": [
+        [
+          1.010862374451267,
+          -0.0001096623881348452,
+          3.0356457256549607
+        ],
+        [
+          0.0020744913666463248,
+          1.0139329262028995,
+          -3.490780077156153
+        ],
+        [
+          1.2523343721505197e-07,
+          5.071371472026554e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9042224510813595,
+      "inliers": 878,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "f069cb0567e7817f0a55e454b57b805ca44cd643fbc125eb5bfac92f352bbbf3",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9839131187262028,
+      "correlation": null,
+      "frame_id": "row_000837.jpg",
+      "good_matches": 821,
+      "homography": [
+        [
+          1.011733039021077,
+          -0.009615107500133535,
+          25.166581604152693
+        ],
+        [
+          0.013153617386017585,
+          1.0123429990984576,
+          -19.146745775597577
+        ],
+        [
+          1.8411111251099822e-06,
+          1.8099879928841877e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.879415347137637,
+      "inliers": 722,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "3f19caff61f384fbb3e3782e2b0f78af1001c2340bf45ffad0b33f91f158dfbc",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9674088718481242,
+      "correlation": null,
+      "frame_id": "row_000868.jpg",
+      "good_matches": 915,
+      "homography": [
+        [
+          1.0095722204330861,
+          -0.006164809023587843,
+          -50.09156292953999
+        ],
+        [
+          0.010642015198774913,
+          1.0124912340790955,
+          -16.788708636394226
+        ],
+        [
+          -6.989930694711067e-07,
+          5.379064563359247e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.8863387978142077,
+      "inliers": 811,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "4277db9b43857a4a1e2544d9895dd66934b24e92d9d5276d630734097d202f6a",
+      "success": true
+    },
+    {
+      "accepted_for_detection": true,
+      "canvas_overlap_ratio": 0.9992018798093565,
+      "correlation": null,
+      "frame_id": "row_000900.jpg",
+      "good_matches": 1345,
+      "homography": [
+        [
+          1.0156547410163108,
+          -0.0017628484364720016,
+          -4.137599346311077
+        ],
+        [
+          0.006201709182384508,
+          1.0167072394452097,
+          -4.77756631614607
+        ],
+        [
+          3.7315296284703854e-06,
+          4.101403400205103e-06,
+          1.0
+        ]
+      ],
+      "inlier_ratio": 0.9360594795539033,
+      "inliers": 1259,
+      "message": "ORB feature matching and RANSAC homography succeeded.",
+      "method": "orb_homography",
+      "output_shape": {
+        "channels": 3,
+        "height": 1070,
+        "width": 1404
+      },
+      "radiometric_shape": null,
+      "reference_keypoints": 4000,
+      "source_keypoints": 4000,
+      "source_sha256": "eb06b5681a6f6e34fbcb297578cc787d4fa5d2cfdbdd40f5992ee98236ccdfb3",
+      "success": true
+    }
+  ],
+  "selected_source": {
+    "basename": "row_000589.jpg",
+    "sha256": "6bcbd478e1ede7e7cdd6a55ce1e184994cddb2d724f416056569e26e3e5ef3ce"
+  },
+  "summary": {
+    "accepted_frame_count": 30,
+    "required_aligned_count": 24,
+    "source_frame_count": 30
+  }
+}

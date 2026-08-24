@@ -1,0 +1,42 @@
+{
+  "board_id": "pcb_dslr_002",
+  "upstream_board_id": "pcb2",
+  "recording_id": "rec1",
+  "source_archive": "cvl_pcb_dslr_1.zip",
+  "source_archive_md5_declared_upstream": "480cbb572441f2b6fb013db965d3d4a1",
+  "full_archive_md5_verified": false,
+  "image_path": "boards/pcb_dslr_002/rec1.jpg",
+  "mask_path": "boards/pcb_dslr_002/rec1-mask.png",
+  "annotation_path": "boards/pcb_dslr_002/rec1-annot.txt",
+  "width": 4928,
+  "height": 3280,
+  "image_sha256": "982e5b879d83dd4af225f5a1eab4e4061d63fdbfdc8aa3978b29919da4bce73b",
+  "image_byte_size": 8295905,
+  "mask_sha256": "d3ec5eaef7806d15b09421c0f763a4885675ea68d7d6f2ef5c072164a01978d7",
+  "mask_byte_size": 32598,
+  "annotation_sha256": "709163dc447297b4f787c0f8f96e9b023373c7167a1e0ae5b828d50788c629ac",
+  "annotation_byte_size": 626,
+  "upstream_ic_count": 16,
+  "upstream": {
+    "image": {
+      "source_member": "pcb2/rec1.jpg",
+      "zip_crc32": "1df55538",
+      "byte_size": 8295905,
+      "sha256": "982e5b879d83dd4af225f5a1eab4e4061d63fdbfdc8aa3978b29919da4bce73b"
+    },
+    "mask": {
+      "source_member": "pcb2/rec1-mask.png",
+      "zip_crc32": "d2b767d5",
+      "byte_size": 32598,
+      "sha256": "d3ec5eaef7806d15b09421c0f763a4885675ea68d7d6f2ef5c072164a01978d7"
+    },
+    "annotation": {
+      "source_member": "pcb2/rec1-annot.txt",
+      "zip_crc32": "fe70970a",
+      "byte_size": 626,
+      "sha256": "709163dc447297b4f787c0f8f96e9b023373c7167a1e0ae5b828d50788c629ac"
+    }
+  },
+  "quality_status": "unknown_requires_human_review",
+  "side": "unknown"
+}

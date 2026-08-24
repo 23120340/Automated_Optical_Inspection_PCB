@@ -1,0 +1,329 @@
+{
+  "config": "default",
+  "dataset_id": "BrachioLab/visa",
+  "files": [
+    {
+      "byte_size": 261692,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000000.jpg",
+      "row_index": 0,
+      "sha256": "832efd1c7a33dcb9adace73badfa6e0defcc0d519c7dc7663d835311ea6291e8",
+      "width": 1404
+    },
+    {
+      "byte_size": 254807,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000031.jpg",
+      "row_index": 31,
+      "sha256": "f37121af66cbc7c8f5b340f63eb66bc7728a17b0b8f85c567b382376fd93d834",
+      "width": 1404
+    },
+    {
+      "byte_size": 259586,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000062.jpg",
+      "row_index": 62,
+      "sha256": "8e26e468d40c77bb8add1b93c6f6d16bb3e32fe60b5b3d62d40c277b213292c1",
+      "width": 1404
+    },
+    {
+      "byte_size": 267005,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000093.jpg",
+      "row_index": 93,
+      "sha256": "f0d75cb4c4b3257bc9021e01aa1ee27cde4461c9e47444d6571939b0325632be",
+      "width": 1404
+    },
+    {
+      "byte_size": 252624,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000124.jpg",
+      "row_index": 124,
+      "sha256": "f1c61e3574f8c7a67ca740df23972fc541d7c19e9d4b278cef6a67586e37baad",
+      "width": 1404
+    },
+    {
+      "byte_size": 256115,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000155.jpg",
+      "row_index": 155,
+      "sha256": "18aaff367d8bc1593067812544cb13cbc6ac8320d6727bfb9b4e9d125316cada",
+      "width": 1404
+    },
+    {
+      "byte_size": 267841,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000186.jpg",
+      "row_index": 186,
+      "sha256": "7290b26b8bdeb59af76ef52a30bee6222dcd853e861ad66fde27ca4a162b9a23",
+      "width": 1404
+    },
+    {
+      "byte_size": 257291,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000217.jpg",
+      "row_index": 217,
+      "sha256": "636594cb6b1954b9fd475bfa27a773628495755af8ebc5fa30c89bf974012a66",
+      "width": 1404
+    },
+    {
+      "byte_size": 223666,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000248.jpg",
+      "row_index": 248,
+      "sha256": "014c7b19ff8f0e71d50bd63caf982d3861131a9c32229ef40a80b51702e27504",
+      "width": 1404
+    },
+    {
+      "byte_size": 235800,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000279.jpg",
+      "row_index": 279,
+      "sha256": "b7371eb40046dfb5f01634540694c2519b68fa871d17d74aabb8538eb9ddc033",
+      "width": 1404
+    },
+    {
+      "byte_size": 246323,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000310.jpg",
+      "row_index": 310,
+      "sha256": "bbf688b67536d17380d9e9a4960f881bac846712f8f6770a872af1d66416b211",
+      "width": 1404
+    },
+    {
+      "byte_size": 230685,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000341.jpg",
+      "row_index": 341,
+      "sha256": "268c6d96f5e74f4ae2c5676025204dc436dfc1007dc18e0c0cc3d9db4e17e597",
+      "width": 1404
+    },
+    {
+      "byte_size": 252286,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000372.jpg",
+      "row_index": 372,
+      "sha256": "2c32e6a46bda3892049bf0be0c4f34972c7b49ecfe49ecd68101ac1ba2ef2c35",
+      "width": 1404
+    },
+    {
+      "byte_size": 255489,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000403.jpg",
+      "row_index": 403,
+      "sha256": "0b9d5ff527ed628ec526555cc611716319f58d977ada76eecd39081ce384c2b8",
+      "width": 1404
+    },
+    {
+      "byte_size": 234920,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000434.jpg",
+      "row_index": 434,
+      "sha256": "2bff24ba76705741675734946386c7ee855bfdb83b77e16cc5583817b9763a5e",
+      "width": 1404
+    },
+    {
+      "byte_size": 223358,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000465.jpg",
+      "row_index": 465,
+      "sha256": "0a42061f922b0e637c85ff9b75c9f7bff09e4e2385c24ee2fce27ce61be1b58b",
+      "width": 1404
+    },
+    {
+      "byte_size": 243379,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000496.jpg",
+      "row_index": 496,
+      "sha256": "e278600b237a4c3e44c154b56cb7c6541ab779dc6aa24c4698b1f136abf63a1c",
+      "width": 1404
+    },
+    {
+      "byte_size": 234846,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000527.jpg",
+      "row_index": 527,
+      "sha256": "caf39274efc032c4f347590e188821d21a0799e1e461915ee4979dad6e8649e7",
+      "width": 1404
+    },
+    {
+      "byte_size": 255014,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000558.jpg",
+      "row_index": 558,
+      "sha256": "434b1d7bbd5316f3a678d1ba4effb184a0d435a80a297d8f58e2005e473dd906",
+      "width": 1404
+    },
+    {
+      "byte_size": 221026,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000589.jpg",
+      "row_index": 589,
+      "sha256": "6bcbd478e1ede7e7cdd6a55ce1e184994cddb2d724f416056569e26e3e5ef3ce",
+      "width": 1404
+    },
+    {
+      "byte_size": 220792,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000620.jpg",
+      "row_index": 620,
+      "sha256": "afd55f50cbc7ec651d4f6cd6c4acc746b34c21dfc23d204b7c03b6151e08144a",
+      "width": 1404
+    },
+    {
+      "byte_size": 248612,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000651.jpg",
+      "row_index": 651,
+      "sha256": "1ee990efbbb02686317488bf01bb1a09e84ef55552eb4d0e4f80699000a5741c",
+      "width": 1404
+    },
+    {
+      "byte_size": 242248,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000682.jpg",
+      "row_index": 682,
+      "sha256": "99eef853faead8f2c1972a7395054bfd9b15c33431719418c236d0c00fc68fa4",
+      "width": 1404
+    },
+    {
+      "byte_size": 280843,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000713.jpg",
+      "row_index": 713,
+      "sha256": "89d953df631d248200d999f5fd48c32e313d241de0b1969f7fe321b5a861c5df",
+      "width": 1404
+    },
+    {
+      "byte_size": 260465,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000744.jpg",
+      "row_index": 744,
+      "sha256": "9a2b9fd2e8a8f8ea1f5e73609fef483e52c6b3fffd49a53e5fccfa3d9ed876e5",
+      "width": 1404
+    },
+    {
+      "byte_size": 238691,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000775.jpg",
+      "row_index": 775,
+      "sha256": "c6598a2a4f686c4e8226c66f8111684382de8d693fd1b2e21c765109195e8357",
+      "width": 1404
+    },
+    {
+      "byte_size": 260799,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000806.jpg",
+      "row_index": 806,
+      "sha256": "f069cb0567e7817f0a55e454b57b805ca44cd643fbc125eb5bfac92f352bbbf3",
+      "width": 1404
+    },
+    {
+      "byte_size": 287713,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000837.jpg",
+      "row_index": 837,
+      "sha256": "3f19caff61f384fbb3e3782e2b0f78af1001c2340bf45ffad0b33f91f158dfbc",
+      "width": 1404
+    },
+    {
+      "byte_size": 227787,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000868.jpg",
+      "row_index": 868,
+      "sha256": "4277db9b43857a4a1e2544d9895dd66934b24e92d9d5276d630734097d202f6a",
+      "width": 1404
+    },
+    {
+      "byte_size": 232667,
+      "height": 1070,
+      "label": 0,
+      "path": "images/row_000900.jpg",
+      "row_index": 900,
+      "sha256": "eb06b5681a6f6e34fbcb297578cc787d4fa5d2cfdbdd40f5992ee98236ccdfb3",
+      "width": 1404
+    }
+  ],
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "mirror_url": "https://huggingface.co/datasets/BrachioLab/visa",
+  "official_provenance": {
+    "archive_url": "https://amazon-visual-anomaly.s3.us-west-2.amazonaws.com/VisA_20220922.tar",
+    "dataset_name": "VisA",
+    "paper_url": "https://assets.amazon.science/e6/b4/e3510d084be1bc785515fe05b2d2/spot-the-difference-self-supervised-pre-training-for-anomaly-detection-and-segmentation.pdf",
+    "publisher": "Amazon",
+    "registry_url": "https://registry.opendata.aws/visa/",
+    "repository_url": "https://github.com/amazon-science/spot-diff"
+  },
+  "processing_note": "The Hugging Face mirror exposes Parquet/Dataset Viewer image assets. Files below are the exact downloaded mirror bytes and are not asserted to be byte-identical to Amazon's official tar archive.",
+  "schema_version": "aoi-visa-reference-set/1.0",
+  "selection": {
+    "algorithm": "inclusive_integer_linspace_floor_v1",
+    "expected_label": 0,
+    "num_rows_total": 901,
+    "requested_count": 30,
+    "row_indices": [
+      0,
+      31,
+      62,
+      93,
+      124,
+      155,
+      186,
+      217,
+      248,
+      279,
+      310,
+      341,
+      372,
+      403,
+      434,
+      465,
+      496,
+      527,
+      558,
+      589,
+      620,
+      651,
+      682,
+      713,
+      744,
+      775,
+      806,
+      837,
+      868,
+      900
+    ]
+  },
+  "source_kind": "dataset_preprocessed",
+  "split": "pcb2.train"
+}

@@ -1,0 +1,16 @@
+Designator,Mid X,Mid Y,Rotation,Layer,Footprint,Comment,Status,Expected Class,Support Ratio,Class Purity,Center MAD PX,Source Coordinate Space
+J_AUTO_0001,23.048577,1.178564,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,connector,1.000000,1.000000,2.105098,golden_board_pixels
+R_AUTO_0001,15.021837,3.676564,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,resistor,1.000000,1.000000,1.079807,golden_board_pixels
+R_AUTO_0002,15.034114,5.824361,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,resistor,1.000000,1.000000,1.395521,golden_board_pixels
+R_AUTO_0003,30.480564,5.795285,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,resistor,1.000000,1.000000,1.172894,golden_board_pixels
+C_AUTO_0002,14.969084,8.001002,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,capacitor,1.000000,1.000000,0.896633,golden_board_pixels
+C_AUTO_0003,30.452858,7.988542,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,capacitor,0.933333,1.000000,0.821149,golden_board_pixels
+U_AUTO_0001,4.453760,10.064392,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,ic,1.000000,1.000000,2.126451,golden_board_pixels
+R_AUTO_0004,15.027893,10.141821,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,resistor,1.000000,1.000000,0.865495,golden_board_pixels
+U_AUTO_0002,22.642152,10.093666,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,ic,1.000000,1.000000,1.201095,golden_board_pixels
+U_AUTO_0003,40.586774,9.999268,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,ic,1.000000,1.000000,1.900772,golden_board_pixels
+R_AUTO_0005,30.530349,10.159609,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,resistor,1.000000,1.000000,0.853212,golden_board_pixels
+C_AUTO_0004,15.014191,12.269729,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,capacitor,1.000000,1.000000,0.821396,golden_board_pixels
+C_AUTO_0005,30.441768,12.348713,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,capacitor,1.000000,1.000000,1.346962,golden_board_pixels
+C_AUTO_0006,15.027541,14.457060,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,capacitor,1.000000,1.000000,0.791517,golden_board_pixels
+R_AUTO_0006,30.454104,14.439783,,Bottom,,"Synthetic AUTO designator; verify RefDes, rotation and footprint before use",NEEDS_REVIEW,resistor,1.000000,1.000000,0.855421,golden_board_pixels

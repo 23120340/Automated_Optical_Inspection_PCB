@@ -1,0 +1,321 @@
+{
+  "schema_version": "aoi-diverse-pcb-bootstrap/1.0",
+  "status": "NEEDS_REVIEW",
+  "production_eligible": false,
+  "coordinate_space": "source_image_pixels",
+  "source_manifest_sha256": "a90f218ce554320912a6255f1efd40df122d77f068e258c8e4285755c868ffaa",
+  "source_dataset": "TU Wien PCB DSLR",
+  "detector_identifier": "best.onnx:a26151e0fab23eb089824e058ab42b12fe48581bc040a82a9f4523ac4fdbabd0",
+  "board_count": 30,
+  "distinct_layout_policy": "one source board -> one reference and one PnP draft",
+  "quality_summary": {
+    "unique_source_sha256_count": 30,
+    "focus_metric": "Laplacian variance inside board mask at max side 1600",
+    "focus_min": 1404.564036,
+    "focus_median": 3481.3787665,
+    "focus_max": 7634.448647,
+    "human_visual_review_required": true
+  },
+  "boards": [
+    {
+      "board_id": "pcb_dslr_001",
+      "upstream_board_id": "pcb1",
+      "golden_candidate": "references/pcb_dslr_001/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_001/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_001/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_001/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 4445.92386347107,
+      "proposal_count": 59
+    },
+    {
+      "board_id": "pcb_dslr_002",
+      "upstream_board_id": "pcb2",
+      "golden_candidate": "references/pcb_dslr_002/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_002/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_002/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_002/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2408.9987939417133,
+      "proposal_count": 61
+    },
+    {
+      "board_id": "pcb_dslr_003",
+      "upstream_board_id": "pcb3",
+      "golden_candidate": "references/pcb_dslr_003/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_003/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_003/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_003/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3131.9504770123153,
+      "proposal_count": 237
+    },
+    {
+      "board_id": "pcb_dslr_004",
+      "upstream_board_id": "pcb4",
+      "golden_candidate": "references/pcb_dslr_004/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_004/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_004/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_004/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 1404.5640356962367,
+      "proposal_count": 13
+    },
+    {
+      "board_id": "pcb_dslr_005",
+      "upstream_board_id": "pcb5",
+      "golden_candidate": "references/pcb_dslr_005/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_005/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_005/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_005/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 1849.2992929752108,
+      "proposal_count": 9
+    },
+    {
+      "board_id": "pcb_dslr_006",
+      "upstream_board_id": "pcb6",
+      "golden_candidate": "references/pcb_dslr_006/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_006/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_006/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_006/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3485.2199990210656,
+      "proposal_count": 33
+    },
+    {
+      "board_id": "pcb_dslr_007",
+      "upstream_board_id": "pcb7",
+      "golden_candidate": "references/pcb_dslr_007/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_007/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_007/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_007/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 4800.14025966918,
+      "proposal_count": 144
+    },
+    {
+      "board_id": "pcb_dslr_008",
+      "upstream_board_id": "pcb8",
+      "golden_candidate": "references/pcb_dslr_008/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_008/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_008/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_008/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3477.5375338882454,
+      "proposal_count": 85
+    },
+    {
+      "board_id": "pcb_dslr_009",
+      "upstream_board_id": "pcb9",
+      "golden_candidate": "references/pcb_dslr_009/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_009/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_009/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_009/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 5912.719689161228,
+      "proposal_count": 27
+    },
+    {
+      "board_id": "pcb_dslr_010",
+      "upstream_board_id": "pcb10",
+      "golden_candidate": "references/pcb_dslr_010/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_010/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_010/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_010/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3559.836965534605,
+      "proposal_count": 23
+    },
+    {
+      "board_id": "pcb_dslr_011",
+      "upstream_board_id": "pcb11",
+      "golden_candidate": "references/pcb_dslr_011/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_011/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_011/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_011/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2795.8190078555713,
+      "proposal_count": 284
+    },
+    {
+      "board_id": "pcb_dslr_012",
+      "upstream_board_id": "pcb12",
+      "golden_candidate": "references/pcb_dslr_012/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_012/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_012/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_012/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2484.0989864305675,
+      "proposal_count": 198
+    },
+    {
+      "board_id": "pcb_dslr_013",
+      "upstream_board_id": "pcb13",
+      "golden_candidate": "references/pcb_dslr_013/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_013/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_013/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_013/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2048.949666752559,
+      "proposal_count": 167
+    },
+    {
+      "board_id": "pcb_dslr_014",
+      "upstream_board_id": "pcb14",
+      "golden_candidate": "references/pcb_dslr_014/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_014/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_014/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_014/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3832.5684044708287,
+      "proposal_count": 163
+    },
+    {
+      "board_id": "pcb_dslr_015",
+      "upstream_board_id": "pcb15",
+      "golden_candidate": "references/pcb_dslr_015/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_015/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_015/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_015/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2659.330209470433,
+      "proposal_count": 40
+    },
+    {
+      "board_id": "pcb_dslr_016",
+      "upstream_board_id": "pcb16",
+      "golden_candidate": "references/pcb_dslr_016/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_016/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_016/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_016/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2050.5952827669116,
+      "proposal_count": 34
+    },
+    {
+      "board_id": "pcb_dslr_017",
+      "upstream_board_id": "pcb17",
+      "golden_candidate": "references/pcb_dslr_017/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_017/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_017/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_017/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2772.7349156689843,
+      "proposal_count": 114
+    },
+    {
+      "board_id": "pcb_dslr_018",
+      "upstream_board_id": "pcb18",
+      "golden_candidate": "references/pcb_dslr_018/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_018/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_018/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_018/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 4729.001712006412,
+      "proposal_count": 30
+    },
+    {
+      "board_id": "pcb_dslr_019",
+      "upstream_board_id": "pcb19",
+      "golden_candidate": "references/pcb_dslr_019/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_019/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_019/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_019/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3389.46260650518,
+      "proposal_count": 24
+    },
+    {
+      "board_id": "pcb_dslr_020",
+      "upstream_board_id": "pcb20",
+      "golden_candidate": "references/pcb_dslr_020/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_020/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_020/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_020/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2433.470268978815,
+      "proposal_count": 46
+    },
+    {
+      "board_id": "pcb_dslr_021",
+      "upstream_board_id": "pcb21",
+      "golden_candidate": "references/pcb_dslr_021/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_021/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_021/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_021/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 2437.8503793357163,
+      "proposal_count": 2
+    },
+    {
+      "board_id": "pcb_dslr_022",
+      "upstream_board_id": "pcb22",
+      "golden_candidate": "references/pcb_dslr_022/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_022/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_022/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_022/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 7634.44864746091,
+      "proposal_count": 105
+    },
+    {
+      "board_id": "pcb_dslr_023",
+      "upstream_board_id": "pcb23",
+      "golden_candidate": "references/pcb_dslr_023/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_023/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_023/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_023/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 6920.3802184339365,
+      "proposal_count": 43
+    },
+    {
+      "board_id": "pcb_dslr_024",
+      "upstream_board_id": "pcb24",
+      "golden_candidate": "references/pcb_dslr_024/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_024/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_024/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_024/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 5833.04856107062,
+      "proposal_count": 131
+    },
+    {
+      "board_id": "pcb_dslr_025",
+      "upstream_board_id": "pcb25",
+      "golden_candidate": "references/pcb_dslr_025/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_025/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_025/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_025/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 3067.601091998162,
+      "proposal_count": 9
+    },
+    {
+      "board_id": "pcb_dslr_026",
+      "upstream_board_id": "pcb26",
+      "golden_candidate": "references/pcb_dslr_026/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_026/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_026/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_026/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 4397.51900341288,
+      "proposal_count": 53
+    },
+    {
+      "board_id": "pcb_dslr_027",
+      "upstream_board_id": "pcb27",
+      "golden_candidate": "references/pcb_dslr_027/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_027/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_027/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_027/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 5971.290838493182,
+      "proposal_count": 23
+    },
+    {
+      "board_id": "pcb_dslr_028",
+      "upstream_board_id": "pcb28",
+      "golden_candidate": "references/pcb_dslr_028/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_028/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_028/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_028/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 4829.633224570524,
+      "proposal_count": 35
+    },
+    {
+      "board_id": "pcb_dslr_029",
+      "upstream_board_id": "pcb29",
+      "golden_candidate": "references/pcb_dslr_029/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_029/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_029/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_029/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 5381.880382236533,
+      "proposal_count": 14
+    },
+    {
+      "board_id": "pcb_dslr_030",
+      "upstream_board_id": "pcb30",
+      "golden_candidate": "references/pcb_dslr_030/golden_candidate.json",
+      "pnp_csv": "references/pcb_dslr_030/pnp_pixels_NEEDS_REVIEW.csv",
+      "pnp_json": "references/pcb_dslr_030/pnp_pixels_NEEDS_REVIEW.json",
+      "preview": "references/pcb_dslr_030/pnp_preview.jpg",
+      "focus_laplacian_var_at_max1600": 5955.477332717556,
+      "proposal_count": 53
+    }
+  ]
+}

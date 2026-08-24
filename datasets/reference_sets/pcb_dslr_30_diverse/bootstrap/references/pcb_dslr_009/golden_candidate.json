@@ -1,0 +1,47 @@
+{
+  "schema_version": "aoi-diverse-pcb-bootstrap/1.0",
+  "status": "GOLDEN_CANDIDATE_NEEDS_REVIEW",
+  "production_eligible": false,
+  "board_id": "pcb_dslr_009",
+  "upstream_board_id": "pcb9",
+  "side": "unknown",
+  "coordinate_space": "source_image_pixels",
+  "image": {
+    "path": "../../../boards/pcb_dslr_009/rec1.jpg",
+    "sha256": "8654035936e4c1f45cd1e9d2e704bd73567d7e6e160cdba2c8b04a2f14d55508",
+    "width": 4928,
+    "height": 3280,
+    "source_kind": "dataset_preprocessed_source_as_received",
+    "format_warning": "Source is JPEG; approve then create a lossless PNG/TIFF production Golden."
+  },
+  "board_mask": {
+    "path": "../../../boards/pcb_dslr_009/rec1-mask.png",
+    "bbox_xyxy": [
+      1720.0,
+      697.0,
+      3734.0,
+      2638.0
+    ],
+    "sha256": "737523d1e8d1fe7b243453babc1042985c5257785c004cdbc16b73283c21780f"
+  },
+  "upstream_ic_annotation": {
+    "path": "../../../boards/pcb_dslr_009/rec1-annot.txt",
+    "count": 21,
+    "sha256": "782daf611bd6acf7ef20f422805b8d86bf4a3594547f8f41073f1aab8cef9662"
+  },
+  "metrology": {
+    "verified": false,
+    "pixel_to_mm": null
+  },
+  "registration": {
+    "verified": false,
+    "transform": null
+  },
+  "review_required": [
+    "confirm_board_id_revision_and_side",
+    "confirm_board_is_acceptable_reference",
+    "review_every_pnp_proposal",
+    "capture_repeated_ok_frames_for_this_sku",
+    "calibrate_physical_coordinates_before_mm_export"
+  ]
+}

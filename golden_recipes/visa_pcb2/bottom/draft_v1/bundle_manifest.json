@@ -1,0 +1,75 @@
+{
+  "aligned_frame_count": 30,
+  "artifacts": [
+    {
+      "byte_size": 29720,
+      "path": "recipe.json",
+      "sha256": "bf21475b43110f68519b51270601755ce95f3b993e515ddd5eb9e5fa3d75b546"
+    },
+    {
+      "byte_size": 2566216,
+      "path": "golden.png",
+      "sha256": "030408a4a3e72444277d96b1e12f92f5d9fcb0e79e51e2a2c6eda8f0b7f88ca0"
+    },
+    {
+      "byte_size": 36197,
+      "path": "reference_selection.json",
+      "sha256": "11047e7d1e36c32e07770125b3aba0b0039e18fe97b3a59c2a4e739ecc405726"
+    },
+    {
+      "byte_size": 32453,
+      "path": "alignment_report.json",
+      "sha256": "048e187d9415f01488fad53cbb0f9da672efc4ed9dbd86f54a7931d073cca943"
+    },
+    {
+      "byte_size": 27543,
+      "path": "consensus_components.json",
+      "sha256": "945bdaf3917247195e65a7d7141445f7db52bd8d54574dcc0b3681a07b5831ea"
+    },
+    {
+      "byte_size": 14386,
+      "path": "consensus_components.csv",
+      "sha256": "9c6efa5124d79c75e524cccc2235f204842ab28a924f3eb1acdea3853c777e7f"
+    },
+    {
+      "byte_size": 2943,
+      "path": "placement_draft_NEEDS_REVIEW.csv",
+      "sha256": "efae9290f7650f006ab2aa5ff7ecadd450cb0714c57dd27ef81e22881fbb6256"
+    },
+    {
+      "byte_size": 2163,
+      "path": "registration_draft_NEEDS_REVIEW.json",
+      "sha256": "793c052188b9e78f7f552d306e9a78591b3e098c62b1548d80ff71215d5ab0de"
+    },
+    {
+      "byte_size": 2575195,
+      "path": "overlay_consensus.png",
+      "sha256": "8223ae6e13722470be01c52aa957904c5ae9861ba01cfebb001412e63e09418c"
+    },
+    {
+      "byte_size": 996,
+      "path": "README_FIRST.md",
+      "sha256": "27e76d197dd374d7e3f4a1830ede77cda6079f837965d83d63585a18e4f0204f"
+    },
+    {
+      "byte_size": 853,
+      "path": "NEEDS_REVIEW.md",
+      "sha256": "0441a55665c5367be121f9436a03ee4a0b689d3d37c0438ef30c11ac7bc8d5ae"
+    }
+  ],
+  "board_id": "visa_pcb2",
+  "consensus": {
+    "component_count": 16,
+    "eligible_component_count": 15
+  },
+  "production_eligible": false,
+  "schema_version": "aoi-reference-bundle/1.0",
+  "selected_source": {
+    "basename": "row_000589.jpg",
+    "sha256": "6bcbd478e1ede7e7cdd6a55ce1e184994cddb2d724f416056569e26e3e5ef3ce"
+  },
+  "side": "bottom",
+  "source_frame_count": 30,
+  "source_manifest_sha256": "f129720e39c1bee42d32e5a96d7357d74eff4598ed9c1131cae1a8d5c8005d52",
+  "status": "NEEDS_REVIEW"
+}

@@ -1,0 +1,97 @@
+{
+  "board_quad_px_tl_tr_br_bl": [
+    [
+      188.4164276123047,
+      318.6893005371094
+    ],
+    [
+      1155.693359375,
+      329.2032165527344
+    ],
+    [
+      1151.03466796875,
+      757.8046875
+    ],
+    [
+      183.75770568847656,
+      747.290771484375
+    ]
+  ],
+  "cad_registration_diagnostic": {
+    "ambiguous": true,
+    "class_agreements": 0,
+    "inlier_ratio": 0.0,
+    "matched_points": 4,
+    "matrix": [
+      [
+        21.495042450335962,
+        -0.23293638064249553,
+        188.41642325057072
+      ],
+      [
+        0.2336425783775327,
+        21.430071872557676,
+        318.6892931596319
+      ],
+      [
+        1.7196750183524747e-11,
+        -1.5773130654875495e-09,
+        0.9999999768505644
+      ]
+    ],
+    "method": "nominal_board_outline_homography_NEEDS_REVIEW",
+    "mirrored": false,
+    "residual_px": 0.0,
+    "scale_px_per_mm": 21.46380042003161,
+    "y_flipped": false
+  },
+  "coordinate_space": "golden_board_pixels",
+  "draft_axis_convention": {
+    "bottom_side_mirroring_verified": false,
+    "origin": "visually_top_left_board_outline_corner",
+    "x_positive": "toward_visually_top_right_corner",
+    "y_positive": "toward_visually_bottom_left_corner"
+  },
+  "mm_to_pixel_homography": [
+    [
+      21.495042450335962,
+      -0.23293638064249553,
+      188.41642325057072
+    ],
+    [
+      0.2336425783775327,
+      21.430071872557676,
+      318.6892931596319
+    ],
+    [
+      1.7196750183524747e-11,
+      -1.5773130654875495e-09,
+      0.9999999768505644
+    ]
+  ],
+  "nominal_board": {
+    "dimension_source": "caller_supplied_nominal_outline",
+    "height_mm": 20.0,
+    "width_mm": 45.0
+  },
+  "pixel_to_mm_homography": [
+    [
+      0.04651685933169462,
+      0.0005056191522563781,
+      -8.92567587299275
+    ],
+    [
+      -0.0005071526827838489,
+      0.04665788562599791,
+      -14.773813037945592
+    ],
+    [
+      -1.5998773990376008e-12,
+      7.358539930312134e-11,
+      1.0
+    ]
+  ],
+  "schema_version": "aoi-pnp-registration-draft/1.0",
+  "status": "NEEDS_REVIEW",
+  "verified": false
+}

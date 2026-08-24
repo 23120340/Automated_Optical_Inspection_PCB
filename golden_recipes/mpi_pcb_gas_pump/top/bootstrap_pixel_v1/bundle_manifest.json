@@ -1,0 +1,88 @@
+{
+  "aligned_frame_count": 30,
+  "alignment_mode": "upstream_dataset_identity_enrollment_only",
+  "artifacts": [
+    {
+      "byte_size": 16645267,
+      "path": "golden.png",
+      "sha256": "52e62cecf7b8e9296c6867bb84f08d4a878cd68f5d38012f500446c5ace4bb34"
+    },
+    {
+      "byte_size": 37985,
+      "path": "reference_selection.json",
+      "sha256": "89a793913d1728c7be1fdbe9183d3078a9b6b1ae88a0095939f0cf101c7b50f7"
+    },
+    {
+      "byte_size": 40005,
+      "path": "alignment_report.json",
+      "sha256": "d3abb150dc18c87816d7ae915c007b012b66a176a5855a9478321c02d75f47c3"
+    },
+    {
+      "byte_size": 269153,
+      "path": "consensus_components.json",
+      "sha256": "34cfe84a873cd4e072af3a0466959e41b1ab38fedc2a66f3761cdbd1e69b6a5c"
+    },
+    {
+      "byte_size": 115980,
+      "path": "consensus_components.csv",
+      "sha256": "677b5b6944fbefeb3867f487194fa854390df38464f2197208db9aaf9f2f2001"
+    },
+    {
+      "byte_size": 33149,
+      "path": "pnp_pixels_NEEDS_REVIEW.csv",
+      "sha256": "bb06f0a52ce57c98b700ee95554948f3e73a2c730cb7a23f8fefadff51ad90fd"
+    },
+    {
+      "byte_size": 16943694,
+      "path": "overlay_consensus.png",
+      "sha256": "19157e2daf0c2d4cd2ce40f4a98441a50b271c36e0fa0b4fdd8e608f69b0a5d2"
+    },
+    {
+      "byte_size": 16710545,
+      "path": "overlay_pnp_NEEDS_REVIEW.png",
+      "sha256": "112416c985039a1f9a2eafee7af1f6df22c4fe51eb99e2dec44a23c01683253b"
+    },
+    {
+      "byte_size": 1511,
+      "path": "README_FIRST.md",
+      "sha256": "9930efc7e9a27c2bef044931bf4eb71bffc80efbb19a527bf44f9aaf51a82c98"
+    },
+    {
+      "byte_size": 853,
+      "path": "NEEDS_REVIEW.md",
+      "sha256": "0441a55665c5367be121f9436a03ee4a0b689d3d37c0438ef30c11ac7bc8d5ae"
+    }
+  ],
+  "board_id": "mpi_pcb_gas_pump",
+  "bundle_mode": "pixel_only_no_physical_calibration",
+  "consensus": {
+    "component_count": 253,
+    "eligible_component_count": 6
+  },
+  "deferred_without_physical_calibration": [
+    "recipe.json",
+    "placement_draft_NEEDS_REVIEW.csv",
+    "registration_draft_NEEDS_REVIEW.json"
+  ],
+  "pnp_pixels_review": {
+    "authoritative": false,
+    "component_count": 32,
+    "coordinate_space": "golden_board_pixels",
+    "proposal_basis": "median_consensus_cluster_with_selected_golden_observation",
+    "schema_version": "aoi-pnp-pixels-review-draft/1.0",
+    "selected_golden_frame_id": "mpi_pcb_train_good_0893.jpg",
+    "status": "NEEDS_REVIEW",
+    "verified": false
+  },
+  "production_eligible": false,
+  "recipe_emitted": false,
+  "schema_version": "aoi-reference-bundle/1.0",
+  "selected_source": {
+    "basename": "mpi_pcb_train_good_0893.jpg",
+    "sha256": "10c5b91aa967ca44a1a576c8ecf0e8a127305be8c34e586d6e040bafda7789f4"
+  },
+  "side": "top",
+  "source_frame_count": 30,
+  "source_manifest_sha256": "65754c3c4c75ec135304e1057a4d981309524e0968157172713248b434b244f1",
+  "status": "NEEDS_REVIEW"
+}

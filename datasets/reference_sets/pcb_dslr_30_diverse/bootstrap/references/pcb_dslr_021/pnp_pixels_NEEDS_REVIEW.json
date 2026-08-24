@@ -1,0 +1,67 @@
+{
+  "schema_version": "aoi-pnp-draft-source-pixels/1.0",
+  "status": "NEEDS_REVIEW",
+  "board_id": "pcb_dslr_021",
+  "coordinate_space": "source_image_pixels",
+  "detector_identifier": "best.onnx:a26151e0fab23eb089824e058ab42b12fe48581bc040a82a9f4523ac4fdbabd0",
+  "summary": {
+    "proposal_count": 2,
+    "upstream_ic_count": 0,
+    "detector_raw_count": 2
+  },
+  "warnings": [
+    "Synthetic *_AUTO_* names are not OCR or manufacturing RefDes.",
+    "Observed upstream angle is an OpenCV rectangle angle, not a verified PnP rotation.",
+    "No millimetre coordinates are emitted without physical calibration."
+  ],
+  "proposals": [
+    {
+      "schema_version": "aoi-pnp-draft-source-pixels/1.0",
+      "status": "NEEDS_REVIEW",
+      "board_id": "pcb_dslr_021",
+      "coordinate_space": "source_image_pixels",
+      "slot_id": "slot_0001",
+      "designator": "U_AUTO_0001",
+      "designator_source": "synthetic_auto_not_ocr",
+      "expected_class": "ic",
+      "center_x_px": "2549.347351",
+      "center_y_px": "1312.105499",
+      "x1_px": "2532.662598",
+      "y1_px": "1299.735092",
+      "x2_px": "2566.032104",
+      "y2_px": "1324.475906",
+      "rotation_deg_observed": "",
+      "rotation_source": "unknown",
+      "footprint": "",
+      "layer": "",
+      "proposal_source": "current_component_detector_low_confidence_fallback",
+      "confidence": "0.116997",
+      "upstream_text": "",
+      "review_reasons": "verify_refdes;verify_footprint;verify_layer;rotation_unknown;low_confidence_empty_result_fallback"
+    },
+    {
+      "schema_version": "aoi-pnp-draft-source-pixels/1.0",
+      "status": "NEEDS_REVIEW",
+      "board_id": "pcb_dslr_021",
+      "coordinate_space": "source_image_pixels",
+      "slot_id": "slot_0002",
+      "designator": "U_AUTO_0002",
+      "designator_source": "synthetic_auto_not_ocr",
+      "expected_class": "ic",
+      "center_x_px": "1674.507069",
+      "center_y_px": "1569.125351",
+      "x1_px": "1612.758156",
+      "y1_px": "1384.538605",
+      "x2_px": "1736.255981",
+      "y2_px": "1753.712097",
+      "rotation_deg_observed": "",
+      "rotation_source": "unknown",
+      "footprint": "",
+      "layer": "",
+      "proposal_source": "current_component_detector_low_confidence_fallback",
+      "confidence": "0.145715",
+      "upstream_text": "",
+      "review_reasons": "verify_refdes;verify_footprint;verify_layer;rotation_unknown;low_confidence_empty_result_fallback"
+    }
+  ]
+}

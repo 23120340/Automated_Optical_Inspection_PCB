@@ -1,0 +1,936 @@
+{
+  "schema_version": "aoi-inspection-recipe/1.1",
+  "board_id": "visa_pcb2",
+  "side": "bottom",
+  "golden_sha256": "030408a4a3e72444277d96b1e12f92f5d9fcb0e79e51e2a2c6eda8f0b7f88ca0",
+  "golden_asset_path": "golden.png",
+  "coordinate_space": "golden_board_pixels",
+  "image_size": {
+    "width": 1404,
+    "height": 1070
+  },
+  "metrology": {
+    "pixels_per_mm_x": 21.496313095092773,
+    "pixels_per_mm_y": 21.431339263916016,
+    "verified": false
+  },
+  "alignment": {
+    "transform_model": "partial_affine",
+    "anchor_provenance": "demo_grid",
+    "anchors": [
+      {
+        "anchor_id": "anchor_0001",
+        "reference_point_px": [
+          375.0,
+          403.0
+        ],
+        "template_bbox_xyxy": [
+          343.0,
+          371.0,
+          408.0,
+          436.0
+        ],
+        "search_roi_xyxy": [
+          295.0,
+          323.0,
+          456.0,
+          484.0
+        ],
+        "template_path": "anchors/anchor_0001.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0002",
+        "reference_point_px": [
+          670.0,
+          403.0
+        ],
+        "template_bbox_xyxy": [
+          638.0,
+          371.0,
+          703.0,
+          436.0
+        ],
+        "search_roi_xyxy": [
+          590.0,
+          323.0,
+          751.0,
+          484.0
+        ],
+        "template_path": "anchors/anchor_0002.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0003",
+        "reference_point_px": [
+          966.0,
+          403.0
+        ],
+        "template_bbox_xyxy": [
+          934.0,
+          371.0,
+          999.0,
+          436.0
+        ],
+        "search_roi_xyxy": [
+          886.0,
+          323.0,
+          1047.0,
+          484.0
+        ],
+        "template_path": "anchors/anchor_0003.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0004",
+        "reference_point_px": [
+          375.0,
+          538.0
+        ],
+        "template_bbox_xyxy": [
+          343.0,
+          506.0,
+          408.0,
+          571.0
+        ],
+        "search_roi_xyxy": [
+          295.0,
+          458.0,
+          456.0,
+          619.0
+        ],
+        "template_path": "anchors/anchor_0004.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0005",
+        "reference_point_px": [
+          670.0,
+          538.0
+        ],
+        "template_bbox_xyxy": [
+          638.0,
+          506.0,
+          703.0,
+          571.0
+        ],
+        "search_roi_xyxy": [
+          590.0,
+          458.0,
+          751.0,
+          619.0
+        ],
+        "template_path": "anchors/anchor_0005.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0006",
+        "reference_point_px": [
+          966.0,
+          538.0
+        ],
+        "template_bbox_xyxy": [
+          934.0,
+          506.0,
+          999.0,
+          571.0
+        ],
+        "search_roi_xyxy": [
+          886.0,
+          458.0,
+          1047.0,
+          619.0
+        ],
+        "template_path": "anchors/anchor_0006.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0007",
+        "reference_point_px": [
+          375.0,
+          674.0
+        ],
+        "template_bbox_xyxy": [
+          343.0,
+          642.0,
+          408.0,
+          707.0
+        ],
+        "search_roi_xyxy": [
+          295.0,
+          594.0,
+          456.0,
+          755.0
+        ],
+        "template_path": "anchors/anchor_0007.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0008",
+        "reference_point_px": [
+          670.0,
+          674.0
+        ],
+        "template_bbox_xyxy": [
+          638.0,
+          642.0,
+          703.0,
+          707.0
+        ],
+        "search_roi_xyxy": [
+          590.0,
+          594.0,
+          751.0,
+          755.0
+        ],
+        "template_path": "anchors/anchor_0008.png",
+        "mask_path": null
+      },
+      {
+        "anchor_id": "anchor_0009",
+        "reference_point_px": [
+          966.0,
+          674.0
+        ],
+        "template_bbox_xyxy": [
+          934.0,
+          642.0,
+          999.0,
+          707.0
+        ],
+        "search_roi_xyxy": [
+          886.0,
+          594.0,
+          1047.0,
+          755.0
+        ],
+        "template_path": "anchors/anchor_0009.png",
+        "mask_path": null
+      }
+    ],
+    "quality_gates": {
+      "min_anchors": 4,
+      "min_anchor_score": 0.7,
+      "max_residual_px": 0.75,
+      "ransac_reprojection_threshold_px": 1.0,
+      "min_inlier_ratio": 0.5,
+      "min_scale": 0.95,
+      "max_scale": 1.05,
+      "max_abs_rotation_deg": 5.0,
+      "min_canvas_overlap_ratio": 0.9
+    }
+  },
+  "asset_sha256": {
+    "anchors/anchor_0001.png": "03676d9d8a7182eb7bf57fae6965d8bd7928d676b758510ffd517799b031c5b7",
+    "anchors/anchor_0002.png": "365fc7cbd06755e17d43d96f15b2deb7be3fc4b4b16e67c39da772aee8cba41c",
+    "anchors/anchor_0003.png": "b65ad4d699eaacca3899922c6bd001ca26586aa84be62a52b3a8825cc775f177",
+    "anchors/anchor_0004.png": "564a2fefa72b4795ed9922fd15fc6473c5891d1eff9c00668f27a584f40f5af6",
+    "anchors/anchor_0005.png": "91457d13d210f83e8e6b76c8858a4e1722026df807296919cb0983d201af5b04",
+    "anchors/anchor_0006.png": "942f9734f97899974abbf98f278fa1d3bcf8419a97d32465b0769109b650f80e",
+    "anchors/anchor_0007.png": "af2205f2f211be0ef2c75e9fecdbd8fa394f089360567762489b4404a497eefa",
+    "anchors/anchor_0008.png": "cc126654c2fbc2f98caf389dfe6c9c8203fffbad69e21d99312f15ec9ab148a5",
+    "anchors/anchor_0009.png": "654c8cf4c73f930fbdfccc978d829b91637dd630baead1f0b1edb2ea94999b94",
+    "golden.png": "030408a4a3e72444277d96b1e12f92f5d9fcb0e79e51e2a2c6eda8f0b7f88ca0",
+    "masks/slot_0001_compare.png": "b3dc26fba746836e6040e76506ece4ad24e312b8090fcedaa390cbbd4ac57f62",
+    "masks/slot_0001_component.png": "b3dc26fba746836e6040e76506ece4ad24e312b8090fcedaa390cbbd4ac57f62",
+    "masks/slot_0002_compare.png": "f361c95e06ce098a9ba23eecaf789b078e369ca254fc2c1cdc033613dff2496c",
+    "masks/slot_0002_component.png": "f361c95e06ce098a9ba23eecaf789b078e369ca254fc2c1cdc033613dff2496c",
+    "masks/slot_0003_compare.png": "ca23f6d61c592e67b352b04271fb5d60d3f8c7f1ce741c3f98437607085fa32c",
+    "masks/slot_0003_component.png": "ca23f6d61c592e67b352b04271fb5d60d3f8c7f1ce741c3f98437607085fa32c",
+    "masks/slot_0004_compare.png": "2c3370aa12d2d005938caa199c4d29e55270571b7b853318ec8cabf1848d93ea",
+    "masks/slot_0004_component.png": "2c3370aa12d2d005938caa199c4d29e55270571b7b853318ec8cabf1848d93ea",
+    "masks/slot_0005_compare.png": "fd0b9e7861d3c21db240593ec5c05f3f7d6028e0fd1b4ff83c2620f61fd62819",
+    "masks/slot_0005_component.png": "fd0b9e7861d3c21db240593ec5c05f3f7d6028e0fd1b4ff83c2620f61fd62819",
+    "masks/slot_0006_compare.png": "9e0dc1d285769efb5fd202f0fdeb3b28516baf3a8407a5e03976a04306cc5de5",
+    "masks/slot_0006_component.png": "9e0dc1d285769efb5fd202f0fdeb3b28516baf3a8407a5e03976a04306cc5de5",
+    "masks/slot_0007_compare.png": "2339b96d307f51ae276f79f9141a8206334bcdfef91f09ccd137f7d25062f8a0",
+    "masks/slot_0007_component.png": "2339b96d307f51ae276f79f9141a8206334bcdfef91f09ccd137f7d25062f8a0",
+    "masks/slot_0008_compare.png": "f2b8e01dbed235fe1e0be2c78f116fcd284066bb2884b087fdae51de1bd703c4",
+    "masks/slot_0008_component.png": "f2b8e01dbed235fe1e0be2c78f116fcd284066bb2884b087fdae51de1bd703c4",
+    "masks/slot_0009_compare.png": "5681720329e230103ba0c5364bd3e103aff5d2e5a643d8333793d4f7a3e8ba0f",
+    "masks/slot_0009_component.png": "5681720329e230103ba0c5364bd3e103aff5d2e5a643d8333793d4f7a3e8ba0f",
+    "masks/slot_0010_compare.png": "53601e37c6aaea5cc8106decee862834352efecbc51860b046dc9e2edbde34a4",
+    "masks/slot_0010_component.png": "53601e37c6aaea5cc8106decee862834352efecbc51860b046dc9e2edbde34a4",
+    "masks/slot_0011_compare.png": "d5c96af75e9950444c4cf88df70c072c29a1dac6460c01c18799bc26db468a16",
+    "masks/slot_0011_component.png": "d5c96af75e9950444c4cf88df70c072c29a1dac6460c01c18799bc26db468a16",
+    "masks/slot_0012_compare.png": "05aa95e568d437c85410a869924d8835f33ad3437a323457b7d09459f0444471",
+    "masks/slot_0012_component.png": "05aa95e568d437c85410a869924d8835f33ad3437a323457b7d09459f0444471",
+    "masks/slot_0013_compare.png": "8c7fb7a10ce30d2d74249d8818b7b4bc80ec6c9dd201fcfde4243495030a6745",
+    "masks/slot_0013_component.png": "8c7fb7a10ce30d2d74249d8818b7b4bc80ec6c9dd201fcfde4243495030a6745",
+    "masks/slot_0014_compare.png": "05aa95e568d437c85410a869924d8835f33ad3437a323457b7d09459f0444471",
+    "masks/slot_0014_component.png": "05aa95e568d437c85410a869924d8835f33ad3437a323457b7d09459f0444471",
+    "masks/slot_0015_compare.png": "b868a5c8362c58e005b1eab096b2fa8dbf6eeb10a860ad27b834762a0d3f7438",
+    "masks/slot_0015_component.png": "b868a5c8362c58e005b1eab096b2fa8dbf6eeb10a860ad27b834762a0d3f7438",
+    "templates/slot_0001.png": "f130ac9ff415362f2e93392633bd28f04247527790963d271cdf5ee571beca8c",
+    "templates/slot_0002.png": "0661d8e1468e2d7e37c91361002935134488da4f501a63f40bd4f8636266e6ee",
+    "templates/slot_0003.png": "a43e0f28e9529e789105fc054bac00e151ecf5987cd11d528cb64b0995738a5a",
+    "templates/slot_0004.png": "3861b78a72352a46383a7283805dc4385d678f30e59c8abd60b3dbba0ef4bd65",
+    "templates/slot_0005.png": "b0929c28a56de6b415014b078d065e46573c8481f0d0ebbeccf2269cc99d7eb4",
+    "templates/slot_0006.png": "514da508e4a58e697b637cbeb86b4fbf6d9935718e05280a93ae511e72446826",
+    "templates/slot_0007.png": "c8b880fa3dcee6510d2f9f50cef8fa2a24fd06e9d4f57c2a5988ce9e7fa67aae",
+    "templates/slot_0008.png": "2480167f1e1e5990148bdf590b2f1d50012d98b31bc6839717d22019b8688c33",
+    "templates/slot_0009.png": "77acd3a0a41f13a2541630d1cd7efa2d5e70e067a59007b36a7445ba74016736",
+    "templates/slot_0010.png": "6fc6efb6686d5cf77b1bae2e1173cf98713f15c07634f2d35a4213fc5ccc7db6",
+    "templates/slot_0011.png": "901b64ce9d3ccec348d4fd32a928223bcbd65bd480dd680649c990a7d1a523b9",
+    "templates/slot_0012.png": "dc1d35cb36b23eab2212899d7aab517383306d1ff1e2dc371ab58837da0a3e35",
+    "templates/slot_0013.png": "d815f85a9e72149c29fc6ef6da95cf75ed11d8c015e93f083893072338d176a1",
+    "templates/slot_0014.png": "b1e5c0d56acbd3ca3c83de508dcd573467ea62d4b771a9c5958ef010615f7ad1",
+    "templates/slot_0015.png": "8f5822fd62bcc81b4d93e8bf2bc8022a79d7255cf82ab8e5b6f35ebe6873d772"
+  },
+  "model_identifiers": {
+    "component_detector": "best.onnx:a26151e0fab23eb089824e058ab42b12fe48581bc040a82a9f4523ac4fdbabd0"
+  },
+  "production_eligible": false,
+  "enrollment": {
+    "roi_padding_px": 8,
+    "mask_strategy": "expected_bbox_rectangle",
+    "allow_demo_sources": false,
+    "calibration_verified": false,
+    "alignment_ready": true,
+    "alignment_anchor_provenance": "demo_grid",
+    "measurement_domain": {
+      "bundle_status": "NEEDS_REVIEW",
+      "source_kind": "dataset_preprocessed",
+      "source_manifest_sha256": "f129720e39c1bee42d32e5a96d7357d74eff4598ed9c1131cae1a8d5c8005d52",
+      "golden_policy": "single_actual_source_decoded_to_lossless_png",
+      "selected_source_basename": "row_000589.jpg",
+      "selected_source_sha256": "6bcbd478e1ede7e7cdd6a55ce1e184994cddb2d724f416056569e26e3e5ef3ce",
+      "alignment_domain": "source_frames_warped_to_selected_golden",
+      "metrology_source": "nominal_board_outline_NEEDS_REVIEW",
+      "starter_thresholds_verified": false
+    }
+  },
+  "slots": [
+    {
+      "slot_id": "slot_0001",
+      "label_hint": "connector",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        568.1944732666016,
+        312.0,
+        796.74365234375,
+        386.6622657775879
+      ],
+      "expected_center_px": [
+        682.4690628051758,
+        349.33113288879395
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        560.0,
+        304.0,
+        805.0,
+        395.0
+      ],
+      "template_path": "templates/slot_0001.png",
+      "component_mask_path": "masks/slot_0001_component.png",
+      "compare_mask_path": "masks/slot_0001_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.8431269526481628
+    },
+    {
+      "slot_id": "slot_0002",
+      "label_hint": "resistor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        483.86375427246094,
+        384.68641662597656,
+        536.2636566162109,
+        417.1950988769531
+      ],
+      "expected_center_px": [
+        510.06370544433594,
+        400.94075775146484
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        475.0,
+        376.0,
+        545.0,
+        426.0
+      ],
+      "template_path": "templates/slot_0002.png",
+      "component_mask_path": "masks/slot_0002_component.png",
+      "compare_mask_path": "masks/slot_0002_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.5796586573123932
+    },
+    {
+      "slot_id": "slot_0003",
+      "label_hint": "resistor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        483.99346923828125,
+        431.26565170288086,
+        536.0384521484375,
+        462.5648422241211
+      ],
+      "expected_center_px": [
+        510.0159606933594,
+        446.915246963501
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        475.0,
+        423.0,
+        545.0,
+        471.0
+      ],
+      "template_path": "templates/slot_0003.png",
+      "component_mask_path": "masks/slot_0003_component.png",
+      "compare_mask_path": "masks/slot_0003_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.5580418407917023
+    },
+    {
+      "slot_id": "slot_0004",
+      "label_hint": "resistor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        816.2107543945312,
+        433.7633171081543,
+        868.3660888671875,
+        466.3796920776367
+      ],
+      "expected_center_px": [
+        842.2884216308594,
+        450.0715045928955
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        808.0,
+        425.0,
+        877.0,
+        475.0
+      ],
+      "template_path": "templates/slot_0004.png",
+      "component_mask_path": "masks/slot_0004_component.png",
+      "compare_mask_path": "masks/slot_0004_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.5552951991558075
+    },
+    {
+      "slot_id": "slot_0005",
+      "label_hint": "capacitor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        479.2444763183594,
+        474.6309280395508,
+        537.4346618652344,
+        512.2920989990234
+      ],
+      "expected_center_px": [
+        508.3395690917969,
+        493.4615135192871
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        471.0,
+        466.0,
+        546.0,
+        521.0
+      ],
+      "template_path": "templates/slot_0005.png",
+      "component_mask_path": "masks/slot_0005_component.png",
+      "compare_mask_path": "masks/slot_0005_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.42307454347610474
+    },
+    {
+      "slot_id": "slot_0006",
+      "label_hint": "capacitor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        811.8544311523438,
+        481.1791763305664,
+        870.4577331542969,
+        512.5544815063477
+      ],
+      "expected_center_px": [
+        841.1560821533203,
+        496.86682891845703
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        803.0,
+        473.0,
+        879.0,
+        521.0
+      ],
+      "template_path": "templates/slot_0006.png",
+      "component_mask_path": "masks/slot_0006_component.png",
+      "compare_mask_path": "masks/slot_0006_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.39856384694576263
+    },
+    {
+      "slot_id": "slot_0007",
+      "label_hint": "ic",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        203.08042430877686,
+        416.72338104248047,
+        361.4606399536133,
+        655.1600341796875
+      ],
+      "expected_center_px": [
+        282.27053213119507,
+        535.941707611084
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        195.0,
+        408.0,
+        370.0,
+        664.0
+      ],
+      "template_path": "templates/slot_0007.png",
+      "component_mask_path": "masks/slot_0007_component.png",
+      "compare_mask_path": "masks/slot_0007_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.7388913631439209
+    },
+    {
+      "slot_id": "slot_0008",
+      "label_hint": "resistor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        482.95433044433594,
+        523.4302368164062,
+        535.1355743408203,
+        555.7305679321289
+      ],
+      "expected_center_px": [
+        509.0449523925781,
+        539.5804023742676
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        474.0,
+        515.0,
+        544.0,
+        564.0
+      ],
+      "template_path": "templates/slot_0008.png",
+      "component_mask_path": "masks/slot_0008_component.png",
+      "compare_mask_path": "masks/slot_0008_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.5103232562541962
+    },
+    {
+      "slot_id": "slot_0009",
+      "label_hint": "ic",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        567.7545318603516,
+        457.5438232421875,
+        778.2637329101562,
+        622.7403717041016
+      ],
+      "expected_center_px": [
+        673.0091323852539,
+        540.1420974731445
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        559.0,
+        449.0,
+        787.0,
+        631.0
+      ],
+      "template_path": "templates/slot_0009.png",
+      "component_mask_path": "masks/slot_0009_component.png",
+      "compare_mask_path": "masks/slot_0009_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.7329056262969971
+    },
+    {
+      "slot_id": "slot_0010",
+      "label_hint": "ic",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        955.2862243652344,
+        453.2141571044922,
+        1161.6572875976562,
+        630.748046875
+      ],
+      "expected_center_px": [
+        1058.4717559814453,
+        541.9811019897461
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        947.0,
+        445.0,
+        1170.0,
+        639.0
+      ],
+      "template_path": "templates/slot_0010.png",
+      "component_mask_path": "masks/slot_0010_component.png",
+      "compare_mask_path": "masks/slot_0010_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.6989211440086365
+    },
+    {
+      "slot_id": "slot_0011",
+      "label_hint": "resistor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        817.1024780273438,
+        528.2865447998047,
+        867.0107421875,
+        558.4095993041992
+      ],
+      "expected_center_px": [
+        842.0566101074219,
+        543.348072052002
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        809.0,
+        520.0,
+        876.0,
+        567.0
+      ],
+      "template_path": "templates/slot_0011.png",
+      "component_mask_path": "masks/slot_0011_component.png",
+      "compare_mask_path": "masks/slot_0011_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.4767483323812485
+    },
+    {
+      "slot_id": "slot_0012",
+      "label_hint": "capacitor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        479.9112548828125,
+        568.4833068847656,
+        536.7260131835938,
+        601.584716796875
+      ],
+      "expected_center_px": [
+        508.3186340332031,
+        585.0340118408203
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        471.0,
+        560.0,
+        545.0,
+        610.0
+      ],
+      "template_path": "templates/slot_0012.png",
+      "component_mask_path": "masks/slot_0012_component.png",
+      "compare_mask_path": "masks/slot_0012_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.5519204139709473
+    },
+    {
+      "slot_id": "slot_0013",
+      "label_hint": "capacitor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        811.1917419433594,
+        571.6858978271484,
+        868.9945068359375,
+        608.7348022460938
+      ],
+      "expected_center_px": [
+        840.0931243896484,
+        590.2103500366211
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        803.0,
+        563.0,
+        877.0,
+        617.0
+      ],
+      "template_path": "templates/slot_0013.png",
+      "component_mask_path": "masks/slot_0013_component.png",
+      "compare_mask_path": "masks/slot_0013_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.4663970172405243
+    },
+    {
+      "slot_id": "slot_0014",
+      "label_hint": "capacitor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        479.3937683105469,
+        615.2263946533203,
+        536.6919250488281,
+        648.5167694091797
+      ],
+      "expected_center_px": [
+        508.0428466796875,
+        631.87158203125
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        471.0,
+        607.0,
+        545.0,
+        657.0
+      ],
+      "template_path": "templates/slot_0014.png",
+      "component_mask_path": "masks/slot_0014_component.png",
+      "compare_mask_path": "masks/slot_0014_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.5296858549118042
+    },
+    {
+      "slot_id": "slot_0015",
+      "label_hint": "resistor",
+      "class_id": null,
+      "expected_bbox_xyxy": [
+        814.5621032714844,
+        619.2489929199219,
+        864.7596740722656,
+        650.9992828369141
+      ],
+      "expected_center_px": [
+        839.660888671875,
+        635.124137878418
+      ],
+      "expected_angle_deg": null,
+      "rotation_period_deg": null,
+      "fixed_roi_xyxy": [
+        806.0,
+        611.0,
+        873.0,
+        659.0
+      ],
+      "template_path": "templates/slot_0015.png",
+      "component_mask_path": "masks/slot_0015_component.png",
+      "compare_mask_path": "masks/slot_0015_compare.png",
+      "ignore_mask_path": null,
+      "search_margin_px": 16,
+      "position_tolerance": {
+        "max_abs_dx_mm": 0.5,
+        "max_abs_dy_mm": 0.5,
+        "max_abs_angle_deg": null
+      },
+      "appearance_thresholds": {
+        "min_ssim": 0.85,
+        "max_diff_ratio": 0.15,
+        "max_edge_diff_ratio": 0.18,
+        "max_blob_area_px": 100,
+        "min_valid_overlap_ratio": 0.8
+      },
+      "source": "multi_frame_consensus",
+      "source_confidence": 0.6165664792060852
+    }
+  ],
+  "rejected_detections": []
+}

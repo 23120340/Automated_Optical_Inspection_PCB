@@ -1,0 +1,17 @@
+Synthetic Designator,Suggested RefDes,Observed Silkscreen,Status,Comment
+J_AUTO_0001,J1,J1,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+R_AUTO_0001,R5,R5,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+C_AUTO_0001,C4,C4,NEEDS_REVIEW,Low-support 22/30 candidate excluded from default PnP and recipe slots
+R_AUTO_0002,R4,R4,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+R_AUTO_0003,R6,R6,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+C_AUTO_0002,C2,C2,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+C_AUTO_0003,C5,C5,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+U_AUTO_0001,U3,U3,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+R_AUTO_0004,R3,R3,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+U_AUTO_0002,U2,U2,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+U_AUTO_0003,U1,U1,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+R_AUTO_0005,R1,R1,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+C_AUTO_0004,C6,C6,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+C_AUTO_0005,C1,C1,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+C_AUTO_0006,C3,C3,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
+R_AUTO_0006,R2,R2,NEEDS_REVIEW,Visual transcription from selected Golden; verify against schematic/BOM
