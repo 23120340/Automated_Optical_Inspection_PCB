@@ -345,6 +345,12 @@ class AOIPipeline:
             )
             return None
         self.cad_registration = registration
+        # Thang px/mm chỉ có ở đây. Bước 5.5 cần nó để áp trần độ sâu ROI theo
+        # mm; không có CAD thì trần không áp được, và đó là hành vi đúng --
+        # đoán một thang còn tệ hơn giữ nguyên luật tỉ lệ.
+        scale = float(getattr(registration, "scale_px_per_mm", 0.0) or 0.0)
+        if scale > 0.0:
+            self.config.solder.px_per_mm = scale
         return registration
 
     def fuse_solder_rois(
@@ -393,6 +399,11 @@ class AOIPipeline:
         # first so a pad box is never also treated as a component to derive
         # terminals around.
         bodies, leads = split_lead_detections(detections)
+        # Đăng ký CAD trước khi suy hình học, không phải sau: phép đăng ký là
+        # nơi duy nhất biết px/mm, mà trần độ sâu ROI cần con số đó ngay ở bước
+        # suy. Gọi lại là rẻ -- kết quả được nhớ trong ``cad_registration``.
+        if self.cad is not None and self.cad_registration is None:
+            self.register_cad_to_image(image, bodies or detections, board_region)
         # Pass 2: look for the leads inside each component box. Returns nothing
         # when no detector is configured, which leaves the derived geometry
         # below exactly as it was.

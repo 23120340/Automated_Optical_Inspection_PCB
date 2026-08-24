@@ -305,6 +305,19 @@ class SolderJointConfig:
     # A perimeter band with no lead metal in it is dropped. ``None`` disables
     # the check and keeps all four bands.
     lead_band_energy_ratio: float | None = 0.35
+    # Tín hiệu thứ hai cho cùng câu hỏi: một hàng chân là **một cái lược** --
+    # N đốm kim loại cách đều. Chữ lụa trắng thì không tuần hoàn.
+    #
+    # Cần đến nó vì phép đo độ phủ kim loại ở trên không tách được: đo trên
+    # board của dự án, chữ lụa `HDL01` ghi 49,5% "kim loại" trong khi chân IC
+    # thật chỉ 38,3% và 29,9% -- mực lụa trắng cũng sáng và cũng ít bão hoà màu
+    # y như thiếc.
+    #
+    # Chỉ phát biểu khi dải có ít nhất ``lead_band_min_runs`` đốm. Dưới ngưỡng
+    # đó "độ đều" luôn bằng 1,0 và vô nghĩa -- mà cạnh 2 chân là chuyện thường
+    # (SOT-23, SOT-223), nên im lặng mới đúng. ``None`` để tắt hẳn.
+    lead_band_evenness_min: float | None = 0.95
+    lead_band_min_runs: int = 3
     # Was opt-in, on the argument that a bridge spans two adjacent pins so the
     # band is the better inspection unit. Measured on ``pcb03.jpg`` (4 ICs,
     # 50 leads) that argument does not survive: ``pin_padding_ratio`` already
@@ -327,6 +340,23 @@ class SolderJointConfig:
     pad_margin_ratio: float = 0.15
 
     # --- shared -------------------------------------------------------------
+    # Trần tuyệt đối cho độ sâu một ROI mối hàn, tính bằng mm.
+    #
+    # Luật tỉ lệ ở trên giả định pad to lên theo linh kiện. Pad không như thế --
+    # nó là một kích thước vật lý gần cố định. Đo trên board của dự án: tụ hoá
+    # C239 dài 6,7 mm cho ra ROI sâu **5,0 mm**, to hơn cả con tụ, trong khi
+    # điện trở chip 0805 chỉ cho 1,6 mm và hoàn toàn hợp lý.
+    #
+    # 2,0 chứ không phải 1,5. Ở 1,5 mm trần bắt đầu cắn cả chip 0805 -- đo được
+    # 7/39 linh kiện bị cắt, trong đó có những con vốn không có gì sai. Ở 2,0 mm
+    # là 6/39, đúng những con to vô lý, còn chip thường không đổi một pixel nào.
+    #
+    # Chỉ áp dụng khi biết ``px_per_mm``; không biết thang thì không quy đổi
+    # được sang mm, và đoán bừa một thang còn tệ hơn là giữ nguyên.
+    max_joint_depth_mm: float | None = 2.0
+    #: px trên mm của ảnh phân tích. Hiện lấy từ đăng ký CAD/pick-and-place
+    #: (``CadRegistration.scale_px_per_mm``); ``None`` nghĩa là chưa biết.
+    px_per_mm: float | None = None
     min_roi_pixels: int = 6
     # Also emit one ROI per component covering body + every joint. This is the
     # "see the leads too" view; it is not a joint sample by itself.

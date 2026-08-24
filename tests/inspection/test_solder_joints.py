@@ -1070,3 +1070,172 @@ def test_split_pins_still_covers_the_gap_a_bridge_lives_in() -> None:
             if joint.bbox.y1 <= gap_y <= joint.bbox.y2
         ]
         assert covered, f"khe ở y={gap_y:.1f} không ROI nào phủ — cầu chì sẽ lọt"
+
+
+# --------------------------------------------------------------------------
+# P1 — trần độ sâu ROI theo mm
+# --------------------------------------------------------------------------
+
+
+def _big_can() -> tuple[np.ndarray, Detection]:
+    """Tụ hoá can tròn: hộp gần vuông, pad ở trên và dưới.
+
+    Dựng theo đúng con C239 đo được trên board của dự án — hộp 148x136 px ở
+    22 px/mm, tức 6,7 x 6,2 mm.
+    """
+
+    image = _blank_board()
+    cv2.circle(image, (300, 300), 62, (30, 30, 30), -1)
+    cv2.rectangle(image, (285, 222), (315, 240), (215, 215, 215), -1)
+    cv2.rectangle(image, (285, 360), (315, 378), (215, 215, 215), -1)
+    return image, Detection("capacitor", 0.9, BoundingBox(226, 232, 374, 368))
+
+
+def test_a_big_part_gets_a_roi_sized_like_a_pad_not_like_the_part() -> None:
+    """Luật cũ `0,75 x chiều dài` giả định pad to lên theo linh kiện.
+
+    Đo trên board của dự án: tụ hoá C239 dài 6,7 mm cho ra ROI sâu **5,0 mm** —
+    to hơn cả con tụ, và không ROI nào rơi trúng pad. Pad là kích thước vật lý
+    gần cố định, không co giãn theo thân.
+    """
+
+    image, detection = _big_can()
+    loose = _joints(detection, image, SolderJointConfig(px_per_mm=None))
+    capped = _joints(
+        detection, image, SolderJointConfig(px_per_mm=22.0)
+    )
+
+    def deepest(joints):
+        return max(
+            min(joint.bbox.width, joint.bbox.height)
+            for joint in _by_kind(joints, "joint")
+        )
+
+    assert deepest(loose) > 2.0 * 22.0 * 1.4, "phải đo được cái vô lý trước đã"
+    assert deepest(capped) <= 2.0 * 22.0 + 2
+
+
+def test_the_cap_leaves_small_chip_parts_untouched() -> None:
+    """Tính chất cần có ở bản sửa này: nó chỉ cắn vào chỗ luật cũ vô lý.
+
+    Đo trên ảnh của dự án ở trần 2,0 mm: 6/39 linh kiện bị cắt, 33 con còn lại
+    không đổi một pixel. Ở 1,5 mm là 7/39 và trần bắt đầu cắn cả chip 0805, nên
+    2,0 mới là chỗ đúng.
+    """
+
+    image = _blank_board()
+    cv2.rectangle(image, (300, 300), (346, 331), (40, 40, 40), -1)
+    chip = Detection("resistor", 0.9, BoundingBox(300, 300, 346, 331))
+
+    loose = _joints(chip, image, SolderJointConfig(px_per_mm=None))
+    capped = _joints(
+        chip, image, SolderJointConfig(px_per_mm=22.0)
+    )
+    assert [j.bbox.to_int() for j in loose] == [j.bbox.to_int() for j in capped]
+
+
+def test_without_a_scale_nothing_is_capped() -> None:
+    """Không biết px/mm thì không quy đổi được sang mm. Đoán bừa một thang còn
+    tệ hơn giữ nguyên luật tỉ lệ, nên trần chỉ áp khi thang có thật."""
+
+    image, detection = _big_can()
+    a = _joints(detection, image, SolderJointConfig(px_per_mm=None))
+    b = _joints(detection, image, SolderJointConfig(px_per_mm=0.0))
+    assert [j.bbox.to_int() for j in a] == [j.bbox.to_int() for j in b]
+
+
+def test_the_cap_keeps_the_inner_outer_balance() -> None:
+    """Thu cả hai đầu theo tỉ lệ, không cắt cụt một đầu: `inner` với ngược lên
+    nắp đầu cực trên thân, `outer` với ra ngoài chỗ land có fillet. Cắt riêng
+    một đầu là đổi ý nghĩa của ROI chứ không phải thu nhỏ nó."""
+
+    image, detection = _big_can()
+    capped = _by_kind(
+        _joints(detection, image, SolderJointConfig(px_per_mm=22.0)), "joint"
+    )
+    centre_y = (detection.bbox.y1 + detection.bbox.y2) / 2.0
+    above = [j for j in capped if (j.bbox.y1 + j.bbox.y2) / 2.0 < centre_y]
+    below = [j for j in capped if (j.bbox.y1 + j.bbox.y2) / 2.0 > centre_y]
+    if above and below:
+        assert abs(above[0].bbox.height - below[0].bbox.height) <= 2
+
+
+# --------------------------------------------------------------------------
+# P2 — dải chân là một cái lược, chữ lụa thì không
+# --------------------------------------------------------------------------
+
+
+def _soic_with_silkscreen() -> tuple[np.ndarray, Detection]:
+    """SOIC có chân hai cạnh, cộng một dòng chữ lụa sát cạnh thứ ba.
+
+    Đây là đúng ca đo được trên board của dự án: chữ `HDL01` cạnh con SOIC-8
+    ghi **49,5 %** "kim loại" theo phép đo hiện tại, cao hơn cả chân IC thật
+    (38,3 % và 29,9 %) — nên bộ lọc năng lượng không thể loại nó.
+    """
+
+    image, detection = _soic_board(pins=6)
+    cv2.putText(image, "HDL01", (566, 186), cv2.FONT_HERSHEY_SIMPLEX,
+                0.5, (225, 225, 225), 2, cv2.LINE_AA)
+    return image, detection
+
+
+def test_a_row_of_leads_reads_as_a_comb_and_silkscreen_does_not() -> None:
+    """Chỉ số này đo *khoảng cách giữa các đốm có đều không*, không đo sáng tối.
+
+    Trên 9 dải của board dự án nó phát biểu về 5 dải và đúng cả 5: giữ SOIC-8
+    trên/dưới (0,99 và 0,98) cùng D201 trên (0,97), bỏ chữ `HDL01` (0,87) và
+    viền lụa quanh D201 (0,73).
+    """
+
+    from aoi_pipeline.solder.geometry import _band_evenness
+
+    image, _ = _soic_with_silkscreen()
+    leads = image[120:196, 424:442]          # cột chân trái: 6 đốm cách đều
+    silk = image[170:196, 560:640]           # dòng chữ lụa
+
+    lead_score = _band_evenness(leads, leads.shape[1] >= leads.shape[0], SolderJointConfig())
+    silk_score = _band_evenness(silk, silk.shape[1] >= silk.shape[0], SolderJointConfig())
+
+    assert lead_score is not None and lead_score[1] >= 0.95
+    if silk_score is not None:
+        assert silk_score[1] < lead_score[1]
+
+
+def test_it_stays_silent_on_an_edge_with_only_two_leads() -> None:
+    """Dưới 3 đốm thì "độ đều" luôn bằng 1,0 và vô nghĩa. Cạnh 2 chân là
+    chuyện thường (SOT-23, SOT-223), nên im lặng mới đúng — trả về ``None``
+    nghĩa là *không biết*, không phải *không có chân*."""
+
+    from aoi_pipeline.solder.geometry import _band_evenness
+
+    image = _blank_board()
+    cv2.rectangle(image, (100, 100), (112, 108), (215, 215, 215), -1)
+    cv2.rectangle(image, (100, 130), (112, 138), (215, 215, 215), -1)
+    band = image[95:145, 98:115]
+
+    assert _band_evenness(band, band.shape[1] >= band.shape[0], SolderJointConfig()) is None
+
+
+def test_the_profile_follows_the_patch_not_the_local_rect() -> None:
+    """Rect nằm trong khung cục bộ của linh kiện, mảng cắt nằm trong khung ảnh,
+    và hai khung hoán vị trục khi linh kiện xoay.
+
+    Đo được trước khi sửa: dải `lead_left` của một SOIC-8 cắt ra mảng 112x34
+    nằm ngang trong khi rect của nó cao hơn rộng, nên phép chiếu quét ngang qua
+    bề dày dải và không đời nào thấy được cái lược. Hệ quả: 7 ROI giả trên chữ
+    lụa vẫn sống sót.
+    """
+
+    from aoi_pipeline.solder.geometry import _band_evenness
+
+    image = _blank_board()
+    for index in range(5):
+        x = 200 + index * 20
+        cv2.rectangle(image, (x, 300), (x + 10, 316), (215, 215, 215), -1)
+    band = image[298:318, 195:310]           # nằm ngang: 115 x 20
+
+    along_patch = _band_evenness(band, band.shape[1] >= band.shape[0], SolderJointConfig())
+    across = _band_evenness(band, band.shape[1] < band.shape[0], SolderJointConfig())
+
+    assert along_patch is not None and along_patch[0] == 5
+    assert across is None, "chiếu sai trục thì không thấy được cái lược"

@@ -113,6 +113,9 @@ def derive_solder_joints(
         rects = _filter_bands_by_energy(
             rects, image, frame, image_width, image_height, config
         )
+        rects = _filter_bands_by_evenness(
+            rects, image, frame, image_width, image_height, config
+        )
         if config.split_pins:
             rects = _split_bands_into_pins(
                 rects, image, frame, image_width, image_height, config
@@ -275,6 +278,28 @@ def _angle_difference(angle: float, reference: float) -> float:
 # --------------------------------------------------------------------------- #
 
 
+def _capped_depth(
+    inner: float, outer: float, config: SolderJointConfig
+) -> tuple[float, float]:
+    """Thu ``inner``/``outer`` lại nếu tổng vượt trần mm, giữ nguyên tỉ lệ.
+
+    Giữ tỉ lệ chứ không cắt cụt một đầu: ``inner`` với ngược lên nắp đầu cực
+    trên thân, ``outer`` với ra ngoài chỗ land có fillet. Cắt riêng một đầu là
+    đổi ý nghĩa của ROI, không phải thu nhỏ nó.
+    """
+
+    limit_mm = config.max_joint_depth_mm
+    scale = config.px_per_mm
+    if not limit_mm or not scale or limit_mm <= 0 or scale <= 0:
+        return inner, outer
+    depth = inner + outer
+    limit_px = float(limit_mm) * float(scale)
+    if depth <= limit_px or depth <= 0:
+        return inner, outer
+    factor = limit_px / depth
+    return inner * factor, outer * factor
+
+
 def _two_terminal_rects(
     frame: ComponentFrame,
     config: SolderJointConfig,
@@ -291,8 +316,11 @@ def _two_terminal_rects(
 
     length = frame.length if along_long_axis else frame.span
     span = frame.span if along_long_axis else frame.length
-    inner = config.terminal_inner_ratio * length
-    outer = config.terminal_outer_ratio * length
+    inner, outer = _capped_depth(
+        config.terminal_inner_ratio * length,
+        config.terminal_outer_ratio * length,
+        config,
+    )
     side = config.terminal_side_ratio * span
     roi_length = inner + outer
     roi_span = span + 2.0 * side
@@ -424,8 +452,11 @@ def _pad_only_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_L
 
 
 def _multi_pin_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
-    inner = config.lead_inner_ratio * frame.span
-    outer = config.lead_outer_ratio * frame.span
+    inner, outer = _capped_depth(
+        config.lead_inner_ratio * frame.span,
+        config.lead_outer_ratio * frame.span,
+        config,
+    )
     depth = inner + outer
     # Bands run past the body corners so corner pins are not clipped.
     offset_x = frame.length / 2.0 + (outer - inner) / 2.0
@@ -597,6 +628,86 @@ def _filter_bands_by_energy(
     kept = [rect for rect, value in zip(rects, coverage) if value >= threshold]
     # Never return nothing: a component with no surviving band would silently
     # disappear from inspection.
+    return kept or list(rects)
+
+
+def _band_evenness(patch: np.ndarray, along_x: bool, config: SolderJointConfig):
+    """(số đốm, độ đều) của kim loại dọc theo một dải, hoặc ``None`` nếu chưa đủ căn cứ.
+
+    Trả về ``None`` chứ không trả về 0: "dải này chỉ có 2 đốm" là *không biết*,
+    không phải *không có chân*.
+    """
+
+    mask = segment_solder(patch, saturation_max=config.saturation_max)
+    if mask.size == 0:
+        return None
+    profile = (mask > 0).mean(axis=0 if along_x else 1)
+    if profile.size < 6:
+        return None
+    on = profile > max(0.25, float(profile.mean()))
+    runs: list[tuple[int, int]] = []
+    start: int | None = None
+    for index, value in enumerate(on):
+        if value and start is None:
+            start = index
+        elif not value and start is not None:
+            runs.append((start, index))
+            start = None
+    if start is not None:
+        runs.append((start, len(on)))
+    runs = [run for run in runs if run[1] - run[0] >= 2]
+    if len(runs) < max(3, int(config.lead_band_min_runs)):
+        return None
+    centres = np.array([(a + b) / 2.0 for a, b in runs], dtype=np.float64)
+    gaps = np.diff(centres)
+    mean_gap = float(np.mean(gaps))
+    if mean_gap <= 1e-6:
+        return None
+    return len(runs), max(0.0, 1.0 - float(np.std(gaps)) / mean_gap)
+
+
+def _filter_bands_by_evenness(
+    rects: Sequence[_LocalRect],
+    image: np.ndarray,
+    frame: ComponentFrame,
+    image_width: int,
+    image_height: int,
+    config: SolderJointConfig,
+) -> list[_LocalRect]:
+    """Bỏ dải trông giống chữ lụa thay vì giống một hàng chân.
+
+    Đo trên board của dự án, 9 dải chu vi: luật này phát biểu về 5 dải và
+    **đúng cả 5** (giữ SOIC-8 trên/dưới 0,99/0,98 và D201 trên 0,97; bỏ chữ
+    `HDL01` 0,87 và viền lụa quanh D201 0,73). Bốn dải còn lại nó im lặng vì
+    dưới 3 đốm, và hành vi cũ được giữ nguyên ở đó.
+
+    Chỉ chạy trên khung thẳng trục, cùng lý do như ``_split_bands_into_pins``:
+    ở góc khác, mảng cắt ra là hộp bao của dải chứ không phải dải, nên biên
+    dạng 1-D sẽ trộn cả pixel ở bốn góc vào.
+    """
+
+    if config.lead_band_evenness_min is None or _axis_offset(frame.angle) > 1.0:
+        return list(rects)
+    bgr = ensure_bgr(image)
+    kept: list[_LocalRect] = []
+    for rect in rects:
+        patch = _band_patch(
+            _band_core_rect(rect, frame), bgr, frame, image_width, image_height
+        )
+        if patch is None or patch.size == 0:
+            kept.append(rect)
+            continue
+        # Chiếu theo cạnh dài của CHÍNH MẢNG CẮT, không theo kích thước của
+        # rect: rect nằm trong khung cục bộ của linh kiện, còn mảng cắt nằm
+        # trong khung ảnh, và hai khung này hoán vị trục khi linh kiện xoay.
+        # Đo được: dải `lead_left` của một SOIC-8 cắt ra mảng 112x34 nằm ngang,
+        # trong khi rect của nó lại cao hơn rộng — chiếu theo rect là chiếu
+        # ngang qua bề dày dải, nên không đời nào thấy được cái lược.
+        measured = _band_evenness(patch, patch.shape[1] >= patch.shape[0], config)
+        if measured is None or measured[1] >= float(config.lead_band_evenness_min):
+            kept.append(rect)
+    # Cùng lý do như bộ lọc năng lượng: không bao giờ trả về rỗng, vì một linh
+    # kiện không còn dải nào sẽ biến mất khỏi khâu kiểm mà không ai hay.
     return kept or list(rects)
 
 
