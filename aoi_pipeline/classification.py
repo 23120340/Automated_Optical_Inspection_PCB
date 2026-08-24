@@ -11,6 +11,7 @@ from typing import Any, Protocol
 import cv2
 import numpy as np
 
+from .evidence import file_digest as _sha256_file
 from .config import ClassificationConfig
 from .exceptions import ClassifierConfigurationError, ModelDependencyError
 from .imaging.image_io import ensure_bgr
@@ -398,9 +399,3 @@ def _letterbox(image: np.ndarray, size: tuple[int, int], value: int) -> np.ndarr
 _softmax = softmax
 
 
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()

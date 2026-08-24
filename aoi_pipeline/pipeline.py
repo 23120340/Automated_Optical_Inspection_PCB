@@ -87,6 +87,10 @@ class AOIPipeline:
             model_config=self.config.model_detector,
         )
         self.last_detection_metrics: dict[str, object] = {}
+        # Ảnh cùng hệ toạ độ với ảnh phân tích nhưng CHƯA qua tăng cường quang
+        # học. ``preprocess`` tự đặt khi phép tiền xử lý không đổi hình học.
+        # Bước 6.2 chấm điểm trên nó; xem ``prefer_radiometric_image``.
+        self.radiometric_image: np.ndarray | None = None
         self.cropper = ComponentCropper(self.config.crop)
         self.solder_cropper = SolderJointCropper(self.config.solder)
         self.solder_inspector = SolderInspector(self.config.solder_grading)
@@ -147,10 +151,27 @@ class AOIPipeline:
 
         return load_image(source)
 
-    def preprocess(self, image: np.ndarray) -> PreprocessResult:
-        """Step 1: optionally undistort, then resize and enhance an image."""
+    _GEOMETRIC_OPERATIONS = ("undistort", "resize")
 
-        return self.preprocessor.process(image)
+    def preprocess(self, image: np.ndarray) -> PreprocessResult:
+        """Step 1: optionally undistort, then resize and enhance an image.
+
+        Also keeps the *un-enhanced* frame when the run did nothing geometric,
+        so step 6.2 can measure on pixels that were not clipped. See
+        ``SolderGradingConfig.prefer_radiometric_image``.
+        """
+
+        result = self.preprocessor.process(image)
+        moved = any(
+            operation.startswith(self._GEOMETRIC_OPERATIONS)
+            for operation in result.operations
+        )
+        # Cùng hệ toạ độ mới dùng được. Nếu phép tiền xử lý có undistort hoặc
+        # resize thì hai ảnh lệch nhau, và cắt lại sai chỗ còn tệ hơn cháy sáng.
+        self.radiometric_image = (
+            None if moved or image.shape != result.image.shape else load_image(image)
+        )
+        return result
 
     def align(
         self, image: np.ndarray, reference: np.ndarray | None = None
@@ -482,7 +503,41 @@ class AOIPipeline:
         training cycle to finish.
         """
 
+        crops, image = self._radiometric_crops(crops, image)
         return self.solder_inspector.inspect(crops, image)
+
+    def _radiometric_crops(
+        self,
+        crops: Sequence[SolderJointCrop],
+        image: np.ndarray | None,
+    ) -> tuple[Sequence[SolderJointCrop], np.ndarray | None]:
+        """Re-cut the ROIs from the un-enhanced frame, when there is one.
+
+        Geometry stays where it was: the ROI boxes were derived on the enhanced
+        image *on purpose* -- measured on the project board, that is where the
+        band filters keep 0 silkscreen ROIs instead of 3. Only the pixels handed
+        to the rule layer change, because that is the stage the clipping hurts.
+        """
+
+        source = self.radiometric_image
+        if not self.config.solder_grading.prefer_radiometric_image or source is None:
+            return crops, image
+        if image is not None and image.shape[:2] != source.shape[:2]:
+            return crops, image
+        height, width = source.shape[:2]
+        recut: list[SolderJointCrop] = []
+        for crop in crops:
+            box = getattr(crop, "joint", None)
+            bbox = getattr(box, "bbox", None)
+            if bbox is None:
+                return crops, image
+            x1, y1, x2, y2 = bbox.clamp(width, height).to_int()
+            patch = source[y1:y2, x1:x2]
+            if patch.size == 0:
+                recut.append(crop)
+                continue
+            recut.append(replace(crop, image=patch))
+        return recut, source
 
     def detect_solder_defects(self, image: np.ndarray) -> list[Detection]:
         """Run the independent full-board solder-defect segmentation stage.

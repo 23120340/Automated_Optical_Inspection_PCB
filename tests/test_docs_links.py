@@ -58,6 +58,9 @@ def test_the_repository_root_holds_no_loose_reports() -> None:
     root_files = [line for line in output.splitlines() if "/" not in line]
     allowed = {
         ".gitignore",
+        # Cấu hình cho chính git, không phải báo cáo. Cùng loại với .gitignore.
+        # Ở đây vì bước 6.2 để model 105 MB đi qua git-lfs.
+        ".gitattributes",
         "AGENTS.md",
         "README.md",
         "requirements.txt",

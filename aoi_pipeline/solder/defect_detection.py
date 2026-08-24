@@ -16,6 +16,7 @@ from typing import Any
 
 import numpy as np
 
+from ..evidence import file_digest as _sha256_file
 from ..config import ModelDetectorConfig, SolderDefectDetectionConfig
 from ..detection.detectors import UltralyticsDetector
 from ..exceptions import DetectorConfigurationError
@@ -377,9 +378,3 @@ def _positive_int(value: Any, name: str) -> int:
     return number
 
 
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()

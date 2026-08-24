@@ -657,6 +657,26 @@ class SolderGradingConfig:
     else has to change when it is.
     """
 
+    # Chấm điểm trên ảnh CHƯA tăng cường quang học, khi có.
+    #
+    # Đo trên board của dự án: chuỗi CLAHE + normalize + sharpen làm tỉ lệ pixel
+    # cháy sáng trong ROI mối hàn đi từ 19 % lên 48 %, và độ phủ kim loại đo
+    # được từ 44 % lên 63 %. Hệ quả là 10 mối hàn bình thường bị gọi thành
+    # ``bridge``: trên ảnh nguồn chúng có 35 % pixel cháy, sau tăng cường là
+    # 71 % -- hai pad cạnh nhau nhoè vào nhau và luật đọc ra là cầu chì.
+    #
+    #     ảnh dùng để chấm     bridge   insufficient   phải xem tay
+    #     đã tăng cường            12              1             16
+    #     nguồn                     2              6             10
+    #
+    # Lưu ý hướng ngược lại: **khoanh ROI thì ảnh tăng cường lại tốt hơn** (0 so
+    # với 3 ROI rơi trên chữ lụa), nên chỉ khâu chấm điểm đổi ảnh, còn hình học
+    # giữ nguyên. Hai khâu hỏng vì hai lý do khác nhau.
+    #
+    # Chỉ áp dụng khi phép tiền xử lý **không đổi hình học** (không undistort,
+    # không resize); nếu có thì toạ độ hai ảnh lệch nhau và việc cắt lại sai chỗ
+    # còn tệ hơn là cháy sáng.
+    prefer_radiometric_image: bool = True
     enabled: bool = True
 
     # --- model artifacts (optional) ----------------------------------------
