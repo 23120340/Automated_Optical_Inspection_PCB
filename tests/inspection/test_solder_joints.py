@@ -1239,3 +1239,98 @@ def test_the_profile_follows_the_patch_not_the_local_rect() -> None:
 
     assert along_patch is not None and along_patch[0] == 5
     assert across is None, "chiếu sai trục thì không thấy được cái lược"
+
+
+# --------------------------------------------------------------------------
+# P0 — góc xoay từ file pick-and-place là trục đầu cực ĐÃ BIẾT
+# --------------------------------------------------------------------------
+
+
+def test_a_square_part_emits_both_axes_when_nothing_knows_better() -> None:
+    """Hành vi hiện có, giữ lại làm mốc: hộp gần vuông thì không chốt được
+    trục, nên phát cả hai cặp và để người xem quyết.
+
+    Trên một ảnh dựng sạch -- chỉ có pad ở trên và dưới, hai cạnh còn lại trống
+    -- phép đo kim loại **chốt đúng** và chỉ ra hai ROI. Nó chỉ bó tay khi hai
+    cạnh kia cũng có kim loại, và đó chính là board thật: đo trên C232/C231 thì
+    hai con này có điện trở chip nằm sát hai bên, nên mối hàn của hàng xóm rơi
+    vào đúng vành đang đo và phép chọn trục sai 2 trong 3 lần.
+    """
+
+    image, detection = _big_can()
+    clean = _by_kind(_joints(detection, image), "joint")
+    assert len(clean) == 2, "ảnh sạch thì phải chốt được trục"
+
+    # Thêm mối hàn của hàng xóm ở hai cạnh trái/phải, đúng như board thật.
+    crowded = image.copy()
+    cv2.rectangle(crowded, (208, 285), (226, 315), (215, 215, 215), -1)
+    cv2.rectangle(crowded, (374, 285), (392, 315), (215, 215, 215), -1)
+    joints = _by_kind(_joints(detection, crowded), "joint")
+    assert any(joint.position.endswith("_cross") for joint in joints), (
+        "có kim loại cả bốn phía thì phải phát cả hai cặp chứ không được đoán"
+    )
+
+
+def test_a_known_axis_is_not_second_guessed() -> None:
+    """Khi trục đến từ nguồn khác hộp -- góc xoay trong file pick-and-place --
+    thì đừng đoán lại.
+
+    Phép đoán dựa vào lượng kim loại ở hai bên, mà trên tụ hoá thì **vỏ can
+    chính là kim loại**: đo được thân can 60,3 % "kim loại" so với pad của nó
+    64,0 %. Đo thêm cách chỉ nhìn vành ngoài hộp cũng không cứu được: đúng 1
+    trong 3 con tụ, vì hai con còn lại có điện trở chip nằm sát hai bên và mối
+    hàn của hàng xóm rơi vào đúng vành đang đo.
+    """
+
+    from aoi_pipeline.solder.geometry import ComponentFrame, derive_solder_joints
+
+    image, detection = _big_can()
+    box = detection.bbox
+    frame = ComponentFrame(
+        center_x=(box.x1 + box.x2) / 2.0,
+        center_y=(box.y1 + box.y2) / 2.0,
+        angle=90.0,
+        length=box.width,
+        span=box.height,
+    )
+    joints = _by_kind(
+        derive_solder_joints(
+            detection,
+            BOARD_SIZE[1],
+            BOARD_SIZE[0],
+            SolderJointConfig(),
+            image,
+            frame=frame,
+            geometry="two_terminal",
+            axis_known=True,
+        ),
+        "joint",
+    )
+
+    assert len(joints) == 2
+    assert not any(joint.position.endswith("_cross") for joint in joints)
+    # Góc 90 độ nên hai ROI phải xếp trên–dưới, không phải trái–phải.
+    centres = sorted((joint.bbox.y1 + joint.bbox.y2) / 2.0 for joint in joints)
+    assert centres[1] - centres[0] > box.height / 2.0
+
+
+def test_the_pixel_scale_reaches_the_cad_path_too() -> None:
+    """``FusionConfig`` mang một ``SolderJointConfig`` riêng.
+
+    ``PipelineConfig.from_mapping`` nối hai cái lại, nhưng ``PipelineConfig()``
+    dựng trực tiếp thì không -- và đường CAD đọc đúng cái nằm trong ``fusion``.
+    Thiếu chỗ nối này thì trần mm chỉ có tác dụng khi KHÔNG nạp CAD, tức đúng
+    lúc cần nó nhất thì lại không có.
+    """
+
+    from aoi_pipeline.config import PipelineConfig
+
+    typed = PipelineConfig.from_mapping({"solder": {"max_joint_depth_mm": 2.0}})
+    assert typed.fusion.solder is typed.solder
+
+    plain = PipelineConfig()
+    plain.solder.px_per_mm = 22.0
+    assert plain.fusion.solder.px_per_mm is None, (
+        "hai đối tượng vẫn tách rời khi dựng trực tiếp -- đó là lý do "
+        "register_cad_to_image phải gán cả hai"
+    )

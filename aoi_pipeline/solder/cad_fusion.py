@@ -549,6 +549,12 @@ def _reanchored_derived_joints(
         image,
         frame=frame,
         geometry=geometry,
+        # Góc xoay ở đây đến từ file đặt linh kiện, nên trục đầu cực là **đã
+        # biết**, không phải phải đoán. Đây là chỗ một file pick-and-place --
+        # không cần toạ độ pad -- cứu được ca tụ hoá can tròn: hộp của nó gần
+        # vuông (đo được 148x136, tỉ lệ 1,09) nên bộ giải trục từ hộp không
+        # chốt được và phát cả hai cặp ROI, trong đó một cặp nằm trên bo trống.
+        axis_known=True,
     )
     if not joints:
         return [_tagged(joint, "derived", component.designator) for joint in derived]

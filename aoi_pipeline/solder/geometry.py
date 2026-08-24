@@ -79,6 +79,7 @@ def derive_solder_joints(
     image: np.ndarray | None = None,
     frame: ComponentFrame | None = None,
     geometry: str | None = None,
+    axis_known: bool = False,
 ) -> list[SolderJoint]:
     """Return the inspection ROIs for one detection.
 
@@ -101,9 +102,16 @@ def derive_solder_joints(
     frame = frame or _component_frame(box, config, image)
 
     if geometry == "two_terminal":
-        rects = _resolve_two_terminal_rects(
-            frame, config, image, image_width, image_height
-        )
+        if axis_known:
+            # Người gọi đã biết trục từ nguồn khác hộp -- hiện là góc xoay
+            # trong file pick-and-place. Đừng đoán lại: phép đoán dựa vào kim
+            # loại, mà trên tụ hoá thì chính vỏ can đã là kim loại, nên nó
+            # không phân biệt được "ngoài thân" với "thân".
+            rects = _two_terminal_rects(frame, config, along_long_axis=True)
+        else:
+            rects = _resolve_two_terminal_rects(
+                frame, config, image, image_width, image_height
+            )
     elif geometry == "pad_only":
         rects = _pad_only_rects(frame, config)
     else:

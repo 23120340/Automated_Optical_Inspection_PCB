@@ -351,6 +351,12 @@ class AOIPipeline:
         scale = float(getattr(registration, "scale_px_per_mm", 0.0) or 0.0)
         if scale > 0.0:
             self.config.solder.px_per_mm = scale
+            # ``FusionConfig`` mang một ``SolderJointConfig`` RIÊNG.
+            # ``from_mapping`` nối hai cái lại, nhưng ``PipelineConfig()`` dựng
+            # trực tiếp thì không -- và đường CAD đọc đúng cái nằm trong
+            # ``fusion``. Bỏ dòng này thì trần mm chỉ có tác dụng khi không nạp
+            # CAD, tức đúng lúc cần nó nhất thì lại không có.
+            self.config.fusion.solder.px_per_mm = scale
         return registration
 
     def fuse_solder_rois(
