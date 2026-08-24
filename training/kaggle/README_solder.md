@@ -1,5 +1,49 @@
 # Train model bước 6.2 trên Kaggle
 
+## Notebook v2 — chạy public ngay, fine-tune camera sau
+
+Notebook production-gated mới:
+[pcb_solder_defect_v2_kaggle.ipynb](pcb_solder_defect_v2_kaggle.ipynb)
+(nguồn percent-format:
+[pcb_solder_defect_v2_kaggle.py](pcb_solder_defect_v2_kaggle.py)).
+
+V2 hiện mặc định `run_mode="public_bootstrap"`, phù hợp lúc chưa gắn camera. Notebook
+ưu tiên SolDef_AI đã Add Input; nếu chưa attach thì tự lấy dataset bằng KaggleHub. Nó
+phân biệt hai task nằm chung trong SolDef trước khi map nhãn:
+
+- dataset_1 top-view `good/no_good` bao cả component + pads là **placement** và bị loại;
+- dataset_2 góc 45° `good/exc_solder/poor_solder/spike` có polygon từng joint mới được
+  cắt thành ROI classifier. `poor_solder → insufficient`, còn subtype gốc vẫn được giữ
+  trong báo cáo.
+
+Với bản phát hành 428 file annotation hiện tại, adapter còn đối chiếu đúng số lượng bài
+báo công bố: **228 placement + 200 solder-joint**; lệch số này thì dừng thay vì trộn scope.
+Các joint cùng ảnh luôn ở cùng split. Tuy vậy LabelMe public không chứa ID PCB vật lý,
+nên không thể loại trừ hoàn toàn việc hai component trên cùng PCB rơi vào hai split; vì
+thế kết quả vẫn chỉ mang nhãn `PUBLIC_PROXY`.
+
+Public mode chia `train / val / calibration / public proxy holdout` theo ảnh gốc, kiểm
+duplicate/leakage, fit temperature/ngưỡng provisional và chạy ONNX parity. Đầu ra
+`pcb_solder_defect_v2_public_bootstrap_artifacts.zip` có đúng `best.onnx` +
+`model_manifest.json` để nạp thử app, cùng `bootstrap_checkpoint.pt` để transfer sau này.
+Manifest luôn ghi `artifact_status=bootstrap_only`, `production_ready=false` và
+`requires_camera_finetune=true`; metric public không phải bằng chứng trên dây chuyền.
+
+Khi có camera, đổi `run_mode="camera_finetune"`, attach checkpoint và canonical CSV.
+Lúc đó public data chỉ replay ở train; `val / calibration / locked-test` bắt buộc là crop
+AOI thật theo board/lot. Profile chuyển sang `good / defect / unknown`; chỉ mode này mới
+có quyền tạo `pcb_solder_defect_v2_production_artifacts.zip` sau khi mọi gate đạt.
+
+Nguồn public thứ hai đã khảo sát là
+[Roboflow Solder_detection_type2 v1](https://universe.roboflow.com/pcb-qbyda/solder_detection_type2/dataset/1)
+(CC BY 4.0). Vì provenance yếu hơn, nó mặc định tắt: export YOLO, attach/upload lên
+Kaggle rồi điền `CONFIG['roboflow_solder_root']`. Adapter chỉ giữ Good/Excessive/
+Insufficient/No Solder/Cold; bridge/short, residue, charred và component misalignment
+được route out thay vì gộp nhãn mù.
+
+Notebook v1 bên dưới được giữ lại để đối chứng, không nên dùng điểm validation cũ làm
+bằng chứng production.
+
 Notebook: [pcb_solder_defect_kaggle.ipynb](pcb_solder_defect_kaggle.ipynb)
 (nguồn percent-format: [pcb_solder_defect_kaggle.py](pcb_solder_defect_kaggle.py),
 build lại bằng `python scripts/build_notebook.py training/kaggle/pcb_solder_defect_kaggle.py`).

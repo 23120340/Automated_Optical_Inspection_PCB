@@ -25,9 +25,11 @@ so offering the file alone would only produce a failure one click later.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+from uuid import uuid4
 
 __all__ = [
     "ACTIVE_ROOT",
@@ -35,9 +37,11 @@ __all__ = [
     "LIBRARY_ROOT",
     "MODELS_ROOT",
     "ModelEntry",
+    "ModelFolderRenameError",
     "ModelSummary",
     "discover_models",
     "find_active",
+    "rename_model_folder",
 ]
 
 MODELS_ROOT = Path(__file__).resolve().parents[1] / "models"
@@ -49,8 +53,22 @@ LIBRARY_ROOT = MODELS_ROOT / "library"
 STAGE_FOLDERS = {
     "detector": "detector",
     "classifier": "classifier",
-    "solder": "solder",
+    "solder_classifier": "solder/classifier",
+    "solder_detector": "solder/detector",
 }
+
+# ``solder`` was the public name of the classifier slot before step 6.2 was
+# split into two independent artifacts.  Keep accepting it at API boundaries
+# so saved UI state and third-party scripts keep working, but never emit it as
+# a ModelEntry.kind: entries always carry the unambiguous canonical role.
+_KIND_ALIASES = {"solder": "solder_classifier"}
+_SOLDER_KINDS = frozenset(("solder_classifier", "solder_detector"))
+
+
+def _canonical_kind(kind: str | None) -> str | None:
+    if kind is None:
+        return None
+    return _KIND_ALIASES.get(kind, kind)
 
 
 #: Nơi từng schema cất cùng một thông tin. Bốn artifact của dự án dùng bốn
@@ -89,6 +107,8 @@ _SHA256_PATHS = (
 _HEADLINE_METRICS = (
     (("metrics", "val", "map50"), "mAP50"),
     (("metrics", "map50"), "mAP50"),
+    (("reported_metrics", "map50_mask"), "mask mAP50"),
+    (("reported_metrics", "map50_box"), "box mAP50"),
     (("metrics", "accuracy"), "acc"),
     (("training", "test_accuracy"), "acc"),
     (("training", "test_macro_recall"), "macro recall"),
@@ -228,6 +248,169 @@ class ModelEntry:
             return None
 
 
+class ModelFolderRenameError(ValueError):
+    """The requested registry-folder rename is unsafe or cannot be completed."""
+
+
+_WINDOWS_RESERVED_FOLDER_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "CONIN$",
+    "CONOUT$",
+    *(f"COM{number}" for number in range(1, 10)),
+    *(f"LPT{number}" for number in range(1, 10)),
+}
+
+
+def _rename_root(origin: str) -> Path:
+    if origin == "library":
+        return LIBRARY_ROOT
+    if origin == "archive":
+        return ARCHIVE_ROOT
+    if origin == "active":
+        raise ModelFolderRenameError(
+            "Không thể đổi tên thư mục active vì ứng dụng dùng đường dẫn cố định này."
+        )
+    raise ModelFolderRenameError("Model này không nằm trong library hoặc archive.")
+
+
+def _clean_folder_name(value: str) -> str:
+    """Validate one portable folder component and return its trimmed form."""
+
+    if not isinstance(value, str):
+        raise ModelFolderRenameError("Tên thư mục phải là chuỗi ký tự.")
+    name = value.strip()
+    if not name:
+        raise ModelFolderRenameError("Tên thư mục không được để trống.")
+    if name != value:
+        raise ModelFolderRenameError(
+            "Tên thư mục không được bắt đầu hoặc kết thúc bằng khoảng trắng."
+        )
+    if name in {".", ".."}:
+        raise ModelFolderRenameError("Tên thư mục không được là '.' hoặc '..'.")
+    if len(name) > 255:
+        raise ModelFolderRenameError("Tên thư mục không được dài quá 255 ký tự.")
+    if any(character in name for character in '/\\<>:"|?*'):
+        raise ModelFolderRenameError(
+            "Tên thư mục không được chứa /, \\, <, >, :, |, ?, * hoặc dấu ngoặc kép."
+        )
+    if any(ord(character) < 32 or ord(character) == 127 for character in name):
+        raise ModelFolderRenameError("Tên thư mục không được chứa ký tự điều khiển.")
+    if name.endswith((".", " ")):
+        raise ModelFolderRenameError(
+            "Tên thư mục không được kết thúc bằng dấu chấm hoặc khoảng trắng."
+        )
+    device_name = name.split(".", 1)[0].upper()
+    if device_name in _WINDOWS_RESERVED_FOLDER_NAMES:
+        raise ModelFolderRenameError(f"'{name}' là tên dành riêng của Windows.")
+    return name
+
+
+def _inside(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def rename_model_folder(entry: ModelEntry, new_name: str) -> ModelEntry:
+    """Rename the folder containing a library/archive model without overwriting.
+
+    ``active`` stage folders are an application contract and therefore cannot be
+    renamed.  The complete model folder is moved so manifests and any training
+    sidecars stay beside their ONNX artifact.
+    """
+
+    folder_name = _clean_folder_name(new_name)
+    root = _rename_root(entry.origin)
+    try:
+        root_resolved = root.resolve(strict=True)
+        model_resolved = entry.model_path.resolve(strict=True)
+        source = model_resolved.parent
+    except OSError as exc:
+        raise ModelFolderRenameError(
+            f"Không tìm thấy thư mục model để đổi tên: {exc}"
+        ) from exc
+
+    if not model_resolved.is_file():
+        raise ModelFolderRenameError("Artifact model không phải là một file hợp lệ.")
+    if source == root_resolved:
+        raise ModelFolderRenameError("Không thể đổi tên chính thư mục library/archive.")
+    if not _inside(source, root_resolved):
+        raise ModelFolderRenameError("Đường dẫn model nằm ngoài registry được phép đổi tên.")
+
+    # Refuse a symlink/junction masquerading as the model folder. Resolving the
+    # path above protects against escapes; this additionally makes the object
+    # being renamed unambiguous on every supported platform.
+    try:
+        logical_source = entry.model_path.parent
+        is_junction = getattr(logical_source, "is_junction", lambda: False)
+        if logical_source.is_symlink() or is_junction():
+            raise ModelFolderRenameError(
+                "Không đổi tên thư mục model là symlink/junction."
+            )
+    except OSError as exc:
+        raise ModelFolderRenameError(
+            f"Không kiểm tra được thư mục model: {exc}"
+        ) from exc
+
+    if source.name == folder_name:
+        raise ModelFolderRenameError("Tên mới trùng với tên hiện tại.")
+
+    destination = source.parent / folder_name
+    destination_parent = destination.parent.resolve(strict=True)
+    if not _inside(destination_parent, root_resolved):
+        raise ModelFolderRenameError("Tên mới sẽ đưa model ra ngoài registry.")
+
+    model_relative = model_resolved.relative_to(source)
+    manifest_relative: Path | None = None
+    if entry.manifest_path is not None:
+        try:
+            manifest_resolved = entry.manifest_path.resolve(strict=False)
+            manifest_relative = manifest_resolved.relative_to(source)
+        except (OSError, ValueError) as exc:
+            raise ModelFolderRenameError(
+                "Manifest của model không nằm trong cùng thư mục với artifact."
+            ) from exc
+
+    case_only = source.name.casefold() == folder_name.casefold()
+    if os.path.lexists(destination):
+        try:
+            destination_is_source = source.samefile(destination)
+        except OSError:
+            destination_is_source = False
+        if not destination_is_source:
+            raise ModelFolderRenameError(f"Thư mục '{folder_name}' đã tồn tại.")
+
+    try:
+        if case_only:
+            # Windows treats differently-cased paths as the same destination.
+            # A unique sibling hop makes the requested casing deterministic.
+            intermediate = source.parent / f".{source.name}.rename-{uuid4().hex}"
+            source.rename(intermediate)
+            try:
+                intermediate.rename(destination)
+            except OSError:
+                intermediate.rename(source)
+                raise
+        else:
+            source.rename(destination)
+    except OSError as exc:
+        raise ModelFolderRenameError(f"Không thể đổi tên thư mục model: {exc}") from exc
+
+    renamed_model = destination / model_relative
+    renamed_manifest = (
+        destination / manifest_relative if manifest_relative is not None else None
+    )
+    relative_model = renamed_model.relative_to(root_resolved)
+    return ModelEntry(
+        name=relative_model.as_posix(),
+        kind=entry.kind,
+        model_path=renamed_model,
+        manifest_path=renamed_manifest,
+        origin=entry.origin,
+    )
+
+
 def _manifest_beside(model_path: Path) -> Path | None:
     """The contract that belongs to this file, if it is there.
 
@@ -246,16 +429,61 @@ def _manifest_beside(model_path: Path) -> Path | None:
     return None
 
 
+def _read_manifest(manifest_path: Path | None) -> Mapping[str, Any] | None:
+    if manifest_path is None:
+        return None
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, Mapping) else None
+
+
 #: ``task`` trong manifest -> bước nào của đường ống nạp nó. Đây là nguồn đáng
 #: tin nhất: tên thư mục do người đặt và có thể sai, ``task`` do chính notebook
 #: sinh ra cùng lúc với trọng số.
 _TASK_TO_KIND = {
     "component_family_classification": "classifier",
-    "solder_defect_classification": "solder",
+    "solder_defect_classification": "solder_classifier",
+    "solder_defect_instance_segmentation": "solder_detector",
     "component_and_lead_detection": "detector",
     "component_detection": "detector",
     "detect": "detector",
 }
+
+
+def _solder_role_from_hint(value: str) -> str | None:
+    """Read a solder role from a schema or a possibly nested folder path.
+
+    A bare ``solder`` is deliberately not enough here: it was historically the
+    classifier folder, but it cannot distinguish a classifier from the new
+    segmentation detector.  The caller handles that one legacy folder only
+    after trying all explicit hints.
+    """
+
+    lowered = value.strip().lower().replace("\\", "/")
+    if not lowered:
+        return None
+
+    # These two schemas are contracts, not user-controlled folder names, so
+    # recognise them even if a future copy is stored outside ``solder/``.
+    if "pcb-solder-defect-classifier" in lowered:
+        return "solder_classifier"
+    if "aoi-external-yolo-segmentation" in lowered:
+        return "solder_detector"
+
+    if "solder" not in lowered:
+        return None
+    classifier_hint = "classifier" in lowered or "classification" in lowered
+    detector_hint = any(
+        token in lowered
+        for token in ("detector", "detection", "instance_segmentation", "segmentation")
+    )
+    if classifier_hint == detector_hint:
+        # Neither hint, or contradictory hints: do not guess and accidentally
+        # offer one artifact in both solder pickers.
+        return None
+    return "solder_classifier" if classifier_hint else "solder_detector"
 
 
 def _kind_of(manifest: Mapping[str, Any] | None, folder: str) -> str:
@@ -268,15 +496,32 @@ def _kind_of(manifest: Mapping[str, Any] | None, folder: str) -> str:
 
     if manifest:
         task = manifest.get("task")
-        if isinstance(task, str) and task in _TASK_TO_KIND:
-            return _TASK_TO_KIND[task]
-        schema = str(manifest.get("schema_version", ""))
-        for token, mapped in (("detector", "detector"), ("solder", "solder"),
+        if isinstance(task, str):
+            task_kind = _TASK_TO_KIND.get(task.strip().lower())
+            if task_kind is not None:
+                return task_kind
+        schema = str(manifest.get("schema_version", "")).strip().lower()
+        solder_role = _solder_role_from_hint(schema)
+        if solder_role is not None:
+            return solder_role
+        if "solder" in schema:
+            return "unknown"
+        for token, mapped in (("detector", "detector"),
                               ("classifier", "classifier")):
             if token in schema:
                 return mapped
-    lowered = folder.lower()
-    for token, mapped in (("detector", "detector"), ("solder", "solder"),
+
+    lowered = folder.strip().lower().replace("\\", "/")
+    solder_role = _solder_role_from_hint(lowered)
+    if solder_role is not None:
+        return solder_role
+    # Compatibility for an old active/solder/best.onnx layout.  New folders
+    # must say classifier or detector explicitly.
+    if lowered.strip("/") == "solder":
+        return "solder_classifier"
+    if "solder" in lowered:
+        return "unknown"
+    for token, mapped in (("detector", "detector"),
                           ("classifier", "classifier")):
         if token in lowered:
             return mapped
@@ -288,14 +533,12 @@ def _scan(root: Path, origin: str, kind: str | None) -> Iterable[ModelEntry]:
         return
     for model_path in sorted(root.rglob("*.onnx")):
         relative = model_path.relative_to(root)
-        folder = relative.parts[0] if len(relative.parts) > 1 else ""
+        # Keep the complete nested path.  Looking only at the first component
+        # turns both active/solder/classifier and active/solder/detector into
+        # the same ambiguous hint: ``solder``.
+        folder = relative.parent.as_posix() if relative.parent != Path(".") else ""
         manifest_path = _manifest_beside(model_path)
-        manifest = None
-        if manifest_path is not None:
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, UnicodeError, json.JSONDecodeError):
-                manifest = None
+        manifest = _read_manifest(manifest_path)
         entry_kind = _kind_of(manifest, folder)
 
         # Lọc theo loại ở MỌI nguồn, không riêng ``active``. Trước đây bộ lọc
@@ -304,8 +547,15 @@ def _scan(root: Path, origin: str, kind: str | None) -> Iterable[ModelEntry]:
         # gì tới nguyên nhân. Model không xác định được loại vẫn được chào ở
         # mọi bước, vì giấu hẳn nó đi thì người thả file vào không hiểu vì sao
         # nó biến mất.
-        if kind is not None and entry_kind not in (kind, "unknown"):
-            continue
+        if kind is not None:
+            if kind in _SOLDER_KINDS:
+                # A truly unknown model must not appear in both solder slots:
+                # their output contracts (raw logits vs boxes+masks) are not
+                # interchangeable.  Requiring an explicit role fails safely.
+                if entry_kind != kind:
+                    continue
+            elif entry_kind not in (kind, "unknown"):
+                continue
 
         name = str(relative.parent) if relative.parent != Path(".") else model_path.stem
         yield ModelEntry(
@@ -325,10 +575,11 @@ def discover_models(kind: str | None = None, *, require_manifest: bool = True) -
     default makes that confirmation a formality.
     """
 
+    canonical_kind = _canonical_kind(kind)
     entries: list[ModelEntry] = []
-    entries.extend(_scan(ACTIVE_ROOT, "active", kind))
-    entries.extend(_scan(LIBRARY_ROOT, "library", kind))
-    entries.extend(_scan(ARCHIVE_ROOT, "archive", kind))
+    entries.extend(_scan(ACTIVE_ROOT, "active", canonical_kind))
+    entries.extend(_scan(LIBRARY_ROOT, "library", canonical_kind))
+    entries.extend(_scan(ARCHIVE_ROOT, "archive", canonical_kind))
     if require_manifest:
         entries = [entry for entry in entries if entry.has_manifest]
     return entries
@@ -337,16 +588,23 @@ def discover_models(kind: str | None = None, *, require_manifest: bool = True) -
 def find_active(kind: str) -> ModelEntry | None:
     """The model this stage loads when nobody chooses otherwise."""
 
-    folder = STAGE_FOLDERS.get(kind)
+    canonical_kind = _canonical_kind(kind)
+    folder = STAGE_FOLDERS.get(canonical_kind)
     if folder is None:
         return None
     model_path = ACTIVE_ROOT / folder / "best.onnx"
     if not model_path.is_file():
         return None
+    manifest_path = _manifest_beside(model_path)
+    manifest = _read_manifest(manifest_path)
+    if manifest is not None and _kind_of(manifest, folder) != canonical_kind:
+        # The fixed active path is not enough evidence when its adjacent
+        # contract explicitly says it belongs to another role.
+        return None
     return ModelEntry(
         name=f"{folder}/best.onnx",
-        kind=kind,
+        kind=canonical_kind,
         model_path=model_path,
-        manifest_path=_manifest_beside(model_path),
+        manifest_path=manifest_path,
         origin="active",
     )

@@ -26,8 +26,17 @@ import pytest
 import app.streamlit_app as ui
 from app.pipeline_bridge import PipelineBridge
 
-SOLDER_MODEL = ui.PROJECT_ROOT / "models" / "active" / "solder" / "best.onnx"
-SOLDER_MANIFEST = ui.PROJECT_ROOT / "models" / "active" / "solder" / "model_manifest.json"
+SOLDER_MODEL = (
+    ui.PROJECT_ROOT / "models" / "active" / "solder" / "classifier" / "best.onnx"
+)
+SOLDER_MANIFEST = (
+    ui.PROJECT_ROOT
+    / "models"
+    / "active"
+    / "solder"
+    / "classifier"
+    / "model_manifest.json"
+)
 
 needs_artifacts = pytest.mark.skipif(
     not (SOLDER_MODEL.is_file() and SOLDER_MANIFEST.is_file()),
@@ -88,7 +97,7 @@ def test_default_config_declares_every_section_the_sidebar_writes_into() -> None
     section the UI assigns into must already exist."""
 
     config = ui._default_config()
-    for section in ("solder", "solder_grading"):
+    for section in ("solder", "solder_grading", "solder_defect_detection"):
         assert section in config, f"_default_config thiếu section '{section}'"
         assert isinstance(config[section], dict)
 

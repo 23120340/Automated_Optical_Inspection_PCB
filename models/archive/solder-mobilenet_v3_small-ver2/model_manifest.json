@@ -1,0 +1,298 @@
+{
+  "schema_version": "pcb-solder-defect-classifier/1.0",
+  "task": "solder_defect_classification",
+  "scope": "joint",
+  "model_format": "onnx",
+  "created_at": "2026-08-24T07:33:19.944411+00:00",
+  "training_stage": "public_bootstrap",
+  "artifact_status": "bootstrap_only",
+  "deployment_status": "bootstrap_or_candidate_only",
+  "requires_camera_finetune": true,
+  "usage_policy": "evaluation_and_review_assist_only",
+  "class_names": [
+    "good",
+    "defect"
+  ],
+  "good_label": "good",
+  "input": {
+    "name": "input",
+    "size": [
+      128,
+      128
+    ],
+    "color_space": "RGB",
+    "resize_mode": "letterbox",
+    "letterbox_value": 114,
+    "normalization": {
+      "mean": [
+        0.48500001430511475,
+        0.4560000002384186,
+        0.4059999883174896
+      ],
+      "std": [
+        0.2290000021457672,
+        0.2240000069141388,
+        0.22499999403953552
+      ]
+    }
+  },
+  "output": {
+    "name": "logits",
+    "type": "raw_logits"
+  },
+  "calibration": {
+    "method": "temperature_scaling",
+    "temperature": 0.8453823328018188,
+    "provisional": true,
+    "domain": "public_solder_joint_crops",
+    "threshold_selection_policy": "public_proxy_point_estimate"
+  },
+  "decision_thresholds": {
+    "accept": 0.8,
+    "review": 0.5,
+    "accept_by_class": {
+      "good": 0.8,
+      "defect": 1.0
+    }
+  },
+  "model": {
+    "filename": "best.onnx",
+    "version": "solder-mobilenet_v3_small-ver2",
+    "architecture": "mobilenet_v3_small",
+    "sha256": "544db77b91535c1bd47228b1a96e8489e3a2e671f001f6cc5ab7b503d027eb5c",
+    "previous_version": "solder-joint_bootstrap_v2-20260824T073319Z"
+  },
+  "taxonomy_profile": "joint_bootstrap_v2",
+  "deployment_behavior": "one_way_good_gate; defect/unknown remain conflict-review with current rule fusion",
+  "data_fingerprint": "f77f8fe68618783c22f58b840ce693fca84e827ace1c2621554b62a81e127387",
+  "split_hash": "177e8fd216cdcad3533c78a6eab2d268b6b235fcad25afc1199fad6ecfec7591",
+  "quality_gate": {
+    "gate_type": "public_bootstrap_integrity",
+    "artifact_loadable": true,
+    "production_ready": false,
+    "failures": [],
+    "production_blockers": [
+      "no_camera_domain_data",
+      "no_camera_locked_test",
+      "public_proxy_metrics_not_deployment_evidence",
+      "no_real_camera_unknown_wrong_crop_class"
+    ],
+    "warnings": [
+      "PUBLIC_PROXY metrics can compare experiments but cannot validate AOI deployment",
+      "threshold and temperature are provisional until camera calibration",
+      "source-image groups are not physical-board/lot groups"
+    ],
+    "parity_max_abs_error": 1.5974044799804688e-05,
+    "parity_pass": true
+  },
+  "data_provenance": {
+    "public_sources": [
+      {
+        "name": "soldef_ai",
+        "provider": "kaggle",
+        "handle": "mauriziocalabrese/soldef-ai-pcb-dataset-for-defect-detection",
+        "adapter": "soldef_labelme_joint_v2",
+        "license": "GPL-3.0",
+        "homepage": "https://www.kaggle.com/datasets/mauriziocalabrese/soldef-ai-pcb-dataset-for-defect-detection",
+        "citation": "https://doi.org/10.3390/jmmp8030117",
+        "roi_semantics": "45_degree_single_solder_joint_polygon",
+        "record_count_before_crop": 443
+      }
+    ],
+    "primary_source_kind": "public",
+    "group_semantics": "source_image_proxy_not_physical_board"
+  },
+  "training": {
+    "sources": [
+      "soldef_ai"
+    ],
+    "class_counts": {
+      "defect": 369,
+      "good": 74
+    },
+    "single_source_classes": [
+      "defect",
+      "good"
+    ],
+    "groups_total": 200,
+    "roi_train": 287,
+    "roi_val": 67,
+    "roi_calibration": 45,
+    "roi_test": 44,
+    "best_epoch": 30,
+    "seed": 42,
+    "initialization": null,
+    "bootstrap_checkpoint": "bootstrap_checkpoint.pt",
+    "threshold_sweep": [
+      {
+        "accept": 0.8,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 0.7142857142857143,
+        "defect_review": 1.0,
+        "review_rate": 0.9555555555555556,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.044444444444444446,
+        "feasible": false
+      },
+      {
+        "accept": 0.8200000000000001,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 0.8571428571428571,
+        "defect_review": 1.0,
+        "review_rate": 0.9777777777777777,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.022222222222222223,
+        "feasible": false
+      },
+      {
+        "accept": 0.8400000000000001,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 0.8571428571428571,
+        "defect_review": 1.0,
+        "review_rate": 0.9777777777777777,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.022222222222222223,
+        "feasible": false
+      },
+      {
+        "accept": 0.86,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 0.8571428571428571,
+        "defect_review": 1.0,
+        "review_rate": 0.9777777777777777,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.022222222222222223,
+        "feasible": false
+      },
+      {
+        "accept": 0.88,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 0.8571428571428571,
+        "defect_review": 1.0,
+        "review_rate": 0.9777777777777777,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.022222222222222223,
+        "feasible": false
+      },
+      {
+        "accept": 0.9,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 1.0,
+        "defect_review": 1.0,
+        "review_rate": 1.0,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.0,
+        "feasible": false
+      },
+      {
+        "accept": 0.92,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 1.0,
+        "defect_review": 1.0,
+        "review_rate": 1.0,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.0,
+        "feasible": false
+      },
+      {
+        "accept": 0.9400000000000001,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 1.0,
+        "defect_review": 1.0,
+        "review_rate": 1.0,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.0,
+        "feasible": false
+      },
+      {
+        "accept": 0.96,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 1.0,
+        "defect_review": 1.0,
+        "review_rate": 1.0,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.0,
+        "feasible": false
+      },
+      {
+        "accept": 0.98,
+        "escape": 0.0,
+        "escape_ci_upper": 0.14586850331224344,
+        "false_reject": 0.0,
+        "good_review": 1.0,
+        "defect_review": 1.0,
+        "review_rate": 1.0,
+        "invalid_good_accept": null,
+        "invalid_good_accept_ci_upper": 0.0,
+        "auto_good_rate": 0.0,
+        "feasible": false
+      }
+    ]
+  },
+  "evaluation": {
+    "role": "public_proxy_holdout",
+    "domain": "public_solder_joint_crops",
+    "is_production_evidence": false,
+    "metrics": {
+      "escape": 0.02702702702702703,
+      "false_reject": 0.0,
+      "good_review": 0.42857142857142855,
+      "defect_review": 0.972972972972973,
+      "review_rate": 0.8863636363636364,
+      "invalid_good_accept": null,
+      "auto_good_rate": 0.11363636363636363,
+      "auto_defect_rate": 0.0,
+      "auto_unknown_rate": 0.0,
+      "escape_events": 1,
+      "defect_total": 37,
+      "false_reject_events": 0,
+      "good_total": 7,
+      "invalid_good_accept_events": 0,
+      "unknown_total": 0,
+      "escape_group_events": 1,
+      "defect_group_total": 20,
+      "invalid_good_accept_group_events": 0,
+      "unknown_group_total": 0,
+      "false_reject_group_events": 0,
+      "good_group_total": 7,
+      "escape_ci_upper": 0.2161061642068473,
+      "invalid_good_accept_ci_upper": 0.0,
+      "false_reject_ci_upper": 0.34816365513116077,
+      "macro_f1": 0.8472222222222222,
+      "defect_recall": 0.918918918918919,
+      "nll": 0.24526764706696624,
+      "brier": 0.15103918074160888,
+      "ece": 0.04065752706744455
+    },
+    "macro_f1": 0.8472222222222222,
+    "report_file": "evaluation_report.json",
+    "predictions_file": "predictions_public_proxy_holdout.csv"
+  }
+}

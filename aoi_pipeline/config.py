@@ -194,6 +194,29 @@ class ModelDetectorConfig:
 
 
 @dataclass(slots=True)
+class SolderDefectDetectionConfig:
+    """Independent full-board solder-defect segmentation deployment.
+
+    This is deliberately separate from :class:`SolderGradingConfig`: the
+    latter classifies already-cropped joint ROIs and participates in the 6.2
+    classifier/rule verdict, while this model localizes diagnostic defects on
+    a complete image.  ``None`` inference values inherit the recommendations
+    pinned by the detector manifest.
+    """
+
+    enabled: bool = True
+    model_path: str | None = None
+    manifest_path: str | None = None
+    confidence: float | None = None
+    iou: float | None = None
+    image_size: int | None = None
+    device: str | None = None
+    max_detections: int | None = None
+    mask_threshold: float | None = None
+    tta: bool = False
+
+
+@dataclass(slots=True)
 class TilingConfig:
     """Adaptive high-resolution inference policy for step 4."""
 
@@ -349,11 +372,11 @@ class SolderJointConfig:
     #
     # Cần đến nó vì phép đo độ phủ kim loại ở trên không tách được: đo trên
     # board của dự án, chữ lụa `HDL01` ghi 49,5% "kim loại" trong khi chân IC
-    # thật chỉ 38,3% và 29,9% -- mực lụa trắng cũng sáng và cũng ít bão hoà màu
+    # thật chỉ 38,3% và 29,9% — mực lụa trắng cũng sáng và cũng ít bão hoà màu
     # y như thiếc.
     #
     # Chỉ phát biểu khi dải có ít nhất ``lead_band_min_runs`` đốm. Dưới ngưỡng
-    # đó "độ đều" luôn bằng 1,0 và vô nghĩa -- mà cạnh 2 chân là chuyện thường
+    # đó "độ đều" luôn bằng 1,0 và vô nghĩa — mà cạnh 2 chân là chuyện thường
     # (SOT-23, SOT-223), nên im lặng mới đúng. ``None`` để tắt hẳn.
     lead_band_evenness_min: float | None = 0.95
     lead_band_min_runs: int = 3
@@ -709,6 +732,9 @@ class PipelineConfig:
     fusion: FusionConfig = field(default_factory=FusionConfig)
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     solder_grading: SolderGradingConfig = field(default_factory=SolderGradingConfig)
+    solder_defect_detection: SolderDefectDetectionConfig = field(
+        default_factory=SolderDefectDetectionConfig
+    )
     detector_mode: Literal["auto", "cv"] = "auto"
 
     def to_dict(self) -> dict[str, Any]:
@@ -741,6 +767,12 @@ class PipelineConfig:
         cad_values = _section(values, "cad", "board_cad")
         fusion_values = _section(values, "fusion", "cad_fusion")
         grading_values = _section(values, "solder_grading", "solder_inspection")
+        solder_defect_values = _section(
+            values,
+            "solder_defect_detection",
+            "solder_detector",
+            "solder_segmentation",
+        )
         classification_values = _section(values, "classification", "classifier")
 
         _assign_known(
@@ -882,6 +914,27 @@ class PipelineConfig:
                 grading_values,
                 aliases={"model": "model_path", "manifest": "manifest_path"},
             )
+        if any(
+            isinstance(values.get(name), Mapping)
+            for name in (
+                "solder_defect_detection",
+                "solder_detector",
+                "solder_segmentation",
+            )
+        ):
+            _assign_known(
+                config.solder_defect_detection,
+                solder_defect_values,
+                aliases={
+                    "model": "model_path",
+                    "manifest": "manifest_path",
+                    "conf": "confidence",
+                    "imgsz": "image_size",
+                    "max_det": "max_detections",
+                },
+            )
+            if config.solder_defect_detection.device == "auto":
+                config.solder_defect_detection.device = None
         _assign_known(config.classification, classification_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:

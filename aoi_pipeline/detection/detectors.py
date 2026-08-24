@@ -115,7 +115,13 @@ class CVComponentDetector(ComponentDetector):
 
 
 class UltralyticsDetector(ComponentDetector):
-    """Adapter around an Ultralytics detection model (PyTorch or ONNX)."""
+    """Adapter around an Ultralytics detection/segmentation model.
+
+    ``task`` and ``source`` default to their historical component-detection
+    values.  Supplying them explicitly lets a separately contracted model use
+    the same battle-tested Ultralytics/ONNX adapter without pretending that an
+    instance-segmentation head is the step-4 component detector.
+    """
 
     SUPPORTED_SUFFIXES = {".pt", ".onnx"}
 
@@ -125,9 +131,17 @@ class UltralyticsDetector(ComponentDetector):
         config: ModelDetectorConfig | None = None,
         *,
         model: Any | None = None,
+        task: str = "detect",
+        source: str = "ultralytics",
     ) -> None:
         self.model_path = Path(model_path).expanduser().resolve()
         self.config = config or ModelDetectorConfig()
+        self.task = str(task).strip().lower()
+        self.source = str(source).strip()
+        if not self.task:
+            raise DetectorConfigurationError("Ultralytics task cannot be empty")
+        if not self.source:
+            raise DetectorConfigurationError("Detection source cannot be empty")
         if self.model_path.suffix.lower() not in self.SUPPORTED_SUFFIXES:
             raise DetectorConfigurationError(
                 "Component model must be an Ultralytics-compatible .pt or .onnx file"
@@ -183,18 +197,27 @@ class UltralyticsDetector(ComponentDetector):
             confidences = _to_numpy(boxes.conf).reshape(-1)
             classes = _to_numpy(boxes.cls).astype(int).reshape(-1)
             names = getattr(result, "names", getattr(model, "names", {}))
-            for coordinates_row, confidence, class_id in zip(coordinates, confidences, classes):
+            mask_polygons = _result_mask_polygons(result, width, height)
+            for index, (coordinates_row, confidence, class_id) in enumerate(
+                zip(coordinates, confidences, classes)
+            ):
                 bbox = BoundingBox(*(float(value) for value in coordinates_row[:4])).clamp(width, height)
                 if bbox.width <= 0 or bbox.height <= 0:
                     continue
+                metadata: dict[str, Any] = {
+                    "model": self.model_path.name,
+                    "task": self.task,
+                }
+                if index < len(mask_polygons) and mask_polygons[index]:
+                    metadata["mask_polygon"] = mask_polygons[index]
                 detections.append(
                     Detection(
                         label=_class_name(names, int(class_id)),
                         confidence=float(np.clip(confidence, 0.0, 1.0)),
                         bbox=bbox,
                         class_id=int(class_id),
-                        source="ultralytics",
-                        metadata={"model": self.model_path.name},
+                        source=self.source,
+                        metadata=metadata,
                     )
                 )
         return detections
@@ -232,7 +255,7 @@ class UltralyticsDetector(ComponentDetector):
                 "Install the optional model dependencies; the pipeline will not silently use CV proposals."
             ) from exc
         try:
-            self._model = YOLO(str(self.model_path), task="detect")
+            self._model = YOLO(str(self.model_path), task=self.task)
         except Exception as exc:
             raise DetectorConfigurationError(
                 f"Could not load component model '{self.model_path}': {exc}"
@@ -394,3 +417,39 @@ def _class_name(names: Any, class_id: int) -> str:
     if isinstance(names, (list, tuple)) and 0 <= class_id < len(names):
         return str(names[class_id])
     return f"class_{class_id}"
+
+
+def _result_mask_polygons(
+    result: Any, width: int, height: int
+) -> list[list[list[float]]]:
+    """Return Ultralytics mask contours in original-image pixel coordinates.
+
+    ``Masks.xy`` is already scaled back from the model's letterboxed input.
+    Clipping here gives downstream overlays the same image-bound guarantee as
+    :class:`BoundingBox`; an absent mask head simply produces an empty list, so
+    all existing detection models keep exactly their previous behaviour.
+    """
+
+    masks = getattr(result, "masks", None)
+    raw_polygons = getattr(masks, "xy", None)
+    if raw_polygons is None:
+        return []
+    polygons: list[list[list[float]]] = []
+    try:
+        values = list(raw_polygons)
+    except TypeError:
+        return []
+    for value in values:
+        polygon = _to_numpy(value)
+        if polygon.size == 0:
+            polygons.append([])
+            continue
+        try:
+            points = np.asarray(polygon, dtype=np.float64).reshape(-1, 2)
+        except (TypeError, ValueError):
+            polygons.append([])
+            continue
+        points[:, 0] = np.clip(points[:, 0], 0.0, float(width))
+        points[:, 1] = np.clip(points[:, 1], 0.0, float(height))
+        polygons.append([[float(x), float(y)] for x, y in points])
+    return polygons

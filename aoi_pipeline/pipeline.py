@@ -27,6 +27,7 @@ from .grading.inspector import SolderInspector
 from .solder.cad_fusion import FusionResult, fuse_solder_joints
 from .solder.lead_detection import detect_leads_in_components
 from .solder.leads import fuse_detected_leads, split_lead_detections
+from .solder.defect_detection import create_solder_defect_detector
 from .exporters import export_json as write_json
 from .exporters import export_zip as write_zip
 from .imaging.image_io import ImageSource, load_image
@@ -65,6 +66,9 @@ class AOIPipeline:
         classifier_manifest_path: str | Path | Mapping[str, object] | None = None,
         cad: BoardCad | str | Path | None = None,
         lead_detector: object | None = None,
+        solder_defect_detector: ComponentDetector | None = None,
+        solder_defect_model_path: str | Path | None = None,
+        solder_defect_manifest_path: str | Path | Mapping[str, object] | None = None,
     ) -> None:
         self.config = (
             config
@@ -86,6 +90,36 @@ class AOIPipeline:
         self.cropper = ComponentCropper(self.config.crop)
         self.solder_cropper = SolderJointCropper(self.config.solder)
         self.solder_inspector = SolderInspector(self.config.solder_grading)
+        solder_defect_config = self.config.solder_defect_detection
+        configured_solder_model = solder_defect_config.model_path
+        configured_solder_manifest = solder_defect_config.manifest_path
+        if solder_defect_detector is not None and any(
+            value is not None
+            for value in (
+                solder_defect_model_path,
+                solder_defect_manifest_path,
+                configured_solder_model,
+                configured_solder_manifest,
+            )
+        ):
+            raise DetectorConfigurationError(
+                "Pass either solder_defect_detector or solder defect artifact paths, not both"
+            )
+        if solder_defect_detector is not None:
+            self.solder_defect_detector = solder_defect_detector
+        elif solder_defect_config.enabled:
+            self.solder_defect_detector = create_solder_defect_detector(
+                solder_defect_model_path
+                if solder_defect_model_path is not None
+                else configured_solder_model,
+                solder_defect_manifest_path
+                if solder_defect_manifest_path is not None
+                else configured_solder_manifest,
+                solder_defect_config,
+            )
+        else:
+            self.solder_defect_detector = None
+        self.last_solder_defects: list[Detection] = []
         self.cad: BoardCad | None = None
         self.cad_registration: CadRegistration | None = None
         self.cad_warnings: list[str] = []
@@ -353,7 +387,7 @@ class AOIPipeline:
             self.config.solder.px_per_mm = scale
             # ``FusionConfig`` mang một ``SolderJointConfig`` RIÊNG.
             # ``from_mapping`` nối hai cái lại, nhưng ``PipelineConfig()`` dựng
-            # trực tiếp thì không -- và đường CAD đọc đúng cái nằm trong
+            # trực tiếp thì không -- và đường CAD đọc đúng cái bên trong
             # ``fusion``. Bỏ dòng này thì trần mm chỉ có tác dụng khi không nạp
             # CAD, tức đúng lúc cần nó nhất thì lại không có.
             self.config.fusion.solder.px_per_mm = scale
@@ -449,6 +483,30 @@ class AOIPipeline:
         """
 
         return self.solder_inspector.inspect(crops, image)
+
+    def detect_solder_defects(self, image: np.ndarray) -> list[Detection]:
+        """Run the independent full-board solder-defect segmentation stage.
+
+        Results use ``analysis_image_pixels`` and are diagnostic findings only:
+        this method neither changes step-6.2 classifier/rule verdicts nor acts
+        as the component-crop lead detector.
+        """
+
+        if (
+            not self.config.solder_defect_detection.enabled
+            or self.solder_defect_detector is None
+        ):
+            self.last_solder_defects = []
+            return []
+        bgr = load_image(image)
+        findings = self.solder_defect_detector.detect(bgr)
+        for finding in findings:
+            finding.metadata.setdefault(
+                "coordinate_space", "analysis_image_pixels"
+            )
+            finding.metadata.setdefault("diagnostic_only", True)
+        self.last_solder_defects = findings
+        return findings
 
     def classify_components(
         self, crops: Sequence[ComponentCrop]

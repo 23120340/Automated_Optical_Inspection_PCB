@@ -23,11 +23,14 @@ from pathlib import Path
 
 import pytest
 
+import aoi_pipeline.model_registry as model_registry
 from aoi_pipeline.model_registry import (
     ModelEntry,
+    ModelFolderRenameError,
     ModelSummary,
     discover_models,
     find_active,
+    rename_model_folder,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -77,6 +80,15 @@ def _entry(tmp_path: Path, manifest: dict | None, *, folder: str = "m") -> Model
              "metrics": {"val": {"map50": 0.5788}}},
             "yolo26s", "2026-08-17", "mAP50 0.579",
             id="detector-ver1-schema-cu",
+        ),
+        pytest.param(
+            {
+                "model": {"architecture": "yolov8m-seg"},
+                "created_at": "2026-08-24T01:59:35+00:00",
+                "reported_metrics": {"map50_box": 0.56836, "map50_mask": 0.5573},
+            },
+            "yolov8m-seg", "2026-08-24", "mask mAP50 0.557",
+            id="solder-detector-segmentation",
         ),
     ],
 )
@@ -158,9 +170,14 @@ def test_a_picker_only_offers_models_for_its_own_stage() -> None:
     classifier lẫn detector. Nạp vào thì hỏng ở một chỗ chẳng liên quan gì tới
     nguyên nhân."""
 
-    for kind in ("detector", "classifier", "solder"):
+    for kind in ("detector", "classifier"):
         for entry in discover_models(kind):
             assert entry.kind in (kind, "unknown"), (
+                f"bộ chọn {kind} chào một model loại {entry.kind}: {entry.name}"
+            )
+    for kind in ("solder_classifier", "solder_detector"):
+        for entry in discover_models(kind):
+            assert entry.kind == kind, (
                 f"bộ chọn {kind} chào một model loại {entry.kind}: {entry.name}"
             )
 
@@ -171,12 +188,34 @@ def test_the_stage_is_taken_from_the_manifest_not_the_folder_name(tmp_path) -> N
 
     from aoi_pipeline.model_registry import _kind_of
 
-    assert _kind_of({"task": "solder_defect_classification"}, "ten-lung-tung") == "solder"
+    assert _kind_of(
+        {"task": "solder_defect_classification"}, "ten-lung-tung"
+    ) == "solder_classifier"
+    assert _kind_of(
+        {"task": "solder_defect_instance_segmentation"}, "ten-lung-tung"
+    ) == "solder_detector"
     assert _kind_of({"task": "component_family_classification"}, "abc") == "classifier"
     assert _kind_of({"task": "detect"}, "abc") == "detector"
     # Không có task thì mới nhìn tên thư mục.
     assert _kind_of(None, "detector-yolo26s-20260817") == "detector"
+    assert _kind_of(None, "solder/classifier") == "solder_classifier"
+    assert _kind_of(None, "solder\\detector") == "solder_detector"
+    assert _kind_of(None, "solder/classifier/detector") == "unknown"
     assert _kind_of(None, "khong-goi-y-gi") == "unknown"
+
+
+def test_solder_schema_fallbacks_are_role_specific() -> None:
+    from aoi_pipeline.model_registry import _kind_of
+
+    assert _kind_of(
+        {"schema_version": "pcb-solder-defect-classifier/1.0"}, "khong-goi-y"
+    ) == "solder_classifier"
+    assert _kind_of(
+        {"schema_version": "aoi-external-yolo-segmentation/1.0"}, "khong-goi-y"
+    ) == "solder_detector"
+    assert _kind_of(
+        {"schema_version": "pcb-solder/1.0"}, "khong-goi-y"
+    ) == "unknown"
 
 
 # --------------------------------------------------------------------------
@@ -199,10 +238,75 @@ def test_the_default_for_each_stage_is_still_found() -> None:
     """`active/<bước>/best.onnx` là đường app tìm mặc định. Đổi tên các thư mục
     đó sẽ làm app không tìm thấy gì, và test này là thứ báo."""
 
-    for kind in ("detector", "classifier", "solder"):
+    for kind in ("detector", "classifier", "solder_classifier", "solder_detector"):
         entry = find_active(kind)
         assert entry is not None, f"không thấy model mặc định cho {kind}"
         assert entry.model_path.is_file()
+
+
+def test_legacy_solder_alias_resolves_only_to_the_classifier() -> None:
+    legacy = find_active("solder")
+    classifier = find_active("solder_classifier")
+
+    assert legacy == classifier
+    assert legacy is not None
+    assert legacy.kind == "solder_classifier"
+    assert legacy.name == "solder/classifier/best.onnx"
+    assert discover_models("solder") == discover_models("solder_classifier")
+
+
+def test_solder_pickers_exclude_the_other_role_and_unknown_models(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    roots = {
+        "active": tmp_path / "active",
+        "library": tmp_path / "library",
+        "archive": tmp_path / "archive",
+    }
+    for root in roots.values():
+        root.mkdir()
+    monkeypatch.setattr(model_registry, "ACTIVE_ROOT", roots["active"])
+    monkeypatch.setattr(model_registry, "LIBRARY_ROOT", roots["library"])
+    monkeypatch.setattr(model_registry, "ARCHIVE_ROOT", roots["archive"])
+
+    for folder, task in (
+        ("ten-goi-nhu-detector", "solder_defect_classification"),
+        ("ten-goi-nhu-classifier", "solder_defect_instance_segmentation"),
+        ("khong-ro-loai", "mot_task_khong_biet"),
+    ):
+        directory = roots["library"] / folder
+        directory.mkdir()
+        (directory / "best.onnx").write_bytes(b"x")
+        (directory / "model_manifest.json").write_text(
+            json.dumps({"task": task}), encoding="utf-8"
+        )
+
+    classifier_entries = discover_models("solder_classifier")
+    detector_entries = discover_models("solder_detector")
+
+    assert [entry.name for entry in classifier_entries] == [
+        "ten-goi-nhu-detector/best.onnx"
+    ]
+    assert [entry.kind for entry in classifier_entries] == ["solder_classifier"]
+    assert [entry.name for entry in detector_entries] == [
+        "ten-goi-nhu-classifier/best.onnx"
+    ]
+    assert [entry.kind for entry in detector_entries] == ["solder_detector"]
+
+
+def test_find_active_rejects_a_manifest_from_the_other_solder_role(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    active = tmp_path / "active"
+    directory = active / "solder" / "detector"
+    directory.mkdir(parents=True)
+    (directory / "best.onnx").write_bytes(b"x")
+    (directory / "model_manifest.json").write_text(
+        json.dumps({"task": "solder_defect_classification"}), encoding="utf-8"
+    )
+    monkeypatch.setattr(model_registry, "ACTIVE_ROOT", active)
+
+    assert find_active("solder_detector") is None
 
 
 # --------------------------------------------------------------------------
@@ -227,7 +331,8 @@ def test_a_fresh_session_already_has_the_active_models_loaded() -> None:
     for key, folder in (
         ("component_model_name", "detector"),
         ("classifier_model_name", "classifier"),
-        ("solder_model_name", "solder"),
+        ("solder_model_name", "solder/classifier"),
+        ("solder_detector_model_name", "solder/detector"),
     ):
         assert app.session_state[key], f"{key} vẫn trống sau khi khởi tạo"
         assert folder in app.session_state[key]
@@ -244,8 +349,12 @@ def test_the_picker_shows_the_active_model_as_chosen_not_as_unused() -> None:
     app.run()
 
     choices = {s.key: s.value for s in app.sidebar.selectbox}
-    for key in ("component_model_choice", "classifier_model_choice",
-                "solder_model_choice"):
+    for key in (
+        "component_model_choice",
+        "classifier_model_choice",
+        "solder_model_choice",
+        "solder_detector_model_choice",
+    ):
         assert key in choices, f"thiếu bộ chọn {key}"
         assert "đang dùng" in choices[key], (
             f"{key} đang là {choices[key]!r}, phải là model trong active/"
@@ -291,6 +400,171 @@ def test_uploading_a_model_survives_the_next_rerun() -> None:
     assert app.session_state["classifier_model_name"] == "toi-vua-tai-len.onnx", (
         "ô chọn đã ghi đè lên model vừa tải lên"
     )
+
+
+# --------------------------------------------------------------------------
+# Đổi tên thư mục model từ bộ chọn
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def isolated_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
+    roots = {
+        "active": tmp_path / "active",
+        "archive": tmp_path / "archive",
+        "library": tmp_path / "library",
+    }
+    for root in roots.values():
+        root.mkdir()
+    monkeypatch.setattr(model_registry, "ACTIVE_ROOT", roots["active"])
+    monkeypatch.setattr(model_registry, "ARCHIVE_ROOT", roots["archive"])
+    monkeypatch.setattr(model_registry, "LIBRARY_ROOT", roots["library"])
+    return roots
+
+
+def _registry_entry(root: Path, *, origin: str, folder: str = "ten-cu") -> ModelEntry:
+    directory = root / folder
+    directory.mkdir(parents=True)
+    model = directory / "best.onnx"
+    model.write_bytes(b"onnx-payload")
+    manifest = directory / "model_manifest.json"
+    manifest.write_text(
+        json.dumps({"task": "solder_defect_classification", "model": {"architecture": "yolo"}}),
+        encoding="utf-8",
+    )
+    (directory / "ghi-chu.txt").write_text("giữ nguyên", encoding="utf-8")
+    return ModelEntry(
+        name=f"{folder}/best.onnx",
+        kind="solder_classifier",
+        model_path=model,
+        manifest_path=manifest,
+        origin=origin,
+    )
+
+
+@pytest.mark.parametrize("origin", ["library", "archive"])
+def test_renaming_a_model_moves_the_whole_folder_and_rediscovers_it(
+    isolated_registry: dict[str, Path], origin: str
+) -> None:
+    entry = _registry_entry(isolated_registry[origin], origin=origin)
+
+    renamed = rename_model_folder(entry, "Model mối hàn tốt")
+
+    assert not (isolated_registry[origin] / "ten-cu").exists()
+    destination = isolated_registry[origin] / "Model mối hàn tốt"
+    assert renamed.model_path == destination / "best.onnx"
+    assert renamed.manifest_path == destination / "model_manifest.json"
+    assert renamed.name == "Model mối hàn tốt/best.onnx"
+    assert renamed.model_path.read_bytes() == b"onnx-payload"
+    assert (destination / "ghi-chu.txt").read_text(encoding="utf-8") == "giữ nguyên"
+
+    discovered = discover_models("solder")
+    assert [(item.origin, item.name) for item in discovered] == [
+        (origin, "Model mối hàn tốt/best.onnx")
+    ]
+
+
+def test_renaming_never_overwrites_an_existing_folder(
+    isolated_registry: dict[str, Path]
+) -> None:
+    root = isolated_registry["library"]
+    entry = _registry_entry(root, origin="library")
+    occupied = root / "da-co"
+    occupied.mkdir()
+    marker = occupied / "khong-duoc-mat.txt"
+    marker.write_text("safe", encoding="utf-8")
+
+    with pytest.raises(ModelFolderRenameError, match="đã tồn tại"):
+        rename_model_folder(entry, "da-co")
+
+    assert entry.model_path.is_file()
+    assert marker.read_text(encoding="utf-8") == "safe"
+
+
+def test_case_only_rename_is_supported(isolated_registry: dict[str, Path]) -> None:
+    root = isolated_registry["library"]
+    entry = _registry_entry(root, origin="library", folder="Solder-AOI")
+
+    renamed = rename_model_folder(entry, "solder-aoi")
+
+    assert renamed.model_path == root / "solder-aoi" / "best.onnx"
+    assert renamed.model_path.is_file()
+    assert [child.name for child in root.iterdir()] == ["solder-aoi"]
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        "",
+        " ",
+        ".",
+        "..",
+        "../thoat-ra",
+        "mot/hai",
+        "mot\\hai",
+        "C:\\model",
+        "sai|ten",
+        "sai*ten",
+        "CON",
+        "nul.json",
+        "COM1",
+        "LPT9.txt",
+        "CONIN$",
+        "conout$.txt",
+        "co-dau-cham.",
+        "co-khoang-trang ",
+        "\x00",
+    ],
+)
+def test_invalid_or_ambiguous_folder_names_are_rejected(
+    isolated_registry: dict[str, Path], bad_name: str
+) -> None:
+    entry = _registry_entry(isolated_registry["library"], origin="library")
+
+    with pytest.raises(ModelFolderRenameError):
+        rename_model_folder(entry, bad_name)
+
+    assert entry.model_path.is_file()
+
+
+def test_active_model_folders_cannot_be_renamed(isolated_registry: dict[str, Path]) -> None:
+    entry = _registry_entry(isolated_registry["active"], origin="active", folder="solder")
+
+    with pytest.raises(ModelFolderRenameError, match="active"):
+        rename_model_folder(entry, "ten-moi")
+
+    assert entry.model_path.is_file()
+
+
+def test_a_forged_entry_outside_the_claimed_registry_is_rejected(
+    isolated_registry: dict[str, Path], tmp_path: Path
+) -> None:
+    entry = _registry_entry(tmp_path / "ngoai", origin="library")
+
+    with pytest.raises(ModelFolderRenameError, match="ngoài registry"):
+        rename_model_folder(entry, "ten-moi")
+
+    assert entry.model_path.is_file()
+
+
+def test_a_root_level_model_cannot_rename_the_registry_itself(
+    isolated_registry: dict[str, Path]
+) -> None:
+    root = isolated_registry["library"]
+    model = root / "best.onnx"
+    model.write_bytes(b"x")
+    entry = ModelEntry(
+        name="best.onnx",
+        kind="unknown",
+        model_path=model,
+        manifest_path=None,
+        origin="library",
+    )
+
+    with pytest.raises(ModelFolderRenameError, match="chính thư mục"):
+        rename_model_folder(entry, "khong-duoc")
+
+    assert model.is_file()
 
 
 def test_removing_a_model_sticks() -> None:

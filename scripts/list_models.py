@@ -75,8 +75,11 @@ def main() -> int:
     # Co giãn theo tên dài nhất: quy ước <bước>-<kiến trúc>-<ngày> cho ra những
     # tên khá dài, và một cột cứng sẽ để chúng tràn sang cột bên cạnh.
     width = max([len("thư mục")] + [len(folder_of(e)) for e in entries]) + 2
-    header = (f"{'bước':<11}{'nguồn':<11}{'thư mục':<{width}}{'kiến trúc':<20}"
-              f"{'ngày':<12}{'điểm':<18}{'MB':>6}")
+    # Cột bước cũng phải co giãn: từ khi bước 6.2 tách vai trò, ``kind`` có thể
+    # là ``solder_classifier`` (17 ký tự) và một cột cứng 11 sẽ đè lên cột kế.
+    kind_width = max([len("bước")] + [len(e.kind) for e in entries]) + 2
+    header = (f"{'bước':<{kind_width}}{'nguồn':<11}{'thư mục':<{width}}"
+              f"{'kiến trúc':<20}{'ngày':<12}{'điểm':<18}{'MB':>6}")
     print(header)
     print("-" * len(header))
     current = None
@@ -87,7 +90,7 @@ def main() -> int:
             current = entry.kind
         summary = entry.summary()
         print(
-            f"{entry.kind:<11}"
+            f"{entry.kind:<{kind_width}}"
             f"{ORIGIN_LABEL.get(entry.origin, entry.origin):<11}"
             f"{folder_of(entry):<{width}}"
             f"{(summary.architecture or '—'):<20}"

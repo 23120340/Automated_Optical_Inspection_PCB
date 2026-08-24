@@ -1,6 +1,6 @@
 # Model chấm mối hàn 6.2 có dùng được không?
 
-> Đo 2026-08-22 trên `models/active/solder/best.onnx`
+> Đo 2026-08-22 trên `models/active/solder/classifier/best.onnx`
 > (`solder-joint-20260820T180939Z`, mobilenet_v3_small, 7 lớp).
 >
 > Câu hỏi không phải "nó có nạp được không" — nó nạp được. Câu hỏi là đầu ra

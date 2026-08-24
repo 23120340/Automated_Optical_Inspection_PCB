@@ -10,7 +10,7 @@ All images in session state and at the pipeline boundary use OpenCV BGR order.
 from __future__ import annotations
 
 import collections
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 import csv
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -69,8 +69,10 @@ from aoi_pipeline.model_feedback import (  # noqa: E402
 )
 from aoi_pipeline.model_registry import (  # noqa: E402
     ModelEntry,
+    ModelFolderRenameError,
     discover_models,
     find_active,
+    rename_model_folder,
 )
 from app.pipeline_bridge import (  # noqa: E402
     BoardResult,
@@ -107,6 +109,7 @@ MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 # does not import the core at load time; a drift test asserts they still match.
 CLASSIFIER_MANIFEST_SCHEMA = "pcb-component-classifier/1.0"
 SOLDER_MANIFEST_SCHEMA = "pcb-solder-defect-classifier/1.0"
+SOLDER_DETECTOR_MANIFEST_SCHEMA = "aoi-external-yolo-segmentation/1.0"
 #: (chỉ số nội bộ, tên, mô tả, mã, số hiển thị)
 #:
 #: Chỉ số nội bộ là khoá của `renderers` và của `statuses`; nó KHÔNG đổi khi
@@ -168,12 +171,128 @@ STATUS_LABELS = {
     "error": "Có lỗi",
 }
 
+_MODEL_FOLDER_COMPONENT_HTML = """
+<div class="model-folder" data-role="folder-row">
+  <span class="model-folder__caption">Thư mục</span>
+  <strong class="model-folder__name" data-role="folder-name"></strong>
+  <span class="model-folder__origin" data-role="origin"></span>
+  <button class="model-folder__edit" data-role="edit" type="button"
+          aria-label="Đổi tên thư mục model" title="Đổi tên thư mục model">✎</button>
+</div>
+<div class="model-folder__hint" data-role="hint"></div>
+"""
+
+_MODEL_FOLDER_COMPONENT_CSS = """
+:host { display: block; }
+.model-folder {
+  align-items: center;
+  background: color-mix(in srgb, var(--st-secondary-background-color) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--st-text-color) 18%, transparent);
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 0.4rem;
+  min-height: 2.15rem;
+  padding: 0.28rem 0.35rem 0.28rem 0.55rem;
+}
+.model-folder[data-enabled="true"] { cursor: default; }
+.model-folder[data-enabled="true"]:focus-visible {
+  outline: 2px solid var(--st-primary-color);
+  outline-offset: 1px;
+}
+.model-folder__caption, .model-folder__hint {
+  color: color-mix(in srgb, var(--st-text-color) 65%, transparent);
+  font-size: 0.74rem;
+}
+.model-folder__name {
+  font-size: 0.84rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-folder__origin {
+  border: 1px solid color-mix(in srgb, var(--st-text-color) 16%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--st-text-color) 68%, transparent);
+  font-size: 0.66rem;
+  margin-left: auto;
+  padding: 0.08rem 0.35rem;
+  white-space: nowrap;
+}
+.model-folder__edit {
+  background: transparent;
+  border: 0;
+  border-radius: 0.35rem;
+  color: var(--st-primary-color);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.28rem 0.42rem;
+}
+.model-folder__edit:hover, .model-folder__edit:focus-visible {
+  background: color-mix(in srgb, var(--st-primary-color) 14%, transparent);
+  outline: none;
+}
+.model-folder__hint { margin: 0.18rem 0.1rem 0; }
+"""
+
+_MODEL_FOLDER_COMPONENT_JS = """
+export default function(component) {
+  const { data, setTriggerValue, parentElement } = component;
+  const row = parentElement.querySelector('[data-role="folder-row"]');
+  const name = parentElement.querySelector('[data-role="folder-name"]');
+  const origin = parentElement.querySelector('[data-role="origin"]');
+  const edit = parentElement.querySelector('[data-role="edit"]');
+  const hint = parentElement.querySelector('[data-role="hint"]');
+  if (!row || !name || !origin || !edit || !hint) return;
+
+  const enabled = Boolean(data && data.enabled);
+  name.textContent = data && data.folder_name ? data.folder_name : '';
+  origin.textContent = data && data.origin_label ? data.origin_label : '';
+  hint.textContent = enabled
+    ? 'Nhấp đúp vào tên, bấm bút chì hoặc nhấn F2/Enter để đổi tên.'
+    : 'Thư mục active có tên cố định để ứng dụng tự nạp đúng model.';
+  row.dataset.enabled = enabled ? 'true' : 'false';
+  row.tabIndex = enabled ? 0 : -1;
+  row.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  edit.hidden = !enabled;
+
+  const requestRename = (event) => {
+    if (!enabled) return;
+    event.preventDefault();
+    const nonce = globalThis.crypto && globalThis.crypto.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
+    setTriggerValue('rename_requested', { model_id: data.model_id, nonce });
+  };
+  const onKeyDown = (event) => {
+    if (event.key === 'F2' || event.key === 'Enter') requestRename(event);
+  };
+
+  row.addEventListener('dblclick', requestRename);
+  row.addEventListener('keydown', onKeyDown);
+  edit.addEventListener('click', requestRename);
+  return () => {
+    row.removeEventListener('dblclick', requestRename);
+    row.removeEventListener('keydown', onKeyDown);
+    edit.removeEventListener('click', requestRename);
+  };
+}
+"""
+
 
 st.set_page_config(
     page_title=APP_TITLE,
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
+)
+
+_MODEL_FOLDER_ACTION = st.components.v2.component(
+    "aoi_model_folder_action",
+    html=_MODEL_FOLDER_COMPONENT_HTML,
+    css=_MODEL_FOLDER_COMPONENT_CSS,
+    js=_MODEL_FOLDER_COMPONENT_JS,
 )
 
 
@@ -272,6 +391,18 @@ def _default_config() -> dict[str, Any]:
             "model_path": None,
             "manifest_path": None,
         },
+        # Detector lỗi chạy trên toàn board và độc lập với classifier ROI ở
+        # ``solder_grading``. Hai cặp artifact không được dùng thay cho nhau.
+        "solder_defect_detection": {
+            "enabled": True,
+            "model_path": None,
+            "manifest_path": None,
+            "confidence": 0.25,
+            "iou": 0.70,
+            "mask_threshold": 0.50,
+            "max_detections": 300,
+            "device": None,
+        },
     }
 
 
@@ -303,8 +434,9 @@ def _adopt_active_models() -> None:
         entry = find_active(kind)
         if entry is None:
             continue
-        # Thiếu manifest thì 6.1/6.2 từ chối nạp; điền vào đây chỉ dời thất bại
-        # sang lúc chạy. Detector không cần manifest nên vẫn nạp được.
+        # Thiếu manifest thì classifier 6.1 và cả hai vai trò solder từ chối
+        # nạp; điền vào đây chỉ dời thất bại sang lúc chạy. Chỉ detector linh
+        # kiện chung (slot component) mới được phép không có manifest.
         if manifest_key is not None and not entry.has_manifest:
             continue
         st.session_state[path_key] = str(entry.model_path)
@@ -319,6 +451,11 @@ def _adopt_active_models() -> None:
             grading["model_path"] = str(entry.model_path)
             if entry.manifest_path is not None:
                 grading["manifest_path"] = str(entry.manifest_path)
+        if slot == "solder_detector":
+            detection = st.session_state.config["solder_defect_detection"]
+            detection["model_path"] = str(entry.model_path)
+            if entry.manifest_path is not None:
+                detection["manifest_path"] = str(entry.manifest_path)
         if slot == "component":
             # .onnx không mang pickle nên không có gì phải xác nhận.
             st.session_state.pt_model_trusted = (
@@ -327,11 +464,9 @@ def _adopt_active_models() -> None:
 
 
 def _init_state() -> None:
-    # No model is seeded from disk, the detector included. Every artifact enters
-    # through the sidebar uploader, which is the only thing that records a
-    # digest and that decides ``pt_model_trusted``; a path planted here would
-    # skip both, could not be restored after "Gỡ model", and named a file the
-    # repo no longer has now that the detectors live under kaggle/ver*.
+    # Defaults never hard-code an artifact path. `_adopt_active_models` resolves
+    # the role-specific active folders once after these keys exist; uploads and
+    # picker changes then remain removable for the rest of the session.
     defaults: dict[str, Any] = {
         "active_step": 0,
         "pending_navigation": None,
@@ -376,6 +511,12 @@ def _init_state() -> None:
         "solder_manifest_path": None,
         "solder_manifest_name": None,
         "solder_manifest_digest": None,
+        "solder_detector_model_path": None,
+        "solder_detector_model_name": None,
+        "solder_detector_model_digest": None,
+        "solder_detector_manifest_path": None,
+        "solder_detector_manifest_name": None,
+        "solder_detector_manifest_digest": None,
         "inspection_recipe": None,
         "inspection_run": None,
         "inspection_session_id": uuid4().hex,
@@ -394,6 +535,8 @@ def _init_state() -> None:
             "classifier_manifest": None,
             "solder_model": None,
             "solder_manifest": None,
+            "solder_detector_model": None,
+            "solder_detector_manifest": None,
         },
         # Đánh giá model: chỗ người vận hành ghi nhận model sai ở từng bước.
         # ``feedback_reload_token`` làm mất hiệu lực cache đọc sau mỗi lần ghi.
@@ -721,6 +864,133 @@ def _classifier_manifest_quality_warning(manifest: Mapping[str, Any]) -> str | N
     )
 
 
+def _classifier_manifest_thresholds(
+    manifest_path: str | Path | None,
+) -> tuple[float, float] | None:
+    """Return ``(accept, review)`` when the selected manifest declares them."""
+
+    if not manifest_path:
+        return None
+    try:
+        payload = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        thresholds = payload.get("decision_thresholds")
+        if not isinstance(thresholds, Mapping):
+            return None
+        raw_accept = thresholds.get("accept")
+        raw_review = thresholds.get("review")
+        if isinstance(raw_accept, bool) or isinstance(raw_review, bool):
+            return None
+        accept = float(raw_accept)
+        review = float(raw_review)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not 0.0 <= review <= accept <= 1.0:
+        return None
+    return accept, review
+
+
+def _set_classifier_threshold_override(
+    config: MutableMapping[str, Any],
+    *,
+    enabled: bool,
+    accept: float | None = None,
+    review: float | None = None,
+) -> bool:
+    """Apply or clear the deployment override; return whether config changed."""
+
+    section = config.get("classification")
+    if not isinstance(section, MutableMapping):
+        section = {}
+        config["classification"] = section
+    if enabled:
+        if accept is None or review is None or not 0.0 <= review <= accept <= 1.0:
+            raise ValueError("Ngưỡng classifier phải thỏa 0 ≤ review ≤ accept ≤ 1.")
+        desired = {"accept_threshold": float(accept), "review_threshold": float(review)}
+    else:
+        desired = {"accept_threshold": None, "review_threshold": None}
+
+    changed = any(section.get(key) != value for key, value in desired.items())
+    section.update(desired)
+    return changed
+
+
+def _render_classifier_threshold_controls() -> None:
+    """Expose manifest-safe decision thresholds for classifier experiments."""
+
+    manifest_path = st.session_state.get("classifier_manifest_path")
+    defaults = _classifier_manifest_thresholds(manifest_path)
+    if defaults is None:
+        return
+    manifest_accept, manifest_review = defaults
+    config = st.session_state.config
+    section = config.get("classification", {})
+    toggle_key = "classifier_threshold_override_enabled"
+    if toggle_key not in st.session_state:
+        st.session_state[toggle_key] = bool(
+            isinstance(section, Mapping)
+            and section.get("accept_threshold") is not None
+            and section.get("review_threshold") is not None
+        )
+
+    with st.container(border=True):
+        st.markdown("**Ngưỡng quyết định classifier**")
+        st.caption(
+            f"Manifest đang đặt review {manifest_review:.2f} · accept {manifest_accept:.2f}."
+        )
+        override_enabled = st.toggle(
+            "Mở khóa ngưỡng để test",
+            key=toggle_key,
+            help=(
+                "Chỉ override policy quyết định; preprocessing, class order và temperature "
+                "vẫn lấy từ manifest. Tắt để quay lại đúng ngưỡng manifest."
+            ),
+        )
+        if not override_enabled:
+            if _set_classifier_threshold_override(config, enabled=False):
+                _invalidate_after(5)
+            st.caption("Đang dùng ngưỡng từ manifest.")
+            return
+
+        current_accept = section.get("accept_threshold") if isinstance(section, Mapping) else None
+        current_review = section.get("review_threshold") if isinstance(section, Mapping) else None
+        accept = (
+            float(current_accept)
+            if isinstance(current_accept, (int, float)) and not isinstance(current_accept, bool)
+            else manifest_accept
+        )
+        review = (
+            float(current_review)
+            if isinstance(current_review, (int, float)) and not isinstance(current_review, bool)
+            else manifest_review
+        )
+        if not 0.0 <= review <= accept <= 1.0:
+            accept, review = manifest_accept, manifest_review
+
+        manifest_id = hashlib.sha256(
+            str(Path(manifest_path).resolve(strict=False)).encode("utf-8")
+        ).hexdigest()[:12]
+        review, accept = st.slider(
+            "Review → Accept",
+            min_value=0.0,
+            max_value=1.0,
+            value=(review, accept),
+            step=0.01,
+            format="%.2f",
+            key=f"classifier_threshold_range_{manifest_id}",
+            help=(
+                "p < review → unknown · review ≤ p < accept → review · "
+                "p ≥ accept → accept"
+            ),
+        )
+        if _set_classifier_threshold_override(
+            config, enabled=True, accept=accept, review=review
+        ):
+            _invalidate_after(5)
+        st.caption(
+            f"Override đang chạy: unknown < {review:.2f} · review < {accept:.2f} · accept."
+        )
+
+
 def _pt_model_blocked() -> bool:
     name = st.session_state.component_model_name or ""
     return (
@@ -737,6 +1007,8 @@ def _cached_bridge(
     board_model_path: str | None,
     classifier_model_path: str | None,
     classifier_manifest_path: str | None,
+    solder_detector_model_path: str | None,
+    solder_detector_manifest_path: str | None,
 ) -> PipelineBridge:
     config = json.loads(config_json)
     component_config = dict(config.get("components", {}))
@@ -781,19 +1053,17 @@ def _cached_bridge(
         board_model_path=board_model_path,
         classifier_model_path=classifier_model_path,
         classifier_manifest_path=classifier_manifest_path,
+        solder_detector_model_path=solder_detector_model_path,
+        solder_detector_manifest_path=solder_detector_manifest_path,
     )
 
 
 def _engine_config(config: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The config as the engine should see it, not as the sidebar recorded it.
 
-    ``create_solder_classifier`` refuses half a contract: a 6.2 model whose
-    class order is unknown would have to be guessed, and guessing wrong maps
-    every defect onto ``good``. That refusal is raised inside
-    ``AOIPipeline.__init__``, so it does not fail step 6.2 alone -- it leaves
-    the bridge with no engine at all and quietly drops step 4 back to the CV
-    demo. Hold an incomplete pair back until the user supplies the other half,
-    the same way the 6.1 classifier pair is held back below.
+    Both solder roles refuse a half contract. Hold incomplete pairs back until
+    the user supplies the matching manifest so neither a classifier nor a
+    segmenter can make the whole bridge fall back to CV demo.
     """
 
     config = dict(st.session_state.config if config is None else config)
@@ -802,6 +1072,11 @@ def _engine_config(config: Mapping[str, Any] | None = None) -> dict[str, Any]:
         grading["model_path"] = None
         grading["manifest_path"] = None
     config["solder_grading"] = grading
+    detection = dict(config.get("solder_defect_detection") or {})
+    if not (detection.get("model_path") and detection.get("manifest_path")):
+        detection["model_path"] = None
+        detection["manifest_path"] = None
+    config["solder_defect_detection"] = detection
     return config
 
 
@@ -811,12 +1086,26 @@ def _get_bridge() -> PipelineBridge:
         st.session_state.classifier_model_path
         and st.session_state.classifier_manifest_path
     )
+    solder_detector_ready = bool(
+        st.session_state.solder_detector_model_path
+        and st.session_state.solder_detector_manifest_path
+    )
     bridge = _cached_bridge(
         config_json,
         st.session_state.component_model_path,
         st.session_state.board_model_path,
         st.session_state.classifier_model_path if classifier_ready else None,
         st.session_state.classifier_manifest_path if classifier_ready else None,
+        (
+            st.session_state.solder_detector_model_path
+            if solder_detector_ready
+            else None
+        ),
+        (
+            st.session_state.solder_detector_manifest_path
+            if solder_detector_ready
+            else None
+        ),
     )
     st.session_state.last_backend_mode = bridge.backend_mode
     st.session_state.last_backend_detail = bridge.backend_detail
@@ -1365,16 +1654,69 @@ def _render_sidebar() -> bool:
                     st.rerun()
             else:
                 st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
+            _render_classifier_threshold_controls()
 
-        with st.expander("Model kiểm tra mối hàn 6.2", expanded=False):
+        with st.expander("Model mối hàn 6.2 · Detect / Classify", expanded=False):
+            st.markdown("#### Detector lỗi mối hàn · YOLO Segment")
+            st.caption(
+                "Chạy trên toàn board để khoanh vùng Dry joint, Incorrect installation, "
+                "PCB damage và Short circuit. Đây là lớp chẩn đoán riêng, không phải "
+                "classifier ROI và không tự quyết định PASS/NG."
+            )
+            if _render_model_picker("solder_detector"):
+                st.rerun()
+            detector_upload = st.file_uploader(
+                "Detector solder (best.onnx)",
+                type=["onnx"],
+                key="solder_detector_model_uploader",
+                help="ONNX YOLO instance-segmentation, task=segment.",
+            )
+            if detector_upload is not None:
+                try:
+                    _set_solder_detector_model(detector_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            detector_manifest_upload = st.file_uploader(
+                "Manifest detector (model_manifest.json)",
+                type=["json"],
+                key="solder_detector_manifest_uploader",
+                help=(
+                    "Bắt buộc: schema segmentation, class order, input và ngưỡng "
+                    "post-processing của detector."
+                ),
+            )
+            if detector_manifest_upload is not None:
+                try:
+                    _set_solder_detector_manifest(detector_manifest_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            detector_model_name = st.session_state.solder_detector_model_name
+            detector_manifest_name = st.session_state.solder_detector_manifest_name
+            if detector_model_name:
+                st.success(f"Detector: {detector_model_name}")
+            if detector_manifest_name:
+                st.success(f"Manifest detector: {detector_manifest_name}")
+            if detector_model_name and detector_manifest_name:
+                st.caption("Đủ cặp · active: models/active/solder/detector/")
+            elif detector_model_name or detector_manifest_name:
+                st.warning("Detector mới có một nửa cặp nên chưa được đưa vào runtime.")
+            if detector_model_name or detector_manifest_name:
+                if st.button("Gỡ detector solder", width="stretch"):
+                    _remove_solder_detector()
+                    st.rerun()
+            else:
+                st.caption("Chưa có detector lỗi mối hàn.")
+
+            st.divider()
+            st.markdown("#### Classifier ROI mối hàn · raw logits")
+            st.caption(
+                "Chấm từng ROI chân hàn và hợp nhất với luật đo hình học. Cặp này "
+                "độc lập hoàn toàn với detector toàn board ở trên."
+            )
             if _render_model_picker("solder"):
                 st.rerun()
-            st.caption(
-                "Tùy chọn. Không có model thì bước 6.2 vẫn chấm bằng tầng luật đo "
-                "hình học; nạp model chỉ thêm một tầng nữa vào hợp nhất."
-            )
             solder_upload = st.file_uploader(
-                "Model 6.2 (best.onnx)",
+                "Classifier solder ROI (best.onnx)",
                 type=["onnx"],
                 key="solder_model_uploader",
                 help="ONNX raw-logit do notebook pcb_solder_defect_kaggle xuất.",
@@ -1385,13 +1727,10 @@ def _render_sidebar() -> bool:
                 except ValueError as exc:
                     st.error(str(exc))
             solder_manifest_upload = st.file_uploader(
-                "Contract 6.2 (model_manifest.json)",
+                "Manifest classifier ROI (model_manifest.json)",
                 type=["json"],
                 key="solder_manifest_uploader",
-                help=(
-                    "Bắt buộc đi kèm model: nó ghim class order và ngưỡng. Thiếu nó "
-                    "thì thứ tự lớp phải đoán, mà đoán sai là mọi lỗi thành 'đạt'."
-                ),
+                help="Bắt buộc để ghim đúng class order, preprocessing và ngưỡng.",
             )
             if solder_manifest_upload is not None:
                 try:
@@ -1401,23 +1740,22 @@ def _render_sidebar() -> bool:
             solder_model_name = st.session_state.solder_model_name
             solder_manifest_name = st.session_state.solder_manifest_name
             if solder_model_name:
-                st.success(f"Model: {solder_model_name}")
+                st.success(f"Classifier ROI: {solder_model_name}")
             if solder_manifest_name:
-                st.success(f"Manifest: {solder_manifest_name}")
+                st.success(f"Manifest classifier: {solder_manifest_name}")
             if solder_model_name and solder_manifest_name:
-                st.caption("Đủ cặp · bước 6.2 hợp nhất luật đo với model")
+                st.caption("Đủ cặp · active: models/active/solder/classifier/")
             elif solder_model_name or solder_manifest_name:
-                # Deliberately not an error: the run still produces verdicts.
                 st.warning(
-                    "Mới có một nửa cặp; bước 6.2 vẫn chấm bằng luật đo và chưa "
-                    "dùng model cho tới khi có đủ cả hai."
+                    "Classifier mới có một nửa cặp; bước 6.2 vẫn chấm bằng luật đo "
+                    "và chưa dùng classifier."
                 )
             if solder_model_name or solder_manifest_name:
-                if st.button("Gỡ model 6.2", width="stretch"):
+                if st.button("Gỡ classifier solder ROI", width="stretch"):
                     _remove_solder_model()
                     st.rerun()
             else:
-                st.caption("Chưa có model · bước 6.2 chấm bằng luật đo")
+                st.caption("Chưa có classifier · bước 6.2 chấm bằng luật đo")
 
         st.markdown('<div class="security-note"><b>Lưu ý model</b><br>.pt có thể chứa pickle. Chỉ mở weight do bạn tự train hoặc nguồn tin cậy; ưu tiên ONNX khi trao đổi.</div>', unsafe_allow_html=True)
         quick_run = st.button(
@@ -1440,9 +1778,195 @@ _MODEL_SLOTS = {
     "component": ("detector", "component_model_path", "component_model_name", None),
     "classifier": ("classifier", "classifier_model_path", "classifier_model_name",
                    "classifier_manifest_path"),
-    "solder": ("solder", "solder_model_path", "solder_model_name",
+    # Keep the historical ``solder`` slot/key namespace for the ROI
+    # classifier, but make its registry kind explicit. The board-level YOLO
+    # segmenter has a completely independent slot and contract.
+    "solder": ("solder_classifier", "solder_model_path", "solder_model_name",
                "solder_manifest_path"),
+    "solder_detector": (
+        "solder_detector",
+        "solder_detector_model_path",
+        "solder_detector_model_name",
+        "solder_detector_manifest_path",
+    ),
 }
+
+
+def _model_entry_id(entry: ModelEntry) -> str:
+    """Opaque identity sent to the browser; filesystem paths stay in Python."""
+
+    identity = f"{entry.origin}\0{entry.model_path.resolve(strict=False)}"
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def _remap_path_in_folder(
+    value: Any, old_folder: Path, new_folder: Path
+) -> tuple[str | None, bool]:
+    """Move one stored path with a renamed folder, if it points inside it."""
+
+    if value in (None, ""):
+        return None if value is None else "", False
+    try:
+        relative = Path(str(value)).resolve(strict=False).relative_to(
+            old_folder.resolve(strict=False)
+        )
+    except (OSError, RuntimeError, ValueError):
+        return str(value), False
+    return str(new_folder / relative), True
+
+
+def _renamed_registry_name(renamed: ModelEntry, model_path: str) -> str:
+    """Build the registry-relative display name for another model in the folder."""
+
+    try:
+        relative = Path(model_path).resolve(strict=False).relative_to(
+            renamed.model_path.parent.resolve(strict=False)
+        )
+    except (OSError, RuntimeError, ValueError):
+        return renamed.name
+    registry_folder = Path(renamed.name).parent
+    return (registry_folder / relative).as_posix()
+
+
+def _sync_renamed_model_folder(
+    state: MutableMapping[str, Any], old: ModelEntry, renamed: ModelEntry
+) -> set[str]:
+    """Repoint every loaded stage after one shared model folder moves."""
+
+    old_folder = old.model_path.parent
+    new_folder = renamed.model_path.parent
+    affected: set[str] = set()
+    for slot, (_, path_key, name_key, manifest_key) in _MODEL_SLOTS.items():
+        mapped_model, model_changed = _remap_path_in_folder(
+            state.get(path_key), old_folder, new_folder
+        )
+        if model_changed and mapped_model is not None:
+            state[path_key] = mapped_model
+            state[name_key] = _renamed_registry_name(renamed, mapped_model)
+
+        manifest_changed = False
+        if manifest_key is not None:
+            mapped_manifest, manifest_changed = _remap_path_in_folder(
+                state.get(manifest_key), old_folder, new_folder
+            )
+            if manifest_changed and mapped_manifest is not None:
+                state[manifest_key] = mapped_manifest
+                manifest_name_key = f"{manifest_key.rsplit('_', 1)[0]}_name"
+                state[manifest_name_key] = Path(mapped_manifest).name
+
+        if model_changed or manifest_changed:
+            affected.add(slot)
+            # The selectbox may already exist in this script run. Its widget
+            # state is therefore cleared at the start of the next rerun.
+            state[f"{slot}_model_choice_reset"] = True
+
+    config = state.get("config")
+    grading = (
+        config.get("solder_grading") if isinstance(config, MutableMapping) else None
+    )
+    if isinstance(grading, MutableMapping):
+        for key in ("model_path", "manifest_path"):
+            mapped, changed = _remap_path_in_folder(
+                grading.get(key), old_folder, new_folder
+            )
+            if changed:
+                grading[key] = mapped
+                affected.add("solder")
+                state["solder_model_choice_reset"] = True
+    detection = (
+        config.get("solder_defect_detection")
+        if isinstance(config, MutableMapping)
+        else None
+    )
+    if isinstance(detection, MutableMapping):
+        for key in ("model_path", "manifest_path"):
+            mapped, changed = _remap_path_in_folder(
+                detection.get(key), old_folder, new_folder
+            )
+            if changed:
+                detection[key] = mapped
+                affected.add("solder_detector")
+                state["solder_detector_model_choice_reset"] = True
+    return affected
+
+
+def _render_model_folder_action(slot: str, entry: ModelEntry) -> None:
+    """Render the selected folder name and an accessible rename interaction."""
+
+    enabled = entry.origin in {"library", "archive"}
+    entry_id = _model_entry_id(entry)
+    folder_name = entry.model_path.parent.name
+    result = _MODEL_FOLDER_ACTION(
+        key=f"{slot}_model_folder_action",
+        data={
+            "enabled": enabled,
+            "folder_name": folder_name,
+            "model_id": entry_id,
+            "origin_label": {
+                "active": "active",
+                "archive": "archive",
+                "library": "library",
+            }.get(entry.origin, entry.origin),
+        },
+        on_rename_requested_change=lambda: None,
+    )
+
+    target_key = f"{slot}_model_rename_target"
+    request = getattr(result, "rename_requested", None)
+    if enabled and isinstance(request, Mapping) and request.get("model_id") == entry_id:
+        st.session_state[target_key] = entry_id
+
+    target = st.session_state.get(target_key)
+    if target not in (None, entry_id):
+        st.session_state[target_key] = None
+        return
+    if target != entry_id:
+        return
+
+    st.caption(
+        "Đổi tên cả thư mục; file ONNX, manifest và các file phụ bên trong vẫn được giữ nguyên."
+    )
+    if entry.origin == "archive":
+        st.warning(
+            "Archive được Git quản lý. Tài liệu hoặc benchmark đang ghi tên cũ sẽ không tự đổi theo."
+        )
+
+    input_key = f"{slot}_model_rename_name_{entry_id[:12]}"
+    with st.form(f"{slot}_model_rename_form_{entry_id[:12]}", border=True):
+        new_name = st.text_input(
+            "Tên thư mục mới",
+            value=folder_name,
+            key=input_key,
+            help="Được dùng chữ tiếng Việt và khoảng trắng; không dùng ký tự đường dẫn hoặc tên trùng.",
+        )
+        save_col, cancel_col = st.columns(2)
+        with save_col:
+            save = st.form_submit_button("Lưu tên", type="primary", width="stretch")
+        with cancel_col:
+            cancel = st.form_submit_button("Hủy", width="stretch")
+
+    if cancel:
+        st.session_state[target_key] = None
+        st.rerun()
+    if not save:
+        return
+
+    try:
+        renamed = rename_model_folder(entry, new_name)
+    except ModelFolderRenameError as exc:
+        st.error(str(exc))
+        return
+
+    affected = _sync_renamed_model_folder(st.session_state, entry, renamed)
+    stages = ", ".join(sorted(affected)) if affected else "không có stage đang nạp"
+    message = (
+        f"Đã đổi tên thư mục model: {folder_name} → "
+        f"{renamed.model_path.parent.name} ({stages})"
+    )
+    st.session_state.messages.append(message)
+    st.session_state[f"{slot}_model_rename_flash"] = message
+    st.session_state[target_key] = None
+    st.rerun()
 
 
 def _use_model_entry(slot: str, entry: ModelEntry) -> None:
@@ -1462,6 +1986,11 @@ def _use_model_entry(slot: str, entry: ModelEntry) -> None:
         st.session_state.config["solder_grading"]["model_path"] = str(entry.model_path)
         if entry.manifest_path is not None:
             st.session_state.config["solder_grading"]["manifest_path"] = str(entry.manifest_path)
+    if slot == "solder_detector":
+        detection = st.session_state.config["solder_defect_detection"]
+        detection["model_path"] = str(entry.model_path)
+        if entry.manifest_path is not None:
+            detection["manifest_path"] = str(entry.manifest_path)
     if slot == "component":
         # An .onnx carries no pickle, so nothing to confirm; a .pt still does.
         st.session_state.pt_model_trusted = entry.model_path.suffix.lower() != ".pt"
@@ -1477,16 +2006,31 @@ def _render_model_picker(slot: str) -> bool:
     """
 
     kind, path_key, _, _ = _MODEL_SLOTS[slot]
+    choice_key = f"{slot}_model_choice"
+    applied_key = f"{slot}_model_choice_applied"
+    if st.session_state.pop(f"{slot}_model_choice_reset", False):
+        # Must happen before the selectbox is instantiated in this run.
+        st.session_state.pop(choice_key, None)
+        st.session_state.pop(applied_key, None)
+
+    flash = st.session_state.pop(f"{slot}_model_rename_flash", None)
+    if flash:
+        st.success(flash)
+
     entries = discover_models(kind)
     if not entries:
         st.caption(
-            f"Không thấy model nào trong `models/active/{kind}/` hay "
+            "Không thấy model nào trong nhánh `models/active/` đúng loại hay "
             "`models/library/`. Tải lên bên dưới, hoặc bỏ file `.onnx` kèm "
             "`model_manifest.json` vào `models/library/`."
         )
         return False
 
     current = st.session_state.get(path_key)
+    current_entry = next(
+        (entry for entry in entries if current and Path(current) == entry.model_path),
+        None,
+    )
     labels = ["— không dùng —"] + [entry.label for entry in entries]
     index = 0
     for offset, entry in enumerate(entries, start=1):
@@ -1497,7 +2041,7 @@ def _render_model_picker(slot: str) -> bool:
         "Chọn từ thư mục models/",
         labels,
         index=index,
-        key=f"{slot}_model_choice",
+        key=choice_key,
         help=(
             "active = model dự án đang dùng · của bạn = models/library/ · "
             "bản cũ = models/archive/, không tự nạp"
@@ -1515,19 +2059,23 @@ def _render_model_picker(slot: str) -> bool:
     #
     # Nên mốc so sánh là "lần cuối CHÍNH Ô CHỌN NÀY áp cái gì", không phải
     # trạng thái hiện tại của session.
-    applied_key = f"{slot}_model_choice_applied"
     previously_applied = st.session_state.get(applied_key)
-    if chosen == previously_applied:
-        return False
-    st.session_state[applied_key] = chosen
+    if chosen != previously_applied:
+        st.session_state[applied_key] = chosen
+        if chosen != labels[0]:
+            entry = entries[labels.index(chosen) - 1]
+            if not current or Path(current) != entry.model_path:
+                _use_model_entry(slot, entry)
+                return True
+            current_entry = entry
 
-    if chosen == labels[0]:
-        return False
-    entry = entries[labels.index(chosen) - 1]
-    if current and Path(current) == entry.model_path:
-        return False
-    _use_model_entry(slot, entry)
-    return True
+    if current_entry is not None:
+        _render_model_folder_action(slot, current_entry)
+    else:
+        st.session_state[f"{slot}_model_rename_target"] = None
+        if current:
+            st.caption("Model tải lên tạm thời không có thư mục registry để đổi tên.")
+    return False
 
 
 def _set_bom(upload: Any, complete: bool) -> None:
@@ -4032,6 +4580,8 @@ def _set_solder_model(upload: Any) -> None:
 
     if upload is None:
         return
+    if Path(upload.name).suffix.lower() != ".onnx":
+        raise ValueError("Classifier mối hàn chỉ nhận file ONNX.")
     data = upload.getvalue()
     if not data or len(data) > 256 * 1024 * 1024:
         raise ValueError("File model rỗng hoặc vượt quá 256 MB.")
@@ -4073,10 +4623,12 @@ def _set_solder_manifest(upload: Any) -> None:
     if (
         not isinstance(manifest, dict)
         or manifest.get("schema_version") != SOLDER_MANIFEST_SCHEMA
+        or manifest.get("task") != "solder_defect_classification"
     ):
         st.session_state.ignored_uploads["solder_manifest"] = digest
         raise ValueError(
-            f"Manifest không đúng schema {SOLDER_MANIFEST_SCHEMA} của bước 6.2."
+            "Manifest không phải contract classifier ROI mối hàn "
+            f"({SOLDER_MANIFEST_SCHEMA}, task=solder_defect_classification)."
         )
     path = _materialize_upload(upload.name, data)
     st.session_state.solder_manifest_path = path
@@ -4098,7 +4650,94 @@ def _remove_solder_model() -> None:
     st.session_state.config["solder_grading"]["manifest_path"] = None
     _invalidate_after(6)
     st.session_state.messages.append(
-        "Đã gỡ model 6.2; bước này quay về chấm bằng luật đo."
+        "Đã gỡ classifier ROI mối hàn; bước 6.2 quay về chấm bằng luật đo."
+    )
+
+
+def _set_solder_detector_model(upload: Any) -> None:
+    """Accept the board-level solder segmentation ONNX independently."""
+
+    if upload is None:
+        return
+    if Path(upload.name).suffix.lower() != ".onnx":
+        raise ValueError("Detector mối hàn chỉ nhận file ONNX task=segment.")
+    data = upload.getvalue()
+    if not data or len(data) > 256 * 1024 * 1024:
+        raise ValueError("File detector rỗng hoặc vượt quá 256 MB.")
+    digest = _digest(data)
+    if digest in (
+        st.session_state.ignored_uploads.get("solder_detector_model"),
+        st.session_state.solder_detector_model_digest,
+    ):
+        return
+    path = _materialize_upload(upload.name, data)
+    st.session_state.solder_detector_model_path = path
+    st.session_state.solder_detector_model_name = upload.name
+    st.session_state.solder_detector_model_digest = digest
+    st.session_state.config["solder_defect_detection"]["model_path"] = path
+    st.session_state.ignored_uploads["solder_detector_model"] = None
+    _invalidate_after(6)
+    st.session_state.messages.append(f"Đã nạp detector solder: {upload.name}")
+
+
+def _set_solder_detector_manifest(upload: Any) -> None:
+    """Validate the segmenter contract and reject classifier manifests."""
+
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 1024 * 1024:
+        raise ValueError("model_manifest.json detector rỗng hoặc vượt quá 1 MB.")
+    digest = _digest(data)
+    if digest in (
+        st.session_state.ignored_uploads.get("solder_detector_manifest"),
+        st.session_state.solder_detector_manifest_digest,
+    ):
+        return
+    try:
+        manifest = json.loads(data.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        st.session_state.ignored_uploads["solder_detector_manifest"] = digest
+        raise ValueError(f"Manifest detector không hợp lệ: {exc}") from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != SOLDER_DETECTOR_MANIFEST_SCHEMA
+        or manifest.get("task") != "solder_defect_instance_segmentation"
+    ):
+        st.session_state.ignored_uploads["solder_detector_manifest"] = digest
+        raise ValueError(
+            "Manifest không phải contract detector/segment mối hàn "
+            f"({SOLDER_DETECTOR_MANIFEST_SCHEMA}, "
+            "task=solder_defect_instance_segmentation)."
+        )
+    path = _materialize_upload(upload.name, data)
+    st.session_state.solder_detector_manifest_path = path
+    st.session_state.solder_detector_manifest_name = upload.name
+    st.session_state.solder_detector_manifest_digest = digest
+    st.session_state.config["solder_defect_detection"]["manifest_path"] = path
+    st.session_state.ignored_uploads["solder_detector_manifest"] = None
+    _invalidate_after(6)
+    st.session_state.messages.append(
+        f"Đã nạp manifest detector solder: {upload.name}"
+    )
+
+
+def _remove_solder_detector() -> None:
+    for key in (
+        "solder_detector_model_path",
+        "solder_detector_model_name",
+        "solder_detector_model_digest",
+        "solder_detector_manifest_path",
+        "solder_detector_manifest_name",
+        "solder_detector_manifest_digest",
+    ):
+        st.session_state[key] = None
+    detection = st.session_state.config["solder_defect_detection"]
+    detection["model_path"] = None
+    detection["manifest_path"] = None
+    _invalidate_after(6)
+    st.session_state.messages.append(
+        "Đã gỡ detector lỗi mối hàn; classifier ROI và luật đo vẫn được giữ nguyên."
     )
 
 
@@ -4387,9 +5026,109 @@ def _verdict_frame(verdicts: list[SolderVerdictRecord]) -> pd.DataFrame:
     )
 
 
+def _draw_solder_detector_overlay(
+    image: np.ndarray, findings: list[DetectionRecord]
+) -> np.ndarray:
+    """Draw board-level solder boxes and mask contours without changing verdicts."""
+
+    overlay = image.copy()
+    palette = {
+        "Dry_joint": (0, 165, 255),
+        "Incorrect_installation": (255, 180, 0),
+        "PCB_damage": (255, 0, 255),
+        "Short_circuit": (0, 0, 255),
+    }
+    for finding in findings:
+        color = palette.get(finding.label, (0, 200, 255))
+        polygon = finding.metadata.get("mask_polygon")
+        if isinstance(polygon, Sequence) and len(polygon) >= 3:
+            try:
+                points = np.asarray(polygon, dtype=np.int32).reshape((-1, 1, 2))
+            except (TypeError, ValueError):
+                points = None
+            if points is not None:
+                cv2.polylines(overlay, [points], True, color, 2, cv2.LINE_AA)
+        x1, y1, x2, y2 = finding.bbox
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
+        confidence = (
+            f" {finding.confidence:.2f}" if finding.confidence is not None else ""
+        )
+        cv2.putText(
+            overlay,
+            f"{finding.label}{confidence}",
+            (x1, max(13, y1 - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.42,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
+    return overlay
+
+
+def _render_solder_detector_findings(result: SolderResult) -> None:
+    """Render the detector as a distinct diagnostic layer."""
+
+    st.markdown("#### Detector lỗi mối hàn · toàn board")
+    if not result.detector_active:
+        st.info(
+            "Chưa bật detector toàn board. Có thể dùng độc lập classifier ROI + luật đo."
+        )
+        return
+    if result.detector_error:
+        st.error(f"Detector solder chạy lỗi: {result.detector_error}")
+        st.caption("Classifier ROI và luật đo bên dưới vẫn chạy độc lập.")
+        return
+    findings = result.detector_findings
+    if not findings:
+        st.info(
+            "Detector không tìm thấy vùng nghi lỗi. Kết quả này không đồng nghĩa board PASS; "
+            "vẫn phải xem classifier ROI và luật đo."
+        )
+        return
+
+    counts = collections.Counter(item.label for item in findings)
+    st.warning(
+        f"Detector khoanh {len(findings)} vùng nghi lỗi để review; chưa dùng các vùng này "
+        "làm quyết định PASS/NG production."
+    )
+    st.caption(" · ".join(f"{label}: {count}" for label, count in sorted(counts.items())))
+    source = _analysis_image()
+    overlay_tab, table_tab = st.tabs(["Detector overlay", "Bảng detector"])
+    with overlay_tab:
+        if source is None:
+            _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
+        else:
+            _show_image(
+                _draw_solder_detector_overlay(source, findings),
+                "BBox + contour mask của YOLO Segment trên toàn board",
+            )
+    with table_tab:
+        frame = pd.DataFrame(
+            [
+                {
+                    "detection_id": item.detection_id,
+                    "class": item.label,
+                    "confidence": item.confidence,
+                    "x1": item.bbox[0],
+                    "y1": item.bbox[1],
+                    "x2": item.bbox[2],
+                    "y2": item.bbox[3],
+                    "has_mask": bool(item.metadata.get("mask_polygon")),
+                    "source": item.source,
+                }
+                for item in findings
+            ]
+        )
+        st.dataframe(frame, width="stretch", height=300)
+
+
 def _render_solder_grading(result: SolderResult) -> None:
     """Step 6.2: what each ROI was called, and on what evidence."""
 
+    _render_solder_detector_findings(result)
+    st.divider()
+    st.markdown("#### Classifier ROI mối hàn + luật đo")
     verdicts = result.verdicts
     if not verdicts:
         if result.grading_error:
@@ -4421,7 +5160,8 @@ def _render_solder_grading(result: SolderResult) -> None:
         st.info(
             "**Đang chấm bằng luật đo hình học, chưa có model** — đây là trạng "
             "thái bình thường, không phải lỗi. Nạp `.onnx` + `model_manifest.json` "
-            "ở sidebar **Model kiểm tra mối hàn 6.2** để bật thêm tầng phân loại.\n\n"
+            "ở sidebar **Classifier ROI mối hàn · raw logits** để bật thêm tầng "
+            "phân loại.\n\n"
             "Ngưỡng mặc định chỉ là số khởi đầu. Chạy "
             "`scripts/calibrate_solder_thresholds.py` trên các board bạn đã chấp "
             "nhận để đo ngưỡng từ chính dây chuyền của bạn."

@@ -31,6 +31,7 @@ from .config import (
     PipelineConfig,
     PreprocessConfig,
     SolderGradingConfig,
+    SolderDefectDetectionConfig,
     SolderJointConfig,
     TilingConfig,
     terminal_geometry,
@@ -104,6 +105,16 @@ from .solder.geometry import (
     SolderJointCropper,
     derive_solder_joints,
     estimate_component_angle,
+)
+from .solder.defect_detection import (
+    SOLDER_DEFECT_CLASS_NAMES,
+    SOLDER_DEFECT_MANIFEST_SCHEMA,
+    SOLDER_DEFECT_SOURCE,
+    SOLDER_DEFECT_TASK,
+    SolderDefectContract,
+    SolderDefectDetector,
+    create_solder_defect_detector,
+    validate_solder_defect_manifest,
 )
 from .grading.classifier import (
     MANIFEST_SCHEMA as SOLDER_MANIFEST_SCHEMA,
@@ -295,6 +306,9 @@ __all__ = [
     "PadProfile",
     "SOLDER_MANIFEST_SCHEMA",
     "SolderFeatures",
+    "SolderDefectContract",
+    "SolderDefectDetectionConfig",
+    "SolderDefectDetector",
     "SolderGradingConfig",
     "SolderInspector",
     "SolderJoint",
@@ -305,6 +319,7 @@ __all__ = [
     "cad_findings_csv",
     "classes_agree",
     "create_solder_classifier",
+    "create_solder_defect_detector",
     "derive_solder_joints",
     "designator_to_class",
     "estimate_component_angle",
@@ -326,6 +341,11 @@ __all__ = [
     "solder_verdicts_csv",
     "split_lead_detections",
     "terminal_geometry",
+    "validate_solder_defect_manifest",
+    "SOLDER_DEFECT_CLASS_NAMES",
+    "SOLDER_DEFECT_MANIFEST_SCHEMA",
+    "SOLDER_DEFECT_SOURCE",
+    "SOLDER_DEFECT_TASK",
 ]
 
 __version__ = "0.2.0"

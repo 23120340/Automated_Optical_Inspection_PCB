@@ -287,9 +287,9 @@ tốt nhất mỗi nguồn phủ một phần, nên chúng được ghép lại:
 
 | Nguồn | Phủ | Ghi chú |
 |---|---|---|
-| **SolDef_AI** (Kaggle, [MDPI JMMP 2024](https://doi.org/10.3390/jmmp8030117)) | good, insufficient, excess, **shift_component** | 1150 ảnh, 3 góc nhìn. Nguồn peer-reviewed duy nhất có nhãn lệch vị trí linh kiện |
-| HF `ouvic215` / `AndyLiu0104` | bridge, excess, missing_solder | **Không license, không nguồn gốc**; nghi dữ liệu sinh |
-| Roboflow soldering-defects | **cold**, bridge | Nguồn công khai duy nhất có cold solder, nhưng vài trăm ảnh |
+| **SolDef_AI** (Kaggle, [MDPI JMMP 2024](https://doi.org/10.3390/jmmp8030117)) | dataset_2: good, insufficient, excess, spike | 1150 ảnh, 3 góc nhìn; 200 ảnh 45° có polygon joint. Dataset_1 placement được tách riêng |
+| HF `ouvic215` / `AndyLiu0104` | caption bridge/excess/missing trên ảnh toàn board | **Không license, không nguồn gốc**; không dùng mặc định cho classifier ROI |
+| [Roboflow Solder_detection_type2](https://universe.roboflow.com/pcb-qbyda/solder_detection_type2/dataset/1) | cold, insufficient, excess, missing_solder | CC BY 4.0 nhưng provenance yếu; chỉ bật sau visual audit |
 | Export từ board của bạn | tất cả | Nguồn **duy nhất** khớp camera/ánh sáng của bạn |
 
 **Đừng nối nhầm:** DeepPCB, HRIPCB/PKU-Market-PCB, DsPCBSD+, `akhatova/pcb-defects`
@@ -347,24 +347,31 @@ Kiểm tra trước khi tin:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\verify_solder_model.py `
-  models\solder\best.onnx models\solder\model_manifest.json
+  models\active\solder\classifier\best.onnx `
+  models\active\solder\classifier\model_manifest.json
 ```
 
 Lệnh này nạp cặp file qua **đúng runtime app dùng**, nên pass ở đó nghĩa là app
 nạp được. Nó bắt cả trường hợp export bị tách trọng số ra file `.data` riêng —
 lúc đó `best.onnx` một mình sẽ hỏng dù trên máy vừa train vẫn chạy.
 
-Nạp cả hai ở sidebar **Model kiểm tra mối hàn 6.2**, hoặc trỏ bằng config:
+Nạp cả hai ở sidebar **Classifier ROI mối hàn · raw logits**, hoặc trỏ bằng
+config:
 
 ```python
-config.solder_grading.model_path = "models/solder/best.onnx"
-config.solder_grading.manifest_path = "models/solder/model_manifest.json"
+config.solder_grading.model_path = "models/active/solder/classifier/best.onnx"
+config.solder_grading.manifest_path = "models/active/solder/classifier/model_manifest.json"
 ```
 
 Không cần đổi gì khác. Thiếu một trong hai thì bước 6.2 vẫn chạy bằng luật và
 báo rõ. Runtime **từ chối** manifest sai schema thay vì đoán — đoán sai thứ tự
 class là biến mọi lỗi thành "đạt". Schema đầy đủ:
 [docs/solder_model_manifest_template.json](docs/solder_model_manifest_template.json).
+
+Detector YOLO Segment chạy toàn board là một contract khác, đặt tại
+`models/active/solder/detector/` và được chọn ở khối **Detector lỗi mối hàn ·
+YOLO Segment**. Nó tạo vùng nghi lỗi để review, không được nạp vào
+`solder_grading` và không tự quyết định PASS/NG.
 
 ### Kết quả xem ở đâu
 
@@ -591,11 +598,17 @@ dưới `min_per_class` khỏi `class_names` thay vì giả vờ train chúng.
 
 | Lớp | Nguồn | Đủ chưa |
 |---|---|---|
-| good, insufficient, excess | SolDef_AI | Tạm được, nhưng khác camera/ánh sáng của bạn |
-| shift_component | SolDef_AI | Nguồn công khai duy nhất có |
-| bridge, missing_solder | HF (không license, nghi dữ liệu sinh) | **Không tin được cho production** |
-| **cold** | Roboflow, vài trăm ảnh | **Yếu nhất.** Và cold cần đèn RGB đa góc mới tách được — dataset không bù được quang học |
+| good, insufficient, excess, spike | SolDef_AI dataset_2, ảnh 45° + polygon từng joint | Dùng được để bootstrap; chỉ là public proxy, khác camera/ánh sáng của bạn |
+| `no_good` / lệch linh kiện | SolDef_AI dataset_1 top-view | **Sai scope cho classifier joint**; polygon bao cả component + pads nên notebook v2 route out |
+| cold, missing_solder | Roboflow `Solder_detection_type2` | Dùng bổ sung sau visual audit; provenance yếu hơn SolDef |
+| bridge/short | Box public hoặc luật cặp chân | Không đưa vào classifier một joint; bước 6.2 xử lý theo cặp ROI |
+| unknown / wrong-crop | Không có public ground truth đúng camera | **Không được sinh giả từ noise.** Phải bổ sung sau khi có camera |
 | tombstone, wrong_polarity | không nguồn nào | **Không có** |
+
+[`pcb_solder_defect_v2_kaggle.ipynb`](training/kaggle/pcb_solder_defect_v2_kaggle.ipynb)
+hiện mặc định chạy `public_bootstrap`: tự tải SolDef_AI, tách đúng dataset_2 và xuất
+`best.onnx` + manifest có cờ `bootstrap_only` để thử app. Khi có camera, đổi sang
+`camera_finetune`; public chỉ còn ở train, còn calibration/locked-test phải là AOI thật.
 
 ### Cần bao nhiêu mới đủ
 

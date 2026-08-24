@@ -27,6 +27,19 @@ detector — yolo26s · 2026-08-20 · mAP50 0.505  (đang dùng)
 detector-yolo26s-20260817 — yolo26s · 2026-08-17 · mAP50 0.579  (bản cũ)
 ```
 
+Muốn đặt lại tên cho dễ nhớ, chọn model rồi **nhấp đúp vào tên thư mục** ngay
+dưới ô chọn (hoặc bấm biểu tượng bút chì / nhấn `F2`). App đổi tên nguyên thư
+mục trong `library/` hoặc `archive/`, nên ONNX, manifest và file phụ vẫn đi cùng
+nhau. `active/` không đổi tên được vì đó là đường dẫn mặc định cố định. Khi đổi
+tên một bản trong `archive/`, các tài liệu hay benchmark đã ghi tên lịch sử sẽ
+không tự sửa theo.
+
+Riêng classifier 6.1, mục **Ngưỡng quyết định classifier** có công tắc **Mở
+khóa ngưỡng để test**. Thanh hai đầu đặt `review → accept`: xác suất dưới
+`review` thành `unknown`, khoảng giữa cần review, và từ `accept` trở lên được
+chấp nhận. Tắt công tắc để xóa override và quay lại đúng ngưỡng ghi trong
+manifest của model đang chọn.
+
 **Trực tiếp**, mở `model_manifest.json` cạnh file `.onnx`. Đây là nguồn đáng
 tin nhất: tên thư mục do người đặt và có thể lệch, manifest do notebook sinh ra
 **cùng lúc** với trọng số và mang cả `sha256` của chính file.
@@ -39,10 +52,34 @@ tin nhất: tên thư mục do người đặt và có thể lệch, manifest do
 | `archive/` | Bản cũ giữ để đối chiếu. **Không bao giờ tự nạp** | commit kèm |
 | `library/` | Của bạn. Thả vào là hiện trong bộ chọn | **bỏ qua** |
 
-`active/` dùng **tên bước** (`classifier/`, `detector/`, `solder/`) chứ không
-phải tên phiên bản — vì câu hỏi ở đó là "cái gì đang chạy", và app tìm mặc định
-theo đúng đường dẫn `active/<bước>/best.onnx`. Đổi tên các thư mục này sẽ làm
-app không tìm thấy model mặc định nữa.
+`active/` dùng **tên bước/vai trò** chứ không phải tên phiên bản — vì câu hỏi ở
+đó là "cái gì đang chạy". Riêng solder có hai contract không tương thích nên
+được tách thêm một cấp:
+
+```
+active/
+├── detector/                  # detector linh kiện/chân, bước 4
+├── classifier/                # classifier họ linh kiện, bước 6.1
+└── solder/
+    ├── classifier/            # classifier ROI, output raw logits
+    │   ├── best.onnx
+    │   └── model_manifest.json
+    └── detector/              # YOLO segment lỗi mối hàn trên toàn board
+        ├── best.onnx
+        └── model_manifest.json
+```
+
+Vì vậy `solder/classifier/model_manifest.json` chỉ mô tả classifier ROI, còn
+`solder/detector/model_manifest.json` chỉ mô tả detector segmentation. Không
+được đổi chéo hai manifest: class logits và boxes + masks là hai kiểu output
+khác nhau. Đổi tên các thư mục `active/` này sẽ làm app không tìm thấy model mặc
+định nữa. Tên API cũ `solder` vẫn được hiểu là `solder_classifier` để tương
+thích với cấu hình cũ; model mới nên luôn dùng tên vai trò đầy đủ.
+
+Bundle nguồn của detector hiện tại (gồm `.pt`, `config.json`, ONNX và manifest)
+được giữ cục bộ, không commit, tại
+`models/pcb_solder_defect_artifacts/solder-detector-yolov8m_seg-20260824/`.
+Runtime chỉ dùng cặp ONNX + manifest trong `active/solder/detector/`.
 
 Việc nạp diễn ra **một lần cho mỗi phiên**, không phải mỗi lần chạy lại. Nhờ
 thế nút "Gỡ model" vẫn gỡ được: nạp lại ở mọi rerun thì bấm gỡ xong model quay
@@ -55,6 +92,8 @@ về ngay, và nút trông như hỏng. Muốn nạp lại sau khi gỡ thì ch�
 detector-yolo26s-20260817
 detector-yolov8-huggingface-20260704
 classifier-convnext_base-20260822
+solder-classifier-mobilenet_v3_small-20260820
+solder-detector-yolov8m_seg-20260824
 ```
 
 Đây chỉ là tiện lợi khi mở File Explorer. Bộ chọn và `list_models.py` không đọc
@@ -75,6 +114,16 @@ cớ: bước 6.1 và 6.2 cần biết thứ tự lớp, kích thước đầu v
 Đoán sai thứ tự lớp nghĩa là mọi lỗi bị ánh xạ thành "đạt" — hỏng im lặng, đúng
 kiểu tệ nhất. Chào một file không manifest chỉ dời thất bại sang một cú click
 sau.
+
+Với model solder, manifest còn phải khai đúng `task` để chỉ xuất hiện trong bộ
+chọn tương ứng:
+
+- `solder_defect_classification` → `solder_classifier` (raw logits trên ROI).
+- `solder_defect_instance_segmentation` → `solder_detector` (boxes + masks trên
+  toàn board).
+
+Manifest không xác định được vai trò solder sẽ không được chào ở cả hai bộ chọn;
+đây là chủ ý để không nạp nhầm một output segmentation vào code classifier.
 
 File `.pt` cũng không được liệt kê: nó mang pickle, app chặn lại tới khi có
 người xác nhận nguồn, và một bộ chọn mặc định sẵn nó biến việc xác nhận thành
