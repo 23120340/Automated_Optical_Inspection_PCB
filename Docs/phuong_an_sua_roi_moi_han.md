@@ -13,13 +13,14 @@
 
 ## Tóm tắt trước khi đi vào chi tiết
 
-Ba triệu chứng, nhưng **hai trong ba cùng một gốc**, và cái gốc đó khiến hai
-hướng xử lý bạn đề xuất trong file không đi tới đâu — tôi đã thử cả hai và đo
-được là chúng hỏng.
+Ba triệu chứng, nhưng **hai trong ba cùng một gốc**. Ba trong bốn hướng tôi thử
+đều hỏng — kể cả một hướng của chính tôi; hướng còn lại (xử lý ảnh nhiều đặc
+trưng) thì **có tác dụng thật**, và đó là chỗ tôi đã kết luận sai lúc đầu, xem
+mục 2.1.
 
 | Triệu chứng trong file | Nguyên nhân đo được |
 |---|---|
-| Tụ tròn: box mở quá lớn, không box nào đúng | ROI sâu **0,75 × span**. Với tụ 6,2 mm ra ROI sâu **4,6 mm** — to hơn cả linh kiện. Cộng thêm box gần vuông (tỉ lệ 1,09) nên thuật toán không chốt được trục và phát **cả hai** cặp |
+| Tụ tròn: box mở quá lớn, không box nào đúng | ROI sâu **0,75 × chiều dài**. Với tụ dài 6,7 mm ra ROI sâu **5,0 mm** — to hơn cả linh kiện. Cộng thêm box gần vuông (tỉ lệ 1,09) nên thuật toán không chốt được trục và phát **cả hai** cặp |
 | Diode: nhận nhầm viền hai bên là mối hàn | Dải chu vi nằm trên **chữ lụa trắng** sống sót qua bộ lọc năng lượng |
 | IC: lấn sang chữ OCR | **Cùng một gốc với dòng trên** — dải cạnh phải nằm trên chữ `HDL01`, rồi bị tách thành 7 "chân" giả |
 
@@ -52,23 +53,87 @@ Hai dòng cần đọc kỹ:
 Chú thích trong code hiện ghi *"Green mask, dark component bodies and silkscreen
 all fail one of those"*. Vế về silkscreen **sai** — số đo ở trên là bằng chứng.
 
-## 2. Ba hướng đã thử, cả ba đều hỏng
+## 2. Bốn hướng đã thử: ba hỏng, một được
 
-Phần này quan trọng hơn phần đề xuất, vì nó loại bỏ đúng hai hướng ghi trong
-file docx.
+Phần này quan trọng hơn phần đề xuất. Nó cũng chứa **một đính chính lớn** với
+bản đầu của tài liệu này.
 
-### 2.1. "Tiền xử lý ảnh để tách viền / thân linh kiện ra màu khác" — không được
+### 2.1. "Tiền xử lý ảnh để tách viền / thân linh kiện ra màu khác"
 
-Đây là hướng bạn ghi cho cả mục Capacitor và mục Diode. Nó không đi tới đâu vì
-**ba thứ cần tách vốn cùng một màu**: mối hàn, chữ lụa trắng và vỏ nhôm đều là
-sáng + ít bão hoà. Bảng ở mục 1 là số đo trực tiếp: S = 47,8 (lụa) so với
-S = 48,0 (mối hàn). Không có phép biến đổi màu nào tách được hai giá trị bằng
-nhau.
+> **Đính chính 2026-08-24, sau khi bạn phản biện.** Mục này ban đầu tôi viết là
+> "không được". **Kết luận đó sai**, và phép đo của tôi lúc đó quá yếu: tôi so
+> **trung bình cả mảng**, mà mảng chữ lụa lại gồm cả nền tối xen giữa các nét.
+> Đo lại ở mức từng pixel thì bức tranh khác hẳn — xem mục 2.1b.
 
-### 2.2. Tách bằng kết cấu (specular / phương sai cục bộ) — **hỏng, và hỏng ngược**
+Phần đúng của kết luận cũ: **một ngưỡng đơn lẻ thì không tách được.** Thử hết
+11 đặc trưng một chiều, cái tốt nhất (`b*`) chỉ đạt **65,2 %** trên bài toán hai
+lớp cân bằng, và độ bão hoà thì trùng khít: S = 47,8 (lụa) so với 48,0 (hàn).
+Đó là lý do `segment_solder` hiện tại — vốn là một ngưỡng đôi trên (sáng, bão
+hoà) — không có cách nào loại được chữ lụa.
+
+### 2.1b. Nhưng nhiều đặc trưng cùng lúc thì **tách được** — bạn đúng
+
+Lấy 7 đặc trưng (H, S, V, L\*, a\*, b\*, độ lệch chuẩn cục bộ 5×5) và một bộ
+phân loại phi tuyến:
+
+| Phép thử | Độ chính xác |
+|---|---|
+| Ngưỡng đơn lẻ tốt nhất | 65,2 % |
+| 7 đặc trưng, trộn lẫn pixel cùng vùng | 85,7 % |
+| **7 đặc trưng, kiểm trên vùng CHƯA TỪNG THẤY** | **78,8 %** |
+
+Phép thử thứ ba là phép thử thật (train trên 3 vùng lụa + 3 vùng hàn, đo trên
+cặp vùng bị giữ lại). 78,8 % nghĩa là nó **học được quy luật**, không phải học
+thuộc ánh sáng cục bộ.
+
+Có một điều đáng lo trong chi tiết: nó nhận **chữ lụa rất tốt (88–97 %)** nhưng
+nhận **mối hàn kém (61–74 %)**. Ở mức từng pixel, cái giá của việc loại chữ lụa
+là ném đi một phần tư đến một phần ba mối hàn thật — đúng cái chiều nguy hiểm.
+
+**Nhưng quyết định cần lấy không phải ở mức pixel, mà ở mức dải.** Gộp hàng
+trăm pixel lại thì sai số ngẫu nhiên trung bình hoá bớt:
+
+| Dải | Có chân? | `segment_solder` hiện tại | Lọc 7 đặc trưng |
+|---|---|---|---|
+| SOIC-8 trên | **có** | 24 % | **45 %** |
+| C239 cạnh trên | **có** | 40 % | **51 %** |
+| SOIC-8 phải = chữ lụa | không | 21 % | **6 %** |
+| SOIC-8 trái | không | 11 % | 13 % |
+| D201 trái = viền lụa | không | 26 % | **2 %** |
+| D201 phải | không | 25 % | 20 % |
+| C239 cạnh trái | không | 20 % | 7 % |
+
+Thước đo hiện tại: dải thật 24–40 %, dải giả 11–26 % — **chồng lấn**, không
+ngưỡng nào tách được (chữ lụa 26 % còn cao hơn dải thật 24 %). Thước đo 7 đặc
+trưng: dải thật 45–51 %, dải giả 2–20 % — **có khoảng trống thật**.
+
+**Cái giá:** đó là một **bộ phân loại đã train**, không phải một luật. Tôi thử
+tìm luật giải thích được thay cho nó — ngưỡng trên S, trên `b*`, và kết hợp hai
+cái — **cả ba đều không tách được** (mọi khoảng cách đều âm trên 9 dải). Nên
+muốn dùng cách này thì phải chấp nhận nó là một model nhỏ, cần dữ liệu gán nhãn
+và cần kiểm lại khi đổi board hoặc đổi đèn.
+
+### 2.1c. Và tiền xử lý hiện tại đang **làm hỏng** chính thông tin đó
+
+Đo tỉ lệ pixel sáng bị chạy (≥254 ở ít nhất một kênh):
+
+| | nét lụa | mối hàn |
+|---|---|---|
+| **Ảnh gốc** | 50,3 % | 53,1 % |
+| **Sau tiền xử lý của dự án** | 87,2 % | **100,0 %** |
+
+Sau CLAHE + normalize + sharpen, **100 % pixel sáng của mối hàn thành (255,255,
+255)** — trắng tinh, không phân biệt được với mực lụa trắng. Không có phép xử lý
+nào sau đó lấy lại được dữ liệu đã bị cắt.
+
+Nên câu trả lời cho "sao không dùng xử lý ảnh" là: **xử lý ảnh đang là thứ làm
+nó tệ hơn.** Việc rẻ nhất và có căn cứ nhất là **đo kim loại trên ảnh gốc**, chứ
+không phải trên ảnh đã tiền xử lý — đo được 85,7 % so với 81,8 %.
+
+### 2.2. Tách bằng **riêng** kết cấu (specular / phương sai cục bộ) — hỏng ngược
 
 Đây là hướng của tôi, không có trong file. Lập luận: mối hàn phản xạ gương, chữ
-lụa thì mờ. Đo ra thì ngược hẳn:
+lụa thì mờ. Dùng **một mình** thì ngược hẳn:
 
 | Vùng | Phương sai Laplacian | p99/p50 của V |
 |---|---|---|
@@ -79,7 +144,10 @@ lụa thì mờ. Đo ra thì ngược hẳn:
 | Thân can nhôm | 3 068 | 1,00 |
 
 Chữ lụa có kết cấu **cao gấp ba** chân thật, vì nó là chữ nét sắc trên nền tối.
-Lọc theo kết cấu sẽ giữ chữ và bỏ chân — tệ hơn hiện tại.
+Lọc *chỉ* theo kết cấu sẽ giữ chữ và bỏ chân — tệ hơn hiện tại.
+
+Lưu ý: độ lệch chuẩn cục bộ vẫn là **một trong 7 đặc trưng** ở mục 2.1b và ở đó
+nó có ích. Cái sai là dùng nó một mình.
 
 ### 2.3. Chọn trục bằng vành kim loại **ngoài** hộp — hỏng 2/3
 
@@ -174,22 +242,23 @@ nhận file này.
 Luật hiện tại `terminal_inner + terminal_outer = 0,75 × span` giả định pad to
 lên theo linh kiện. **Pad không như thế** — nó là kích thước vật lý gần cố định.
 
-| Linh kiện | span | ROI sâu hiện tại |
+| Linh kiện | chiều dài | ROI sâu hiện tại |
 |---|---|---|
-| Tụ hoá C239 | 6,2 mm | **4,6 mm** |
-| Tụ hoá C231/C232 | 4,8 mm | 3,6 mm |
-| Điện trở chip 0805 | 1,4 mm | 1,1 mm |
+| Tụ hoá C239 | 6,7 mm | **5,0 mm** |
+| Tụ hoá C231/C232 | 5,4 mm | 4,0 mm |
+| Điện trở chip 0805 | 2,1 mm | 1,6 mm |
 
-Thêm trần theo mm (đề xuất **1,5 mm**, cần thang µm/px đã có ở bước hiệu chuẩn
-camera). Đo trên chính ảnh này:
+Trần **2,0 mm**, không phải 1,5. Ở 1,5 mm trần bắt đầu cắn cả chip 0805 (7/39
+linh kiện bị cắt, có những con vốn không sai gì). Ở 2,0 mm:
 
-> **5/36** linh kiện two-terminal bị cắt bớt — đúng 3 con tụ hoá và 2 điện trở
-> lớn. **31 con còn lại không đổi một pixel nào**, vì chúng vốn đã dưới trần.
+> **6/39** linh kiện bị cắt — đúng những con to vô lý. **33 con còn lại không
+> đổi một pixel nào**, vì chúng vốn đã dưới trần. Tụ C239 đi từ 110 px xuống
+> 45 px và hai ROI về đúng hai pad.
 
 Đây là tính chất cần có ở một bản sửa: nó chỉ cắn vào đúng chỗ luật cũ vô lý.
 
-**Lưu ý:** P1 sửa được "box quá lớn", **không** sửa được "chọn sai trục". Hai
-việc khác nhau.
+**Lưu ý:** P1 sửa được "box quá lớn", **không** sửa được "chọn sai trục". Việc
+đó là của P0.
 
 ### P2 — Bộ lọc dải bằng chỉ số lược, làm tín hiệu phụ
 
@@ -209,13 +278,56 @@ giải được bằng ngưỡng thủ công trên board này.
 Board trong file docx là **ứng viên gán nhãn tốt nhất** hiện có — nó chứa cả ba
 ca khó (tụ hoá tròn, SOT-23, SOIC cạnh chữ lụa) trong một ảnh.
 
-## 5. Việc tôi đề nghị làm ngay
+## 5. Đã làm — và kết quả đo được
 
-1. **P1** — thêm trần mm, có test giữ lại số đo 5/36 ở trên.
-2. Xin file **pad CSV** của board này. Có nó thì P0 chạy được ngay và hai mục
-   còn lại trong file docx tự hết.
-3. Dùng mục *Đánh giá model* để đánh dấu các ROI sai trên chính ảnh này — vừa
-   là dữ liệu cho P3, vừa là mốc để đo P1/P2 có thật sự tốt lên không.
+P0, P1, P2 đã triển khai (`ad89694`, `86c74fd`). P3 vẫn là kế hoạch.
 
-Chưa nên làm: sửa `segment_solder` theo hướng màu hoặc kết cấu. Mục 2.1 và 2.2
-đã đo là hai ngõ cụt.
+### Trên con SOIC-8 trong file docx
+
+| | tổng ROI | ROI nằm trên chữ lụa |
+|---|---|---|
+| Trước | 15 | **7** |
+| Sau P1+P2 | **8** — đúng 8 chân | **0** |
+
+### Trên tụ hoá C239
+
+| | số ROI | độ sâu | đúng trục? |
+|---|---|---|---|
+| Trước | 4 (hai cặp mơ hồ) | 110 px = 5,0 mm | không |
+| Sau P1+P2 | 4 | 34–45 px = 1,5–2,0 mm | không |
+| **Sau P0+P1+P2** *(có pick-and-place)* | **2** | **45 px = 2,0 mm** | **có** |
+
+### P0 chỉ cần pick-and-place, không cần pad CSV
+
+Đây là điều tôi hiểu sai lúc đầu và đã kiểm lại: `_reanchored_derived_joints`
+vốn đã dùng `component.rotation`, nên **một file pick-and-place là đủ** để chốt
+trục. Cái còn thiếu là đường ống vẫn *đoán lại* trục sau đó; giờ có `axis_known`
+để nói rằng trục đã biết thì đừng đoán.
+
+### Hai lỗi im lặng bắt được trong lúc làm
+
+1. **Phép chiếu dùng sai khung.** Chỉ số lược chiếu theo kích thước của `rect`
+   (khung cục bộ của linh kiện) thay vì của mảng cắt (khung ảnh). Hai khung
+   hoán vị trục khi linh kiện xoay, nên dải `lead_left` của SOIC-8 cắt ra mảng
+   112×34 nằm ngang lại bị chiếu theo chiều dọc — không đời nào thấy được cái
+   lược. Đây là lý do lần chạy đầu chỉ giảm được 7 → 1 ROI giả; sau khi sửa là
+   7 → 0.
+2. **`FusionConfig` mang một `SolderJointConfig` RIÊNG.** `from_mapping` nối hai
+   cái lại nhưng `PipelineConfig()` dựng trực tiếp thì không, và đường CAD đọc
+   đúng cái nằm trong `fusion`. Thiếu chỗ nối này thì trần mm chỉ có tác dụng
+   khi **không** nạp CAD — tức đúng lúc cần nó nhất thì lại không có.
+
+## 6. Còn lại
+
+**Chưa sửa được: D201/D202** vẫn còn 3 và 1 ROI trên viền lụa. Dải đó dưới 3
+đốm nên chỉ số lược cố tình im lặng — và đó là lựa chọn có chủ đích, vì cạnh 2
+chân là chuyện thường. Cách xử lý là P0 (pick-and-place cho đúng số chân qua
+`footprint`) hoặc P3.
+
+**Việc rẻ nhất còn chưa làm, và có căn cứ nhất:** đo kim loại trên **ảnh gốc**
+thay vì ảnh đã tiền xử lý. Mục 2.1c đo được tiền xử lý làm chạy sáng 100 % pixel
+mối hàn; chuyển sang ảnh gốc là 85,7 % so với 81,8 % mà không cần train gì.
+
+**Cần từ bạn:** file **pick-and-place thật** của board. File dùng trong phép đo
+ở mục 5 là file *sinh ra* từ chính vị trí detect được — nó kiểm được đường ống
+có dùng đúng góc xoay không, chưa kiểm được toạ độ thật có khớp không.
