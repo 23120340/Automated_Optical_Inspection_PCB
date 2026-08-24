@@ -49,6 +49,22 @@ inpaint chữ lụa. Xem mục "Đã đo là ngõ cụt" ở cuối.
 
 ---
 
+## Giai đoạn 0 — ĐÃ XONG (`d58c511`)
+
+> Sửa xong 2026-08-24. Đo lại sau khi sửa: đường 1 không còn ghi đè; đường 2 cho
+> tương quan **0,979–0,991** (trước là 0,176–0,269); ca có resize cũng chạy (hai
+> khung đều ra 512×512). Ba mốc trên board chuẩn giữ nguyên. 744 test xanh.
+>
+> **Một ngõ cụt phát hiện lúc sửa, đã ghi thành test:** định thêm một vân tay
+> nội dung để chặn cặp ảnh không khớp — **không được**. Cặp nhầm ghi điểm bằng
+> đúng cặp đúng (0,985 ở mọi độ phân giải), còn fixture đúng lại thấp hơn cặp
+> nhầm. Lý do là bản chất: `align` warp ảnh board **về hệ toạ độ của golden**,
+> nên sai ở đây là *nhầm board* chứ không phải *lệch toạ độ*, mà golden thì
+> trông giống hệt board đang kiểm. Chỗ này canh bằng **cấu trúc** — hai khung ra
+> khỏi cùng một kết quả — không phải bằng phép kiểm nội dung.
+
+Mô tả gốc của lỗi giữ lại bên dưới để đối chiếu.
+
 ## Giai đoạn 0 — Lỗi cần sửa ngay (chặn mọi thứ khác)
 
 `radiometric_image` là **trạng thái đặt kèm theo tác dụng phụ của
