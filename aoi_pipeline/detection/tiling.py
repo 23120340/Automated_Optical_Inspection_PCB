@@ -101,6 +101,7 @@ class TiledDetectionBatch:
     cross_class_conflicts_removed_count: int = 0
     seam_fragments_merged_count: int = 0
     containment_duplicates_removed_count: int = 0
+    edge_fragments_dropped_count: int = 0
     effective_tile_size: int | None = None
 
     def metrics(self, offset: tuple[int, int] = (0, 0)) -> dict[str, Any]:
@@ -117,6 +118,7 @@ class TiledDetectionBatch:
             "cross_class_conflicts_removed": self.cross_class_conflicts_removed_count,
             "seam_fragments_merged": self.seam_fragments_merged_count,
             "containment_duplicates_removed": self.containment_duplicates_removed_count,
+            "edge_fragments_dropped": self.edge_fragments_dropped_count,
             "tile_regions": [tile.to_dict(offset) for tile in self.tiles],
         }
 
@@ -241,6 +243,7 @@ def detect_with_adaptive_tiling(
         cross_class_removed,
         seam_fragments_merged,
         containment_duplicates_removed,
+        edge_fragments_dropped,
     ) = _merge_with_stats(
         raw_detections,
         policy,
@@ -263,6 +266,7 @@ def detect_with_adaptive_tiling(
         cross_class_conflicts_removed_count=cross_class_removed,
         seam_fragments_merged_count=seam_fragments_merged,
         containment_duplicates_removed_count=containment_duplicates_removed,
+        edge_fragments_dropped_count=edge_fragments_dropped,
         effective_tile_size=effective_tile_size if tiling_applied else None,
     )
 
@@ -276,7 +280,7 @@ def merge_tiled_detections(
     """Merge tile-seam fragments, then apply class-aware global NMS."""
 
     policy = config or TilingConfig()
-    kept, _, _, _, _ = _merge_with_stats(detections, policy)
+    kept, _, _, _, _, _ = _merge_with_stats(detections, policy)
     if max_detections is not None:
         return kept[: max(0, int(max_detections))]
     return kept
@@ -285,7 +289,7 @@ def merge_tiled_detections(
 def _merge_with_stats(
     detections: Sequence[Detection],
     policy: TilingConfig,
-) -> tuple[list[Detection], int, int, int, int]:
+) -> tuple[list[Detection], int, int, int, int, int]:
     same_threshold = float(np.clip(policy.merge_iou_threshold, 0.0, 1.0))
     cross_threshold = float(np.clip(policy.cross_class_iou_threshold, 0.0, 1.0))
     remaining = sorted(detections, key=lambda item: _merge_score(item, policy), reverse=True)
@@ -294,6 +298,7 @@ def _merge_with_stats(
     cross_class_removed = 0
     seam_fragments_merged = 0
     containment_duplicates_removed = 0
+    edge_fragments_dropped = 0
     while remaining:
         current = remaining.pop(0)
         survivors: list[Detection] = []
@@ -317,6 +322,17 @@ def _merge_with_stats(
                 containment_duplicates_removed += 1
                 same_class_removed += 1
                 continue
+            if _is_orphan_edge_fragment(current, candidate, policy, same_class):
+                edge_fragments_dropped += 1
+                cross_class_removed += 1
+                continue
+            if _is_orphan_edge_fragment(candidate, current, policy, same_class):
+                # Ordering is not guaranteed: the sliver can outscore the whole
+                # component when the whole one is itself faint.
+                current = candidate
+                edge_fragments_dropped += 1
+                cross_class_removed += 1
+                continue
             if _intersection_over_union(current.bbox, candidate.bbox) > threshold:
                 if same_class:
                     same_class_removed += 1
@@ -332,6 +348,7 @@ def _merge_with_stats(
         cross_class_removed,
         seam_fragments_merged,
         containment_duplicates_removed,
+        edge_fragments_dropped,
     )
 
 
@@ -591,6 +608,52 @@ def _merge_seam_fragments(primary: Detection, fragment: Detection) -> Detection:
         detection_id=primary.detection_id,
         metadata=metadata,
     )
+
+
+def _is_orphan_edge_fragment(
+    outer: Detection,
+    inner: Detection,
+    policy: TilingConfig,
+    same_class: bool,
+) -> bool:
+    """Is ``inner`` a mislabelled sliver of ``outer`` left over from a tile cut?
+
+    Measured on ``pcb03.jpg``: the seam at x=737 cuts SOIC-14 *U1* (x 601-773)
+    in two. Given only the right-hand 36 px, the detector answers ``diode``
+    0.32 -- and also ``ic`` 0.276 for the same sliver, which same-class
+    containment then removes. The wrong label outlived the right one.
+
+    Three conditions have to hold together, and each one rules out a case this
+    must *not* fire on:
+
+    * ``inner`` came from a tile and touches that tile's border -- so the tile
+      saw a cut object, not a whole one;
+    * the tile does not own ``inner``'s centre -- so a different window had the
+      complete view and its answer is the one to trust;
+    * ``inner`` sits inside ``outer`` past ``containment_ios_threshold``.
+
+    Without the ownership test this would delete real nested detections: the
+    detector's own ``pads`` and ``pins`` classes are *meant* to land inside an
+    ``ic`` box.
+    """
+
+    if same_class or not policy.drop_cross_class_edge_fragments:
+        return False
+    metadata = inner.metadata
+    if metadata.get("inference_pass") != "tile":
+        return False
+    if not metadata.get("touches_tile_border"):
+        return False
+    if metadata.get("center_in_tile_ownership", True):
+        return False
+    outer_frame = outer.metadata.get("frame_id")
+    inner_frame = metadata.get("frame_id")
+    if outer_frame is not None and inner_frame is not None and outer_frame != inner_frame:
+        return False
+    if inner.bbox.area >= outer.bbox.area:
+        return False
+    threshold = float(np.clip(policy.containment_ios_threshold, 0.0, 1.0))
+    return _intersection_over_smaller(outer.bbox, inner.bbox) >= threshold
 
 
 def _is_containment_duplicate(

@@ -247,3 +247,121 @@ def test_auto_mode_runs_real_detail_pass_for_1000_by_750_board() -> None:
     assert len(batch.tiles) == 4
     assert calls[0] == (750, 1000)
     assert calls[1:] == [(640, 640)] * 4
+
+
+# --------------------------------------------------------------------------
+# Manh linh kien bi tile cat doi, roi bi gan nhan khac lop
+# --------------------------------------------------------------------------
+
+
+def _sliver_pair() -> tuple[Detection, Detection]:
+    """Đúng hình huống đo được trên ``pcb03.jpg``.
+
+    Đường ranh giữa hai tile rơi vào x=737, cắt đôi SOIC-14 *U1* (x 601–773).
+    Tile bên phải chỉ nhìn thấy 36 px cuối của con IC và trả lời ``diode``
+    0.32 — cùng lúc trả lời ``ic`` 0.276 cho đúng mảnh đó, và chính cái nhãn
+    ĐÚNG mới là cái bị lọc mất vì lọc lồng nhau chỉ so trong cùng một lớp.
+    """
+
+    whole = Detection(
+        "ic",
+        0.62,
+        BoundingBox(601, 319, 773, 449),
+        detection_id="u1",
+        metadata={
+            "frame_id": "frame",
+            "inference_pass": "tile",
+            "tile_id": "tile_r000_c000",
+            "touches_tile_border": False,
+            "center_in_tile_ownership": True,
+        },
+    )
+    sliver = Detection(
+        "diode",
+        0.32,
+        BoundingBox(737, 334, 777, 444),
+        detection_id="sliver",
+        metadata={
+            "frame_id": "frame",
+            "inference_pass": "tile",
+            "tile_id": "tile_r000_c001",
+            "touches_tile_border": True,
+            "center_in_tile_ownership": False,
+        },
+    )
+    return whole, sliver
+
+
+def test_a_cross_class_sliver_left_by_a_tile_cut_is_dropped() -> None:
+    merged = merge_tiled_detections(list(_sliver_pair()), TilingConfig())
+
+    assert [item.label for item in merged] == ["ic"]
+    assert merged[0].detection_id == "u1"
+
+
+def test_nms_alone_can_never_catch_it_which_is_why_the_rule_exists() -> None:
+    """IoU của một box nằm LỌT trong box khác bị chặn trên bởi tỉ lệ diện tích.
+
+    Ở đây là 4290/22360 = 0.19, còn ngưỡng khác lớp là 0.70. Không phải chỉnh
+    ngưỡng là xong — nới xuống 0.19 thì mọi linh kiện cạnh nhau đều bị gộp.
+    """
+
+    whole, sliver = _sliver_pair()
+    assert sliver.bbox.area / whole.bbox.area < TilingConfig().cross_class_iou_threshold
+
+    kept = merge_tiled_detections(
+        [whole, sliver], TilingConfig(drop_cross_class_edge_fragments=False)
+    )
+    assert len(kept) == 2, "tắt luật đi thì NMS thường để lọt — đó là điểm mấu chốt"
+
+
+def test_a_nested_box_the_tile_actually_owns_is_kept() -> None:
+    """Bảo vệ đúng thứ không được xoá: hai lớp ``pads`` và ``pins`` của chính
+    detector này SINH RA để nằm lồng trong box ``ic``."""
+
+    whole, sliver = _sliver_pair()
+    owned = Detection(
+        "pins",
+        0.40,
+        sliver.bbox,
+        detection_id="pins",
+        metadata={**sliver.metadata, "center_in_tile_ownership": True,
+                  "touches_tile_border": False},
+    )
+
+    merged = merge_tiled_detections([whole, owned], TilingConfig())
+    assert sorted(item.label for item in merged) == ["ic", "pins"]
+
+
+def test_a_nested_box_from_the_full_image_pass_is_kept() -> None:
+    """Lượt chạy toàn ảnh nhìn thấy trọn linh kiện, nên box lồng của nó là một
+    quan sát thật chứ không phải mảnh vụn của đường cắt."""
+
+    whole, sliver = _sliver_pair()
+    full = Detection(
+        "diode",
+        0.32,
+        sliver.bbox,
+        detection_id="full",
+        metadata={"frame_id": "frame", "inference_pass": "full_image"},
+    )
+
+    merged = merge_tiled_detections([whole, full], TilingConfig())
+    assert len(merged) == 2
+
+
+def test_the_bigger_box_is_never_the_one_dropped() -> None:
+    """Mảnh vụn phải là cái NHỎ. Nếu không kiểm, một box lỗi to trùm lên linh
+    kiện thật sẽ nuốt mất chính linh kiện đó."""
+
+    whole, sliver = _sliver_pair()
+    inflated = Detection(
+        "diode",
+        0.32,
+        BoundingBox(560, 300, 820, 470),
+        detection_id="inflated",
+        metadata=dict(sliver.metadata),
+    )
+
+    merged = merge_tiled_detections([whole, inflated], TilingConfig())
+    assert "u1" in {item.detection_id for item in merged}

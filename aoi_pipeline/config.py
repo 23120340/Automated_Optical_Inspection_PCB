@@ -228,6 +228,15 @@ class TilingConfig:
     edge_margin_ratio: float = 0.03
     edge_confidence_penalty: float = 0.10
     non_ownership_confidence_penalty: float = 0.10
+    # A tile that only sees part of a component often labels that sliver as a
+    # different, smaller class -- the right-hand end of an SOIC reads as a
+    # diode. Containment de-duplication cannot catch it because it compares
+    # within one class, and cross-class NMS cannot either: a box nested inside
+    # a larger one has IoU <= area_small / area_large by construction, so it
+    # never reaches ``cross_class_iou_threshold``. Drop the nested box only
+    # when the tile that produced it did not own that area, which is exactly
+    # when another window had the better view.
+    drop_cross_class_edge_fragments: bool = True
 
 
 @dataclass(slots=True)
@@ -296,9 +305,14 @@ class SolderJointConfig:
     # A perimeter band with no lead metal in it is dropped. ``None`` disables
     # the check and keeps all four bands.
     lead_band_energy_ratio: float | None = 0.35
-    # Bridges span two adjacent pins, so a band ROI is often the better
-    # inspection unit than a single pin. Per-pin splitting is opt-in.
-    split_pins: bool = False
+    # Was opt-in, on the argument that a bridge spans two adjacent pins so the
+    # band is the better inspection unit. Measured on ``pcb03.jpg`` (4 ICs,
+    # 50 leads) that argument does not survive: ``pin_padding_ratio`` already
+    # grows each pin ROI over the gap to its neighbour, so every one of the 42
+    # inter-pin gaps stays covered either way -- while ROIs holding exactly one
+    # lead go from 3 to 48. Two-terminal parts are untouched (60 ROIs both
+    # ways); splitting only applies to ``multi_pin`` geometry.
+    split_pins: bool = True
     # Grow each pin ROI along the band by this fraction of the lead pitch so
     # the gap to the neighbour is inside the crop; a bridge lives in that gap.
     pin_padding_ratio: float = 0.35
