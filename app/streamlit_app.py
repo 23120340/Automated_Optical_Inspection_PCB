@@ -253,7 +253,7 @@ def _default_config() -> dict[str, Any]:
         "solder": {
             "enabled": True,
             "refine_to_metal": True,
-            "split_pins": False,
+            "split_pins": True,
             "include_body_view": True,
             "terminal_outer_ratio": 0.45,
             "lead_outer_ratio": 0.26,
@@ -4116,10 +4116,13 @@ def _render_solder_settings() -> None:
         enabled = st.checkbox("Bật bước 5.5", value=bool(config.get("enabled", True)))
         split_pins = st.checkbox(
             "Tách từng chân (IC/connector)",
-            value=bool(config.get("split_pins", False)),
+            value=bool(config.get("split_pins", True)),
             help=(
-                "Tắt thì mỗi cạnh là một ROI dải. Lỗi bridge nằm giữa hai chân nên "
-                "ROI dải thường là đơn vị kiểm tra tốt hơn."
+                "Bật thì mỗi chân là một ROI riêng, tắt thì cả một cạnh là một ROI "
+                "dải. Đo trên board của dự án (4 IC, 50 chân): bật lên thì số ROI "
+                "chứa đúng một chân đi từ 3 lên 48, mà cả 42 khe giữa các chân — "
+                "chỗ lỗi bridge nằm — vẫn được phủ như cũ. Linh kiện 2 chân không "
+                "đổi gì."
             ),
         )
         include_body = st.checkbox(

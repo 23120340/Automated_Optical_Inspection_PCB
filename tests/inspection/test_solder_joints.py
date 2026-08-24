@@ -144,8 +144,12 @@ def test_body_view_can_be_disabled() -> None:
 
 
 def test_pin_free_edges_are_dropped_by_the_energy_filter() -> None:
+    # Band mode on purpose: what is under test is which EDGES survive, and
+    # per-pin splitting (on by default since it was measured) renames each
+    # position to ``lead_left_pinNN``, which would hide that question.
     image, detection = _soic_board()
-    positions = {joint.position for joint in _by_kind(_joints(detection, image), "joint")}
+    joints = _joints(detection, image, SolderJointConfig(split_pins=False))
+    positions = {joint.position for joint in _by_kind(joints, "joint")}
     assert positions == {"lead_left", "lead_right"}
 
 
@@ -157,7 +161,11 @@ def test_all_edges_are_kept_without_an_image() -> None:
 
 def test_energy_filter_can_be_disabled() -> None:
     image, detection = _soic_board()
-    joints = _joints(detection, image, SolderJointConfig(lead_band_energy_ratio=None))
+    joints = _joints(
+        detection,
+        image,
+        SolderJointConfig(lead_band_energy_ratio=None, split_pins=False),
+    )
     assert len(_by_kind(joints, "joint")) == 4
 
 
@@ -761,7 +769,12 @@ def test_only_the_edges_that_carry_leads_become_rois() -> None:
 
     image, detection = _sot23_board()
     joints = _by_kind(_joints(detection, image), "joint")
-    assert {joint.position for joint in joints} == {"lead_top", "lead_bottom"}
+    # Compare by band, not by full position: the shipped config splits each
+    # band into per-pin ROIs (``lead_top_pin00``). The claim being made is
+    # about which SIDES get inspected, and it has to hold for the config that
+    # actually ships, so this test deliberately does not pin the mode.
+    bands = {joint.position.split("_pin")[0] for joint in joints}
+    assert bands == {"lead_top", "lead_bottom"}
 
 
 def test_the_lead_free_sides_are_not_saved_by_the_corner_pads() -> None:
@@ -1021,3 +1034,39 @@ def test_turning_refine_off_leaves_every_roi_alone() -> None:
     assert not any(c.refined for c in off.crops)
     assert any(c.refined for c in on.crops)
     assert [c.bbox for c in off.crops] != [c.bbox for c in on.crops]
+
+
+def test_split_pins_still_covers_the_gap_a_bridge_lives_in() -> None:
+    """Vì sao ``split_pins`` được bật mặc định.
+
+    Lý do giữ nó tắt trước đây: cầu chì nối hai chân kề nhau, nên cả một dải
+    được cho là đơn vị kiểm tốt hơn một chân lẻ. Đo trên ``pcb03.jpg`` (4 con
+    IC, 50 chân) thì lập luận đó không đứng được: ``pin_padding_ratio`` đã nới
+    mỗi ROI chân sang tới khe với chân bên cạnh, nên **cả 42 khe vẫn được phủ**
+    ở cả hai chế độ — trong khi số ROI chứa đúng một chân đi từ 3 lên 48.
+
+    Test này giữ lại cả hai nửa của phép đo đó, vì bỏ nửa sau đi thì việc bật
+    mặc định chỉ còn là một lựa chọn không có bằng chứng.
+    """
+
+    image, detection = _soic_board(pins=6)
+    joints = _by_kind(_joints(detection, image, SolderJointConfig()), "joint")
+
+    assert all(joint.pin_index is not None for joint in joints), (
+        "mặc định phải tách theo chân"
+    )
+
+    left = sorted(
+        (joint for joint in joints if joint.position.startswith("lead_left")),
+        key=lambda joint: joint.bbox.y1,
+    )
+    assert len(left) == 6
+
+    # Khe giữa hai chân kề nhau phải nằm trong ít nhất một ROI.
+    for first, second in zip(left, left[1:]):
+        gap_y = (first.bbox.y2 + second.bbox.y1) / 2.0
+        covered = [
+            joint for joint in left
+            if joint.bbox.y1 <= gap_y <= joint.bbox.y2
+        ]
+        assert covered, f"khe ở y={gap_y:.1f} không ROI nào phủ — cầu chì sẽ lọt"
