@@ -49,9 +49,10 @@
     "accept_by_class": {}
   },
   "model": {
-    "version": "solder-joint-20260820T180939Z",
+    "version": "solder-mobilenet_v3_small-ver1",
     "architecture": "mobilenet_v3_small",
-    "sha256": "6e1a56288eaac6d78a8e98383b6bcf9b420d1cff1d5bbcf918f6afc36711e303"
+    "sha256": "6e1a56288eaac6d78a8e98383b6bcf9b420d1cff1d5bbcf918f6afc36711e303",
+    "previous_version": "solder-joint-20260820T180939Z"
   },
   "training": {
     "sources": [

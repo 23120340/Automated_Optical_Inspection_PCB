@@ -11,7 +11,7 @@ Checkpoint tự mô tả — nó mang `model_name`, `input_size`, `class_names`,
 cần dataset, không cần GPU.
 
     python scripts/export_classifier_onnx.py best_state.pt ^
-        --out models/library/classifier-convnext_base-20260822 --temperature 0.60
+        --out models/library/classifier-convnext_base-ver1 --temperature 0.60
 
 Phần hiệu chỉnh (`--temperature`) không nằm trong checkpoint vì nó được tính ở
 bước sau. Không truyền thì manifest ghi 1.0 **và ghi rõ là chưa hiệu chỉnh**,

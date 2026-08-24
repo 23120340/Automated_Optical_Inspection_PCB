@@ -65,11 +65,12 @@
   "model": {
     "filename": "best.onnx",
     "sha256": "1c6d1e9da7390bcb0dff1cbbe112ee3e277639f772629cf22228099c31ca981c",
-    "version": "efficientnet_b0-2026-08-18",
+    "version": "classifier-efficientnet_b0-kaggle-ver1",
     "architecture": "efficientnet_b0",
     "pretrained_weights": "EfficientNet_B0_Weights.DEFAULT",
     "exporter": "legacy",
-    "max_abs_parity_error": 0.0007055997848510742
+    "max_abs_parity_error": 0.0007055997848510742,
+    "previous_version": "efficientnet_b0-2026-08-18"
   },
   "dataset": {
     "provider": "Kaggle",

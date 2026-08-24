@@ -28,12 +28,30 @@ CPU. Cùng ảnh cho mọi model, cùng crop cho mọi classifier.
 
 ---
 
+> **Cập nhật 2026-08-24 — khuyến nghị ở mục 1 đã được thực hiện.**
+> `models/active/detector/` giờ là bản `detector-yolo26s-kaggle-ver1`
+> (2026-08-17, mAP50 0.579). Bản cũ chuyển sang
+> `models/archive/detector-yolo26s-kaggle-ver2/`.
+>
+> Tên thư mục đã đổi theo cấu trúc `<bước>-<kiến trúc>[-<nguồn>]-ver<N>`; tài
+> liệu này dùng tên mới, còn `Docs/bench/bench_20260823.json` giữ nguyên tên
+> lúc chạy vì nó là **bản ghi của một lần đo**, sửa vào đó là làm sai bản ghi.
+> Đối chiếu: `…-20260817` → `…-kaggle-ver1`, `…-20260820` → `…-kaggle-ver2`,
+> `…-huggingface-20260704` → `…-huggingface-ver1`.
+>
+> **Một chỗ cần đọc kèm.** Bảng dưới đo trên 5 ảnh của bộ benchmark. Đo riêng
+> trên `pcb03.jpg` — board thật của bạn — thì hai bản gần như trùng nhau:
+> ghép cặp được **67/67 box, cùng nhãn cả 67**. Bản mới bật (ver1) bỏ sót đúng
+> một linh kiện thật (R20, `resistor` 0.27) nhưng **nhanh gấp đôi** (9,2 s so
+> với 17,5 s). Nói cách khác chỗ "mù trên 2/5 ảnh" là thật, nhưng nó không xuất
+> hiện trên board này — một board không đại diện cho cả năm.
+
 ## 1. Bước 4 — Detect linh kiện
 
 | Hạng | Model | Tổng box (5 ảnh) | mAP50 | s/ảnh | conf trung vị |
 |---|---|---|---|---|---|
-| 1 | `detector-yolov8-huggingface-20260704` | **213** | — | **0.17** | **0.618** |
-| 2 | `detector-yolo26s-20260817` | 203 | **0.579** | 1.00 | 0.367 |
+| 1 | `detector-yolov8-huggingface-ver1` | **213** | — | **0.17** | **0.618** |
+| 2 | `detector-yolo26s-kaggle-ver1` | 203 | **0.579** | 1.00 | 0.367 |
 | 3 | `detector` *(đang bật)* | 121 | 0.505 | 2.45 | 0.427 |
 
 Số box từng ảnh — đây là chỗ chênh lệch lộ rõ nhất:
@@ -75,7 +93,7 @@ cách gán nhãn của nó lệch rõ so với hai bản còn lại.
 **Bỏ bản đang bật.** Nó thua ở mọi phép đo lấy được và mù trên 2/5 ảnh — điều
 này chắc chắn.
 
-Giữa hai bản còn lại: **`detector-yolo26s-20260817`** là lựa chọn an toàn — nó
+Giữa hai bản còn lại: **`detector-yolo26s-kaggle-ver1`** là lựa chọn an toàn — nó
 là bản duy nhất có mAP50 đo trên tập val của chính dự án (0.579), và đồng thuận
 93% với bản đang bật về nhãn. Bản HuggingFace đáng thử nếu thời gian chu kỳ căng
 (nhanh gấp **14 lần**), nhưng phải kiểm nhãn bằng mắt trước vì không ai đo nó.
@@ -86,7 +104,7 @@ Không bản nào giúp được lượt 2: cả ba đều cho **0 box** lớp `
 
 Đo trên **cùng 213 crop** cắt từ 5 ảnh.
 
-| | `classifier` *(đang bật)* | `classifier-convnext_base-20260822` |
+| | `classifier` *(đang bật)* | `classifier-convnext_base-ver1` |
 |---|---|---|
 | kiến trúc | efficientnet_b0 | convnext_base |
 | **ms mỗi crop** | **9.1** | 305.6 |

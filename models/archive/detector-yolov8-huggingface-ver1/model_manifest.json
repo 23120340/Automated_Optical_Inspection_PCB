@@ -1,0 +1,51 @@
+{
+  "schema_version": "pcb-component-detector/2.0",
+  "task": "component_detection",
+  "model_format": "onnx",
+  "created_at": "2026-07-04T10:21:51",
+  "class_names": [
+    "battery",
+    "button",
+    "buzzer",
+    "capacitor",
+    "clock",
+    "connector",
+    "diode",
+    "display",
+    "fuse",
+    "heatsink",
+    "ic",
+    "inductor",
+    "led",
+    "pads",
+    "pins",
+    "potentiometer",
+    "relay",
+    "resistor",
+    "switch",
+    "transformer",
+    "transistor"
+  ],
+  "input": {
+    "name": "images",
+    "size": [
+      640,
+      640
+    ],
+    "color_space": "RGB",
+    "resize_mode": "letterbox"
+  },
+  "model": {
+    "version": "detector-yolov8-huggingface-ver1",
+    "architecture": "yolov8",
+    "sha256": "bfc398bb93ce61d9d7d00389db51b651bd90c4e2141163a0ae6dad79a247ae29",
+    "previous_version": "huggingface-ultralytics-20260704"
+  },
+  "provenance": {
+    "source": "HuggingFace / cong dong, KHONG train boi du an nay",
+    "author": "Ultralytics",
+    "ultralytics_version": "8.3.40",
+    "license": "AGPL-3.0 License (https://ultralytics.com/license)",
+    "note": "Sinh tu metadata nhung trong chinh file ONNX, khong phai tu mot lan train cua du an. KHONG co so do tren tap val nao -- dung de doi chieu, dung coi la da duoc danh gia."
+  }
+}

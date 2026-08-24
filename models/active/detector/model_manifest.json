@@ -1,8 +1,12 @@
 {
-  "schema_version": "pcb-component-detector/2.0",
-  "task": "component_and_lead_detection",
-  "model_format": "onnx",
-  "created_at": "2026-08-20T23:08:28.007125+00:00",
+  "schema_version": 1,
+  "created_at_utc": "2026-08-17T06:54:32.890156+00:00",
+  "run_name": "pcb_component_20260817T042309Z",
+  "task": "detect",
+  "ultralytics_license_notice": "AGPL-3.0 or Enterprise; verify the applicable license before commercial deployment",
+  "pipeline_step": "4_component_detection",
+  "model_family": "yolo26",
+  "base_model": "yolo26s.pt",
   "class_names": [
     "battery",
     "button",
@@ -27,183 +31,441 @@
     "transformer",
     "transistor"
   ],
-  "lead_classes": [
-    "pads",
-    "pins"
-  ],
+  "class_map": {
+    "0": "battery",
+    "1": "button",
+    "2": "buzzer",
+    "3": "capacitor",
+    "4": "clock",
+    "5": "connector",
+    "6": "diode",
+    "7": "display",
+    "8": "fuse",
+    "9": "heatsink",
+    "10": "ic",
+    "11": "inductor",
+    "12": "led",
+    "13": "pads",
+    "14": "pins",
+    "15": "potentiometer",
+    "16": "relay",
+    "17": "resistor",
+    "18": "switch",
+    "19": "transducer",
+    "20": "transformer",
+    "21": "transistor"
+  },
   "input": {
-    "size": [
-      1536,
-      1536
+    "imgsz": 1280,
+    "channels": 3,
+    "color_order_for_ultralytics_api": "BGR numpy or image path; wrapper handles preprocessing",
+    "letterbox": true
+  },
+  "inference": {
+    "recommended_conf": 0.25,
+    "iou_nms": 0.7,
+    "head": "one-to-many",
+    "max_det": 2000,
+    "end2end": false
+  },
+  "onnx": {
+    "opset": 17,
+    "dynamic": false,
+    "simplified": true,
+    "nms_embedded": false,
+    "batch": 1,
+    "fixed_input_shape": [
+      1,
+      3,
+      1280,
+      1280
     ],
-    "color_space": "RGB"
+    "output_contract": "raw one-to-many predictions; apply NMS externally or use Ultralytics wrapper",
+    "verification": {
+      "checker_passed": true,
+      "ultralytics_smoke_passed": true,
+      "smoke_image": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/00001__1024__0___4992.png",
+      "smoke_detection_count": 12,
+      "inputs": [
+        {
+          "name": "images",
+          "shape": [
+            1,
+            3,
+            1280,
+            1280
+          ],
+          "type": "tensor(float)"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output0",
+          "shape": [
+            1,
+            26,
+            33600
+          ],
+          "type": "tensor(float)"
+        }
+      ]
+    }
   },
-  "head": {
+  "training_summary": {
+    "epochs_completed": 94,
+    "best_epoch": 69,
+    "best_fitness": 0.28682,
+    "model_contract": {
+      "head_class": "Detect",
+      "end2end": false,
+      "max_det": 2000
+    },
+    "internal_validator_contract": {
+      "args_end2end": false,
+      "runtime_end2end": false,
+      "max_det": 2000
+    }
+  },
+  "train_config": {
+    "dataset_source": "/kaggle/input/pcb-component-detection-consolidated-dataset",
+    "data_yaml": "components_data_uncropped/data.yaml",
+    "dataset_name": "PCB Component Detection Consolidated Dataset",
+    "dataset_version": "1 (2025-07-06)",
+    "dataset_license": "Apache-2.0 declared by Kaggle uploader; verify licenses of upstream component datasets before commercial use",
+    "dataset_source_url": "https://www.kaggle.com/datasets/aryanstein/pcb-component-detection-consolidated-dataset/data",
+    "model_family": "yolo26",
+    "model": "yolo26s.pt",
+    "imgsz": 1280,
+    "epochs": 100,
+    "batch": -1,
+    "eval_batch": 4,
+    "workers": 2,
+    "cache": false,
+    "patience": 25,
+    "save_period": 10,
+    "seed": 42,
+    "require_gpu": true,
+    "strict_audit": true,
+    "decode_max_per_split": 500,
+    "hash_duplicates": true,
+    "allow_edge_crossing_boxes": true,
+    "deduplicate_across_splits": true,
+    "absent_train_class_is_error": false,
+    "allow_negative_images": false,
+    "max_missing_label_ratio": 0.0,
+    "max_extract_gb": 12,
+    "preview_count": 6,
+    "predict_count": 8,
+    "conf": 0.25,
+    "iou": 0.7,
+    "max_det": 2000,
     "end2end": false,
-    "nms": "external",
-    "max_det": 2000
-  },
-  "model": {
-    "version": "detector-v2-20260820T230828Z",
-    "architecture": "yolo26s.pt",
-    "sha256": "99ced68285a5802982d2d4475ec29cc2e8c27749a2477ccae950c2e543feec4d",
-    "exported_from": "best.pt",
-    "resumed_from": null,
-    "export_only_from": null,
-    "trained_in_this_run": true
+    "onnx_opset": 17,
+    "onnx_dynamic": false,
+    "onnx_simplify": true
   },
   "metrics": {
-    "map50": 0.505157118048442,
-    "map50_95": 0.2309871993906897,
-    "per_class": {
-      "battery": {
-        "precision": 0.12462457171584741,
-        "recall": 0.75,
-        "map50": 0.5606645569620256,
-        "map50_95": 0.2566420852824918
-      },
-      "button": {
-        "precision": 0.794843669962177,
-        "recall": 0.7061786498452693,
-        "map50": 0.8036666666666671,
-        "map50_95": 0.43042229437229435
-      },
-      "buzzer": {
-        "precision": 0.2991883779623994,
-        "recall": 0.7142857142857143,
-        "map50": 0.6715263157894735,
-        "map50_95": 0.23107715765590947
-      },
-      "capacitor": {
-        "precision": 0.5211801351775953,
-        "recall": 0.7445687952600395,
-        "map50": 0.7415171726944869,
-        "map50_95": 0.3879184685725274
-      },
-      "clock": {
-        "precision": 0.5304577893648688,
-        "recall": 0.4117647058823529,
-        "map50": 0.37032091674860507,
-        "map50_95": 0.23778432387713141
-      },
-      "connector": {
-        "precision": 0.6962351258311696,
-        "recall": 0.4381443298969072,
-        "map50": 0.5016453237024399,
-        "map50_95": 0.227321455577443
-      },
-      "diode": {
-        "precision": 0.5017701262189287,
-        "recall": 0.46601941747572817,
-        "map50": 0.45768805706884863,
-        "map50_95": 0.17228264668999302
-      },
-      "display": {
-        "precision": 0.11419929498796691,
-        "recall": 0.2222222222222222,
-        "map50": 0.04441765704584041,
-        "map50_95": 0.01899226820803749
-      },
-      "fuse": {
-        "precision": 0.5209717872082775,
-        "recall": 0.19897691680677254,
-        "map50": 0.2650465164858212,
-        "map50_95": 0.07557479554500594
-      },
-      "ic": {
-        "precision": 0.6196024980505515,
-        "recall": 0.8176991150442477,
-        "map50": 0.7497799422446132,
-        "map50_95": 0.37121669401971874
-      },
-      "inductor": {
-        "precision": 0.2899395914546799,
-        "recall": 0.1411842997140529,
-        "map50": 0.14229239957660078,
-        "map50_95": 0.07402196137489611
-      },
-      "led": {
-        "precision": 0.596132763900147,
-        "recall": 0.5350877192982456,
-        "map50": 0.5538573333847203,
-        "map50_95": 0.21771799021099594
-      },
-      "pads": {
-        "precision": 0.5653972150909479,
-        "recall": 0.26528629213772975,
-        "map50": 0.26087052738582067,
-        "map50_95": 0.11705687598915819
-      },
-      "pins": {
-        "precision": 0.29369113484577264,
-        "recall": 0.5952380952380952,
-        "map50": 0.3613717794608939,
-        "map50_95": 0.1989836189893195
-      },
-      "potentiometer": {
-        "precision": 0.7184222549283544,
-        "recall": 0.35,
-        "map50": 0.34335566394974487,
-        "map50_95": 0.07944768782542089
-      },
-      "relay": {
-        "precision": 0.6321910508574919,
-        "recall": 1.0,
-        "map50": 0.9816666666666668,
-        "map50_95": 0.5838684121746526
-      },
-      "resistor": {
-        "precision": 0.7794144965940695,
-        "recall": 0.6348718173094445,
-        "map50": 0.6964664390704292,
-        "map50_95": 0.33087816764170935
-      },
-      "switch": {
-        "precision": 0.44963752802498413,
-        "recall": 0.391554187734622,
-        "map50": 0.4321480121437108,
-        "map50_95": 0.20568161500947824
-      },
-      "transistor": {
-        "precision": 0.5935982532714459,
-        "recall": 0.6756756756756757,
-        "map50": 0.6596832958729892,
-        "map50_95": 0.17186826940692046
+    "val": {
+      "precision_macro": 0.7585260100722069,
+      "recall_macro": 0.5222486827975358,
+      "map50": 0.578791448105906,
+      "map75": 0.2511760257737811,
+      "map50_95": 0.2874374462952118,
+      "fitness": 0.2874374462952118,
+      "speed_ms_per_image": {
+        "preprocess": 3.791937447019107,
+        "inference": 40.92163504880987,
+        "loss": 0.002209495875380585,
+        "postprocess": 1.6539522520752958
+      }
+    },
+    "test": {
+      "precision_macro": 0.6204607344790534,
+      "recall_macro": 0.5107429125034719,
+      "map50": 0.5575427614850532,
+      "map75": 0.1966511676278141,
+      "map50_95": 0.25413325511561247,
+      "fitness": 0.25413325511561247,
+      "speed_ms_per_image": {
+        "preprocess": 3.9328117541192085,
+        "inference": 39.142326893464784,
+        "loss": 0.0025531229707145236,
+        "postprocess": 1.6219548934550103
       }
     }
   },
-  "training": {
-    "imgsz": 1536,
-    "epochs": 150,
-    "rare_classes": [
-      "pads",
-      "pins"
-    ],
-    "rare_oversample_applied": 6,
-    "rare_image_fraction": 0.21951219512195122,
-    "train_instances": {
-      "battery": 42,
-      "button": 56,
-      "buzzer": 45,
-      "capacitor": 7775,
-      "clock": 89,
-      "connector": 889,
-      "diode": 552,
-      "display": 63,
-      "fuse": 111,
-      "heatsink": 4,
-      "ic": 2222,
-      "inductor": 213,
-      "led": 549,
-      "pads": 186,
-      "pins": 261,
-      "potentiometer": 50,
-      "relay": 66,
-      "resistor": 7135,
-      "switch": 283,
-      "transformer": 2,
-      "transistor": 572
+  "dataset": {
+    "fingerprint_sha256": "3ff1773f7297d7229651322e27819e6f4c3f3af7fd7c1fab51e37207658f256f",
+    "name": "PCB Component Detection Consolidated Dataset",
+    "version": "1 (2025-07-06)",
+    "license": "Apache-2.0 declared by Kaggle uploader; verify licenses of upstream component datasets before commercial use",
+    "source_url": "https://www.kaggle.com/datasets/aryanstein/pcb-component-detection-consolidated-dataset/data",
+    "source_yaml": "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/data.yaml",
+    "training_yaml": "/kaggle/working/pcb_component_training/reports/data_training.yaml",
+    "splits": {
+      "train": {
+        "images": 670,
+        "label_files": 670,
+        "missing_label_files": 0,
+        "missing_label_ratio": 0.0,
+        "missing_label_examples": [],
+        "empty_label_files": 12,
+        "valid_boxes": 21160,
+        "duplicate_rows": 5,
+        "class_counts": {
+          "0": 42,
+          "1": 56,
+          "2": 45,
+          "3": 7775,
+          "4": 89,
+          "5": 889,
+          "6": 551,
+          "7": 63,
+          "8": 111,
+          "9": 4,
+          "10": 2220,
+          "11": 213,
+          "12": 549,
+          "13": 186,
+          "14": 261,
+          "15": 50,
+          "16": 66,
+          "17": 7133,
+          "18": 283,
+          "20": 2,
+          "21": 572
+        },
+        "training_images_after_cross_split_dedup": 670
+      },
+      "val": {
+        "images": 125,
+        "label_files": 125,
+        "missing_label_files": 0,
+        "missing_label_ratio": 0.0,
+        "missing_label_examples": [],
+        "empty_label_files": 3,
+        "valid_boxes": 4566,
+        "duplicate_rows": 0,
+        "class_counts": {
+          "0": 4,
+          "1": 11,
+          "2": 7,
+          "3": 1519,
+          "4": 17,
+          "5": 194,
+          "6": 103,
+          "7": 9,
+          "8": 22,
+          "10": 565,
+          "11": 55,
+          "12": 114,
+          "13": 103,
+          "14": 42,
+          "15": 20,
+          "16": 8,
+          "17": 1614,
+          "18": 48,
+          "21": 111
+        },
+        "training_images_after_cross_split_dedup": 123
+      },
+      "test": {
+        "images": 122,
+        "label_files": 122,
+        "missing_label_files": 0,
+        "missing_label_ratio": 0.0,
+        "missing_label_examples": [],
+        "empty_label_files": 2,
+        "valid_boxes": 3937,
+        "duplicate_rows": 1,
+        "class_counts": {
+          "0": 8,
+          "1": 18,
+          "2": 8,
+          "3": 1337,
+          "4": 16,
+          "5": 228,
+          "6": 91,
+          "7": 14,
+          "8": 20,
+          "10": 514,
+          "11": 57,
+          "12": 113,
+          "13": 43,
+          "14": 14,
+          "15": 12,
+          "16": 10,
+          "17": 1300,
+          "18": 53,
+          "19": 4,
+          "21": 77
+        },
+        "training_images_after_cross_split_dedup": 122
+      }
     },
-    "seed": 42
+    "cross_split_excluded_images": [
+      "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/PCBA_241.jpg",
+      "/kaggle/input/datasets/aryanstein/pcb-component-detection-consolidated-dataset/components_data_uncropped/valid/images/PCBA_540.jpg"
+    ],
+    "edge_crossing_boxes": {
+      "allowed": true,
+      "count": 274,
+      "max_normalized_overshoot": 0.1708984375
+    },
+    "audit_error_count": 0,
+    "audit_warning_count": 15
+  },
+  "runtime": {
+    "python": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+    "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+    "ultralytics": "8.4.104",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.28.0",
+    "numpy": "2.0.2",
+    "pandas": "2.3.3",
+    "pillow": "11.3.0",
+    "torch": "2.10.0+cu128",
+    "cuda_runtime": "12.8",
+    "gpu": "Tesla T4"
+  },
+  "files": {
+    "HANDOFF.txt": {
+      "bytes": 949,
+      "sha256": "e2d9932f84d5ec3ae590c0fd27426b14838d62a24846c885a54684ce7836b7d3"
+    },
+    "args.yaml": {
+      "bytes": 1815,
+      "sha256": "55a2073aee46c20b8c09d5b3f26dc23fd6fcf7742f5b7cc4dbf4596c8706c10c"
+    },
+    "best.onnx": {
+      "bytes": 38693158,
+      "sha256": "a26151e0fab23eb089824e058ab42b12fe48581bc040a82a9f4523ac4fdbabd0"
+    },
+    "best.pt": {
+      "bytes": 20340741,
+      "sha256": "d8cd34f72ecd3f21a9b90fd42d930d6cf01fe5bcd3c0485414f8923dfebcdc35"
+    },
+    "class_distribution.csv": {
+      "bytes": 1265,
+      "sha256": "3c7bfaabc2be17b7d2e9d56ff9e9d687e71ce53b21887ef52122768f704f2375"
+    },
+    "data_resolved.yaml": {
+      "bytes": 783,
+      "sha256": "60aabd6e42a276c3e28c193ddfff9e9d5186b23c8b1b3544c8667f168b510d8d"
+    },
+    "data_training.yaml": {
+      "bytes": 619,
+      "sha256": "e40d4091270e5472b3b20f8bc7380f4cdee85e4dc24f502a16bdc6a7d056ed6c"
+    },
+    "dataset_audit.json": {
+      "bytes": 10334,
+      "sha256": "99ae732503151f528281521d4782ed0c3f8bf4cdcf59e66c64929826cec02dd5"
+    },
+    "invalid_labels.csv": {
+      "bytes": 2299,
+      "sha256": "3f10200daf826861450129973c2177691175528424cdf061d13d1cd1142ff5be"
+    },
+    "metrics_summary.json": {
+      "bytes": 853,
+      "sha256": "7ebaa7872cbc577d11d2e77f1d178e4c3b0af8f4860556d674f27011013527f7"
+    },
+    "onnx_verification.json": {
+      "bytes": 569,
+      "sha256": "8597c15d384bbe04f5241481f7aa7dbc362f6647ea773a5818eb0b4d70839b6d"
+    },
+    "per_class_metrics.csv": {
+      "bytes": 3443,
+      "sha256": "b98ad34eb2a99bab2744d147e40ce2bf5067ae7c58983f887557c977967c314e"
+    },
+    "prediction_00_image0.jpg": {
+      "bytes": 551074,
+      "sha256": "907954fe0ea3b9b3a7328b39173e8eea7cdb111ce917c5eed709d2a77b4e2412"
+    },
+    "prediction_01_image1.jpg": {
+      "bytes": 608410,
+      "sha256": "70667146db42e75d801e960390beb2375b289f88789172a30d434b3796f4e0da"
+    },
+    "prediction_02_image2.jpg": {
+      "bytes": 188097,
+      "sha256": "364e8b7c9ca746a525abe3b0aba9bcc26c548781b9ef1aa195767cb9066857fd"
+    },
+    "prediction_03_image3.jpg": {
+      "bytes": 87050,
+      "sha256": "3dd524ba5a4ee0b7973a9e90e4d0ac9977f822cbd6329d2fd96c6c794fa1d63f"
+    },
+    "prediction_04_image4.jpg": {
+      "bytes": 507523,
+      "sha256": "30d8f381646707cd7639a4bd209ce8f28d44cdbb854d6134871ab22cc6af4ce9"
+    },
+    "prediction_05_image5.jpg": {
+      "bytes": 1643,
+      "sha256": "25cfafdbab338b06f722fe54c0664e0186deebf3f73715823baefd9cdb0db158"
+    },
+    "prediction_06_image6.jpg": {
+      "bytes": 14309,
+      "sha256": "55c7e67f96871ef1490720537587a2217981c0f9aa3f6529a0012d4667211364"
+    },
+    "prediction_07_image7.jpg": {
+      "bytes": 973807,
+      "sha256": "7c71f613ac0f542687cb8393ed5a9ac6076b8a06820b5b104ea25a16bd5b20cb"
+    },
+    "results.csv": {
+      "bytes": 11964,
+      "sha256": "23982ff21fba6813a05323c7049733fbaed4d042391a2866677dc96b78d681f4"
+    },
+    "runtime.json": {
+      "bytes": 334,
+      "sha256": "b9f9bf82f99e54c2896cf54858b875d573fab50991007c876f49530381eed7cf"
+    },
+    "test_confusion_matrix.png": {
+      "bytes": 391321,
+      "sha256": "13680216875968393010a278ed3beb118f5d1574799b69cbf96f0857af4232b7"
+    },
+    "test_confusion_matrix_normalized.png": {
+      "bytes": 573437,
+      "sha256": "0eff1a8d7b570108c4c6ae6b5bea5e828df3399c917d4a17b914fdcae2ae5325"
+    },
+    "test_images.txt": {
+      "bytes": 16352,
+      "sha256": "fd8601a5944cace7d39748e65fa935adb9490ff4d51fa9c5fe9a5603a3b935ed"
+    },
+    "train_confusion_matrix.png": {
+      "bytes": 398829,
+      "sha256": "2c110b2efc8dca98d10f7a9911c246020c4cc2f6643149089b01117bf801fb01"
+    },
+    "train_confusion_matrix_normalized.png": {
+      "bytes": 551019,
+      "sha256": "460af978ef4910c8b8ba9f7419599f19a27088c35c1212c490c59019a5191191"
+    },
+    "train_images.txt": {
+      "bytes": 90114,
+      "sha256": "b22956cc5bc415d675cbe9ea47b6bf6e30b6685f4fea8a4f61c17a9621386811"
+    },
+    "train_labels.jpg": {
+      "bytes": 143589,
+      "sha256": "398b413b787a7d793c63c26a9ae23b608cb92623b55907fcca14947f300da439"
+    },
+    "train_results.png": {
+      "bytes": 333215,
+      "sha256": "9ceb57c660cc6377d5986587b0f9d325e3e8f76a3ce3080d3a3c58e273141e22"
+    },
+    "val_confusion_matrix.png": {
+      "bytes": 397707,
+      "sha256": "9da65546454bea9fec347c1b6fd4740e0c9a861698f33e2024548f11498a52e4"
+    },
+    "val_confusion_matrix_normalized.png": {
+      "bytes": 554625,
+      "sha256": "daf18d7a6fafdcbd8072a8e6a12964699b58fb0ffc4c207267e4920cdcc796fb"
+    },
+    "val_images.txt": {
+      "bytes": 16620,
+      "sha256": "af87e8af803e852d82c7bae8c87849dcf7ed09cefe43fcb18b73ee11420dae70"
+    }
+  },
+  "model": {
+    "version": "detector-yolo26s-kaggle-ver1",
+    "architecture": "yolo26s.pt",
+    "sha256": "a26151e0fab23eb089824e058ab42b12fe48581bc040a82a9f4523ac4fdbabd0",
+    "run_name": "pcb_component_20260817T042309Z"
   }
 }
