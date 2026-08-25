@@ -1,0 +1,143 @@
+{
+  "schema_version": "aoi-reference-set-verification/1.0",
+  "set_dir": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\datasets\\reference_sets\\mpi_pcb_gas_pump_same_board_30",
+  "bundle_dir": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\golden_recipes\\mpi_pcb_gas_pump\\top\\bootstrap_pixel_v1",
+  "frame_count": 30,
+  "golden": {
+    "golden_png_sha256": "52e62cecf7b8e9296c6867bb84f08d4a878cd68f5d38012f500446c5ace4bb34",
+    "source_basename": "mpi_pcb_train_good_0893.jpg",
+    "source_sha256": "10c5b91aa967ca44a1a576c8ecf0e8a127305be8c34e586d6e040bafda7789f4",
+    "reference_policy": "single_actual_source",
+    "pixel_identical": true,
+    "pixel_array_sha256": "2f01e611d8f17738f046879ed73196e84c27f3fb6ba1309ea50f14fdde663a24",
+    "canvas": {
+      "width": 4096,
+      "height": 2816
+    }
+  },
+  "alignment": {
+    "mode": "upstream_dataset_identity_enrollment_only",
+    "accepted_frame_count": 30,
+    "methods": [
+      "selected_reference_identity",
+      "upstream_dataset_identity"
+    ],
+    "production_registration_eligible": false,
+    "fit_metrics_status": "not_measured_upstream_identity",
+    "per_frame_alignment_overlay_present": false
+  },
+  "consensus": {
+    "audit_cluster_count": 253,
+    "gate_pass_count": 6,
+    "gate_config": {
+      "cluster_radius_px": 24.0,
+      "min_support_ratio": 0.8,
+      "min_class_purity": 0.8,
+      "class_mismatch_penalty_ratio": 0.1,
+      "excluded_labels": [
+        "pad",
+        "pads",
+        "pin",
+        "pins"
+      ]
+    },
+    "audit_class_counts": {
+      "ic": 111,
+      "capacitor": 76,
+      "resistor": 21,
+      "led": 16,
+      "connector": 14,
+      "diode": 13,
+      "buzzer": 2
+    },
+    "pnp_proposal_count": 32,
+    "pnp_class_counts": {
+      "ic": 25,
+      "led": 4,
+      "capacitor": 2,
+      "connector": 1
+    },
+    "pnp_low_support_rows": 26,
+    "pnp_rotation_populated": 0,
+    "pnp_footprint_populated": 0,
+    "audit_minus_queue_by_class": {
+      "buzzer": 2,
+      "capacitor": 74,
+      "connector": 13,
+      "diode": 13,
+      "ic": 86,
+      "led": 12,
+      "resistor": 21
+    }
+  },
+  "checks": [
+    {
+      "check": "manifest_hashes",
+      "passed": true,
+      "detail": "30/30 images match SHA-256 and byte size"
+    },
+    {
+      "check": "no_unlisted_images",
+      "passed": true,
+      "detail": "images/ contains only manifest-listed files"
+    },
+    {
+      "check": "golden_source_is_manifest_frame",
+      "passed": true,
+      "detail": "selected Golden mpi_pcb_train_good_0893.jpg is one of the 30 manifest frames"
+    },
+    {
+      "check": "golden_is_lossless_decode",
+      "passed": true,
+      "detail": "golden.png is bit-exact with mpi_pcb_train_good_0893.jpg at 4096x2816"
+    },
+    {
+      "check": "alignment_mode",
+      "passed": true,
+      "detail": "alignment_mode=upstream_dataset_identity_enrollment_only"
+    },
+    {
+      "check": "alignment_frame_count",
+      "passed": true,
+      "detail": "30/30 frames accepted (manifest lists 30)"
+    },
+    {
+      "check": "no_resize_fallback",
+      "passed": true,
+      "detail": "methods used: ['selected_reference_identity', 'upstream_dataset_identity']"
+    },
+    {
+      "check": "native_canvas_preserved",
+      "passed": true,
+      "detail": "all frames output at [(4096, 2816)]"
+    },
+    {
+      "check": "fit_metrics_declared_unmeasured",
+      "passed": true,
+      "detail": "30/30 frames report fit_metrics_status=not_measured_upstream_identity (overlap 1.0 is an identity artefact, not measured registration accuracy)"
+    },
+    {
+      "check": "consensus_gate_counts_agree",
+      "passed": true,
+      "detail": "253 audit clusters, 6 pass support>=0.8 and purity>=0.8"
+    },
+    {
+      "check": "consensus_frame_count",
+      "passed": true,
+      "detail": "consensus built from 30 frames"
+    },
+    {
+      "check": "pnp_queue_traceable_to_audit",
+      "passed": true,
+      "detail": "all 32 PnP proposals map back to an audit cluster"
+    },
+    {
+      "check": "pnp_queue_anchored_on_golden",
+      "passed": true,
+      "detail": "every proposal has an observation in the selected Golden"
+    }
+  ],
+  "all_checks_passed": true,
+  "production_eligible": false,
+  "production_eligible_reason": "no physical board measurement, fiducial registration or real camera/fixture validation exists for this set"
+}

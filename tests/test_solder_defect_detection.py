@@ -113,7 +113,7 @@ def test_generic_adapter_keeps_task_source_and_mask_polygon(tmp_path: Path) -> N
     ]
 
 
-def test_solder_detector_uses_segment_contract_and_manifest_defaults(
+def test_solder_segmenter_uses_segment_contract_and_manifest_defaults(
     tmp_path: Path,
 ) -> None:
     model = _SegmentModel()
@@ -136,7 +136,7 @@ def test_solder_detector_uses_segment_contract_and_manifest_defaults(
     assert detections[0].metadata["model_version"].endswith("-test")
 
 
-def test_solder_detector_requires_a_complete_correct_manifest_pair(
+def test_solder_segmenter_requires_a_complete_correct_manifest_pair(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(DetectorConfigurationError, match="requires both"):
@@ -151,7 +151,7 @@ def test_solder_detector_requires_a_complete_correct_manifest_pair(
         )
 
 
-def test_solder_detector_verifies_model_digest_before_loading(tmp_path: Path) -> None:
+def test_solder_segmenter_verifies_model_digest_before_loading(tmp_path: Path) -> None:
     model_path = tmp_path / "best.onnx"
     model_path.write_bytes(b"not the contracted model")
     manifest = _manifest(sha256="f" * 64, size=model_path.stat().st_size)
@@ -170,8 +170,8 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     config = PipelineConfig.from_mapping(
         {
             "solder_defect_detection": {
-                "model": "models/active/solder/detector/best.onnx",
-                "manifest": "models/active/solder/detector/model_manifest.json",
+                "model": "models/active/solder/segmenter/best.onnx",
+                "manifest": "models/active/solder/segmenter/model_manifest.json",
                 "conf": 0.31,
                 "iou": 0.66,
                 "imgsz": 640,
@@ -183,8 +183,8 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     )
 
     segment = config.solder_defect_detection
-    assert segment.model_path.endswith("detector/best.onnx")
-    assert segment.manifest_path.endswith("detector/model_manifest.json")
+    assert segment.model_path.endswith("segmenter/best.onnx")
+    assert segment.manifest_path.endswith("segmenter/model_manifest.json")
     assert segment.confidence == pytest.approx(0.31)
     assert segment.iou == pytest.approx(0.66)
     assert segment.image_size == 640
@@ -218,13 +218,13 @@ def test_pipeline_exposes_diagnostic_stage_without_changing_component_detector()
     assert pipeline.grade_solder([]) == []
 
 
-def test_shipped_active_detector_manifest_matches_runtime_contract() -> None:
+def test_shipped_active_segmenter_manifest_matches_runtime_contract() -> None:
     manifest_path = (
         Path(__file__).parents[1]
         / "models"
         / "active"
         / "solder"
-        / "detector"
+        / "segmenter"
         / "model_manifest.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

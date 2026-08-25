@@ -120,12 +120,27 @@ def derive_solder_joints(
     if geometry == "multi_pin" and image is not None:
         # Mọi phép ĐỌC ẢNH chạy trên dải định vị; mọi thứ TRẢ RA dựng từ dải đo.
         probes = _multi_pin_rects(frame, config, locator=True)
+        # Asked of all four edges, before any of them is filtered away: the
+        # question is which opposite PAIR carries the leads, and a pair with one
+        # member already dropped cannot be compared with the other.
+        dominant = _dominant_edge_pair(
+            probes, image, frame, image_width, image_height, config
+        )
         probes = _filter_bands_by_energy(
             probes, image, frame, image_width, image_height, config
         )
-        probes = _filter_bands_by_evenness(
-            probes, image, frame, image_width, image_height, config
-        )
+        if dominant is not None:
+            # A confident structural answer -- leads on one axis, nothing on the
+            # other -- leaves the evenness filter nothing to add, and letting it
+            # run anyway is how D201 lost the single lead on its top edge: the
+            # silkscreen brackets in the band corners dragged the comb score to
+            # 0.938 against a 0.95 gate and the whole band went, real lead
+            # included.
+            probes = dominant
+        else:
+            probes = _filter_bands_by_evenness(
+                probes, image, frame, image_width, image_height, config
+            )
         surviving = {probe.position for probe in probes}
         rects = [rect for rect in rects if rect.position in surviving] or rects
         if config.split_pins:
@@ -313,6 +328,18 @@ def _capped_depth(
     return inner * factor, outer * factor
 
 
+def _is_compact(frame: ComponentFrame, config: SolderJointConfig) -> bool:
+    """Whether the box is too square to name its own terminal axis.
+
+    The same test that sends the axis decision to the image also decides how the
+    terminal ROI is sized, because both failures come from the same place: on a
+    part with no long side, a dimension scaled off ``length`` is not scaled off
+    anything meaningful.
+    """
+
+    return frame.length / max(frame.span, 1e-6) < config.terminal_axis_min_aspect
+
+
 def _two_terminal_rects(
     frame: ComponentFrame,
     config: SolderJointConfig,
@@ -329,12 +356,23 @@ def _two_terminal_rects(
 
     length = frame.length if along_long_axis else frame.span
     span = frame.span if along_long_axis else frame.length
-    inner, outer = _capped_depth(
-        config.terminal_inner_ratio * length,
-        config.terminal_outer_ratio * length,
-        config,
-    )
-    side = config.terminal_side_ratio * span
+    if _is_compact(frame, config):
+        # No long side to scale from, and terminals that are small against the
+        # body rather than half of it. Both dimensions come off the short side.
+        short = min(frame.length, frame.span)
+        inner, outer = _capped_depth(
+            config.compact_terminal_inner_ratio * short,
+            config.compact_terminal_outer_ratio * short,
+            config,
+        )
+        side = config.compact_terminal_side_ratio * short - span / 2.0
+    else:
+        inner, outer = _capped_depth(
+            config.terminal_inner_ratio * length,
+            config.terminal_outer_ratio * length,
+            config,
+        )
+        side = config.terminal_side_ratio * span
     roi_length = inner + outer
     roi_span = span + 2.0 * side
     offset = length / 2.0 + (outer - inner) / 2.0
@@ -352,29 +390,67 @@ def _two_terminal_rects(
 def _outer_strip(
     frame: ComponentFrame, config: SolderJointConfig, *, along_long_axis: bool
 ) -> list[_LocalRect]:
-    """The two bands just *outside* the body on one candidate terminal axis.
+    """The two bands across the body edge on one candidate terminal axis.
 
-    Only outside: the land a fillet sits on sticks out past the component
-    silhouette on the terminal axis, and on the other axis there is bare
-    laminate or silkscreen. Inside the body both axes can look metallic -- the
-    top of an electrolytic can is metal all over -- so the inside says nothing.
+    Across, not outside. The land a fillet sits on sticks out past the
+    silhouette, but on a V-chip electrolytic the tab straddles the edge --
+    measured on the board in ``tests/data``, C231's tab runs 9 px above its box
+    top and 9 px below -- so a purely outward band sees half of it at best.
+
+    Every dimension is scaled from the SHORT side. This probe only runs on a
+    part too square to name its own axis, and on such a part a reach measured
+    against the long side is a reach onto the neighbours.
     """
 
+    short = max(min(frame.length, frame.span), 1e-6)
+    outer = config.axis_probe_outer_ratio * short
+    inner = config.axis_probe_inner_ratio * short
+    cross = config.axis_probe_cross_ratio * short
+    depth = outer + inner
     length = frame.length if along_long_axis else frame.span
-    span = frame.span if along_long_axis else frame.length
-    outer = config.terminal_outer_ratio * length
-    side = config.terminal_side_ratio * span
-    offset = length / 2.0 + outer / 2.0
-    width, height = outer, span + 2.0 * side
+    # Centre of a band running from ``inner`` inside the edge to ``outer`` past it.
+    offset = length / 2.0 + (outer - inner) / 2.0
     if along_long_axis:
         return [
-            _LocalRect(-offset, 0.0, width, height, "probe_a"),
-            _LocalRect(offset, 0.0, width, height, "probe_b"),
+            _LocalRect(-offset, 0.0, depth, cross, "probe_a"),
+            _LocalRect(offset, 0.0, depth, cross, "probe_b"),
         ]
     return [
-        _LocalRect(0.0, -offset, height, width, "probe_a"),
-        _LocalRect(0.0, offset, height, width, "probe_b"),
+        _LocalRect(0.0, -offset, cross, depth, "probe_a"),
+        _LocalRect(0.0, offset, cross, depth, "probe_b"),
     ]
+
+
+def _probe_metal_fraction(patch: np.ndarray, config: SolderJointConfig) -> float:
+    """Share of a probe band that looks like exposed metal.
+
+    Deliberately not :func:`segment_solder`. That function is shared with
+    grading and falls back to Otsu when its colour test finds nothing, which is
+    right for a joint ROI that must contain solder and wrong for a probe band
+    that may legitimately be bare: on bare laminate the fallback splits the
+    noise and reports 64% metal, drowning the axis it should have ruled out.
+    """
+
+    if patch.size == 0 or min(patch.shape[:2]) < 3:
+        return 0.0
+    hsv = cv2.cvtColor(ensure_bgr(patch), cv2.COLOR_BGR2HSV)
+    hue = hsv[:, :, 0].astype(np.int16)
+    saturation = hsv[:, :, 1].astype(np.int16)
+    value = hsv[:, :, 2].astype(np.int16)
+
+    metal = value >= config.axis_probe_value_min
+    # White legend: achromatic and blown out. Grey solder is achromatic too, but
+    # never that bright, so both conditions together spare it.
+    metal &= ~(
+        (saturation < config.axis_probe_ink_saturation_max)
+        & (value > config.axis_probe_ink_value_min)
+    )
+    low, high = config.axis_probe_resist_hue_range
+    metal &= ~(
+        (hue >= low) & (hue <= high)
+        & (saturation >= config.axis_probe_resist_saturation_min)
+    )
+    return float(np.count_nonzero(metal)) / float(metal.size)
 
 
 def _axis_metal_score(
@@ -386,7 +462,7 @@ def _axis_metal_score(
     *,
     along_long_axis: bool,
 ) -> float:
-    """Mean metal fraction in the two outward bands of one candidate axis."""
+    """Mean metal fraction in the two bands straddling one candidate axis."""
 
     scores: list[float] = []
     for rect in _outer_strip(frame, config, along_long_axis=along_long_axis):
@@ -394,13 +470,7 @@ def _axis_metal_score(
         if bbox is None:
             continue
         x1, y1, x2, y2 = bbox.to_int()
-        patch = image[y1:y2, x1:x2]
-        if patch.size == 0 or min(patch.shape[:2]) < 3:
-            continue
-        mask = segment_solder(patch, saturation_max=config.saturation_max)
-        if mask.size == 0:
-            continue
-        scores.append(float(np.count_nonzero(mask)) / float(mask.size))
+        scores.append(_probe_metal_fraction(image[y1:y2, x1:x2], config))
     if not scores:
         return 0.0
     return float(sum(scores) / len(scores))
@@ -708,6 +778,67 @@ def _band_evenness(patch: np.ndarray, along_x: bool, config: SolderJointConfig):
     if mean_gap <= 1e-6:
         return None
     return len(runs), max(0.0, 1.0 - float(np.std(gaps)) / mean_gap)
+
+
+def _dominant_edge_pair(
+    rects: Sequence[_LocalRect],
+    image: np.ndarray,
+    frame: ComponentFrame,
+    image_width: int,
+    image_height: int,
+    config: SolderJointConfig,
+) -> list[_LocalRect] | None:
+    """The opposite pair of edges holding the leads, or ``None`` if unclear.
+
+    Every two-sided package -- SOT-23, SOT-223, SOIC, DPAK -- puts its leads on
+    one axis and leaves the other bare, so the useful question is which *pair*
+    carries the metal, not whether each edge clears a threshold on its own.
+    Asked per edge the two populations overlap; asked per pair they separate.
+
+    Returns ``None`` when neither pair dominates, which is what a quad package
+    looks like, and the caller then keeps every edge.
+    """
+
+    margin = config.lead_band_pair_margin
+    if margin is None or config.lead_band_energy_ratio is None or len(rects) < 4:
+        return None
+    by_position = {rect.position: rect for rect in rects}
+    pairs = (("lead_left", "lead_right"), ("lead_top", "lead_bottom"))
+    if not all(name in by_position for pair in pairs for name in pair):
+        return None
+
+    energies: dict[str, float] = {}
+    for name, rect in by_position.items():
+        bbox = _local_rect_to_bbox(rect, frame, image_width, image_height)
+        if bbox is None:
+            return None
+        x1, y1, x2, y2 = bbox.to_int()
+        patch = image[y1:y2, x1:x2]
+        if patch.size == 0 or min(patch.shape[:2]) < 3:
+            return None
+        # Same measure as the terminal-axis probe, and for the same reason: this
+        # question is asked of edges that may legitimately be bare, and
+        # ``segment_solder``'s Otsu fallback answers a bare edge with noise. It
+        # scored 0.407 on the empty top edge of a SOIC whose leads barely clear
+        # the body -- the highest of all four -- and picked the wrong pair.
+        energies[name] = _probe_metal_fraction(patch, config)
+
+    totals = [sum(energies[name] for name in pair) for pair in pairs]
+    strong, weak = (0, 1) if totals[0] >= totals[1] else (1, 0)
+    if totals[weak] <= 0.0 or totals[strong] < float(margin) * totals[weak]:
+        return None
+    # Belt and braces: an edge is only dropped when it is weak in its own right,
+    # not merely because it sits opposite a strong one. Without this the rule
+    # fires on low-contrast parts whose four edges are all nearly equal, and
+    # there a confident-looking pair ratio is noise -- it cost the two synthetic
+    # boards their lead rows entirely.
+    peak = max(energies.values())
+    if peak <= 0.0:
+        return None
+    limit = float(config.lead_band_pair_drop_max_ratio)
+    if any(energies[name] / peak > limit for name in pairs[weak]):
+        return None
+    return [by_position[name] for name in pairs[strong]]
 
 
 def _filter_bands_by_evenness(

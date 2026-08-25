@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 import csv
 from dataclasses import replace
 import io
@@ -1127,8 +1128,19 @@ def test_a_big_part_gets_a_roi_sized_like_a_pad_not_like_the_part() -> None:
             for joint in _by_kind(joints, "joint")
         )
 
-    assert deepest(loose) > 2.0 * 22.0 * 1.4, "phải đo được cái vô lý trước đã"
-    assert deepest(capped) <= 2.0 * 22.0 + 2
+    # Hai lớp chặn độc lập, và test này đo lớp thứ hai.
+    #
+    # Lớp thứ nhất là bộ tỉ lệ `compact_*`: hộp gần vuông thì mọi kích thước
+    # tính theo cạnh NGẮN, không theo cạnh dài. Riêng nó đã kéo độ sâu ở đây
+    # từ 102 px xuống 47,6 px, nên "cái vô lý" mà test này từng đo (>61,6 px)
+    # không còn nữa — không phải vì trần mm hết tác dụng, mà vì nó không còn
+    # phải một mình gánh.
+    #
+    # Lớp thứ hai là trần mm, và nó vẫn cắn: 47,6 px vẫn quá 2,0 mm ở 22 px/mm.
+    # Đó mới là thứ cần khẳng định — một trần chỉ có ý nghĩa khi còn gì để cắt.
+    limit_px = 2.0 * 22.0
+    assert deepest(loose) > limit_px, "trần mm phải còn việc để làm thì mới đo được nó"
+    assert deepest(capped) <= limit_px + 2
 
 
 def test_the_cap_leaves_small_chip_parts_untouched() -> None:
@@ -1393,15 +1405,29 @@ def test_the_locator_survives_leads_that_barely_clear_the_body() -> None:
     """Đây là lý do dải định vị **không** đặt độ sâu ngoài bằng 0.
 
     Đo trên chân thò ra từ 6 % đến 43 % bề ngang thân: dải định vị hiện tại
-    (trong 0,20 / ngoài 0,10) cho **đúng 12 ROI cho 12 chân ở mọi mức**, còn
-    chế độ cũ — định vị bằng chính dải đo — chỉ ra 2 ROI khi chân thò ít, tức
-    bộ tách chân bỏ cuộc và cả một hàng chân bị gộp làm một.
+    (trong 0,20 / ngoài 0,10) tách được hàng chân ở **mọi** mức, còn chế độ cũ
+    — định vị bằng chính dải đo — chỉ ra 2 ROI khi chân thò ít, tức bộ tách
+    chân bỏ cuộc và cả một hàng chân bị gộp làm một.
+
+    Trước đây test này đếm 12 ROI. Con số ấy là **5 + 5 chân cộng hai dải
+    nguyên nằm trên hai cạnh TRẦN** của SOIC, không phải 12 ROI cho 12 chân:
+    fixture có 6 chân mỗi bên và bộ tách chỉ bao giờ tìm được 5 (xem
+    ``test_the_split_is_fragile_at_low_contrast_and_that_is_known``). Từ khi
+    luật cặp cạnh đối loại hai cạnh trần, phép đếm ấy không còn nói lên điều
+    nó định nói, nên ở đây kiểm thẳng thứ cần kiểm: hàng chân vẫn được tách, và
+    không ROI nào rơi ra cạnh không có chân.
     """
 
     for standoff in (4, 10, 22):
         image, detection = _soic_with_standoff(standoff)
         joints = _by_kind(_joints(detection, image, SolderJointConfig()), "joint")
-        assert len(joints) == 12, f"thò ra {standoff} px cho {len(joints)} ROI"
+        bands = Counter(joint.position.rsplit("_pin", 1)[0] for joint in joints)
+        assert set(bands) == {"lead_left", "lead_right"}, (
+            f"thò ra {standoff} px: có ROI trên cạnh không chân — {dict(bands)}"
+        )
+        assert bands["lead_left"] >= 5 and bands["lead_right"] >= 5, (
+            f"thò ra {standoff} px: hàng chân bị gộp — {dict(bands)}"
+        )
 
 
 def test_zeroing_the_locator_reach_loses_leads_on_a_gull_wing_package() -> None:
@@ -1448,5 +1474,14 @@ def test_the_split_is_fragile_at_low_contrast_and_that_is_known() -> None:
         detection = Detection("ic", 0.95, BoundingBox(440, 120, 560, 190))
         return len(_by_kind(_joints(detection, image, SolderJointConfig()), "joint"))
 
-    assert rois((40, 70, 45)) == 12
-    assert rois((40, 90, 40)) < 12
+    left, right = rois((40, 70, 45)), rois((40, 90, 40))
+    # Cái lật theo màu nền đã đo lại được: nó **không** nằm ở bộ tách chân. Cả
+    # hai nền đều luôn cho 5 chân mỗi bên, cả trước lẫn sau. Thứ lật là hai dải
+    # nguyên trên hai cạnh TRẦN của SOIC — nền này giữ chúng (5+5+1+1 = 12),
+    # nền kia bỏ (5+5 = 10) — nên phép đếm cũ đo độ bám của ROI trên nền trần
+    # chứ không đo độ tách chân. Luật cặp cạnh đối bỏ hẳn hai dải đó, nên giờ
+    # hai nền cho cùng một kết quả.
+    assert left == right == 10
+    # Giới hạn thật vẫn còn nguyên và vẫn chưa giải: fixture có **6** chân mỗi
+    # bên, bộ tách tìm được 5.
+    assert left < 12

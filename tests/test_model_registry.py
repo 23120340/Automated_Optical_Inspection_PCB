@@ -175,7 +175,7 @@ def test_a_picker_only_offers_models_for_its_own_stage() -> None:
             assert entry.kind in (kind, "unknown"), (
                 f"bộ chọn {kind} chào một model loại {entry.kind}: {entry.name}"
             )
-    for kind in ("solder_classifier", "solder_detector"):
+    for kind in ("solder_classifier", "solder_segmenter"):
         for entry in discover_models(kind):
             assert entry.kind == kind, (
                 f"bộ chọn {kind} chào một model loại {entry.kind}: {entry.name}"
@@ -193,13 +193,13 @@ def test_the_stage_is_taken_from_the_manifest_not_the_folder_name(tmp_path) -> N
     ) == "solder_classifier"
     assert _kind_of(
         {"task": "solder_defect_instance_segmentation"}, "ten-lung-tung"
-    ) == "solder_detector"
+    ) == "solder_segmenter"
     assert _kind_of({"task": "component_family_classification"}, "abc") == "classifier"
     assert _kind_of({"task": "detect"}, "abc") == "detector"
     # Không có task thì mới nhìn tên thư mục.
     assert _kind_of(None, "detector-yolo26s-20260817") == "detector"
     assert _kind_of(None, "solder/classifier") == "solder_classifier"
-    assert _kind_of(None, "solder\\detector") == "solder_detector"
+    assert _kind_of(None, "solder\\detector") == "solder_segmenter"
     assert _kind_of(None, "solder/classifier/detector") == "unknown"
     assert _kind_of(None, "khong-goi-y-gi") == "unknown"
 
@@ -212,7 +212,7 @@ def test_solder_schema_fallbacks_are_role_specific() -> None:
     ) == "solder_classifier"
     assert _kind_of(
         {"schema_version": "aoi-external-yolo-segmentation/1.0"}, "khong-goi-y"
-    ) == "solder_detector"
+    ) == "solder_segmenter"
     assert _kind_of(
         {"schema_version": "pcb-solder/1.0"}, "khong-goi-y"
     ) == "unknown"
@@ -238,7 +238,7 @@ def test_the_default_for_each_stage_is_still_found() -> None:
     """`active/<bước>/best.onnx` là đường app tìm mặc định. Đổi tên các thư mục
     đó sẽ làm app không tìm thấy gì, và test này là thứ báo."""
 
-    for kind in ("detector", "classifier", "solder_classifier", "solder_detector"):
+    for kind in ("detector", "classifier", "solder_classifier", "solder_segmenter"):
         entry = find_active(kind)
         assert entry is not None, f"không thấy model mặc định cho {kind}"
         assert entry.model_path.is_file()
@@ -282,7 +282,7 @@ def test_solder_pickers_exclude_the_other_role_and_unknown_models(
         )
 
     classifier_entries = discover_models("solder_classifier")
-    detector_entries = discover_models("solder_detector")
+    detector_entries = discover_models("solder_segmenter")
 
     assert [entry.name for entry in classifier_entries] == [
         "ten-goi-nhu-detector/best.onnx"
@@ -291,7 +291,7 @@ def test_solder_pickers_exclude_the_other_role_and_unknown_models(
     assert [entry.name for entry in detector_entries] == [
         "ten-goi-nhu-classifier/best.onnx"
     ]
-    assert [entry.kind for entry in detector_entries] == ["solder_detector"]
+    assert [entry.kind for entry in detector_entries] == ["solder_segmenter"]
 
 
 def test_find_active_rejects_a_manifest_from_the_other_solder_role(
@@ -306,7 +306,7 @@ def test_find_active_rejects_a_manifest_from_the_other_solder_role(
     )
     monkeypatch.setattr(model_registry, "ACTIVE_ROOT", active)
 
-    assert find_active("solder_detector") is None
+    assert find_active("solder_segmenter") is None
 
 
 # --------------------------------------------------------------------------
@@ -332,7 +332,7 @@ def test_a_fresh_session_already_has_the_active_models_loaded() -> None:
         ("component_model_name", "detector"),
         ("classifier_model_name", "classifier"),
         ("solder_model_name", "solder/classifier"),
-        ("solder_detector_model_name", "solder/detector"),
+        ("solder_segmenter_model_name", "solder/segmenter"),
     ):
         assert app.session_state[key], f"{key} vẫn trống sau khi khởi tạo"
         assert folder in app.session_state[key]
@@ -353,7 +353,7 @@ def test_the_picker_shows_the_active_model_as_chosen_not_as_unused() -> None:
         "component_model_choice",
         "classifier_model_choice",
         "solder_model_choice",
-        "solder_detector_model_choice",
+        "solder_segmenter_model_choice",
     ):
         assert key in choices, f"thiếu bộ chọn {key}"
         assert "đang dùng" in choices[key], (

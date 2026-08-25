@@ -161,13 +161,13 @@ def test_bridge_classification_uses_core_model_and_never_detector_label() -> Non
     assert result.classifications[0].decision == "accept"
 
 
-def _solder_detector_bridge(engine) -> PipelineBridge:
+def _solder_segmenter_bridge(engine) -> PipelineBridge:
     bridge = PipelineBridge.__new__(PipelineBridge)
     bridge.config = {}
     bridge.engine = engine
     bridge.engine_error = None
-    bridge.solder_detector_model_path = "solder-detector.onnx"
-    bridge.solder_detector_manifest_path = "model_manifest.json"
+    bridge.solder_segmenter_model_path = "solder-detector.onnx"
+    bridge.solder_segmenter_manifest_path = "model_manifest.json"
     return bridge
 
 
@@ -188,7 +188,7 @@ def test_solder_segment_findings_are_reported_as_an_independent_layer() -> None:
         last_fusion=None,
         cad_warnings=[],
     )
-    bridge = _solder_detector_bridge(engine)
+    bridge = _solder_segmenter_bridge(engine)
 
     result = bridge.make_solder_crops(np.zeros((40, 50, 3), dtype=np.uint8), [])
 
@@ -197,7 +197,7 @@ def test_solder_segment_findings_are_reported_as_an_independent_layer() -> None:
     assert len(result.detector_findings) == 1
     assert result.detector_findings[0].label == "Short_circuit"
     assert result.detector_findings[0].metadata["mask_polygon"][0] == [4, 5]
-    assert result.metrics["solder_detector_findings"] == 1
+    assert result.metrics["solder_segmenter_findings"] == 1
 
 
 def test_solder_segment_failure_does_not_remove_roi_grading() -> None:
@@ -232,7 +232,7 @@ def test_solder_segment_failure_does_not_remove_roi_grading() -> None:
         last_fusion=None,
         cad_warnings=[],
     )
-    bridge = _solder_detector_bridge(engine)
+    bridge = _solder_segmenter_bridge(engine)
 
     result = bridge.make_solder_crops(np.zeros((40, 50, 3), dtype=np.uint8), [])
 

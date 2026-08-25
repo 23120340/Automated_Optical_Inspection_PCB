@@ -1,0 +1,33 @@
+record_id,source_auto_id,action,verified_refdes,class,footprint,center_x_px,center_y_px,rotation_deg,polarity,review_status,label_source,notes
+PNP_0001,U_AUTO_0001,,,ic,,1643.148254,463.024200,,,draft,pseudo_label,support_ratio=0.233; observations=7/30; class_purity=1.000; center_mad_px=9.00; detector_gate=NEEDS_REVIEW
+PNP_0002,J_AUTO_0006,,,connector,,354.307974,473.762527,,,draft,pseudo_label,support_ratio=0.133; observations=4/30; class_purity=1.000; center_mad_px=6.64; detector_gate=NEEDS_REVIEW
+PNP_0003,U_AUTO_0006,,,ic,,2294.620361,479.516266,,,draft,pseudo_label,support_ratio=0.500; observations=15/30; class_purity=1.000; center_mad_px=8.35; detector_gate=NEEDS_REVIEW
+PNP_0004,U_AUTO_0008,,,ic,,1037.972321,484.740616,,,draft,pseudo_label,support_ratio=0.367; observations=11/30; class_purity=1.000; center_mad_px=9.12; detector_gate=NEEDS_REVIEW
+PNP_0005,U_AUTO_0013,,,ic,,2974.115234,752.570526,,,draft,pseudo_label,support_ratio=0.600; observations=18/30; class_purity=1.000; center_mad_px=8.08; detector_gate=NEEDS_REVIEW
+PNP_0006,U_AUTO_0014,,,ic,,1668.912109,753.068604,,,draft,pseudo_label,support_ratio=0.333; observations=10/30; class_purity=1.000; center_mad_px=5.84; detector_gate=NEEDS_REVIEW
+PNP_0007,U_AUTO_0015,,,ic,,330.946501,753.373123,,,draft,pseudo_label,support_ratio=0.267; observations=8/30; class_purity=1.000; center_mad_px=7.24; detector_gate=NEEDS_REVIEW
+PNP_0008,U_AUTO_0016,,,ic,,2283.302887,754.898682,,,draft,pseudo_label,support_ratio=0.933; observations=28/30; class_purity=1.000; center_mad_px=9.51; detector_gate=CONSENSUS
+PNP_0009,U_AUTO_0017,,,ic,,1026.138016,755.930206,,,draft,pseudo_label,support_ratio=0.800; observations=24/30; class_purity=1.000; center_mad_px=10.54; detector_gate=CONSENSUS
+PNP_0010,U_AUTO_0024,,,ic,,2287.718079,1028.629272,,,draft,pseudo_label,support_ratio=0.567; observations=17/30; class_purity=1.000; center_mad_px=8.41; detector_gate=NEEDS_REVIEW
+PNP_0011,U_AUTO_0028,,,ic,,2956.547241,1037.654495,,,draft,pseudo_label,support_ratio=0.333; observations=10/30; class_purity=1.000; center_mad_px=10.34; detector_gate=NEEDS_REVIEW
+PNP_0012,U_AUTO_0029,,,ic,,1610.072449,1041.415604,,,draft,pseudo_label,support_ratio=0.667; observations=20/30; class_purity=1.000; center_mad_px=9.99; detector_gate=NEEDS_REVIEW
+PNP_0013,U_AUTO_0030,,,ic,,938.986267,1042.784332,,,draft,pseudo_label,support_ratio=0.633; observations=19/30; class_purity=1.000; center_mad_px=9.06; detector_gate=NEEDS_REVIEW
+PNP_0014,C_AUTO_0024,,,capacitor,,1744.798706,1219.401001,,,draft,pseudo_label,"support_ratio=0.033; observations=1/30; class_purity=1.000; center_mad_px=0.00; detector_gate=NEEDS_REVIEW; single-frame cluster, verify directly on Golden"
+PNP_0015,U_AUTO_0037,,,ic,,3041.934753,1310.225006,,,draft,pseudo_label,support_ratio=0.667; observations=20/30; class_purity=1.000; center_mad_px=11.93; detector_gate=NEEDS_REVIEW
+PNP_0016,LED_AUTO_0003,,,led,,3416.677979,1329.194336,,,draft,pseudo_label,support_ratio=0.167; observations=5/30; class_purity=1.000; center_mad_px=6.00; detector_gate=NEEDS_REVIEW
+PNP_0017,U_AUTO_0042,,,ic,,1085.868423,1339.127594,,,draft,pseudo_label,support_ratio=0.600; observations=18/30; class_purity=1.000; center_mad_px=8.40; detector_gate=NEEDS_REVIEW
+PNP_0018,U_AUTO_0044,,,ic,,2327.708374,1342.139221,,,draft,pseudo_label,support_ratio=0.833; observations=25/30; class_purity=1.000; center_mad_px=10.76; detector_gate=CONSENSUS
+PNP_0019,U_AUTO_0048,,,ic,,3028.240845,1592.415161,,,draft,pseudo_label,support_ratio=0.300; observations=9/30; class_purity=1.000; center_mad_px=10.93; detector_gate=NEEDS_REVIEW
+PNP_0020,U_AUTO_0057,,,ic,,2191.293793,1701.232361,,,draft,pseudo_label,support_ratio=0.267; observations=8/30; class_purity=1.000; center_mad_px=5.75; detector_gate=NEEDS_REVIEW
+PNP_0021,U_AUTO_0060,,,ic,,1179.911636,1708.856750,,,draft,pseudo_label,support_ratio=0.067; observations=2/30; class_purity=1.000; center_mad_px=10.06; detector_gate=NEEDS_REVIEW
+PNP_0022,U_AUTO_0069,,,ic,,3044.956543,1858.857788,,,draft,pseudo_label,support_ratio=0.533; observations=16/30; class_purity=1.000; center_mad_px=6.64; detector_gate=NEEDS_REVIEW
+PNP_0023,U_AUTO_0073,,,ic,,2360.530884,2007.390869,,,draft,pseudo_label,support_ratio=0.833; observations=25/30; class_purity=1.000; center_mad_px=10.23; detector_gate=CONSENSUS
+PNP_0024,U_AUTO_0074,,,ic,,1880.687012,2010.261475,,,draft,pseudo_label,support_ratio=0.667; observations=20/30; class_purity=1.000; center_mad_px=8.56; detector_gate=NEEDS_REVIEW
+PNP_0025,U_AUTO_0082,,,ic,,1145.849075,2096.622742,,,draft,pseudo_label,support_ratio=0.067; observations=2/30; class_purity=1.000; center_mad_px=9.96; detector_gate=NEEDS_REVIEW
+PNP_0026,LED_AUTO_0012,,,led,,3011.505981,2363.958984,,,draft,pseudo_label,support_ratio=0.367; observations=11/30; class_purity=1.000; center_mad_px=8.39; detector_gate=NEEDS_REVIEW
+PNP_0027,LED_AUTO_0013,,,led,,3160.931519,2371.074341,,,draft,pseudo_label,support_ratio=0.833; observations=25/30; class_purity=1.000; center_mad_px=10.70; detector_gate=CONSENSUS
+PNP_0028,LED_AUTO_0014,,,led,,2868.471680,2375.827271,,,draft,pseudo_label,support_ratio=0.833; observations=25/30; class_purity=1.000; center_mad_px=7.67; detector_gate=CONSENSUS
+PNP_0029,U_AUTO_0099,,,ic,,2340.929688,2533.700684,,,draft,pseudo_label,support_ratio=0.467; observations=14/30; class_purity=1.000; center_mad_px=6.87; detector_gate=NEEDS_REVIEW
+PNP_0030,C_AUTO_0073,,,capacitor,,817.692505,2536.492798,,,draft,pseudo_label,"support_ratio=0.033; observations=1/30; class_purity=1.000; center_mad_px=0.00; detector_gate=NEEDS_REVIEW; single-frame cluster, verify directly on Golden"
+PNP_0031,U_AUTO_0105,,,ic,,1527.297058,2550.854492,,,draft,pseudo_label,support_ratio=0.433; observations=13/30; class_purity=1.000; center_mad_px=10.30; detector_gate=NEEDS_REVIEW
+PNP_0032,U_AUTO_0106,,,ic,,576.266327,2550.873596,,,draft,pseudo_label,support_ratio=0.600; observations=18/30; class_purity=1.000; center_mad_px=11.05; detector_gate=NEEDS_REVIEW

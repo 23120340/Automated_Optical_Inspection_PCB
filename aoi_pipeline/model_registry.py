@@ -54,15 +54,27 @@ STAGE_FOLDERS = {
     "detector": "detector",
     "classifier": "classifier",
     "solder_classifier": "solder/classifier",
-    "solder_detector": "solder/detector",
+    "solder_segmenter": "solder/segmenter",
 }
 
 # ``solder`` was the public name of the classifier slot before step 6.2 was
 # split into two independent artifacts.  Keep accepting it at API boundaries
 # so saved UI state and third-party scripts keep working, but never emit it as
 # a ModelEntry.kind: entries always carry the unambiguous canonical role.
-_KIND_ALIASES = {"solder": "solder_classifier"}
-_SOLDER_KINDS = frozenset(("solder_classifier", "solder_detector"))
+#
+# ``solder_detector`` is the same story one step later.  The board-level
+# yolov8m-seg artifact was called a "detector", which put it one word away from
+# the two slots that genuinely localise things for inspection -- the pass-1
+# component detector and the pass-2 lead detector -- and the three were read as
+# interchangeable.  They are not: this one emits ``Dry_joint``/``Short_circuit``
+# style faults, has no class for a sound joint, and is marked
+# ``diagnostic_only`` in its own manifest.  It segments defects, so it is a
+# segmenter.
+_KIND_ALIASES = {
+    "solder": "solder_classifier",
+    "solder_detector": "solder_segmenter",
+}
+_SOLDER_KINDS = frozenset(("solder_classifier", "solder_segmenter"))
 
 
 def _canonical_kind(kind: str | None) -> str | None:
@@ -445,7 +457,7 @@ def _read_manifest(manifest_path: Path | None) -> Mapping[str, Any] | None:
 _TASK_TO_KIND = {
     "component_family_classification": "classifier",
     "solder_defect_classification": "solder_classifier",
-    "solder_defect_instance_segmentation": "solder_detector",
+    "solder_defect_instance_segmentation": "solder_segmenter",
     "component_and_lead_detection": "detector",
     "component_detection": "detector",
     "detect": "detector",
@@ -470,7 +482,7 @@ def _solder_role_from_hint(value: str) -> str | None:
     if "pcb-solder-defect-classifier" in lowered:
         return "solder_classifier"
     if "aoi-external-yolo-segmentation" in lowered:
-        return "solder_detector"
+        return "solder_segmenter"
 
     if "solder" not in lowered:
         return None
@@ -483,7 +495,7 @@ def _solder_role_from_hint(value: str) -> str | None:
         # Neither hint, or contradictory hints: do not guess and accidentally
         # offer one artifact in both solder pickers.
         return None
-    return "solder_classifier" if classifier_hint else "solder_detector"
+    return "solder_classifier" if classifier_hint else "solder_segmenter"
 
 
 def _kind_of(manifest: Mapping[str, Any] | None, folder: str) -> str:
@@ -534,7 +546,7 @@ def _scan(root: Path, origin: str, kind: str | None) -> Iterable[ModelEntry]:
     for model_path in sorted(root.rglob("*.onnx")):
         relative = model_path.relative_to(root)
         # Keep the complete nested path.  Looking only at the first component
-        # turns both active/solder/classifier and active/solder/detector into
+        # turns both active/solder/classifier and active/solder/segmenter into
         # the same ambiguous hint: ``solder``.
         folder = relative.parent.as_posix() if relative.parent != Path(".") else ""
         manifest_path = _manifest_beside(model_path)

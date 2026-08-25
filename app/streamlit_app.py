@@ -451,7 +451,7 @@ def _adopt_active_models() -> None:
             grading["model_path"] = str(entry.model_path)
             if entry.manifest_path is not None:
                 grading["manifest_path"] = str(entry.manifest_path)
-        if slot == "solder_detector":
+        if slot == "solder_segmenter":
             detection = st.session_state.config["solder_defect_detection"]
             detection["model_path"] = str(entry.model_path)
             if entry.manifest_path is not None:
@@ -511,12 +511,12 @@ def _init_state() -> None:
         "solder_manifest_path": None,
         "solder_manifest_name": None,
         "solder_manifest_digest": None,
-        "solder_detector_model_path": None,
-        "solder_detector_model_name": None,
-        "solder_detector_model_digest": None,
-        "solder_detector_manifest_path": None,
-        "solder_detector_manifest_name": None,
-        "solder_detector_manifest_digest": None,
+        "solder_segmenter_model_path": None,
+        "solder_segmenter_model_name": None,
+        "solder_segmenter_model_digest": None,
+        "solder_segmenter_manifest_path": None,
+        "solder_segmenter_manifest_name": None,
+        "solder_segmenter_manifest_digest": None,
         "inspection_recipe": None,
         "inspection_run": None,
         "inspection_session_id": uuid4().hex,
@@ -535,8 +535,8 @@ def _init_state() -> None:
             "classifier_manifest": None,
             "solder_model": None,
             "solder_manifest": None,
-            "solder_detector_model": None,
-            "solder_detector_manifest": None,
+            "solder_segmenter_model": None,
+            "solder_segmenter_manifest": None,
         },
         # Đánh giá model: chỗ người vận hành ghi nhận model sai ở từng bước.
         # ``feedback_reload_token`` làm mất hiệu lực cache đọc sau mỗi lần ghi.
@@ -914,6 +914,67 @@ def _set_classifier_threshold_override(
     return changed
 
 
+def _render_pass2_lead_controls() -> None:
+    """Bật/tắt lượt 2 và trỏ model chân cho nó.
+
+    Lượt 2 chạy detector *bên trong* crop từng linh kiện để tìm chân/pad thật,
+    thay cho hình học suy diễn ở bước 5.5. Nó là một vai trò riêng, không dùng
+    chung model với detector lỗi mối hàn ở trên: detector đó chỉ có lớp lỗi
+    (Dry joint, Short circuit...) nên không biết chân LÀNH nằm đâu, mà lượt 2
+    thì cần đủ mọi chân.
+    """
+
+    st.markdown("#### Lượt 2 · Detect chân trong crop linh kiện")
+    st.caption(
+        "Chạy detector bên trong từng crop linh kiện — crop được nới thêm 35% "
+        "cạnh dài để lấy cả fillet nằm ngoài thân — và thay hình học suy diễn "
+        "của 5.5 bằng chân đo được. Model phải có lớp `pads`/`pins`."
+    )
+
+    config = dict(st.session_state.config)
+    section = dict(config.get("lead_detection") or {})
+    enabled = st.checkbox(
+        "Bật lượt 2",
+        value=bool(section.get("enabled", True)),
+        key="pass2_enabled",
+        help="Tắt thì bước 5.5 giữ nguyên hình học suy diễn như trước.",
+    )
+    path = st.text_input(
+        "Model chân lượt 2 (.onnx/.pt)",
+        value=str(section.get("model_path") or ""),
+        key="pass2_model_path",
+        placeholder="models/active/lead/best.onnx",
+        help="Để trống thì lượt 2 nằm im và 5.5 dùng hình học suy diễn.",
+    ).strip()
+    confidence = st.slider(
+        "Ngưỡng tin cậy lượt 2",
+        0.05, 0.90, float(section.get("confidence", 0.25)), 0.05,
+        key="pass2_confidence",
+    )
+
+    changed = (
+        bool(section.get("enabled", True)) != enabled
+        or str(section.get("model_path") or "") != path
+        or float(section.get("confidence", 0.25)) != confidence
+    )
+    if changed:
+        section["enabled"] = enabled
+        section["model_path"] = path or None
+        section["confidence"] = confidence
+        config["lead_detection"] = section
+        st.session_state.config = config
+        st.rerun()
+
+    if not path:
+        st.caption("Chưa có model chân · 5.5 đang dùng hình học suy diễn.")
+    elif not Path(path).exists():
+        st.error(f"Không thấy file: {path}")
+    elif not enabled:
+        st.warning("Đã có model nhưng lượt 2 đang tắt.")
+    else:
+        st.success(f"Lượt 2 đang bật · {Path(path).name}")
+
+
 def _render_classifier_threshold_controls() -> None:
     """Expose manifest-safe decision thresholds for classifier experiments."""
 
@@ -1007,8 +1068,8 @@ def _cached_bridge(
     board_model_path: str | None,
     classifier_model_path: str | None,
     classifier_manifest_path: str | None,
-    solder_detector_model_path: str | None,
-    solder_detector_manifest_path: str | None,
+    solder_segmenter_model_path: str | None,
+    solder_segmenter_manifest_path: str | None,
 ) -> PipelineBridge:
     config = json.loads(config_json)
     component_config = dict(config.get("components", {}))
@@ -1053,8 +1114,8 @@ def _cached_bridge(
         board_model_path=board_model_path,
         classifier_model_path=classifier_model_path,
         classifier_manifest_path=classifier_manifest_path,
-        solder_detector_model_path=solder_detector_model_path,
-        solder_detector_manifest_path=solder_detector_manifest_path,
+        solder_segmenter_model_path=solder_segmenter_model_path,
+        solder_segmenter_manifest_path=solder_segmenter_manifest_path,
     )
 
 
@@ -1086,9 +1147,9 @@ def _get_bridge() -> PipelineBridge:
         st.session_state.classifier_model_path
         and st.session_state.classifier_manifest_path
     )
-    solder_detector_ready = bool(
-        st.session_state.solder_detector_model_path
-        and st.session_state.solder_detector_manifest_path
+    solder_segmenter_ready = bool(
+        st.session_state.solder_segmenter_model_path
+        and st.session_state.solder_segmenter_manifest_path
     )
     bridge = _cached_bridge(
         config_json,
@@ -1097,13 +1158,13 @@ def _get_bridge() -> PipelineBridge:
         st.session_state.classifier_model_path if classifier_ready else None,
         st.session_state.classifier_manifest_path if classifier_ready else None,
         (
-            st.session_state.solder_detector_model_path
-            if solder_detector_ready
+            st.session_state.solder_segmenter_model_path
+            if solder_segmenter_ready
             else None
         ),
         (
-            st.session_state.solder_detector_manifest_path
-            if solder_detector_ready
+            st.session_state.solder_segmenter_manifest_path
+            if solder_segmenter_ready
             else None
         ),
     )
@@ -1671,30 +1732,31 @@ def _render_sidebar() -> bool:
                 st.caption("Chưa có manifest · bước 6.1 chưa thể chạy")
             _render_classifier_threshold_controls()
 
-        with st.expander("Model mối hàn 6.2 · Detect / Classify", expanded=False):
-            st.markdown("#### Detector lỗi mối hàn · YOLO Segment")
+        with st.expander("Model mối hàn 6.2 · Segment / Classify", expanded=False):
+            st.markdown("#### Segmenter lỗi mối hàn · YOLO Segment")
             st.caption(
                 "Chạy trên toàn board để khoanh vùng Dry joint, Incorrect installation, "
-                "PCB damage và Short circuit. Đây là lớp chẩn đoán riêng, không phải "
-                "classifier ROI và không tự quyết định PASS/NG."
+                "PCB damage và Short circuit. Đây là lớp chẩn đoán riêng: nó chỉ có "
+                "lớp LỖI, không có lớp cho mối hàn lành, nên **không** dùng được cho "
+                "lượt 2 định vị chân ở dưới, và không tự quyết định PASS/NG."
             )
-            if _render_model_picker("solder_detector"):
+            if _render_model_picker("solder_segmenter"):
                 st.rerun()
             detector_upload = st.file_uploader(
-                "Detector solder (best.onnx)",
+                "Segmenter lỗi mối hàn (best.onnx)",
                 type=["onnx"],
-                key="solder_detector_model_uploader",
+                key="solder_segmenter_model_uploader",
                 help="ONNX YOLO instance-segmentation, task=segment.",
             )
             if detector_upload is not None:
                 try:
-                    _set_solder_detector_model(detector_upload)
+                    _set_solder_segmenter_model(detector_upload)
                 except ValueError as exc:
                     st.error(str(exc))
             detector_manifest_upload = st.file_uploader(
-                "Manifest detector (model_manifest.json)",
+                "Manifest segmenter (model_manifest.json)",
                 type=["json"],
-                key="solder_detector_manifest_uploader",
+                key="solder_segmenter_manifest_uploader",
                 help=(
                     "Bắt buộc: schema segmentation, class order, input và ngưỡng "
                     "post-processing của detector."
@@ -1702,25 +1764,28 @@ def _render_sidebar() -> bool:
             )
             if detector_manifest_upload is not None:
                 try:
-                    _set_solder_detector_manifest(detector_manifest_upload)
+                    _set_solder_segmenter_manifest(detector_manifest_upload)
                 except ValueError as exc:
                     st.error(str(exc))
-            detector_model_name = st.session_state.solder_detector_model_name
-            detector_manifest_name = st.session_state.solder_detector_manifest_name
+            detector_model_name = st.session_state.solder_segmenter_model_name
+            detector_manifest_name = st.session_state.solder_segmenter_manifest_name
             if detector_model_name:
-                st.success(f"Detector: {detector_model_name}")
+                st.success(f"Segmenter: {detector_model_name}")
             if detector_manifest_name:
-                st.success(f"Manifest detector: {detector_manifest_name}")
+                st.success(f"Manifest segmenter: {detector_manifest_name}")
             if detector_model_name and detector_manifest_name:
-                st.caption("Đủ cặp · active: models/active/solder/detector/")
+                st.caption("Đủ cặp · active: models/active/solder/segmenter/")
             elif detector_model_name or detector_manifest_name:
-                st.warning("Detector mới có một nửa cặp nên chưa được đưa vào runtime.")
+                st.warning("Segmenter mới có một nửa cặp nên chưa được đưa vào runtime.")
             if detector_model_name or detector_manifest_name:
-                if st.button("Gỡ detector solder", width="stretch"):
-                    _remove_solder_detector()
+                if st.button("Gỡ segmenter lỗi mối hàn", width="stretch"):
+                    _remove_solder_segmenter()
                     st.rerun()
             else:
-                st.caption("Chưa có detector lỗi mối hàn.")
+                st.caption("Chưa có segmenter lỗi mối hàn.")
+
+            st.divider()
+            _render_pass2_lead_controls()
 
             st.divider()
             st.markdown("#### Classifier ROI mối hàn · raw logits")
@@ -1798,11 +1863,11 @@ _MODEL_SLOTS = {
     # segmenter has a completely independent slot and contract.
     "solder": ("solder_classifier", "solder_model_path", "solder_model_name",
                "solder_manifest_path"),
-    "solder_detector": (
-        "solder_detector",
-        "solder_detector_model_path",
-        "solder_detector_model_name",
-        "solder_detector_manifest_path",
+    "solder_segmenter": (
+        "solder_segmenter",
+        "solder_segmenter_model_path",
+        "solder_segmenter_model_name",
+        "solder_segmenter_manifest_path",
     ),
 }
 
@@ -1900,8 +1965,8 @@ def _sync_renamed_model_folder(
             )
             if changed:
                 detection[key] = mapped
-                affected.add("solder_detector")
-                state["solder_detector_model_choice_reset"] = True
+                affected.add("solder_segmenter")
+                state["solder_segmenter_model_choice_reset"] = True
     return affected
 
 
@@ -2001,7 +2066,7 @@ def _use_model_entry(slot: str, entry: ModelEntry) -> None:
         st.session_state.config["solder_grading"]["model_path"] = str(entry.model_path)
         if entry.manifest_path is not None:
             st.session_state.config["solder_grading"]["manifest_path"] = str(entry.manifest_path)
-    if slot == "solder_detector":
+    if slot == "solder_segmenter":
         detection = st.session_state.config["solder_defect_detection"]
         detection["model_path"] = str(entry.model_path)
         if entry.manifest_path is not None:
@@ -4669,7 +4734,7 @@ def _remove_solder_model() -> None:
     )
 
 
-def _set_solder_detector_model(upload: Any) -> None:
+def _set_solder_segmenter_model(upload: Any) -> None:
     """Accept the board-level solder segmentation ONNX independently."""
 
     if upload is None:
@@ -4681,21 +4746,21 @@ def _set_solder_detector_model(upload: Any) -> None:
         raise ValueError("File detector rỗng hoặc vượt quá 256 MB.")
     digest = _digest(data)
     if digest in (
-        st.session_state.ignored_uploads.get("solder_detector_model"),
-        st.session_state.solder_detector_model_digest,
+        st.session_state.ignored_uploads.get("solder_segmenter_model"),
+        st.session_state.solder_segmenter_model_digest,
     ):
         return
     path = _materialize_upload(upload.name, data)
-    st.session_state.solder_detector_model_path = path
-    st.session_state.solder_detector_model_name = upload.name
-    st.session_state.solder_detector_model_digest = digest
+    st.session_state.solder_segmenter_model_path = path
+    st.session_state.solder_segmenter_model_name = upload.name
+    st.session_state.solder_segmenter_model_digest = digest
     st.session_state.config["solder_defect_detection"]["model_path"] = path
-    st.session_state.ignored_uploads["solder_detector_model"] = None
+    st.session_state.ignored_uploads["solder_segmenter_model"] = None
     _invalidate_after(6)
     st.session_state.messages.append(f"Đã nạp detector solder: {upload.name}")
 
 
-def _set_solder_detector_manifest(upload: Any) -> None:
+def _set_solder_segmenter_manifest(upload: Any) -> None:
     """Validate the segmenter contract and reject classifier manifests."""
 
     if upload is None:
@@ -4705,46 +4770,46 @@ def _set_solder_detector_manifest(upload: Any) -> None:
         raise ValueError("model_manifest.json detector rỗng hoặc vượt quá 1 MB.")
     digest = _digest(data)
     if digest in (
-        st.session_state.ignored_uploads.get("solder_detector_manifest"),
-        st.session_state.solder_detector_manifest_digest,
+        st.session_state.ignored_uploads.get("solder_segmenter_manifest"),
+        st.session_state.solder_segmenter_manifest_digest,
     ):
         return
     try:
         manifest = json.loads(data.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
-        st.session_state.ignored_uploads["solder_detector_manifest"] = digest
-        raise ValueError(f"Manifest detector không hợp lệ: {exc}") from exc
+        st.session_state.ignored_uploads["solder_segmenter_manifest"] = digest
+        raise ValueError(f"Manifest segmenter không hợp lệ: {exc}") from exc
     if (
         not isinstance(manifest, dict)
         or manifest.get("schema_version") != SOLDER_DETECTOR_MANIFEST_SCHEMA
         or manifest.get("task") != "solder_defect_instance_segmentation"
     ):
-        st.session_state.ignored_uploads["solder_detector_manifest"] = digest
+        st.session_state.ignored_uploads["solder_segmenter_manifest"] = digest
         raise ValueError(
             "Manifest không phải contract detector/segment mối hàn "
             f"({SOLDER_DETECTOR_MANIFEST_SCHEMA}, "
             "task=solder_defect_instance_segmentation)."
         )
     path = _materialize_upload(upload.name, data)
-    st.session_state.solder_detector_manifest_path = path
-    st.session_state.solder_detector_manifest_name = upload.name
-    st.session_state.solder_detector_manifest_digest = digest
+    st.session_state.solder_segmenter_manifest_path = path
+    st.session_state.solder_segmenter_manifest_name = upload.name
+    st.session_state.solder_segmenter_manifest_digest = digest
     st.session_state.config["solder_defect_detection"]["manifest_path"] = path
-    st.session_state.ignored_uploads["solder_detector_manifest"] = None
+    st.session_state.ignored_uploads["solder_segmenter_manifest"] = None
     _invalidate_after(6)
     st.session_state.messages.append(
         f"Đã nạp manifest detector solder: {upload.name}"
     )
 
 
-def _remove_solder_detector() -> None:
+def _remove_solder_segmenter() -> None:
     for key in (
-        "solder_detector_model_path",
-        "solder_detector_model_name",
-        "solder_detector_model_digest",
-        "solder_detector_manifest_path",
-        "solder_detector_manifest_name",
-        "solder_detector_manifest_digest",
+        "solder_segmenter_model_path",
+        "solder_segmenter_model_name",
+        "solder_segmenter_model_digest",
+        "solder_segmenter_manifest_path",
+        "solder_segmenter_manifest_name",
+        "solder_segmenter_manifest_digest",
     ):
         st.session_state[key] = None
     detection = st.session_state.config["solder_defect_detection"]
@@ -5056,7 +5121,7 @@ def _verdict_frame(verdicts: list[SolderVerdictRecord]) -> pd.DataFrame:
     )
 
 
-def _draw_solder_detector_overlay(
+def _draw_solder_segmenter_overlay(
     image: np.ndarray, findings: list[DetectionRecord]
 ) -> np.ndarray:
     """Draw board-level solder boxes and mask contours without changing verdicts."""
@@ -5096,10 +5161,10 @@ def _draw_solder_detector_overlay(
     return overlay
 
 
-def _render_solder_detector_findings(result: SolderResult) -> None:
+def _render_solder_segmenter_findings(result: SolderResult) -> None:
     """Render the detector as a distinct diagnostic layer."""
 
-    st.markdown("#### Detector lỗi mối hàn · toàn board")
+    st.markdown("#### Segmenter lỗi mối hàn · toàn board")
     if not result.detector_active:
         st.info(
             "Chưa bật detector toàn board. Có thể dùng độc lập classifier ROI + luật đo."
@@ -5130,7 +5195,7 @@ def _render_solder_detector_findings(result: SolderResult) -> None:
             _render_empty("Chưa có ảnh", "Hoàn thành bước 1 đến 4 trước.")
         else:
             _show_image(
-                _draw_solder_detector_overlay(source, findings),
+                _draw_solder_segmenter_overlay(source, findings),
                 "BBox + contour mask của YOLO Segment trên toàn board",
             )
     with table_tab:
@@ -5156,7 +5221,7 @@ def _render_solder_detector_findings(result: SolderResult) -> None:
 def _render_solder_grading(result: SolderResult) -> None:
     """Step 6.2: what each ROI was called, and on what evidence."""
 
-    _render_solder_detector_findings(result)
+    _render_solder_segmenter_findings(result)
     st.divider()
     st.markdown("#### Classifier ROI mối hàn + luật đo")
     verdicts = result.verdicts

@@ -1,0 +1,63 @@
+{
+  "schema_version": "aoi-board-measurements/1.0",
+  "status": "NOT_MEASURED",
+  "status_note": "Every numeric field is null on purpose. Fill them only from a measured physical board or official CAD. Guessed dimensions or scale taken from an image are forbidden by the review plan.",
+  "board_id": "mpi_pcb_gas_pump",
+  "revision": null,
+  "side": "component_side",
+  "units": null,
+  "board_width": null,
+  "board_height": null,
+  "cross_check_distance": null,
+  "origin": {
+    "x": null,
+    "y": null,
+    "definition": null
+  },
+  "axis_convention": {
+    "x_direction": null,
+    "y_direction": null
+  },
+  "rotation_convention": {
+    "zero_angle_definition": null,
+    "positive_direction": null
+  },
+  "mirror_definition_for_bottom_side": null,
+  "calibration": {
+    "camera_id": null,
+    "lens_id": null,
+    "working_distance": null,
+    "intrinsics_file": null,
+    "distortion_model": null,
+    "measured_scale": null,
+    "residual": null,
+    "calibration_version": null,
+    "measured_at": null
+  },
+  "production_eligible": false,
+  "pixel_frame_convention": {
+    "space_id": "golden_board_pixels",
+    "canvas": "golden.png of bundle bootstrap_pixel_v1 (4096x2816)",
+    "origin": "top-left pixel of golden.png",
+    "x_direction": "right",
+    "y_direction": "down",
+    "rotation_zero_angle_definition": "the vector from component body centre to its pin-1 / cathode / positive-lead marker points along +X (to the right in golden.png as stored)",
+    "rotation_positive_direction": "counter-clockwise as displayed in golden.png",
+    "rotation_range_deg": "[0, 360)",
+    "rotation_period_field": "record component symmetry separately (180 for unpolarised two-terminal parts, 360 for polarised or keyed parts)",
+    "applies_to": [
+      "pnp_pixels_REVIEWED.csv"
+    ],
+    "decided_by": "qnn",
+    "decided_at": "2026-08-24",
+    "rationale": "center_x_px/center_y_px are already in golden_board_pixels; the review plan forbids mixing two coordinate spaces inside one record, so rotation_deg must share that frame."
+  },
+  "canvas_to_board_design_transform": {
+    "status": "KNOWN_BUT_NOT_APPLIED",
+    "from": "golden_board_pixels",
+    "to": "board_design_upright (silkscreen reads right-way-up)",
+    "transform": "rotate 180 degrees about the canvas centre (2048.0, 1408.0)",
+    "evidence": "all board silkscreen and part markings (GILBARCO LEGACY, DALLAS DS1225AD, ZILOG Z84C0006PEC, RefDes U*/P*/R*) read upside-down on golden.png and correctly after a 180 degree rotation",
+    "note": "This is a rotation, not a mirror. Apply it as one explicit documented step when importing or exporting CAD/BOM/PnP data, which is normally expressed in the design-upright frame. Do not apply it silently to stored pixel coordinates."
+  }
+}

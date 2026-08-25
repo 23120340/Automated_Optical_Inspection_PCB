@@ -56,3 +56,8 @@ models/library/*
 # benchmark ở thư mục gốc là đủ để chúng lọt vào commit.
 /yolo*.pt
 /yolo*.yaml
+
+# Ảnh nền của app duyệt PnP: sinh lại được từ golden.png bằng
+# scripts/build_pnp_review_app.py. Chỉ là phương tiện xem, không phải dữ liệu
+# gắn nhãn, và nó là bản JPEG ~2.3MB của một file đã có trong repo.
+datasets/reference_sets/*/review/board.jpg

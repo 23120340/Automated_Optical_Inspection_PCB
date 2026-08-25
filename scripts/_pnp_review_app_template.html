@@ -1,0 +1,755 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PnP review — __BOARD__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1014; --panel:#161a21; --panel2:#1d222b; --line:#2a3039; --fg:#e7eaee;
+  --muted:#98a1ad; --accent:#4c9aff;
+  --st-todo:#8b949e; --st-accept:#3fb950; --st-correct:#58a6ff;
+  --st-reject:#f85149; --st-add:#bc8cff; --st-part:#d29922; --ghost:#6e7681;
+}
+@media (prefers-color-scheme:light){
+  :root{ --bg:#f4f6f8; --panel:#fff; --panel2:#eef1f5; --line:#d8dee6; --fg:#1a1d21;
+         --muted:#5a6472; --accent:#0b6bcb; --ghost:#8b949e; }
+}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:grid;grid-template-rows:auto 1fr;
+     font:14px/1.5 Montserrat,system-ui,-apple-system,"Segoe UI",sans-serif;
+     background:var(--bg);color:var(--fg);overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);
+       border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:14px;font-weight:700;margin:0}
+header .sp{flex:1}
+.prog{font-size:12px;color:var(--muted);white-space:nowrap}
+.bar{width:130px;height:6px;background:var(--panel2);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--st-accept);width:0;transition:width .25s}
+button{font:inherit;font-size:13px;padding:6px 12px;border-radius:7px;border:1px solid var(--line);
+       background:var(--panel2);color:var(--fg);cursor:pointer;transition:.15s}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.ghost{background:transparent}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;border-radius:0}
+
+main{display:grid;grid-template-columns:250px 1fr 330px;min-height:0}
+@media (max-width:1200px){ main{grid-template-columns:200px 1fr 300px} }
+.col{min-height:0;overflow-y:auto;background:var(--panel)}
+.col.mid{background:var(--bg);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#list{border-right:1px solid var(--line)}
+#form{border-left:1px solid var(--line);padding:14px}
+
+/* ---- stage shared by both modes ---- */
+#stagewrap{flex:1;position:relative;overflow:hidden;margin:10px;border-radius:10px;
+           background:#000;min-height:0}
+#stagewrap img{position:absolute;left:0;top:0;transform-origin:0 0;image-rendering:auto;
+               user-select:none;-webkit-user-drag:none}
+#layer{position:absolute;inset:0;pointer-events:none}
+.bx{position:absolute;border:2px solid var(--st-todo);pointer-events:auto;cursor:pointer}
+.bx.accept{border-color:var(--st-accept)} .bx.correct{border-color:var(--st-correct)}
+.bx.reject{border-color:var(--st-reject);border-style:dashed}
+.bx.add{border-color:var(--st-add)} .bx.part{border-color:var(--st-part)}
+.bx.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}
+.bx>span{position:absolute;top:-17px;left:-2px;font-size:10px;font-weight:600;padding:0 4px;
+   border-radius:3px;background:rgba(0,0,0,.75);color:#fff;white-space:nowrap}
+.gh{position:absolute;border:1px dashed var(--ghost);opacity:.75;pointer-events:auto;
+    cursor:copy;background:rgba(110,118,129,.10)}
+.gh:hover{opacity:1;border-color:var(--st-add);background:rgba(188,140,255,.18)}
+#editbox{position:absolute;border:2px solid #ff6a00;cursor:move;pointer-events:auto;
+   box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.h{position:absolute;width:13px;height:13px;background:#ff6a00;border:2px solid #fff;
+   border-radius:2px;pointer-events:auto}
+.h.nw{left:-7px;top:-7px;cursor:nwse-resize} .h.ne{right:-7px;top:-7px;cursor:nesw-resize}
+.h.sw{left:-7px;bottom:-7px;cursor:nesw-resize} .h.se{right:-7px;bottom:-7px;cursor:nwse-resize}
+.hint{font-size:11.5px;color:var(--muted);text-align:center;padding:0 10px 8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:11.5px;
+   color:var(--muted);padding:0 10px 8px}
+.legend i{display:inline-block;width:10px;height:10px;border:2px solid;border-radius:2px;
+   margin-right:4px;vertical-align:-1px}
+
+/* ---- list ---- */
+.item{display:flex;align-items:center;gap:8px;padding:7px 11px;border-bottom:1px solid var(--line);
+      cursor:pointer;font-size:12px}
+.item:hover{background:var(--panel2)}
+.item.sel{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.item .rid{font-weight:600}
+.item .cls{color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:99px;background:var(--st-todo);flex:none}
+.dot.accept{background:var(--st-accept)} .dot.correct{background:var(--st-correct)}
+.dot.reject{background:var(--st-reject)} .dot.add{background:var(--st-add)}
+.dot.part{background:var(--st-part)}
+
+/* ---- form ---- */
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+      color:var(--muted);margin:12px 0 4px;font-weight:600}
+input,select,textarea{width:100%;font:inherit;font-size:13px;padding:7px 9px;border-radius:6px;
+      border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+textarea{resize:vertical;min-height:52px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;
+      border-color:transparent}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.chip{padding:4px 9px;font-size:12px;border-radius:99px;border:1px solid var(--line);
+      background:var(--bg);cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.chip.rej.on{background:var(--st-reject);border-color:var(--st-reject)}
+.note{background:var(--panel2);border-left:3px solid var(--st-part);padding:9px 11px;
+      border-radius:0 6px 6px 0;font-size:12px;line-height:1.55;margin-bottom:6px}
+.meta{font-size:11.5px;color:var(--muted);padding:2px 0 0}
+kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:4px;padding:1px 5px;font-size:11px;font-family:inherit}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+   background:var(--panel);border:1px solid var(--line);padding:9px 16px;border-radius:8px;
+   font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60;
+   box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#help{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:50;
+   padding:28px;overflow-y:auto}
+#help.on{display:block}
+#help .sheet{max-width:860px;margin:0 auto;background:var(--panel);border:1px solid var(--line);
+   border-radius:12px;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#help h2{font-size:17px;margin:0 0 4px}
+#help h3{font-size:14px;margin:22px 0 6px;color:var(--accent)}
+#help p,#help li{font-size:13px;line-height:1.65}
+#help table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+#help th,#help td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);
+   vertical-align:top}
+#help th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
+#help td:first-child{white-space:nowrap;font-weight:600}
+#help .close{position:sticky;top:0;float:right}
+#help .ex{background:var(--panel2);border-radius:8px;padding:12px 14px;margin:10px 0;
+   font-size:13px;line-height:1.7}
+code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-size:.92em}
+</style>
+
+<header>
+  <h1>PnP review — __BOARD__</h1>
+  <div class="seg">
+    <button id="mOver">Toàn board</button><button id="mEdit">Chỉnh chi tiết</button>
+  </div>
+  <button class="ghost" id="btnGhosts">Hiện chỗ bỏ sót</button>
+  <select id="ghostMin" style="width:auto;padding:5px 7px;font-size:12px" title="Lọc theo số frame cluster xuất hiện">
+    <option value="1">≥1 frame</option>
+    <option value="2" selected>≥2 frame</option>
+    <option value="3">≥3 frame</option>
+    <option value="4">≥4 frame</option>
+    <option value="6">≥6 frame</option>
+  </select>
+  <div class="bar"><i id="pbar"></i></div>
+  <span class="prog" id="ptext">0 / 0</span>
+  <span class="sp"></span>
+  <button class="ghost" id="btnHelp">? Ý nghĩa các trường</button>
+  <button class="ghost" id="btnOverlay">Xuất overlay PNG</button>
+  <button class="ghost" id="btnImport">Nhập CSV…</button>
+  <input type="file" id="fileCsv" accept=".csv" hidden>
+  <button class="primary" id="btnExport">Xuất CSV</button>
+</header>
+
+<main>
+  <div class="col" id="list"></div>
+
+  <div class="col mid">
+    <div id="stagewrap">
+      <img id="board" alt="">
+      <div id="layer"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="col" id="form">
+    <div class="note">
+      Chữ trên board đọc <b>ngược</b> là đúng như mong đợi (canvas xoay 180&deg; so với
+      chiều đọc silkscreen). Góc bạn đo <b>trực tiếp trên ảnh này</b> chính là góc cần
+      ghi — <b>không</b> cộng trừ 180&deg;.
+    </div>
+    <div class="meta" id="meta"></div>
+
+    <label>Action</label>
+    <div class="chips" id="chipAction"></div>
+
+    <label>Verified RefDes <span style="text-transform:none">(đọc từ silkscreen)</span></label>
+    <input id="fRef" placeholder="vd. U13, R37, Z2 — để trống nếu chưa chắc">
+
+    <div class="row">
+      <div><label>Class</label><input id="fClass"></div>
+      <div><label>Footprint</label><input id="fFoot" placeholder="vd. DIP-20"></div>
+    </div>
+
+    <div class="row">
+      <div><label>Rotation (deg)</label><input id="fRot" type="number" min="0" max="359.9" step="0.1"></div>
+      <div><label>Polarity / pin 1</label><input id="fPol" placeholder="vd. pin1_right"></div>
+    </div>
+    <div class="chips" id="chipRot"></div>
+
+    <div class="row">
+      <div><label>Review status</label><select id="fStatus"></select></div>
+      <div><label>Label source</label><select id="fSrc"></select></div>
+    </div>
+
+    <label>Notes</label>
+    <textarea id="fNotes"></textarea>
+
+    <label>Toạ độ tâm (golden_board_pixels)</label>
+    <input id="fCenter" readonly>
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button id="btnReset" class="ghost">Đặt lại box</button>
+      <button id="btnDelete" class="ghost">Xoá dòng add</button>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<div id="help"><div class="sheet">
+  <button class="close" id="btnHelpClose">Đóng</button>
+  <h2>Ý nghĩa từng trường</h2>
+  <p style="color:var(--muted)">Nguyên tắc chung: <b>không chắc thì để trống</b> và giữ
+  <code>review_status = draft</code>. Ô trống trung thực hơn một giá trị đoán bừa.</p>
+
+  <h3>Hai chế độ</h3>
+  <table>
+    <tr><td>Toàn board</td><td>Nhìn tổng thể để biết đã phủ hết chưa. Bấm một box để mở nó.
+      Bật <i>Hiện chỗ bỏ sót</i> để thấy các cluster detector tìm ra nhưng không đưa vào
+      queue — bấm vào một cái là tạo ngay dòng <code>add</code> với box có sẵn.
+      <br><b>Các ứng viên này rất nhiễu</b>: trong 221 cái thì 91 chỉ xuất hiện ở
+      <b>1 frame</b>, 85 cái chồng lên nhau, và 69 cái trùng chỗ đã có trong queue.
+      App đã tự ẩn hẳn nhóm trùng queue; ô <i>≥N frame</i> lọc phần còn lại.
+      Mặc định <code>≥2 frame</code> còn 78 ứng viên. Hạ xuống ≥1 sẽ thấy nhiều rác.
+      <b>Đây là gợi ý vị trí, không phải danh sách phải làm</b> — vẫn phải nhìn ảnh
+      rồi mới quyết.
+      Bấm vào vùng board trống cũng tạo dòng <code>add</code> mới tại đó.</td></tr>
+    <tr><td>Chỉnh chi tiết</td><td>Phóng to quanh một linh kiện để đọc silkscreen và kéo box.
+      Lăn chuột để zoom, kéo nền để di chuyển.</td></tr>
+  </table>
+
+  <h3>ACTION — quyết định của bạn về đề xuất này</h3>
+  <table>
+    <tr><th>Giá trị</th><th>Chọn khi nào</th></tr>
+    <tr><td>— chưa quyết —</td><td>Chưa xem xong. Trạng thái mặc định.</td></tr>
+    <tr><td>accept</td><td>Có linh kiện thật, box ôm đúng thân, class đúng. Không cần sửa gì.</td></tr>
+    <tr><td>correct</td><td>Có linh kiện thật nhưng box lệch/sai kích thước, hoặc class sai.
+      Kéo box cho đúng, sửa class, rồi chọn ô này.</td></tr>
+    <tr><td>reject</td><td><b>Không</b> có linh kiện ở đây: via, pad trống, vệt silkscreen,
+      bóng đổ, vùng nền.</td></tr>
+    <tr><td>add</td><td>Tự gán cho dòng bạn tạo từ chế độ Toàn board.</td></tr>
+  </table>
+
+  <h3>VERIFIED REFDES — mã đọc từ silkscreen</h3>
+  <p>Chữ in trắng cạnh linh kiện: <code>U13</code>, <code>R37</code>, <code>C25</code>,
+  <code>Z2</code>, <code>P205</code>, <code>CR3</code>… Đọc chắc thì điền, mờ hoặc bị che
+  thì <b>để trống</b>. Đừng suy từ linh kiện bên cạnh — board này đặt mã ở nhiều phía.</p>
+
+  <h3>CLASS — họ linh kiện</h3>
+  <p>Detector điền sẵn, sửa nếu sai. Giá trị đang dùng: <code>ic</code>,
+  <code>capacitor</code>, <code>resistor</code>, <code>led</code>, <code>connector</code>,
+  <code>diode</code>, <code>buzzer</code>.</p>
+
+  <h3>FOOTPRINT — kiểu chân vật lý, KHÔNG phải chức năng</h3>
+  <table>
+    <tr><th>Đúng</th><th>Sai</th></tr>
+    <tr><td>DIP-20, DIP-14, DIP-28</td><td>"Z80 CPU", "SRAM", "latch"</td></tr>
+    <tr><td>axial-lead, radial-can</td><td>"điện trở kéo lên", "tụ lọc"</td></tr>
+    <tr><td>TO-220, HC-49</td><td>"nguồn", "dao động"</td></tr>
+  </table>
+  <p>Board này gần như toàn <b>DIP xuyên lỗ</b>: đếm chân hai bên rồi ghi
+  <code>DIP-&lt;tổng chân&gt;</code>. Điện trở/diode thân trụ nằm ngang là
+  <code>axial-lead</code>.</p>
+
+  <h3>ROTATION (DEG)</h3>
+  <p>Kẻ vector từ <b>tâm thân</b> tới <b>đầu có pin&nbsp;1</b> (hoặc cathode / cực dương).
+  Vector đó chỉ về đâu trên <b>chính ảnh bạn đang nhìn</b>:</p>
+  <table>
+    <tr><th>Vector chỉ về</th><th>Ghi</th></tr>
+    <tr><td>Phải →</td><td><code>0</code></td></tr>
+    <tr><td>Lên ↑</td><td><code>90</code></td></tr>
+    <tr><td>Trái ←</td><td><code>180</code></td></tr>
+    <tr><td>Xuống ↓</td><td><code>270</code></td></tr>
+  </table>
+  <div class="ex">
+    <b>Tìm pin 1 trên IC DIP của board này:</b><br>
+    ✅ Dấu tin cậy là <b>khía bán nguyệt lõm vào một đầu</b> thân IC — đầu có khía là
+    đầu pin&nbsp;1.<br>
+    ⚠️ <b>Đừng nhầm với vòng tròn lõm giữa thân</b>: đó là vết đẩy khuôn (ejector mark)
+    khi ép nhựa, xuất hiện tùy tiện và <b>không</b> chỉ pin&nbsp;1. Nhiều IC trên board
+    này có cả hai, nằm ở hai đầu đối nhau.
+  </div>
+  <p><b>Linh kiện 2 chân không phân cực</b> (điện trở, tụ gốm): không có pin&nbsp;1.
+  Dùng trục dài, chọn đầu nghiêng về phía phải hơn, nên góc luôn trong
+  <code>[0, 180)</code>. Ghi thêm vào Notes: <code>rotation_period=180</code>.</p>
+  <p>Không thấy rõ dấu pin&nbsp;1 → <b>để trống</b>, ghi lý do vào Notes.</p>
+
+  <h3>POLARITY / PIN 1</h3>
+  <p><code>pin1_right</code>, <code>pin1_left</code>, <code>cathode_top</code>,
+  <code>plus_left</code>… Không phân cực → để trống.</p>
+
+  <h3>REVIEW STATUS</h3>
+  <table>
+    <tr><td>draft</td><td>Chưa xong hoặc còn nghi ngờ. Mặc định.</td></tr>
+    <tr><td>reviewed</td><td>Đã nhìn kỹ và điền xong bằng mắt.</td></tr>
+    <tr><td>verified</td><td>Đã đối chiếu BOM / schematic / CAD. Chỉ dùng khi thật sự có tài liệu.</td></tr>
+    <tr><td>rejected</td><td>Đã kết luận không phải linh kiện.</td></tr>
+  </table>
+
+  <h3>LABEL SOURCE</h3>
+  <table>
+    <tr><td>pseudo_label</td><td>Máy đề xuất, người chưa xác nhận. Mặc định.</td></tr>
+    <tr><td>visual_transcription</td><td>Chép lại từ silkscreen / mã in trên linh kiện.</td></tr>
+    <tr><td>human_verified</td><td>Bạn nhìn và xác nhận. App tự đặt khi chọn action.</td></tr>
+    <tr><td>bom_or_cad</td><td>Lấy từ BOM / schematic / CAD chính thức.</td></tr>
+    <tr><td>unknown</td><td>Không xác định được nguồn.</td></tr>
+  </table>
+
+  <h3>NOTES</h3>
+  <p>Ghi lý do quyết định, nhất là khi <code>reject</code> hoặc để trống trường nào đó.
+  Ví dụ: <i>"box nằm trên via, không có thân linh kiện"</i>,
+  <i>"không đọc được RefDes vì bị C25 che"</i>, <i>"rotation_period=180"</i>.</p>
+
+  <h3>Ví dụ một dòng điền xong</h3>
+  <div class="ex">
+    action <code>correct</code> · verified_refdes <code>U10</code> · class <code>ic</code> ·
+    footprint <code>DIP-20</code> · rotation_deg <code>0</code> ·
+    polarity <code>pin1_right</code> · review_status <code>reviewed</code> ·
+    label_source <code>visual_transcription</code><br>
+    notes: <i>"kéo box hẹp lại cho khớp thân IC; khía pin 1 ở đầu phải"</i>
+  </div>
+</div></div>
+
+<script>
+const DATA = __DATA__;
+const KEY  = "pnpreview2:" + DATA.golden_sha256;
+const ACTIONS  = ["", "accept", "correct", "add", "reject"];
+const STATUSES = ["draft", "reviewed", "verified", "rejected"];
+const SOURCES  = ["pseudo_label", "human_verified", "bom_or_cad", "visual_transcription", "unknown"];
+const FIELDS   = ["record_id","source_auto_id","action","verified_refdes","class","footprint",
+                  "center_x_px","center_y_px","rotation_deg","polarity","review_status",
+                  "label_source","notes"];
+const BW = DATA.board_w, BH = DATA.board_h;
+
+let recs = load() || DATA.records.map(r => ({...r}));
+let cur = 0, mode = "over", showGhosts = false;
+let view = {z: 1, vx: 0, vy: 0};   // z = displayed px per board px
+
+const wrap  = document.getElementById("stagewrap");
+const board = document.getElementById("board");
+const layer = document.getElementById("layer");
+board.src = DATA.board_image;
+
+function load(){ try{ const s=localStorage.getItem(KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(recs)); }catch(e){} }
+function toast(m){
+  const t=document.getElementById("toast");
+  t.textContent=m; t.classList.add("on");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1900);
+}
+function stateOf(r){
+  if(!r.action) return "";
+  if(r.action==="reject") return "reject";
+  if(r.action==="add")    return r.verified_refdes ? "add" : "part";
+  return r.verified_refdes ? r.action : "part";
+}
+
+/* ================= view maths ================= */
+function applyView(){
+  board.style.width = BW + "px";
+  board.style.transform = `translate(${-view.vx*view.z}px,${-view.vy*view.z}px) scale(${view.z})`;
+}
+function toScreen(x,y){ return [(x-view.vx)*view.z, (y-view.vy)*view.z]; }
+function toBoard(sx,sy){ return [sx/view.z+view.vx, sy/view.z+view.vy]; }
+function fitAll(){
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  view.z = Math.min(w/BW, h/BH);
+  view.vx = -(w/view.z - BW)/2;
+  view.vy = -(h/view.z - BH)/2;
+  applyView();
+}
+function focusRec(r, zoom){
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  const bw=r.x2_px-r.x1_px, bh=r.y2_px-r.y1_px;
+  const pad=Math.max(bw,bh)*0.9+80;
+  view.z = zoom || Math.min(w/(bw+pad*2), h/(bh+pad*2), 4);
+  const cx=(r.x1_px+r.x2_px)/2, cy=(r.y1_px+r.y2_px)/2;
+  view.vx = cx - w/view.z/2;
+  view.vy = cy - h/view.z/2;
+  applyView();
+}
+
+/* ================= rendering ================= */
+function boxDiv(r,i){
+  const d=document.createElement("div");
+  d.className="bx "+stateOf(r)+(i===cur?" sel":"");
+  const [x,y]=toScreen(r.x1_px,r.y1_px);
+  d.style.cssText+=`left:${x}px;top:${y}px;width:${(r.x2_px-r.x1_px)*view.z}px;
+                    height:${(r.y2_px-r.y1_px)*view.z}px`;
+  if(view.z>0.25){
+    const s=document.createElement("span");
+    s.textContent=(r.verified_refdes||r.record_id.replace("PNP_",""))+(r.action?" · "+r.action:"");
+    d.appendChild(s);
+  }
+  d.onclick=e=>{ e.stopPropagation(); cur=i; setMode("edit"); };
+  return d;
+}
+function ghostDiv(g){
+  const d=document.createElement("div");
+  d.className="gh";
+  const [x,y]=toScreen(g.x1,g.y1);
+  d.style.cssText+=`left:${x}px;top:${y}px;width:${(g.x2-g.x1)*view.z}px;
+                    height:${(g.y2-g.y1)*view.z}px`;
+  d.title=`${g.id} · ${g.cls} · ${g.obs} frame — bấm để thêm`;
+  d.onclick=e=>{ e.stopPropagation(); addFromGhost(g); };
+  return d;
+}
+let editBox=null;
+function visibleGhosts(){
+  // A ghost that repeats a queue site would create a duplicate row, so it is
+  // never offered; the rest are filtered by how many frames saw them.
+  const min=parseInt(document.getElementById("ghostMin").value,10);
+  return DATA.ghosts.filter(g=>!g.dupq && g.obs>=min);
+}
+function renderStage(){
+  layer.innerHTML=""; editBox=null;
+  if(showGhosts) visibleGhosts().forEach(g=>layer.appendChild(ghostDiv(g)));
+  recs.forEach((r,i)=>{ if(mode==="over"||i!==cur) layer.appendChild(boxDiv(r,i)); });
+  if(mode==="edit" && recs[cur]) layer.appendChild(makeEditBox());
+}
+function makeEditBox(){
+  const r=recs[cur];
+  const d=document.createElement("div");
+  d.id="editbox";
+  const [x,y]=toScreen(r.x1_px,r.y1_px);
+  d.style.cssText+=`left:${x}px;top:${y}px;width:${(r.x2_px-r.x1_px)*view.z}px;
+                    height:${(r.y2_px-r.y1_px)*view.z}px`;
+  ["nw","ne","sw","se"].forEach(k=>{
+    const h=document.createElement("i"); h.className="h "+k;
+    h.addEventListener("pointerdown",e=>{ e.stopPropagation(); startDrag(e,k); });
+    d.appendChild(h);
+  });
+  d.addEventListener("pointerdown",e=>{ if(e.target===d){ e.stopPropagation(); startDrag(e,"move"); }});
+  editBox=d;
+  return d;
+}
+function syncCentre(){
+  const r=recs[cur];
+  r.center_x_px=((r.x1_px+r.x2_px)/2).toFixed(3);
+  r.center_y_px=((r.y1_px+r.y2_px)/2).toFixed(3);
+  document.getElementById("fCenter").value=r.center_x_px+", "+r.center_y_px;
+}
+function renderList(){
+  const el=document.getElementById("list"); el.innerHTML="";
+  recs.forEach((r,i)=>{
+    const d=document.createElement("div");
+    d.className="item"+(i===cur?" sel":"");
+    d.innerHTML=`<span class="dot ${stateOf(r)}"></span>
+      <span class="rid">${r.record_id.replace("PNP_","")}</span>
+      <span class="cls">${r.class||"—"}</span><span style="flex:1"></span>
+      <span class="cls">${r.verified_refdes||""}</span>`;
+    d.onclick=()=>{ cur=i; setMode("edit"); };
+    el.appendChild(d);
+  });
+  const done=recs.filter(r=>r.action).length;
+  document.getElementById("pbar").style.width=(done/recs.length*100)+"%";
+  document.getElementById("ptext").textContent=done+" / "+recs.length;
+  const sel=el.querySelector(".item.sel"); if(sel) sel.scrollIntoView({block:"nearest"});
+}
+function renderMeta(){
+  const r=recs[cur];
+  document.getElementById("meta").innerHTML = r.source_auto_id
+    ? `<b>${r.record_id}</b> · ${r.source_auto_id} · detector <b>${r.det_class||"—"}</b>
+       · support ${r.support_ratio} (${r.observation_count} frame) · purity ${r.class_purity}
+       · MAD ${r.center_mad_px} px · gate <b>${r.detector_gate}</b>`
+    : `<b>${r.record_id}</b> · dòng tự thêm (không có đề xuất detector)`;
+}
+const LEGEND=[["st-todo","chưa duyệt"],["st-part","đã chọn action, thiếu RefDes"],
+  ["st-accept","accept"],["st-correct","correct"],["st-add","add"],["st-reject","reject"]];
+function renderChrome(){
+  document.getElementById("legend").innerHTML =
+    LEGEND.map(([c,t])=>`<span><i style="border-color:var(--${c})"></i>${t}</span>`).join("")
+    + (showGhosts?`<span><i style="border-color:var(--ghost);border-style:dashed"></i>ứng viên detector chưa vào queue (${visibleGhosts().length}/${DATA.ghosts.length})</span>`:"");
+  document.getElementById("hint").textContent = mode==="over"
+    ? "Bấm một box để mở · bấm vùng board trống để thêm linh kiện mới · lăn chuột để zoom"
+    : "Kéo giữa khung để dời box · kéo 4 góc để chỉnh · lăn chuột zoom · kéo nền để di chuyển · ← → đổi dòng · R đặt lại box";
+  document.getElementById("mOver").classList.toggle("on",mode==="over");
+  document.getElementById("mEdit").classList.toggle("on",mode==="edit");
+  document.getElementById("btnGhosts").classList.toggle("on",showGhosts);
+  document.getElementById("btnDelete").style.display = recs[cur]&&!recs[cur].source_auto_id?"":"none";
+}
+function renderAll(){ renderStage(); renderList(); renderForm(); renderMeta(); renderChrome(); syncCentre(); }
+function setMode(m){
+  mode=m;
+  if(m==="over") fitAll(); else focusRec(recs[cur]);
+  renderAll();
+}
+
+/* ================= interaction ================= */
+let drag=null;
+function startDrag(e,kind){
+  e.preventDefault();
+  const r=recs[cur];
+  drag={kind,sx:e.clientX,sy:e.clientY,x1:r.x1_px,y1:r.y1_px,x2:r.x2_px,y2:r.y2_px};
+  window.addEventListener("pointermove",onMove);
+  window.addEventListener("pointerup",onUp);
+}
+function onMove(e){
+  if(!drag) return;
+  const r=recs[cur];
+  const dx=(e.clientX-drag.sx)/view.z, dy=(e.clientY-drag.sy)/view.z;
+  if(drag.kind==="pan"){
+    view.vx=drag.vx-(e.clientX-drag.sx)/view.z;
+    view.vy=drag.vy-(e.clientY-drag.sy)/view.z;
+    applyView(); renderStage(); return;
+  }
+  if(drag.kind==="move"){
+    r.x1_px=drag.x1+dx; r.x2_px=drag.x2+dx; r.y1_px=drag.y1+dy; r.y2_px=drag.y2+dy;
+  }else{
+    if(drag.kind.includes("w")) r.x1_px=Math.min(drag.x1+dx,drag.x2-4);
+    if(drag.kind.includes("e")) r.x2_px=Math.max(drag.x2+dx,drag.x1+4);
+    if(drag.kind.includes("n")) r.y1_px=Math.min(drag.y1+dy,drag.y2-4);
+    if(drag.kind.includes("s")) r.y2_px=Math.max(drag.y2+dy,drag.y1+4);
+  }
+  if(editBox){
+    const [x,y]=toScreen(r.x1_px,r.y1_px);
+    editBox.style.left=x+"px"; editBox.style.top=y+"px";
+    editBox.style.width=(r.x2_px-r.x1_px)*view.z+"px";
+    editBox.style.height=(r.y2_px-r.y1_px)*view.z+"px";
+  }
+  syncCentre();
+}
+function onUp(){
+  const wasBox = drag && drag.kind!=="pan";
+  drag=null;
+  window.removeEventListener("pointermove",onMove);
+  window.removeEventListener("pointerup",onUp);
+  if(wasBox){ save(); renderList(); }
+}
+wrap.addEventListener("pointerdown",e=>{
+  if(e.target.closest(".bx,.gh,#editbox,.h")) return;
+  if(mode==="edit"){
+    drag={kind:"pan",sx:e.clientX,sy:e.clientY,vx:view.vx,vy:view.vy};
+    window.addEventListener("pointermove",onMove);
+    window.addEventListener("pointerup",onUp);
+  }else{
+    const rc=wrap.getBoundingClientRect();
+    const [bx,by]=toBoard(e.clientX-rc.left,e.clientY-rc.top);
+    if(bx<0||by<0||bx>BW||by>BH) return;
+    addAt(bx,by);
+  }
+});
+wrap.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const rc=wrap.getBoundingClientRect();
+  const mx=e.clientX-rc.left, my=e.clientY-rc.top;
+  const [bx,by]=toBoard(mx,my);
+  const f=e.deltaY<0?1.18:1/1.18;
+  view.z=Math.max(0.05,Math.min(8,view.z*f));
+  view.vx=bx-mx/view.z; view.vy=by-my/view.z;
+  applyView(); renderStage();
+},{passive:false});
+window.addEventListener("resize",()=>{ if(mode==="over") fitAll(); renderStage(); });
+
+/* ================= add / delete ================= */
+function nextAddId(){
+  const n=recs.filter(r=>!r.source_auto_id).length+1;
+  return "PNP_ADD_"+String(n).padStart(3,"0");
+}
+function pushAdd(x1,y1,x2,y2,cls,note){
+  recs.push({
+    record_id: nextAddId(), source_auto_id:"", action:"add", verified_refdes:"",
+    class: cls||"", det_class:"", footprint:"", center_x_px:"", center_y_px:"",
+    rotation_deg:"", polarity:"", review_status:"draft", label_source:"human_verified",
+    notes: note||"manually added; detector did not propose this site",
+    x1_px:x1, y1_px:y1, x2_px:x2, y2_px:y2,
+    support_ratio:"", observation_count:"", class_purity:"", center_mad_px:"", detector_gate:""
+  });
+  cur=recs.length-1; save(); setMode("edit");
+}
+function addAt(bx,by){
+  const s=60;
+  pushAdd(bx-s/2,by-s/2,bx+s/2,by+s/2,"");
+  toast("Đã thêm dòng mới — kéo box cho khớp linh kiện");
+}
+function addFromGhost(g){
+  const dup=recs.find(r=>r.notes&&r.notes.includes(g.id));
+  if(dup){ cur=recs.indexOf(dup); setMode("edit"); toast("Chỗ này đã được thêm rồi"); return; }
+  pushAdd(g.x1,g.y1,g.x2,g.y2,g.cls,
+    `added from consensus audit cluster ${g.id}; ${g.obs} frame, support ${g.sup}; not in the generated PnP queue`);
+  toast("Đã thêm từ "+g.id+" — kiểm tra lại box và class");
+}
+document.getElementById("btnDelete").onclick=()=>{
+  if(recs[cur].source_auto_id) return;
+  recs.splice(cur,1); cur=Math.max(0,cur-1); save(); setMode(mode);
+  toast("Đã xoá dòng");
+};
+document.getElementById("btnReset").onclick=()=>{
+  const r=recs[cur], o=DATA.records.find(x=>x.record_id===r.record_id);
+  if(!o){ toast("Dòng tự thêm — không có box gốc"); return; }
+  ["x1_px","y1_px","x2_px","y2_px"].forEach(k=>r[k]=o[k]);
+  save(); renderAll(); toast("Đã đặt lại box gốc");
+};
+
+/* ================= form ================= */
+function chips(host,values,get,set,rej){
+  host.innerHTML="";
+  values.forEach(v=>{
+    const c=document.createElement("span");
+    c.className="chip"+(rej&&v==="reject"?" rej":"")+(get()===v?" on":"");
+    c.textContent=v===""?"— chưa quyết —":v;
+    c.onclick=()=>{ set(v); save(); renderAll(); };
+    host.appendChild(c);
+  });
+}
+function fillSelect(el,values){ el.innerHTML=values.map(v=>`<option>${v}</option>`).join(""); }
+fillSelect(document.getElementById("fStatus"),STATUSES);
+fillSelect(document.getElementById("fSrc"),SOURCES);
+function bind(id,key){
+  const el=document.getElementById(id);
+  el.addEventListener("input",()=>{ recs[cur][key]=el.value; save(); renderList(); renderStage(); });
+}
+["fRef:verified_refdes","fClass:class","fFoot:footprint","fRot:rotation_deg",
+ "fPol:polarity","fNotes:notes","fStatus:review_status","fSrc:label_source"]
+ .forEach(s=>{ const [a,b]=s.split(":"); bind(a,b); });
+
+function renderForm(){
+  const r=recs[cur]; if(!r) return;
+  document.getElementById("fRef").value=r.verified_refdes||"";
+  document.getElementById("fClass").value=r.class||"";
+  document.getElementById("fFoot").value=r.footprint||"";
+  document.getElementById("fRot").value=r.rotation_deg||"";
+  document.getElementById("fPol").value=r.polarity||"";
+  document.getElementById("fNotes").value=r.notes||"";
+  document.getElementById("fStatus").value=r.review_status||"draft";
+  document.getElementById("fSrc").value=r.label_source||"pseudo_label";
+  chips(document.getElementById("chipAction"),ACTIONS,()=>recs[cur].action||"",v=>{
+    recs[cur].action=v;
+    if(v&&recs[cur].label_source==="pseudo_label") recs[cur].label_source="human_verified";
+    if(v&&recs[cur].review_status==="draft")
+      recs[cur].review_status = v==="reject" ? "rejected" : "reviewed";
+  },true);
+  chips(document.getElementById("chipRot"),["0","90","180","270"],
+    ()=>String(recs[cur].rotation_deg||""),v=>{ recs[cur].rotation_deg=v; });
+}
+
+/* ================= import / export ================= */
+function csvCell(v){
+  v=(v===undefined||v===null)?"":String(v);
+  return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+document.getElementById("btnExport").onclick=()=>{
+  const lines=[FIELDS.join(",")];
+  recs.forEach(r=>lines.push(FIELDS.map(f=>csvCell(r[f])).join(",")));
+  const blob=new Blob(["﻿"+lines.join("\r\n")+"\r\n"],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="pnp_pixels_REVIEWED.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+  toast("Đã xuất pnp_pixels_REVIEWED.csv ("+recs.length+" dòng)");
+};
+document.getElementById("btnOverlay").onclick=()=>{
+  const c=document.createElement("canvas"); c.width=BW; c.height=BH;
+  const x=c.getContext("2d");
+  x.drawImage(board,0,0,BW,BH);
+  const COL={"":"#8b949e",accept:"#3fb950",correct:"#58a6ff",reject:"#f85149",
+             add:"#bc8cff",part:"#d29922"};
+  x.lineWidth=4; x.font="600 26px sans-serif"; x.textBaseline="bottom";
+  recs.forEach(r=>{
+    const col=COL[stateOf(r)]||COL[""];
+    x.strokeStyle=col;
+    x.setLineDash(stateOf(r)==="reject"?[12,8]:[]);
+    x.strokeRect(r.x1_px,r.y1_px,r.x2_px-r.x1_px,r.y2_px-r.y1_px);
+    const lab=(r.verified_refdes||r.record_id.replace("PNP_",""))+(r.action?" · "+r.action:"");
+    x.setLineDash([]);
+    const w=x.measureText(lab).width+10;
+    x.fillStyle="rgba(0,0,0,.72)"; x.fillRect(r.x1_px,r.y1_px-30,w,30);
+    x.fillStyle=col; x.fillText(lab,r.x1_px+5,r.y1_px-4);
+  });
+  c.toBlob(b=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(b); a.download="overlay_pnp_REVIEWED.png"; a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Đã xuất overlay_pnp_REVIEWED.png");
+  },"image/png");
+};
+document.getElementById("btnImport").onclick=()=>document.getElementById("fileCsv").click();
+document.getElementById("fileCsv").onchange=ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const rows=parseCsv(rd.result); let n=0, added=0;
+    rows.forEach(row=>{
+      let t=recs.find(r=>r.record_id===row.record_id);
+      if(!t){
+        // A row the CSV has but this session does not: an "add" made elsewhere.
+        t={...row, x1_px:0,y1_px:0,x2_px:60,y2_px:60};
+        recs.push(t); added++;
+      }
+      FIELDS.forEach(k=>{ if(row[k]!==undefined) t[k]=row[k]; });
+      // A CSV carries the centre but not the corners. Shift the stored box onto
+      // the imported centre, keeping its size, so the drawn box and the exported
+      // centre cannot drift apart on the next redraw.
+      const cx=parseFloat(row.center_x_px), cy=parseFloat(row.center_y_px);
+      if(isFinite(cx)&&isFinite(cy)){
+        const w=t.x2_px-t.x1_px, h=t.y2_px-t.y1_px;
+        t.x1_px=cx-w/2; t.x2_px=cx+w/2; t.y1_px=cy-h/2; t.y2_px=cy+h/2;
+      }
+      n++;
+    });
+    save(); setMode(mode);
+    toast("Đã nhập "+n+" dòng"+(added?" (thêm mới "+added+")":""));
+  };
+  rd.readAsText(f);
+};
+function parseCsv(text){
+  const out=[], lines=text.replace(/^﻿/,"").split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return out;
+  const split=l=>{
+    const a=[]; let c="",q=false;
+    for(let i=0;i<l.length;i++){
+      const ch=l[i];
+      if(q){ if(ch==='"'){ if(l[i+1]==='"'){ c+='"'; i++; } else q=false; } else c+=ch; }
+      else if(ch==='"') q=true;
+      else if(ch===","){ a.push(c); c=""; }
+      else c+=ch;
+    }
+    a.push(c); return a;
+  };
+  const head=split(lines[0]);
+  for(let i=1;i<lines.length;i++){
+    const v=split(lines[i]), o={};
+    head.forEach((h,j)=>o[h]=v[j]);
+    out.push(o);
+  }
+  return out;
+}
+
+/* ================= chrome ================= */
+document.getElementById("mOver").onclick=()=>setMode("over");
+document.getElementById("mEdit").onclick=()=>setMode("edit");
+document.getElementById("btnGhosts").onclick=()=>{
+  showGhosts=!showGhosts; renderStage(); renderChrome();
+  if(showGhosts) toast(visibleGhosts().length+" ứng viên — bấm một cái để tạo dòng add");
+};
+document.getElementById("ghostMin").onchange=()=>{
+  if(!showGhosts){ showGhosts=true; }
+  renderStage(); renderChrome();
+  toast(visibleGhosts().length+" ứng viên ở ngưỡng này");
+};
+const helpEl=document.getElementById("help");
+document.getElementById("btnHelp").onclick=()=>helpEl.classList.add("on");
+document.getElementById("btnHelpClose").onclick=()=>helpEl.classList.remove("on");
+helpEl.onclick=e=>{ if(e.target===helpEl) helpEl.classList.remove("on"); };
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){ helpEl.classList.remove("on"); return; }
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if(e.key==="?"||e.key==="/"){ helpEl.classList.toggle("on"); return; }
+  if(helpEl.classList.contains("on")) return;
+  if(e.key==="ArrowRight"&&cur<recs.length-1){ cur++; setMode("edit"); }
+  if(e.key==="ArrowLeft" &&cur>0){ cur--; setMode("edit"); }
+  if(e.key.toLowerCase()==="r") document.getElementById("btnReset").click();
+  if(e.key.toLowerCase()==="o") setMode(mode==="over"?"edit":"over");
+});
+
+board.onload=()=>{ fitAll(); renderAll(); };
+if(board.complete) { fitAll(); renderAll(); }
+</script>

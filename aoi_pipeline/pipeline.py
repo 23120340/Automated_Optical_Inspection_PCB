@@ -15,7 +15,7 @@ from .imaging.alignment import PCBAligner
 from .imaging.board import PCBLocalizer
 from .solder.cad import BoardCad, CadError, CadRegistration, load_cad, register_cad, register_from_fiducials
 from .classification import ComponentClassifier, create_classifier
-from .config import PipelineConfig
+from .config import ModelDetectorConfig, PipelineConfig
 from .detection.cropping import ComponentCropper
 from .detection.detectors import (
     ComponentDetector,
@@ -126,8 +126,24 @@ class AOIPipeline:
         self.cad_warnings: list[str] = []
         self.last_fusion: FusionResult = FusionResult()
         self.last_lead_fusion = None
-        # Pass 2 stays absent until someone hands the pipeline a model for it.
-        self.lead_detector = lead_detector
+        # Pass 2 stays absent until someone names a model for it -- injected
+        # here, or configured under ``lead_detection.model_path`` so the UI and
+        # the CLI can reach it too. An injected detector wins; the two are never
+        # combined, for the same reason as every other role above.
+        lead_config = self.config.lead_detection
+        if lead_detector is not None and lead_config.model_path:
+            raise DetectorConfigurationError(
+                "Pass either lead_detector or lead_detection.model_path, not both"
+            )
+        if lead_detector is not None:
+            self.lead_detector = lead_detector
+        elif lead_config.enabled and lead_config.model_path:
+            self.lead_detector = create_detector(
+                lead_config.model_path,
+                model_config=ModelDetectorConfig(confidence=lead_config.confidence),
+            )
+        else:
+            self.lead_detector = None
         self.last_pass2_leads: list[Detection] = []
         self._load_cad(cad)
         if classifier is not None and (

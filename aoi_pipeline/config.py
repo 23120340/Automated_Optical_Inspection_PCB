@@ -314,6 +314,43 @@ class SolderJointConfig:
     # board.
     terminal_axis_decision_margin: float = 1.30
 
+    # --- where that axis measurement looks, and what it counts as metal ------
+    # The probe used to be the ROI geometry itself: 0.45 x the LONG side,
+    # entirely outside the body. Both halves of that are wrong for a part with
+    # no long side. Measured on the SMD board in ``tests/data``: C231's
+    # horizontal probe reached 143 px from centre, landed on the chip parts
+    # either side, outscored the real tabs, and both of its joints ended up
+    # uninspected. And a V-chip tab straddles the body edge -- C231's runs 9 px
+    # above the box top and 9 px below -- so a purely outward band sees half of
+    # it at best.
+    #
+    # So the probe is scaled from the SHORT side and reaches both ways across
+    # the edge. It only ever runs on a part too square to name its own axis.
+    axis_probe_outer_ratio: float = 0.20
+    axis_probe_inner_ratio: float = 0.10
+    axis_probe_cross_ratio: float = 0.60
+    # The probe counts metal itself instead of calling ``segment_solder``. That
+    # function is shared with grading and carries an Otsu fallback that is right
+    # for a joint ROI and wrong here: on a probe band of bare laminate it splits
+    # the noise and reports 64% metal, which is worse than no measurement.
+    #
+    # Three clauses, each with a physical reason, and every one of the 81
+    # combinations swept over the values below decided all ten reference cases
+    # correctly -- six synthetic (grey lands on green resist) and four
+    # photographed (warm solder, white legend, green resist):
+    #   bright        metal reflects the illuminator; resist and package bodies
+    #                 do not.
+    #   not white ink silkscreen is achromatic AND blown out. Grey solder is
+    #                 achromatic too but never that bright, so the pair of
+    #                 conditions removes the legend and keeps the joint.
+    #   not resist    solder mask is strongly coloured green; neither solder nor
+    #                 ink is.
+    axis_probe_value_min: int = 120
+    axis_probe_ink_saturation_max: int = 30
+    axis_probe_ink_value_min: int = 235
+    axis_probe_resist_hue_range: tuple[int, int] = (35, 95)
+    axis_probe_resist_saturation_min: int = 70
+
     # --- two-terminal geometry, as fractions of the box sides ---------------
     # ``inner`` reaches back over the terminal cap on the body, ``outer``
     # reaches past the body onto the land/fillet, ``side`` widens across the
@@ -321,6 +358,24 @@ class SolderJointConfig:
     terminal_inner_ratio: float = 0.30
     terminal_outer_ratio: float = 0.45
     terminal_side_ratio: float = 0.20
+
+    # --- the same three, for a part with no long side -----------------------
+    # Scaled from the SHORT side, and much smaller. On a chip part the lands
+    # take up about half the body length, so a reach of 0.75 x length is right.
+    # A V-chip electrolytic is the opposite: a big round can with two small tabs
+    # at its edge. Measured on the board in ``tests/data``, its tabs run 0.29 to
+    # 0.33 of the body width and sit astride the body edge, so the chip ratios
+    # produce an ROI 14 to 28 times the area of the pad it is meant to inspect,
+    # and a reviewer sees a box swallowing half the component.
+    #
+    # These values were read off the same three parts: they cover every tab with
+    # margin while bringing ROI-to-pad area to 2.4..3.5, inside the 2.75 that
+    # the parts nobody complained about already measured. They apply only below
+    # ``terminal_axis_min_aspect`` -- the same gate that decides a box cannot
+    # name its own terminal axis -- so no chip part is affected.
+    compact_terminal_inner_ratio: float = 0.15
+    compact_terminal_outer_ratio: float = 0.20
+    compact_terminal_side_ratio: float = 0.25
 
     # --- multi-pin geometry, as fractions of the shorter box side -----------
     lead_inner_ratio: float = 0.14
@@ -380,6 +435,28 @@ class SolderJointConfig:
     # (SOT-23, SOT-223), nên im lặng mới đúng. ``None`` để tắt hẳn.
     lead_band_evenness_min: float | None = 0.95
     lead_band_min_runs: int = 3
+    # Leads sit on OPPOSITE edges. SOT-23, SOT-223, SOIC, DPAK: every one of
+    # them puts its leads on one axis and nothing on the other, so the two
+    # opposite pairs can be compared directly instead of each edge being judged
+    # against a global threshold.
+    #
+    # It is the safer question to ask. Measured on the SMD board in
+    # ``tests/data``, per-edge energy ratios overlap badly -- real lead edges run
+    # 0.81..1.00 and bare edges 0.51..0.70, so a single cut sits in a 16% gap --
+    # while the summed pairs separate by 1.38x, 1.62x and 1.67x on the three
+    # multi-pin parts there.
+    #
+    # A quad package has leads on all four edges and scores near 1.0, which is
+    # below this margin, so it keeps every edge. That is the point: the rule
+    # only speaks when one pair clearly dominates, and it hands back to the
+    # evenness filter when it cannot. ``None`` disables it.
+    lead_band_pair_margin: float | None = 1.30
+    # And the losing pair has to be weak on its own terms, not merely weaker
+    # than the winner. Measured on ``tests/data``, bare edges reach 0.51..0.70
+    # of the strongest edge while real lead edges start at 0.81. Without this
+    # second condition the rule also fires on a low-contrast part whose four
+    # edges are near-equal, where the pair ratio is reading noise.
+    lead_band_pair_drop_max_ratio: float = 0.75
     # Was opt-in, on the argument that a bridge spans two adjacent pins so the
     # band is the better inspection unit. Measured on ``pcb03.jpg`` (4 ICs,
     # 50 leads) that argument does not survive: ``pin_padding_ratio`` already
@@ -476,15 +553,29 @@ class SolderJointConfig:
 class LeadDetectionConfig:
     """Pass 2: run a detector inside each component crop to find its leads.
 
-    Off until a model exists. Pass 1 cannot learn ``pads``/``pins`` from the
-    public datasets -- 30 of 670 images carry the class and recall sits at
-    0.072 -- and the shipped detector, measured on component crops of a real
-    board, returned ``pads``/``pins`` in 0 of 24 configurations. So this stage
-    stays a no-op and step 5.5 keeps deriving geometry until someone trains a
-    model on their own boards.
+    Inert until a model is named here. The measurement that keeps it inert is
+    about the **component** detector (``models/active/detector``, the pass-1
+    model): its ``pads`` class scores 0.072 recall because 30 of 670 training
+    images carry the class at all, and on component crops of a real board it
+    returned ``pads``/``pins`` in 0 of 24 configurations. Nothing about that
+    figure describes any other model.
+
+    In particular it says nothing about the step-6.2 solder **defect**
+    segmenter. That is a different slot with a different job: it localises
+    ``Dry_joint``/``Short_circuit``-style faults on the whole board, and it has
+    no class for a sound joint, so it cannot tell this stage where the leads
+    are. A pass-2 model has to find every lead, good ones included.
+
+    ``model_path`` accepts anything the Ultralytics adapter can load whose
+    classes include ``pads``/``pins``. With it unset the stage returns nothing
+    and step 5.5 keeps deriving geometry, exactly as before.
     """
 
     enabled: bool = True
+    # Weights for the pass-2 detector. ``None`` leaves the stage inert; the
+    # pipeline never borrows another role's model to fill this slot, because a
+    # model trained for a different question answers a different question.
+    model_path: str | None = None
 
     # --- what pass 2 is shown ------------------------------------------------
     # The fillet lies OUTSIDE the component silhouette, so a crop that stops at

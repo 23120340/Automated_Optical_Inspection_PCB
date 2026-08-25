@@ -1,0 +1,755 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PnP review — mpi_pcb_gas_pump / top</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1014; --panel:#161a21; --panel2:#1d222b; --line:#2a3039; --fg:#e7eaee;
+  --muted:#98a1ad; --accent:#4c9aff;
+  --st-todo:#8b949e; --st-accept:#3fb950; --st-correct:#58a6ff;
+  --st-reject:#f85149; --st-add:#bc8cff; --st-part:#d29922; --ghost:#6e7681;
+}
+@media (prefers-color-scheme:light){
+  :root{ --bg:#f4f6f8; --panel:#fff; --panel2:#eef1f5; --line:#d8dee6; --fg:#1a1d21;
+         --muted:#5a6472; --accent:#0b6bcb; --ghost:#8b949e; }
+}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:grid;grid-template-rows:auto 1fr;
+     font:14px/1.5 Montserrat,system-ui,-apple-system,"Segoe UI",sans-serif;
+     background:var(--bg);color:var(--fg);overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);
+       border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:14px;font-weight:700;margin:0}
+header .sp{flex:1}
+.prog{font-size:12px;color:var(--muted);white-space:nowrap}
+.bar{width:130px;height:6px;background:var(--panel2);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--st-accept);width:0;transition:width .25s}
+button{font:inherit;font-size:13px;padding:6px 12px;border-radius:7px;border:1px solid var(--line);
+       background:var(--panel2);color:var(--fg);cursor:pointer;transition:.15s}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.ghost{background:transparent}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;border-radius:0}
+
+main{display:grid;grid-template-columns:250px 1fr 330px;min-height:0}
+@media (max-width:1200px){ main{grid-template-columns:200px 1fr 300px} }
+.col{min-height:0;overflow-y:auto;background:var(--panel)}
+.col.mid{background:var(--bg);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#list{border-right:1px solid var(--line)}
+#form{border-left:1px solid var(--line);padding:14px}
+
+/* ---- stage shared by both modes ---- */
+#stagewrap{flex:1;position:relative;overflow:hidden;margin:10px;border-radius:10px;
+           background:#000;min-height:0}
+#stagewrap img{position:absolute;left:0;top:0;transform-origin:0 0;image-rendering:auto;
+               user-select:none;-webkit-user-drag:none}
+#layer{position:absolute;inset:0;pointer-events:none}
+.bx{position:absolute;border:2px solid var(--st-todo);pointer-events:auto;cursor:pointer}
+.bx.accept{border-color:var(--st-accept)} .bx.correct{border-color:var(--st-correct)}
+.bx.reject{border-color:var(--st-reject);border-style:dashed}
+.bx.add{border-color:var(--st-add)} .bx.part{border-color:var(--st-part)}
+.bx.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent)}
+.bx>span{position:absolute;top:-17px;left:-2px;font-size:10px;font-weight:600;padding:0 4px;
+   border-radius:3px;background:rgba(0,0,0,.75);color:#fff;white-space:nowrap}
+.gh{position:absolute;border:1px dashed var(--ghost);opacity:.75;pointer-events:auto;
+    cursor:copy;background:rgba(110,118,129,.10)}
+.gh:hover{opacity:1;border-color:var(--st-add);background:rgba(188,140,255,.18)}
+#editbox{position:absolute;border:2px solid #ff6a00;cursor:move;pointer-events:auto;
+   box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.h{position:absolute;width:13px;height:13px;background:#ff6a00;border:2px solid #fff;
+   border-radius:2px;pointer-events:auto}
+.h.nw{left:-7px;top:-7px;cursor:nwse-resize} .h.ne{right:-7px;top:-7px;cursor:nesw-resize}
+.h.sw{left:-7px;bottom:-7px;cursor:nesw-resize} .h.se{right:-7px;bottom:-7px;cursor:nwse-resize}
+.hint{font-size:11.5px;color:var(--muted);text-align:center;padding:0 10px 8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:11.5px;
+   color:var(--muted);padding:0 10px 8px}
+.legend i{display:inline-block;width:10px;height:10px;border:2px solid;border-radius:2px;
+   margin-right:4px;vertical-align:-1px}
+
+/* ---- list ---- */
+.item{display:flex;align-items:center;gap:8px;padding:7px 11px;border-bottom:1px solid var(--line);
+      cursor:pointer;font-size:12px}
+.item:hover{background:var(--panel2)}
+.item.sel{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.item .rid{font-weight:600}
+.item .cls{color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:99px;background:var(--st-todo);flex:none}
+.dot.accept{background:var(--st-accept)} .dot.correct{background:var(--st-correct)}
+.dot.reject{background:var(--st-reject)} .dot.add{background:var(--st-add)}
+.dot.part{background:var(--st-part)}
+
+/* ---- form ---- */
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+      color:var(--muted);margin:12px 0 4px;font-weight:600}
+input,select,textarea{width:100%;font:inherit;font-size:13px;padding:7px 9px;border-radius:6px;
+      border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+textarea{resize:vertical;min-height:52px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;
+      border-color:transparent}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.chip{padding:4px 9px;font-size:12px;border-radius:99px;border:1px solid var(--line);
+      background:var(--bg);cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.chip.rej.on{background:var(--st-reject);border-color:var(--st-reject)}
+.note{background:var(--panel2);border-left:3px solid var(--st-part);padding:9px 11px;
+      border-radius:0 6px 6px 0;font-size:12px;line-height:1.55;margin-bottom:6px}
+.meta{font-size:11.5px;color:var(--muted);padding:2px 0 0}
+kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:4px;padding:1px 5px;font-size:11px;font-family:inherit}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+   background:var(--panel);border:1px solid var(--line);padding:9px 16px;border-radius:8px;
+   font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60;
+   box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#help{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:50;
+   padding:28px;overflow-y:auto}
+#help.on{display:block}
+#help .sheet{max-width:860px;margin:0 auto;background:var(--panel);border:1px solid var(--line);
+   border-radius:12px;padding:24px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#help h2{font-size:17px;margin:0 0 4px}
+#help h3{font-size:14px;margin:22px 0 6px;color:var(--accent)}
+#help p,#help li{font-size:13px;line-height:1.65}
+#help table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+#help th,#help td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);
+   vertical-align:top}
+#help th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}
+#help td:first-child{white-space:nowrap;font-weight:600}
+#help .close{position:sticky;top:0;float:right}
+#help .ex{background:var(--panel2);border-radius:8px;padding:12px 14px;margin:10px 0;
+   font-size:13px;line-height:1.7}
+code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-size:.92em}
+</style>
+
+<header>
+  <h1>PnP review — mpi_pcb_gas_pump / top</h1>
+  <div class="seg">
+    <button id="mOver">Toàn board</button><button id="mEdit">Chỉnh chi tiết</button>
+  </div>
+  <button class="ghost" id="btnGhosts">Hiện chỗ bỏ sót</button>
+  <select id="ghostMin" style="width:auto;padding:5px 7px;font-size:12px" title="Lọc theo số frame cluster xuất hiện">
+    <option value="1">≥1 frame</option>
+    <option value="2" selected>≥2 frame</option>
+    <option value="3">≥3 frame</option>
+    <option value="4">≥4 frame</option>
+    <option value="6">≥6 frame</option>
+  </select>
+  <div class="bar"><i id="pbar"></i></div>
+  <span class="prog" id="ptext">0 / 0</span>
+  <span class="sp"></span>
+  <button class="ghost" id="btnHelp">? Ý nghĩa các trường</button>
+  <button class="ghost" id="btnOverlay">Xuất overlay PNG</button>
+  <button class="ghost" id="btnImport">Nhập CSV…</button>
+  <input type="file" id="fileCsv" accept=".csv" hidden>
+  <button class="primary" id="btnExport">Xuất CSV</button>
+</header>
+
+<main>
+  <div class="col" id="list"></div>
+
+  <div class="col mid">
+    <div id="stagewrap">
+      <img id="board" alt="">
+      <div id="layer"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="col" id="form">
+    <div class="note">
+      Chữ trên board đọc <b>ngược</b> là đúng như mong đợi (canvas xoay 180&deg; so với
+      chiều đọc silkscreen). Góc bạn đo <b>trực tiếp trên ảnh này</b> chính là góc cần
+      ghi — <b>không</b> cộng trừ 180&deg;.
+    </div>
+    <div class="meta" id="meta"></div>
+
+    <label>Action</label>
+    <div class="chips" id="chipAction"></div>
+
+    <label>Verified RefDes <span style="text-transform:none">(đọc từ silkscreen)</span></label>
+    <input id="fRef" placeholder="vd. U13, R37, Z2 — để trống nếu chưa chắc">
+
+    <div class="row">
+      <div><label>Class</label><input id="fClass"></div>
+      <div><label>Footprint</label><input id="fFoot" placeholder="vd. DIP-20"></div>
+    </div>
+
+    <div class="row">
+      <div><label>Rotation (deg)</label><input id="fRot" type="number" min="0" max="359.9" step="0.1"></div>
+      <div><label>Polarity / pin 1</label><input id="fPol" placeholder="vd. pin1_right"></div>
+    </div>
+    <div class="chips" id="chipRot"></div>
+
+    <div class="row">
+      <div><label>Review status</label><select id="fStatus"></select></div>
+      <div><label>Label source</label><select id="fSrc"></select></div>
+    </div>
+
+    <label>Notes</label>
+    <textarea id="fNotes"></textarea>
+
+    <label>Toạ độ tâm (golden_board_pixels)</label>
+    <input id="fCenter" readonly>
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button id="btnReset" class="ghost">Đặt lại box</button>
+      <button id="btnDelete" class="ghost">Xoá dòng add</button>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<div id="help"><div class="sheet">
+  <button class="close" id="btnHelpClose">Đóng</button>
+  <h2>Ý nghĩa từng trường</h2>
+  <p style="color:var(--muted)">Nguyên tắc chung: <b>không chắc thì để trống</b> và giữ
+  <code>review_status = draft</code>. Ô trống trung thực hơn một giá trị đoán bừa.</p>
+
+  <h3>Hai chế độ</h3>
+  <table>
+    <tr><td>Toàn board</td><td>Nhìn tổng thể để biết đã phủ hết chưa. Bấm một box để mở nó.
+      Bật <i>Hiện chỗ bỏ sót</i> để thấy các cluster detector tìm ra nhưng không đưa vào
+      queue — bấm vào một cái là tạo ngay dòng <code>add</code> với box có sẵn.
+      <br><b>Các ứng viên này rất nhiễu</b>: trong 221 cái thì 91 chỉ xuất hiện ở
+      <b>1 frame</b>, 85 cái chồng lên nhau, và 69 cái trùng chỗ đã có trong queue.
+      App đã tự ẩn hẳn nhóm trùng queue; ô <i>≥N frame</i> lọc phần còn lại.
+      Mặc định <code>≥2 frame</code> còn 78 ứng viên. Hạ xuống ≥1 sẽ thấy nhiều rác.
+      <b>Đây là gợi ý vị trí, không phải danh sách phải làm</b> — vẫn phải nhìn ảnh
+      rồi mới quyết.
+      Bấm vào vùng board trống cũng tạo dòng <code>add</code> mới tại đó.</td></tr>
+    <tr><td>Chỉnh chi tiết</td><td>Phóng to quanh một linh kiện để đọc silkscreen và kéo box.
+      Lăn chuột để zoom, kéo nền để di chuyển.</td></tr>
+  </table>
+
+  <h3>ACTION — quyết định của bạn về đề xuất này</h3>
+  <table>
+    <tr><th>Giá trị</th><th>Chọn khi nào</th></tr>
+    <tr><td>— chưa quyết —</td><td>Chưa xem xong. Trạng thái mặc định.</td></tr>
+    <tr><td>accept</td><td>Có linh kiện thật, box ôm đúng thân, class đúng. Không cần sửa gì.</td></tr>
+    <tr><td>correct</td><td>Có linh kiện thật nhưng box lệch/sai kích thước, hoặc class sai.
+      Kéo box cho đúng, sửa class, rồi chọn ô này.</td></tr>
+    <tr><td>reject</td><td><b>Không</b> có linh kiện ở đây: via, pad trống, vệt silkscreen,
+      bóng đổ, vùng nền.</td></tr>
+    <tr><td>add</td><td>Tự gán cho dòng bạn tạo từ chế độ Toàn board.</td></tr>
+  </table>
+
+  <h3>VERIFIED REFDES — mã đọc từ silkscreen</h3>
+  <p>Chữ in trắng cạnh linh kiện: <code>U13</code>, <code>R37</code>, <code>C25</code>,
+  <code>Z2</code>, <code>P205</code>, <code>CR3</code>… Đọc chắc thì điền, mờ hoặc bị che
+  thì <b>để trống</b>. Đừng suy từ linh kiện bên cạnh — board này đặt mã ở nhiều phía.</p>
+
+  <h3>CLASS — họ linh kiện</h3>
+  <p>Detector điền sẵn, sửa nếu sai. Giá trị đang dùng: <code>ic</code>,
+  <code>capacitor</code>, <code>resistor</code>, <code>led</code>, <code>connector</code>,
+  <code>diode</code>, <code>buzzer</code>.</p>
+
+  <h3>FOOTPRINT — kiểu chân vật lý, KHÔNG phải chức năng</h3>
+  <table>
+    <tr><th>Đúng</th><th>Sai</th></tr>
+    <tr><td>DIP-20, DIP-14, DIP-28</td><td>"Z80 CPU", "SRAM", "latch"</td></tr>
+    <tr><td>axial-lead, radial-can</td><td>"điện trở kéo lên", "tụ lọc"</td></tr>
+    <tr><td>TO-220, HC-49</td><td>"nguồn", "dao động"</td></tr>
+  </table>
+  <p>Board này gần như toàn <b>DIP xuyên lỗ</b>: đếm chân hai bên rồi ghi
+  <code>DIP-&lt;tổng chân&gt;</code>. Điện trở/diode thân trụ nằm ngang là
+  <code>axial-lead</code>.</p>
+
+  <h3>ROTATION (DEG)</h3>
+  <p>Kẻ vector từ <b>tâm thân</b> tới <b>đầu có pin&nbsp;1</b> (hoặc cathode / cực dương).
+  Vector đó chỉ về đâu trên <b>chính ảnh bạn đang nhìn</b>:</p>
+  <table>
+    <tr><th>Vector chỉ về</th><th>Ghi</th></tr>
+    <tr><td>Phải →</td><td><code>0</code></td></tr>
+    <tr><td>Lên ↑</td><td><code>90</code></td></tr>
+    <tr><td>Trái ←</td><td><code>180</code></td></tr>
+    <tr><td>Xuống ↓</td><td><code>270</code></td></tr>
+  </table>
+  <div class="ex">
+    <b>Tìm pin 1 trên IC DIP của board này:</b><br>
+    ✅ Dấu tin cậy là <b>khía bán nguyệt lõm vào một đầu</b> thân IC — đầu có khía là
+    đầu pin&nbsp;1.<br>
+    ⚠️ <b>Đừng nhầm với vòng tròn lõm giữa thân</b>: đó là vết đẩy khuôn (ejector mark)
+    khi ép nhựa, xuất hiện tùy tiện và <b>không</b> chỉ pin&nbsp;1. Nhiều IC trên board
+    này có cả hai, nằm ở hai đầu đối nhau.
+  </div>
+  <p><b>Linh kiện 2 chân không phân cực</b> (điện trở, tụ gốm): không có pin&nbsp;1.
+  Dùng trục dài, chọn đầu nghiêng về phía phải hơn, nên góc luôn trong
+  <code>[0, 180)</code>. Ghi thêm vào Notes: <code>rotation_period=180</code>.</p>
+  <p>Không thấy rõ dấu pin&nbsp;1 → <b>để trống</b>, ghi lý do vào Notes.</p>
+
+  <h3>POLARITY / PIN 1</h3>
+  <p><code>pin1_right</code>, <code>pin1_left</code>, <code>cathode_top</code>,
+  <code>plus_left</code>… Không phân cực → để trống.</p>
+
+  <h3>REVIEW STATUS</h3>
+  <table>
+    <tr><td>draft</td><td>Chưa xong hoặc còn nghi ngờ. Mặc định.</td></tr>
+    <tr><td>reviewed</td><td>Đã nhìn kỹ và điền xong bằng mắt.</td></tr>
+    <tr><td>verified</td><td>Đã đối chiếu BOM / schematic / CAD. Chỉ dùng khi thật sự có tài liệu.</td></tr>
+    <tr><td>rejected</td><td>Đã kết luận không phải linh kiện.</td></tr>
+  </table>
+
+  <h3>LABEL SOURCE</h3>
+  <table>
+    <tr><td>pseudo_label</td><td>Máy đề xuất, người chưa xác nhận. Mặc định.</td></tr>
+    <tr><td>visual_transcription</td><td>Chép lại từ silkscreen / mã in trên linh kiện.</td></tr>
+    <tr><td>human_verified</td><td>Bạn nhìn và xác nhận. App tự đặt khi chọn action.</td></tr>
+    <tr><td>bom_or_cad</td><td>Lấy từ BOM / schematic / CAD chính thức.</td></tr>
+    <tr><td>unknown</td><td>Không xác định được nguồn.</td></tr>
+  </table>
+
+  <h3>NOTES</h3>
+  <p>Ghi lý do quyết định, nhất là khi <code>reject</code> hoặc để trống trường nào đó.
+  Ví dụ: <i>"box nằm trên via, không có thân linh kiện"</i>,
+  <i>"không đọc được RefDes vì bị C25 che"</i>, <i>"rotation_period=180"</i>.</p>
+
+  <h3>Ví dụ một dòng điền xong</h3>
+  <div class="ex">
+    action <code>correct</code> · verified_refdes <code>U10</code> · class <code>ic</code> ·
+    footprint <code>DIP-20</code> · rotation_deg <code>0</code> ·
+    polarity <code>pin1_right</code> · review_status <code>reviewed</code> ·
+    label_source <code>visual_transcription</code><br>
+    notes: <i>"kéo box hẹp lại cho khớp thân IC; khía pin 1 ở đầu phải"</i>
+  </div>
+</div></div>
+
+<script>
+const DATA = {"golden_sha256": "10c5b91aa967ca44a1a576c8ecf0e8a127305be8c34e586d6e040bafda7789f4", "golden_basename": "mpi_pcb_train_good_0893.jpg", "coordinate_space": "golden_board_pixels", "board_image": "board.jpg", "board_w": 4096, "board_h": 2816, "records": [{"record_id": "PNP_0001", "source_auto_id": "U_AUTO_0001", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1640.986", "center_y_px": "463.245", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1389.31, "y1_px": 380.91, "x2_px": 1892.67, "y2_px": 545.58, "support_ratio": 0.233, "observation_count": 7, "class_purity": 1.0, "center_mad_px": 9.0, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0002", "source_auto_id": "J_AUTO_0006", "action": "", "verified_refdes": "", "class": "connector", "det_class": "connector", "footprint": "", "center_x_px": "358.373", "center_y_px": "473.763", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 107.96, "y1_px": 404.97, "x2_px": 608.78, "y2_px": 542.56, "support_ratio": 0.133, "observation_count": 4, "class_purity": 1.0, "center_mad_px": 6.64, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0003", "source_auto_id": "U_AUTO_0006", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2295.914", "center_y_px": "478.466", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2033.57, "y1_px": 398.18, "x2_px": 2558.26, "y2_px": 558.75, "support_ratio": 0.5, "observation_count": 15, "class_purity": 1.0, "center_mad_px": 8.35, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0004", "source_auto_id": "U_AUTO_0008", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1035.730", "center_y_px": "485.951", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 773.14, "y1_px": 408.76, "x2_px": 1298.32, "y2_px": 563.14, "support_ratio": 0.367, "observation_count": 11, "class_purity": 1.0, "center_mad_px": 9.12, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0005", "source_auto_id": "U_AUTO_0013", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2976.975", "center_y_px": "752.932", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2720.49, "y1_px": 675.3, "x2_px": 3233.46, "y2_px": 830.56, "support_ratio": 0.6, "observation_count": 18, "class_purity": 1.0, "center_mad_px": 8.08, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0006", "source_auto_id": "U_AUTO_0014", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1669.716", "center_y_px": "753.517", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1410.5, "y1_px": 676.85, "x2_px": 1928.94, "y2_px": 830.18, "support_ratio": 0.333, "observation_count": 10, "class_purity": 1.0, "center_mad_px": 5.84, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0007", "source_auto_id": "U_AUTO_0015", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "330.521", "center_y_px": "754.879", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 71.36, "y1_px": 678.52, "x2_px": 589.68, "y2_px": 831.24, "support_ratio": 0.267, "observation_count": 8, "class_purity": 1.0, "center_mad_px": 7.24, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0008", "source_auto_id": "U_AUTO_0016", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2284.255", "center_y_px": "755.316", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2025.44, "y1_px": 674.96, "x2_px": 2543.07, "y2_px": 835.67, "support_ratio": 0.933, "observation_count": 28, "class_purity": 1.0, "center_mad_px": 9.51, "detector_gate": "CONSENSUS"}, {"record_id": "PNP_0009", "source_auto_id": "U_AUTO_0017", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1026.718", "center_y_px": "758.364", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 766.08, "y1_px": 681.77, "x2_px": 1287.35, "y2_px": 834.95, "support_ratio": 0.8, "observation_count": 24, "class_purity": 1.0, "center_mad_px": 10.54, "detector_gate": "CONSENSUS"}, {"record_id": "PNP_0010", "source_auto_id": "U_AUTO_0024", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2287.718", "center_y_px": "1030.093", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2045.26, "y1_px": 955.39, "x2_px": 2530.18, "y2_px": 1104.8, "support_ratio": 0.567, "observation_count": 17, "class_purity": 1.0, "center_mad_px": 8.41, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0011", "source_auto_id": "U_AUTO_0028", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2957.840", "center_y_px": "1037.654", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2697.16, "y1_px": 964.58, "x2_px": 3218.52, "y2_px": 1110.73, "support_ratio": 0.333, "observation_count": 10, "class_purity": 1.0, "center_mad_px": 10.34, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0012", "source_auto_id": "U_AUTO_0029", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1610.220", "center_y_px": "1039.683", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1280.92, "y1_px": 958.24, "x2_px": 1939.53, "y2_px": 1121.13, "support_ratio": 0.667, "observation_count": 20, "class_purity": 1.0, "center_mad_px": 9.99, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0013", "source_auto_id": "U_AUTO_0030", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "937.795", "center_y_px": "1040.090", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 671.61, "y1_px": 960.51, "x2_px": 1203.97, "y2_px": 1119.67, "support_ratio": 0.633, "observation_count": 19, "class_purity": 1.0, "center_mad_px": 9.06, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0014", "source_auto_id": "C_AUTO_0024", "action": "", "verified_refdes": "", "class": "capacitor", "det_class": "capacitor", "footprint": "", "center_x_px": "1744.799", "center_y_px": "1219.401", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1729.29, "y1_px": 1203.17, "x2_px": 1760.3, "y2_px": 1235.64, "support_ratio": 0.033, "observation_count": 1, "class_purity": 1.0, "center_mad_px": 0.0, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0015", "source_auto_id": "U_AUTO_0037", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "3043.036", "center_y_px": "1310.327", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2855.54, "y1_px": 1231.62, "x2_px": 3230.53, "y2_px": 1389.03, "support_ratio": 0.667, "observation_count": 20, "class_purity": 1.0, "center_mad_px": 11.93, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0016", "source_auto_id": "LED_AUTO_0003", "action": "", "verified_refdes": "", "class": "led", "det_class": "led", "footprint": "", "center_x_px": "3416.314", "center_y_px": "1328.161", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 3363.87, "y1_px": 1278.01, "x2_px": 3468.76, "y2_px": 1378.32, "support_ratio": 0.167, "observation_count": 5, "class_purity": 1.0, "center_mad_px": 6.0, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0017", "source_auto_id": "U_AUTO_0042", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1087.045", "center_y_px": "1338.721", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 580.05, "y1_px": 1199.43, "x2_px": 1594.04, "y2_px": 1478.01, "support_ratio": 0.6, "observation_count": 18, "class_purity": 1.0, "center_mad_px": 8.4, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0018", "source_auto_id": "U_AUTO_0044", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2328.858", "center_y_px": "1343.182", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1957.16, "y1_px": 1200.41, "x2_px": 2700.55, "y2_px": 1485.96, "support_ratio": 0.833, "observation_count": 25, "class_purity": 1.0, "center_mad_px": 10.76, "detector_gate": "CONSENSUS"}, {"record_id": "PNP_0019", "source_auto_id": "U_AUTO_0048", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "3028.584", "center_y_px": "1593.109", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2835.98, "y1_px": 1526.79, "x2_px": 3221.18, "y2_px": 1659.43, "support_ratio": 0.3, "observation_count": 9, "class_purity": 1.0, "center_mad_px": 10.93, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0020", "source_auto_id": "U_AUTO_0057", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2189.425", "center_y_px": "1700.698", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1678.56, "y1_px": 1547.6, "x2_px": 2700.29, "y2_px": 1853.79, "support_ratio": 0.267, "observation_count": 8, "class_purity": 1.0, "center_mad_px": 5.75, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0021", "source_auto_id": "U_AUTO_0060", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1179.912", "center_y_px": "1708.857", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 783.3, "y1_px": 1536.1, "x2_px": 1576.52, "y2_px": 1881.61, "support_ratio": 0.067, "observation_count": 2, "class_purity": 1.0, "center_mad_px": 10.06, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0022", "source_auto_id": "U_AUTO_0069", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "3045.928", "center_y_px": "1860.683", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2851.65, "y1_px": 1788.16, "x2_px": 3240.2, "y2_px": 1933.21, "support_ratio": 0.533, "observation_count": 16, "class_purity": 1.0, "center_mad_px": 6.64, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0023", "source_auto_id": "U_AUTO_0073", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2359.915", "center_y_px": "2007.686", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2163.53, "y1_px": 1937.65, "x2_px": 2556.3, "y2_px": 2077.72, "support_ratio": 0.833, "observation_count": 25, "class_purity": 1.0, "center_mad_px": 10.23, "detector_gate": "CONSENSUS"}, {"record_id": "PNP_0024", "source_auto_id": "U_AUTO_0074", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1881.647", "center_y_px": "2010.501", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1694.57, "y1_px": 1936.58, "x2_px": 2068.73, "y2_px": 2084.42, "support_ratio": 0.667, "observation_count": 20, "class_purity": 1.0, "center_mad_px": 8.56, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0025", "source_auto_id": "U_AUTO_0082", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1145.849", "center_y_px": "2096.623", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 821.4, "y1_px": 1954.38, "x2_px": 1470.3, "y2_px": 2238.87, "support_ratio": 0.067, "observation_count": 2, "class_purity": 1.0, "center_mad_px": 9.96, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0026", "source_auto_id": "LED_AUTO_0012", "action": "", "verified_refdes": "", "class": "led", "det_class": "led", "footprint": "", "center_x_px": "3012.044", "center_y_px": "2364.054", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2974.34, "y1_px": 2323.62, "x2_px": 3049.75, "y2_px": 2404.49, "support_ratio": 0.367, "observation_count": 11, "class_purity": 1.0, "center_mad_px": 8.39, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0027", "source_auto_id": "LED_AUTO_0013", "action": "", "verified_refdes": "", "class": "led", "det_class": "led", "footprint": "", "center_x_px": "3162.494", "center_y_px": "2370.772", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 3122.39, "y1_px": 2333.23, "x2_px": 3202.6, "y2_px": 2408.32, "support_ratio": 0.833, "observation_count": 25, "class_purity": 1.0, "center_mad_px": 10.7, "detector_gate": "CONSENSUS"}, {"record_id": "PNP_0028", "source_auto_id": "LED_AUTO_0014", "action": "", "verified_refdes": "", "class": "led", "det_class": "led", "footprint": "", "center_x_px": "2867.529", "center_y_px": "2375.654", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2827.57, "y1_px": 2333.28, "x2_px": 2907.49, "y2_px": 2418.03, "support_ratio": 0.833, "observation_count": 25, "class_purity": 1.0, "center_mad_px": 7.67, "detector_gate": "CONSENSUS"}, {"record_id": "PNP_0029", "source_auto_id": "U_AUTO_0099", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "2341.943", "center_y_px": "2535.262", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 2153.24, "y1_px": 2466.32, "x2_px": 2530.64, "y2_px": 2604.2, "support_ratio": 0.467, "observation_count": 14, "class_purity": 1.0, "center_mad_px": 6.87, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0030", "source_auto_id": "C_AUTO_0073", "action": "", "verified_refdes": "", "class": "capacitor", "det_class": "capacitor", "footprint": "", "center_x_px": "817.693", "center_y_px": "2536.493", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 792.16, "y1_px": 2494.22, "x2_px": 843.23, "y2_px": 2578.77, "support_ratio": 0.033, "observation_count": 1, "class_purity": 1.0, "center_mad_px": 0.0, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0031", "source_auto_id": "U_AUTO_0105", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "1528.321", "center_y_px": "2550.835", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 1436.51, "y1_px": 2484.55, "x2_px": 1620.13, "y2_px": 2617.12, "support_ratio": 0.433, "observation_count": 13, "class_purity": 1.0, "center_mad_px": 10.3, "detector_gate": "NEEDS_REVIEW"}, {"record_id": "PNP_0032", "source_auto_id": "U_AUTO_0106", "action": "", "verified_refdes": "", "class": "ic", "det_class": "ic", "footprint": "", "center_x_px": "574.915", "center_y_px": "2551.079", "rotation_deg": "", "polarity": "", "review_status": "draft", "label_source": "pseudo_label", "notes": "", "x1_px": 482.61, "y1_px": 2485.16, "x2_px": 667.22, "y2_px": 2617.0, "support_ratio": 0.6, "observation_count": 18, "class_purity": 1.0, "center_mad_px": 11.05, "detector_gate": "NEEDS_REVIEW"}], "ghosts": [{"id": "J_AUTO_0001", "cls": "connector", "x1": 2615.7, "y1": 17.1, "x2": 3261.1, "y2": 216.2, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "J_AUTO_0002", "cls": "connector", "x1": 3323.4, "y1": 74.1, "x2": 3855.9, "y2": 205.9, "obs": 7, "sup": 0.233, "dupq": 0}, {"id": "J_AUTO_0003", "cls": "connector", "x1": 2593.1, "y1": 82.5, "x2": 3277.4, "y2": 217.0, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "J_AUTO_0004", "cls": "connector", "x1": 2068.8, "y1": 56.5, "x2": 2469.5, "y2": 269.8, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "R_AUTO_0001", "cls": "resistor", "x1": 1949.3, "y1": 210.5, "x2": 2003.3, "y2": 303.9, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "J_AUTO_0005", "cls": "connector", "x1": 1392.4, "y1": 259.3, "x2": 1918.8, "y2": 356.7, "obs": 5, "sup": 0.167, "dupq": 0}, {"id": "R_AUTO_0002", "cls": "resistor", "x1": 3458.3, "y1": 370.0, "x2": 3504.8, "y2": 451.5, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0002", "cls": "ic", "x1": 2033.5, "y1": 378.3, "x2": 2537.5, "y2": 542.3, "obs": 10, "sup": 0.333, "dupq": 1}, {"id": "U_AUTO_0003", "cls": "ic", "x1": 760.0, "y1": 379.6, "x2": 1270.5, "y2": 546.4, "obs": 9, "sup": 0.3, "dupq": 1}, {"id": "U_AUTO_0004", "cls": "ic", "x1": 744.2, "y1": 408.1, "x2": 1262.9, "y2": 542.4, "obs": 3, "sup": 0.1, "dupq": 1}, {"id": "C_AUTO_0001", "cls": "capacitor", "x1": 2578.5, "y1": 431.7, "x2": 2634.6, "y2": 522.6, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0005", "cls": "ic", "x1": 1999.2, "y1": 408.2, "x2": 2521.6, "y2": 549.1, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "C_AUTO_0002", "cls": "capacitor", "x1": 1943.6, "y1": 436.0, "x2": 2000.6, "y2": 523.8, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0007", "cls": "ic", "x1": 1403.4, "y1": 401.7, "x2": 1921.1, "y2": 559.8, "obs": 20, "sup": 0.667, "dupq": 1}, {"id": "J_AUTO_0007", "cls": "connector", "x1": 135.7, "y1": 408.6, "x2": 627.5, "y2": 559.3, "obs": 10, "sup": 0.333, "dupq": 1}, {"id": "R_AUTO_0003", "cls": "resistor", "x1": 644.9, "y1": 419.8, "x2": 699.8, "y2": 535.5, "obs": 9, "sup": 0.3, "dupq": 0}, {"id": "J_AUTO_0008", "cls": "connector", "x1": 88.6, "y1": 411.1, "x2": 599.8, "y2": 561.1, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "J_AUTO_0009", "cls": "connector", "x1": 2749.9, "y1": 421.2, "x2": 3229.6, "y2": 558.0, "obs": 6, "sup": 0.2, "dupq": 0}, {"id": "C_AUTO_0003", "cls": "capacitor", "x1": 1320.7, "y1": 455.7, "x2": 1377.4, "y2": 537.4, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "J_AUTO_0010", "cls": "connector", "x1": 135.1, "y1": 443.6, "x2": 636.9, "y2": 579.0, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0009", "cls": "ic", "x1": 3823.7, "y1": 284.2, "x2": 4027.4, "y2": 807.4, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "J_AUTO_0011", "cls": "connector", "x1": 3747.8, "y1": 305.6, "x2": 3987.1, "y2": 810.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0004", "cls": "capacitor", "x1": 3213.1, "y1": 573.2, "x2": 3240.1, "y2": 613.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0005", "cls": "capacitor", "x1": 1326.8, "y1": 577.6, "x2": 1357.8, "y2": 612.0, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0006", "cls": "capacitor", "x1": 1320.9, "y1": 619.7, "x2": 1353.5, "y2": 652.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0007", "cls": "capacitor", "x1": 2583.4, "y1": 617.4, "x2": 2614.9, "y2": 658.7, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0008", "cls": "capacitor", "x1": 1957.7, "y1": 626.7, "x2": 1994.9, "y2": 663.2, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0010", "cls": "ic", "x1": 1383.8, "y1": 662.4, "x2": 1919.1, "y2": 807.1, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "D_AUTO_0001", "cls": "diode", "x1": 3428.6, "y1": 679.3, "x2": 3489.1, "y2": 803.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0011", "cls": "ic", "x1": 1374.1, "y1": 664.2, "x2": 1893.5, "y2": 823.7, "obs": 4, "sup": 0.133, "dupq": 1}, {"id": "U_AUTO_0012", "cls": "ic", "x1": 740.9, "y1": 665.6, "x2": 1264.5, "y2": 831.2, "obs": 6, "sup": 0.2, "dupq": 1}, {"id": "C_AUTO_0009", "cls": "capacitor", "x1": 618.7, "y1": 700.9, "x2": 681.7, "y2": 798.7, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0010", "cls": "capacitor", "x1": 3517.9, "y1": 710.4, "x2": 3569.3, "y2": 797.3, "obs": 4, "sup": 0.133, "dupq": 0}, {"id": "U_AUTO_0018", "cls": "ic", "x1": 1387.7, "y1": 681.5, "x2": 1916.7, "y2": 834.6, "obs": 15, "sup": 0.5, "dupq": 1}, {"id": "U_AUTO_0019", "cls": "ic", "x1": 83.9, "y1": 678.7, "x2": 610.3, "y2": 838.2, "obs": 14, "sup": 0.467, "dupq": 1}, {"id": "U_AUTO_0020", "cls": "ic", "x1": 2690.4, "y1": 685.4, "x2": 3216.0, "y2": 831.7, "obs": 12, "sup": 0.4, "dupq": 1}, {"id": "LED_AUTO_0001", "cls": "led", "x1": 3605.7, "y1": 707.3, "x2": 3688.8, "y2": 819.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0011", "cls": "capacitor", "x1": 3239.4, "y1": 721.1, "x2": 3295.9, "y2": 807.3, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0021", "cls": "ic", "x1": 115.3, "y1": 682.8, "x2": 624.0, "y2": 849.7, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "C_AUTO_0012", "cls": "capacitor", "x1": 2575.1, "y1": 722.4, "x2": 2638.0, "y2": 816.3, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "D_AUTO_0002", "cls": "diode", "x1": 3417.5, "y1": 702.7, "x2": 3479.6, "y2": 835.3, "obs": 6, "sup": 0.2, "dupq": 0}, {"id": "C_AUTO_0013", "cls": "capacitor", "x1": 1322.3, "y1": 728.8, "x2": 1380.4, "y2": 814.0, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0014", "cls": "capacitor", "x1": 1948.6, "y1": 727.2, "x2": 2009.8, "y2": 813.6, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0015", "cls": "capacitor", "x1": 631.1, "y1": 732.2, "x2": 689.9, "y2": 813.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0022", "cls": "ic", "x1": 2026.8, "y1": 693.2, "x2": 2564.9, "y2": 854.8, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "C_AUTO_0016", "cls": "capacitor", "x1": 1781.2, "y1": 858.7, "x2": 1816.9, "y2": 890.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0017", "cls": "capacitor", "x1": 2587.9, "y1": 902.3, "x2": 2629.6, "y2": 941.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0023", "cls": "ic", "x1": 143.3, "y1": 950.8, "x2": 225.2, "y2": 1083.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0018", "cls": "capacitor", "x1": 1935.1, "y1": 979.3, "x2": 1992.3, "y2": 1071.7, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0025", "cls": "ic", "x1": 1267.2, "y1": 949.8, "x2": 1920.0, "y2": 1111.0, "obs": 10, "sup": 0.333, "dupq": 1}, {"id": "C_AUTO_0019", "cls": "capacitor", "x1": 2582.0, "y1": 980.4, "x2": 2641.3, "y2": 1082.8, "obs": 7, "sup": 0.233, "dupq": 0}, {"id": "U_AUTO_0026", "cls": "ic", "x1": 652.2, "y1": 958.1, "x2": 1170.0, "y2": 1109.8, "obs": 11, "sup": 0.367, "dupq": 1}, {"id": "D_AUTO_0003", "cls": "diode", "x1": 484.7, "y1": 961.3, "x2": 543.7, "y2": 1102.4, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0027", "cls": "ic", "x1": 2714.6, "y1": 956.9, "x2": 3234.7, "y2": 1114.9, "obs": 20, "sup": 0.667, "dupq": 1}, {"id": "R_AUTO_0004", "cls": "resistor", "x1": 3365.5, "y1": 980.0, "x2": 3416.9, "y2": 1094.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "D_AUTO_0004", "cls": "diode", "x1": 426.6, "y1": 976.0, "x2": 496.4, "y2": 1104.2, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0020", "cls": "capacitor", "x1": 1222.0, "y1": 999.8, "x2": 1280.7, "y2": 1085.8, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "D_AUTO_0005", "cls": "diode", "x1": 501.6, "y1": 978.2, "x2": 570.1, "y2": 1107.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0031", "cls": "ic", "x1": 2052.5, "y1": 962.0, "x2": 2547.5, "y2": 1116.4, "obs": 13, "sup": 0.433, "dupq": 1}, {"id": "D_AUTO_0006", "cls": "diode", "x1": 168.6, "y1": 974.6, "x2": 253.6, "y2": 1113.4, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0021", "cls": "capacitor", "x1": 1952.5, "y1": 1002.4, "x2": 2006.4, "y2": 1087.6, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0022", "cls": "capacitor", "x1": 2576.9, "y1": 1125.6, "x2": 2608.8, "y2": 1157.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0032", "cls": "ic", "x1": 3542.2, "y1": 911.6, "x2": 4025.2, "y2": 1373.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0033", "cls": "ic", "x1": 3524.6, "y1": 942.4, "x2": 4014.6, "y2": 1405.0, "obs": 6, "sup": 0.2, "dupq": 0}, {"id": "C_AUTO_0023", "cls": "capacitor", "x1": 1925.4, "y1": 1168.9, "x2": 1949.6, "y2": 1201.1, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0034", "cls": "ic", "x1": 3492.4, "y1": 950.7, "x2": 3985.7, "y2": 1424.0, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0035", "cls": "ic", "x1": 3528.6, "y1": 974.9, "x2": 4026.1, "y2": 1446.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0025", "cls": "capacitor", "x1": 1625.1, "y1": 1209.4, "x2": 1653.0, "y2": 1239.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0026", "cls": "capacitor", "x1": 1677.7, "y1": 1207.1, "x2": 1705.6, "y2": 1239.6, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0027", "cls": "capacitor", "x1": 2720.2, "y1": 1223.7, "x2": 2778.1, "y2": 1328.4, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0036", "cls": "ic", "x1": 2845.2, "y1": 1199.0, "x2": 3230.5, "y2": 1350.1, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "C_AUTO_0028", "cls": "capacitor", "x1": 1810.9, "y1": 1267.5, "x2": 1842.3, "y2": 1298.2, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0029", "cls": "capacitor", "x1": 1897.2, "y1": 1276.8, "x2": 1925.3, "y2": 1305.7, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0030", "cls": "capacitor", "x1": 2781.0, "y1": 1241.1, "x2": 2830.7, "y2": 1346.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0031", "cls": "capacitor", "x1": 2715.5, "y1": 1251.1, "x2": 2769.9, "y2": 1340.7, "obs": 6, "sup": 0.2, "dupq": 0}, {"id": "LED_AUTO_0002", "cls": "led", "x1": 3391.6, "y1": 1269.7, "x2": 3481.8, "y2": 1360.5, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "U_AUTO_0038", "cls": "ic", "x1": 564.5, "y1": 1173.4, "x2": 1564.1, "y2": 1454.7, "obs": 5, "sup": 0.167, "dupq": 1}, {"id": "U_AUTO_0039", "cls": "ic", "x1": 1951.2, "y1": 1179.2, "x2": 2692.4, "y2": 1465.3, "obs": 5, "sup": 0.167, "dupq": 1}, {"id": "C_AUTO_0032", "cls": "capacitor", "x1": 1592.1, "y1": 1276.5, "x2": 1645.0, "y2": 1358.3, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0033", "cls": "capacitor", "x1": 1656.4, "y1": 1284.1, "x2": 1708.3, "y2": 1358.9, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0040", "cls": "ic", "x1": 2840.9, "y1": 1248.1, "x2": 3208.3, "y2": 1400.1, "obs": 8, "sup": 0.267, "dupq": 1}, {"id": "C_AUTO_0034", "cls": "capacitor", "x1": 1708.5, "y1": 1284.6, "x2": 1759.5, "y2": 1366.0, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0041", "cls": "ic", "x1": 607.6, "y1": 1196.9, "x2": 1601.7, "y2": 1478.6, "obs": 4, "sup": 0.133, "dupq": 1}, {"id": "LED_AUTO_0004", "cls": "led", "x1": 3355.2, "y1": 1286.4, "x2": 3442.8, "y2": 1394.1, "obs": 3, "sup": 0.1, "dupq": 1}, {"id": "U_AUTO_0043", "cls": "ic", "x1": 552.6, "y1": 1200.5, "x2": 1572.0, "y2": 1480.1, "obs": 3, "sup": 0.1, "dupq": 1}, {"id": "C_AUTO_0035", "cls": "capacitor", "x1": 1718.9, "y1": 1302.3, "x2": 1779.8, "y2": 1389.5, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0036", "cls": "capacitor", "x1": 1669.6, "y1": 1308.9, "x2": 1726.5, "y2": 1385.1, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0037", "cls": "capacitor", "x1": 1823.5, "y1": 1365.1, "x2": 1853.7, "y2": 1398.0, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "BZ_AUTO_0001", "cls": "buzzer", "x1": 52.4, "y1": 1146.6, "x2": 538.9, "y2": 1637.1, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0038", "cls": "capacitor", "x1": 9.0, "y1": 1194.1, "x2": 475.2, "y2": 1656.7, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0039", "cls": "capacitor", "x1": 64.3, "y1": 1191.7, "x2": 567.5, "y2": 1661.7, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "BZ_AUTO_0002", "cls": "buzzer", "x1": 37.3, "y1": 1206.1, "x2": 545.3, "y2": 1664.3, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0040", "cls": "capacitor", "x1": 1.9, "y1": 1210.2, "x2": 527.9, "y2": 1715.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0041", "cls": "capacitor", "x1": 3256.5, "y1": 1456.1, "x2": 3286.4, "y2": 1483.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0042", "cls": "capacitor", "x1": 1811.4, "y1": 1458.5, "x2": 1842.1, "y2": 1489.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0043", "cls": "capacitor", "x1": 0.0, "y1": 1257.1, "x2": 493.9, "y2": 1740.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0044", "cls": "capacitor", "x1": 2575.9, "y1": 1494.3, "x2": 2611.5, "y2": 1526.5, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "LED_AUTO_0005", "cls": "led", "x1": 3397.1, "y1": 1529.3, "x2": 3446.1, "y2": 1584.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0045", "cls": "ic", "x1": 2852.2, "y1": 1488.3, "x2": 3244.7, "y2": 1630.8, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0046", "cls": "ic", "x1": 3833.1, "y1": 1468.1, "x2": 3956.4, "y2": 1662.0, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0045", "cls": "capacitor", "x1": 2728.5, "y1": 1545.7, "x2": 2776.6, "y2": 1619.1, "obs": 4, "sup": 0.133, "dupq": 0}, {"id": "C_AUTO_0046", "cls": "capacitor", "x1": 2772.1, "y1": 1542.5, "x2": 2822.2, "y2": 1628.8, "obs": 11, "sup": 0.367, "dupq": 0}, {"id": "C_AUTO_0047", "cls": "capacitor", "x1": 3355.8, "y1": 1552.2, "x2": 3395.4, "y2": 1627.6, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0047", "cls": "ic", "x1": 2854.8, "y1": 1520.3, "x2": 3245.6, "y2": 1665.7, "obs": 20, "sup": 0.667, "dupq": 1}, {"id": "U_AUTO_0049", "cls": "ic", "x1": 3824.2, "y1": 1508.3, "x2": 3943.9, "y2": 1697.1, "obs": 7, "sup": 0.233, "dupq": 0}, {"id": "U_AUTO_0050", "cls": "ic", "x1": 3662.6, "y1": 1528.4, "x2": 3766.6, "y2": 1717.4, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "R_AUTO_0005", "cls": "resistor", "x1": 3470.8, "y1": 1579.1, "x2": 3522.3, "y2": 1674.1, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0051", "cls": "ic", "x1": 3819.7, "y1": 1536.2, "x2": 3930.7, "y2": 1726.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0052", "cls": "ic", "x1": 754.1, "y1": 1417.2, "x2": 1558.7, "y2": 1861.8, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0053", "cls": "ic", "x1": 803.4, "y1": 1462.8, "x2": 1586.9, "y2": 1837.2, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0054", "cls": "ic", "x1": 892.1, "y1": 1484.5, "x2": 1656.1, "y2": 1835.5, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0055", "cls": "ic", "x1": 737.3, "y1": 1457.7, "x2": 1549.8, "y2": 1881.8, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "R_AUTO_0006", "cls": "resistor", "x1": 508.0, "y1": 1635.0, "x2": 556.3, "y2": 1714.8, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0056", "cls": "ic", "x1": 766.6, "y1": 1500.9, "x2": 1569.1, "y2": 1856.9, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "R_AUTO_0007", "cls": "resistor", "x1": 624.7, "y1": 1645.3, "x2": 669.2, "y2": 1715.2, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "R_AUTO_0008", "cls": "resistor", "x1": 567.8, "y1": 1654.7, "x2": 610.2, "y2": 1713.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0048", "cls": "capacitor", "x1": 1588.9, "y1": 1645.1, "x2": 1647.3, "y2": 1749.5, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0058", "cls": "ic", "x1": 808.1, "y1": 1524.7, "x2": 1598.5, "y2": 1877.6, "obs": 8, "sup": 0.267, "dupq": 1}, {"id": "U_AUTO_0059", "cls": "ic", "x1": 1704.7, "y1": 1556.3, "x2": 2715.6, "y2": 1859.9, "obs": 11, "sup": 0.367, "dupq": 1}, {"id": "R_AUTO_0009", "cls": "resistor", "x1": 586.9, "y1": 1663.5, "x2": 635.0, "y2": 1755.8, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0061", "cls": "ic", "x1": 728.5, "y1": 1536.6, "x2": 1543.5, "y2": 1886.3, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0062", "cls": "ic", "x1": 1673.4, "y1": 1564.7, "x2": 2701.9, "y2": 1861.0, "obs": 11, "sup": 0.367, "dupq": 1}, {"id": "R_AUTO_0010", "cls": "resistor", "x1": 530.5, "y1": 1661.9, "x2": 584.0, "y2": 1770.0, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0063", "cls": "ic", "x1": 846.3, "y1": 1546.2, "x2": 1627.2, "y2": 1887.9, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "R_AUTO_0011", "cls": "resistor", "x1": 647.7, "y1": 1678.2, "x2": 698.6, "y2": 1762.6, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0064", "cls": "ic", "x1": 805.1, "y1": 1551.4, "x2": 1595.9, "y2": 1908.4, "obs": 5, "sup": 0.167, "dupq": 1}, {"id": "U_AUTO_0065", "cls": "ic", "x1": 742.7, "y1": 1555.7, "x2": 1526.6, "y2": 1927.4, "obs": 3, "sup": 0.1, "dupq": 1}, {"id": "U_AUTO_0066", "cls": "ic", "x1": 830.2, "y1": 1546.1, "x2": 1628.9, "y2": 1972.0, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0067", "cls": "ic", "x1": 769.4, "y1": 1593.1, "x2": 1582.7, "y2": 1940.1, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0068", "cls": "ic", "x1": 874.3, "y1": 1593.8, "x2": 1635.2, "y2": 1939.5, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "C_AUTO_0049", "cls": "capacitor", "x1": 3238.3, "y1": 1827.5, "x2": 3292.3, "y2": 1909.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0070", "cls": "ic", "x1": 2840.7, "y1": 1804.9, "x2": 3225.5, "y2": 1946.8, "obs": 9, "sup": 0.3, "dupq": 1}, {"id": "U_AUTO_0071", "cls": "ic", "x1": 2859.3, "y1": 1804.4, "x2": 3250.9, "y2": 1952.7, "obs": 5, "sup": 0.167, "dupq": 1}, {"id": "R_AUTO_0012", "cls": "resistor", "x1": 2760.9, "y1": 1826.1, "x2": 2815.0, "y2": 1940.3, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0050", "cls": "capacitor", "x1": 3232.8, "y1": 1849.9, "x2": 3290.7, "y2": 1943.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0051", "cls": "capacitor", "x1": 2637.7, "y1": 1883.0, "x2": 2668.9, "y2": 1920.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "R_AUTO_0013", "cls": "resistor", "x1": 3887.5, "y1": 1906.7, "x2": 3928.7, "y2": 1939.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0052", "cls": "capacitor", "x1": 2632.8, "y1": 1911.1, "x2": 2663.3, "y2": 1944.2, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0072", "cls": "ic", "x1": 2161.0, "y1": 1908.9, "x2": 2553.3, "y2": 2037.4, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "R_AUTO_0014", "cls": "resistor", "x1": 2047.8, "y1": 1945.4, "x2": 2106.1, "y2": 2068.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0075", "cls": "ic", "x1": 1677.5, "y1": 1945.5, "x2": 2049.5, "y2": 2089.9, "obs": 7, "sup": 0.233, "dupq": 1}, {"id": "U_AUTO_0076", "cls": "ic", "x1": 807.7, "y1": 1879.0, "x2": 1544.9, "y2": 2176.3, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "U_AUTO_0077", "cls": "ic", "x1": 2169.6, "y1": 1959.6, "x2": 2560.3, "y2": 2095.8, "obs": 4, "sup": 0.133, "dupq": 1}, {"id": "U_AUTO_0078", "cls": "ic", "x1": 1689.8, "y1": 1953.8, "x2": 2071.9, "y2": 2105.5, "obs": 3, "sup": 0.1, "dupq": 1}, {"id": "C_AUTO_0053", "cls": "capacitor", "x1": 3165.6, "y1": 2017.2, "x2": 3197.2, "y2": 2048.2, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0054", "cls": "capacitor", "x1": 1601.2, "y1": 2000.2, "x2": 1658.3, "y2": 2095.3, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0079", "cls": "ic", "x1": 903.2, "y1": 1916.7, "x2": 1595.5, "y2": 2205.5, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0080", "cls": "ic", "x1": 774.6, "y1": 1925.7, "x2": 1529.8, "y2": 2225.3, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0081", "cls": "ic", "x1": 852.1, "y1": 1930.9, "x2": 1562.7, "y2": 2222.1, "obs": 13, "sup": 0.433, "dupq": 1}, {"id": "C_AUTO_0055", "cls": "capacitor", "x1": 1594.5, "y1": 2035.9, "x2": 1649.3, "y2": 2126.7, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0056", "cls": "capacitor", "x1": 3328.6, "y1": 2065.2, "x2": 3364.5, "y2": 2100.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0083", "cls": "ic", "x1": 847.1, "y1": 1961.9, "x2": 1564.6, "y2": 2255.7, "obs": 4, "sup": 0.133, "dupq": 1}, {"id": "C_AUTO_0057", "cls": "capacitor", "x1": 2787.7, "y1": 2086.3, "x2": 2817.7, "y2": 2151.7, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0084", "cls": "ic", "x1": 794.4, "y1": 1981.1, "x2": 1507.8, "y2": 2257.3, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "U_AUTO_0085", "cls": "ic", "x1": 3628.0, "y1": 1986.9, "x2": 3919.3, "y2": 2256.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0086", "cls": "ic", "x1": 898.3, "y1": 1990.4, "x2": 1600.8, "y2": 2264.4, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "C_AUTO_0058", "cls": "capacitor", "x1": 2892.0, "y1": 2089.8, "x2": 2942.4, "y2": 2168.7, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "C_AUTO_0059", "cls": "capacitor", "x1": 3165.1, "y1": 2089.5, "x2": 3218.8, "y2": 2172.4, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0060", "cls": "capacitor", "x1": 2720.9, "y1": 2098.1, "x2": 2770.5, "y2": 2176.6, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0087", "cls": "ic", "x1": 814.6, "y1": 1997.5, "x2": 1534.6, "y2": 2278.9, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "C_AUTO_0061", "cls": "capacitor", "x1": 2630.9, "y1": 2092.4, "x2": 2683.1, "y2": 2195.3, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "C_AUTO_0062", "cls": "capacitor", "x1": 3121.0, "y1": 2114.6, "x2": 3168.2, "y2": 2173.4, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0063", "cls": "capacitor", "x1": 2797.2, "y1": 2111.8, "x2": 2826.5, "y2": 2179.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0064", "cls": "capacitor", "x1": 2933.1, "y1": 2115.2, "x2": 2973.8, "y2": 2179.4, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0065", "cls": "capacitor", "x1": 2759.5, "y1": 2114.0, "x2": 2798.7, "y2": 2183.8, "obs": 4, "sup": 0.133, "dupq": 0}, {"id": "C_AUTO_0066", "cls": "capacitor", "x1": 3019.9, "y1": 2115.7, "x2": 3070.8, "y2": 2200.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "R_AUTO_0015", "cls": "resistor", "x1": 3061.8, "y1": 2113.5, "x2": 3113.6, "y2": 2212.1, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0067", "cls": "capacitor", "x1": 1926.0, "y1": 2188.3, "x2": 1969.6, "y2": 2231.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "R_AUTO_0016", "cls": "resistor", "x1": 1660.2, "y1": 2186.1, "x2": 1711.8, "y2": 2281.4, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0068", "cls": "capacitor", "x1": 1929.4, "y1": 2218.5, "x2": 1973.2, "y2": 2255.3, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0069", "cls": "capacitor", "x1": 1876.6, "y1": 2212.8, "x2": 1921.2, "y2": 2267.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0088", "cls": "ic", "x1": 2028.2, "y1": 2124.9, "x2": 2393.3, "y2": 2351.6, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "LED_AUTO_0006", "cls": "led", "x1": 2450.6, "y1": 2223.3, "x2": 2525.2, "y2": 2293.4, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0089", "cls": "ic", "x1": 2035.8, "y1": 2159.4, "x2": 2407.4, "y2": 2368.4, "obs": 14, "sup": 0.467, "dupq": 0}, {"id": "C_AUTO_0070", "cls": "capacitor", "x1": 1767.8, "y1": 2228.3, "x2": 1820.8, "y2": 2305.9, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "R_AUTO_0017", "cls": "resistor", "x1": 1713.6, "y1": 2219.5, "x2": 1761.3, "y2": 2321.4, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0090", "cls": "ic", "x1": 2017.5, "y1": 2162.2, "x2": 2391.5, "y2": 2380.1, "obs": 8, "sup": 0.267, "dupq": 0}, {"id": "R_AUTO_0018", "cls": "resistor", "x1": 1926.0, "y1": 2257.0, "x2": 1971.9, "y2": 2291.1, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "LED_AUTO_0007", "cls": "led", "x1": 2466.4, "y1": 2234.5, "x2": 2543.0, "y2": 2318.3, "obs": 13, "sup": 0.433, "dupq": 0}, {"id": "R_AUTO_0019", "cls": "resistor", "x1": 1683.0, "y1": 2231.7, "x2": 1731.3, "y2": 2327.2, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0091", "cls": "ic", "x1": 2043.7, "y1": 2186.3, "x2": 2416.6, "y2": 2398.9, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "LED_AUTO_0008", "cls": "led", "x1": 2479.4, "y1": 2258.9, "x2": 2553.8, "y2": 2333.9, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "R_AUTO_0020", "cls": "resistor", "x1": 1914.3, "y1": 2284.9, "x2": 1964.4, "y2": 2323.8, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "LED_AUTO_0009", "cls": "led", "x1": 2954.8, "y1": 2300.1, "x2": 3035.5, "y2": 2390.5, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "LED_AUTO_0010", "cls": "led", "x1": 2812.6, "y1": 2307.1, "x2": 2893.3, "y2": 2389.4, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "LED_AUTO_0011", "cls": "led", "x1": 3101.5, "y1": 2314.7, "x2": 3175.4, "y2": 2385.0, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "LED_AUTO_0015", "cls": "led", "x1": 2984.8, "y1": 2338.1, "x2": 3062.6, "y2": 2418.9, "obs": 4, "sup": 0.133, "dupq": 1}, {"id": "LED_AUTO_0016", "cls": "led", "x1": 2843.7, "y1": 2361.3, "x2": 2918.6, "y2": 2434.0, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0092", "cls": "ic", "x1": 888.6, "y1": 2440.1, "x2": 997.8, "y2": 2551.7, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0071", "cls": "capacitor", "x1": 1652.8, "y1": 2483.2, "x2": 1694.9, "y2": 2520.8, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0093", "cls": "ic", "x1": 457.8, "y1": 2439.8, "x2": 639.8, "y2": 2572.9, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0094", "cls": "ic", "x1": 1172.0, "y1": 2449.7, "x2": 1295.2, "y2": 2565.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0095", "cls": "ic", "x1": 1427.7, "y1": 2442.2, "x2": 1615.6, "y2": 2576.5, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0096", "cls": "ic", "x1": 2127.2, "y1": 2438.7, "x2": 2503.4, "y2": 2584.5, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "U_AUTO_0097", "cls": "ic", "x1": 2148.8, "y1": 2448.4, "x2": 2522.7, "y2": 2588.5, "obs": 5, "sup": 0.167, "dupq": 1}, {"id": "C_AUTO_0072", "cls": "capacitor", "x1": 384.8, "y1": 2479.2, "x2": 438.7, "y2": 2566.5, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "D_AUTO_0007", "cls": "diode", "x1": 2612.9, "y1": 2463.9, "x2": 2688.3, "y2": 2588.4, "obs": 4, "sup": 0.133, "dupq": 0}, {"id": "U_AUTO_0098", "cls": "ic", "x1": 899.1, "y1": 2484.9, "x2": 1025.2, "y2": 2581.3, "obs": 11, "sup": 0.367, "dupq": 0}, {"id": "C_AUTO_0074", "cls": "capacitor", "x1": 764.8, "y1": 2490.1, "x2": 817.8, "y2": 2584.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "C_AUTO_0075", "cls": "capacitor", "x1": 1375.5, "y1": 2500.5, "x2": 1422.9, "y2": 2575.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "D_AUTO_0008", "cls": "diode", "x1": 2853.1, "y1": 2488.6, "x2": 2945.8, "y2": 2588.8, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0100", "cls": "ic", "x1": 1200.5, "y1": 2488.5, "x2": 1324.1, "y2": 2589.4, "obs": 4, "sup": 0.133, "dupq": 0}, {"id": "U_AUTO_0101", "cls": "ic", "x1": 461.4, "y1": 2471.9, "x2": 644.1, "y2": 2606.1, "obs": 4, "sup": 0.133, "dupq": 1}, {"id": "U_AUTO_0102", "cls": "ic", "x1": 2138.8, "y1": 2473.9, "x2": 2512.4, "y2": 2607.5, "obs": 7, "sup": 0.233, "dupq": 1}, {"id": "C_AUTO_0076", "cls": "capacitor", "x1": 1747.9, "y1": 2504.4, "x2": 1795.2, "y2": 2583.3, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0103", "cls": "ic", "x1": 1456.6, "y1": 2479.1, "x2": 1640.9, "y2": 2620.4, "obs": 12, "sup": 0.4, "dupq": 1}, {"id": "U_AUTO_0104", "cls": "ic", "x1": 1178.9, "y1": 2501.6, "x2": 1293.3, "y2": 2592.6, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "D_AUTO_0009", "cls": "diode", "x1": 229.0, "y1": 2486.6, "x2": 343.9, "y2": 2610.6, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "D_AUTO_0010", "cls": "diode", "x1": 899.3, "y1": 2502.0, "x2": 986.9, "y2": 2600.1, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "R_AUTO_0021", "cls": "resistor", "x1": 404.8, "y1": 2509.9, "x2": 454.1, "y2": 2593.1, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "U_AUTO_0107", "cls": "ic", "x1": 2158.2, "y1": 2488.2, "x2": 2539.4, "y2": 2627.0, "obs": 2, "sup": 0.067, "dupq": 1}, {"id": "U_AUTO_0108", "cls": "ic", "x1": 263.5, "y1": 2501.8, "x2": 380.4, "y2": 2612.1, "obs": 5, "sup": 0.167, "dupq": 0}, {"id": "D_AUTO_0011", "cls": "diode", "x1": 2842.3, "y1": 2511.1, "x2": 2914.2, "y2": 2612.4, "obs": 3, "sup": 0.1, "dupq": 0}, {"id": "D_AUTO_0012", "cls": "diode", "x1": 1211.3, "y1": 2514.9, "x2": 1330.2, "y2": 2608.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "U_AUTO_0109", "cls": "ic", "x1": 449.0, "y1": 2491.5, "x2": 640.3, "y2": 2632.0, "obs": 5, "sup": 0.167, "dupq": 1}, {"id": "D_AUTO_0013", "cls": "diode", "x1": 258.1, "y1": 2512.2, "x2": 351.5, "y2": 2619.8, "obs": 2, "sup": 0.067, "dupq": 0}, {"id": "U_AUTO_0110", "cls": "ic", "x1": 484.8, "y1": 2503.6, "x2": 675.0, "y2": 2641.7, "obs": 1, "sup": 0.033, "dupq": 1}, {"id": "U_AUTO_0111", "cls": "ic", "x1": 1450.3, "y1": 2503.5, "x2": 1629.5, "y2": 2648.0, "obs": 3, "sup": 0.1, "dupq": 1}, {"id": "J_AUTO_0012", "cls": "connector", "x1": 3456.1, "y1": 2503.8, "x2": 3912.6, "y2": 2672.9, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "J_AUTO_0013", "cls": "connector", "x1": 2980.9, "y1": 2490.6, "x2": 3403.5, "y2": 2705.3, "obs": 1, "sup": 0.033, "dupq": 0}, {"id": "J_AUTO_0014", "cls": "connector", "x1": 1918.5, "y1": 2583.6, "x2": 2084.3, "y2": 2714.3, "obs": 7, "sup": 0.233, "dupq": 0}]};
+const KEY  = "pnpreview2:" + DATA.golden_sha256;
+const ACTIONS  = ["", "accept", "correct", "add", "reject"];
+const STATUSES = ["draft", "reviewed", "verified", "rejected"];
+const SOURCES  = ["pseudo_label", "human_verified", "bom_or_cad", "visual_transcription", "unknown"];
+const FIELDS   = ["record_id","source_auto_id","action","verified_refdes","class","footprint",
+                  "center_x_px","center_y_px","rotation_deg","polarity","review_status",
+                  "label_source","notes"];
+const BW = DATA.board_w, BH = DATA.board_h;
+
+let recs = load() || DATA.records.map(r => ({...r}));
+let cur = 0, mode = "over", showGhosts = false;
+let view = {z: 1, vx: 0, vy: 0};   // z = displayed px per board px
+
+const wrap  = document.getElementById("stagewrap");
+const board = document.getElementById("board");
+const layer = document.getElementById("layer");
+board.src = DATA.board_image;
+
+function load(){ try{ const s=localStorage.getItem(KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(recs)); }catch(e){} }
+function toast(m){
+  const t=document.getElementById("toast");
+  t.textContent=m; t.classList.add("on");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),1900);
+}
+function stateOf(r){
+  if(!r.action) return "";
+  if(r.action==="reject") return "reject";
+  if(r.action==="add")    return r.verified_refdes ? "add" : "part";
+  return r.verified_refdes ? r.action : "part";
+}
+
+/* ================= view maths ================= */
+function applyView(){
+  board.style.width = BW + "px";
+  board.style.transform = `translate(${-view.vx*view.z}px,${-view.vy*view.z}px) scale(${view.z})`;
+}
+function toScreen(x,y){ return [(x-view.vx)*view.z, (y-view.vy)*view.z]; }
+function toBoard(sx,sy){ return [sx/view.z+view.vx, sy/view.z+view.vy]; }
+function fitAll(){
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  view.z = Math.min(w/BW, h/BH);
+  view.vx = -(w/view.z - BW)/2;
+  view.vy = -(h/view.z - BH)/2;
+  applyView();
+}
+function focusRec(r, zoom){
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  const bw=r.x2_px-r.x1_px, bh=r.y2_px-r.y1_px;
+  const pad=Math.max(bw,bh)*0.9+80;
+  view.z = zoom || Math.min(w/(bw+pad*2), h/(bh+pad*2), 4);
+  const cx=(r.x1_px+r.x2_px)/2, cy=(r.y1_px+r.y2_px)/2;
+  view.vx = cx - w/view.z/2;
+  view.vy = cy - h/view.z/2;
+  applyView();
+}
+
+/* ================= rendering ================= */
+function boxDiv(r,i){
+  const d=document.createElement("div");
+  d.className="bx "+stateOf(r)+(i===cur?" sel":"");
+  const [x,y]=toScreen(r.x1_px,r.y1_px);
+  d.style.cssText+=`left:${x}px;top:${y}px;width:${(r.x2_px-r.x1_px)*view.z}px;
+                    height:${(r.y2_px-r.y1_px)*view.z}px`;
+  if(view.z>0.25){
+    const s=document.createElement("span");
+    s.textContent=(r.verified_refdes||r.record_id.replace("PNP_",""))+(r.action?" · "+r.action:"");
+    d.appendChild(s);
+  }
+  d.onclick=e=>{ e.stopPropagation(); cur=i; setMode("edit"); };
+  return d;
+}
+function ghostDiv(g){
+  const d=document.createElement("div");
+  d.className="gh";
+  const [x,y]=toScreen(g.x1,g.y1);
+  d.style.cssText+=`left:${x}px;top:${y}px;width:${(g.x2-g.x1)*view.z}px;
+                    height:${(g.y2-g.y1)*view.z}px`;
+  d.title=`${g.id} · ${g.cls} · ${g.obs} frame — bấm để thêm`;
+  d.onclick=e=>{ e.stopPropagation(); addFromGhost(g); };
+  return d;
+}
+let editBox=null;
+function visibleGhosts(){
+  // A ghost that repeats a queue site would create a duplicate row, so it is
+  // never offered; the rest are filtered by how many frames saw them.
+  const min=parseInt(document.getElementById("ghostMin").value,10);
+  return DATA.ghosts.filter(g=>!g.dupq && g.obs>=min);
+}
+function renderStage(){
+  layer.innerHTML=""; editBox=null;
+  if(showGhosts) visibleGhosts().forEach(g=>layer.appendChild(ghostDiv(g)));
+  recs.forEach((r,i)=>{ if(mode==="over"||i!==cur) layer.appendChild(boxDiv(r,i)); });
+  if(mode==="edit" && recs[cur]) layer.appendChild(makeEditBox());
+}
+function makeEditBox(){
+  const r=recs[cur];
+  const d=document.createElement("div");
+  d.id="editbox";
+  const [x,y]=toScreen(r.x1_px,r.y1_px);
+  d.style.cssText+=`left:${x}px;top:${y}px;width:${(r.x2_px-r.x1_px)*view.z}px;
+                    height:${(r.y2_px-r.y1_px)*view.z}px`;
+  ["nw","ne","sw","se"].forEach(k=>{
+    const h=document.createElement("i"); h.className="h "+k;
+    h.addEventListener("pointerdown",e=>{ e.stopPropagation(); startDrag(e,k); });
+    d.appendChild(h);
+  });
+  d.addEventListener("pointerdown",e=>{ if(e.target===d){ e.stopPropagation(); startDrag(e,"move"); }});
+  editBox=d;
+  return d;
+}
+function syncCentre(){
+  const r=recs[cur];
+  r.center_x_px=((r.x1_px+r.x2_px)/2).toFixed(3);
+  r.center_y_px=((r.y1_px+r.y2_px)/2).toFixed(3);
+  document.getElementById("fCenter").value=r.center_x_px+", "+r.center_y_px;
+}
+function renderList(){
+  const el=document.getElementById("list"); el.innerHTML="";
+  recs.forEach((r,i)=>{
+    const d=document.createElement("div");
+    d.className="item"+(i===cur?" sel":"");
+    d.innerHTML=`<span class="dot ${stateOf(r)}"></span>
+      <span class="rid">${r.record_id.replace("PNP_","")}</span>
+      <span class="cls">${r.class||"—"}</span><span style="flex:1"></span>
+      <span class="cls">${r.verified_refdes||""}</span>`;
+    d.onclick=()=>{ cur=i; setMode("edit"); };
+    el.appendChild(d);
+  });
+  const done=recs.filter(r=>r.action).length;
+  document.getElementById("pbar").style.width=(done/recs.length*100)+"%";
+  document.getElementById("ptext").textContent=done+" / "+recs.length;
+  const sel=el.querySelector(".item.sel"); if(sel) sel.scrollIntoView({block:"nearest"});
+}
+function renderMeta(){
+  const r=recs[cur];
+  document.getElementById("meta").innerHTML = r.source_auto_id
+    ? `<b>${r.record_id}</b> · ${r.source_auto_id} · detector <b>${r.det_class||"—"}</b>
+       · support ${r.support_ratio} (${r.observation_count} frame) · purity ${r.class_purity}
+       · MAD ${r.center_mad_px} px · gate <b>${r.detector_gate}</b>`
+    : `<b>${r.record_id}</b> · dòng tự thêm (không có đề xuất detector)`;
+}
+const LEGEND=[["st-todo","chưa duyệt"],["st-part","đã chọn action, thiếu RefDes"],
+  ["st-accept","accept"],["st-correct","correct"],["st-add","add"],["st-reject","reject"]];
+function renderChrome(){
+  document.getElementById("legend").innerHTML =
+    LEGEND.map(([c,t])=>`<span><i style="border-color:var(--${c})"></i>${t}</span>`).join("")
+    + (showGhosts?`<span><i style="border-color:var(--ghost);border-style:dashed"></i>ứng viên detector chưa vào queue (${visibleGhosts().length}/${DATA.ghosts.length})</span>`:"");
+  document.getElementById("hint").textContent = mode==="over"
+    ? "Bấm một box để mở · bấm vùng board trống để thêm linh kiện mới · lăn chuột để zoom"
+    : "Kéo giữa khung để dời box · kéo 4 góc để chỉnh · lăn chuột zoom · kéo nền để di chuyển · ← → đổi dòng · R đặt lại box";
+  document.getElementById("mOver").classList.toggle("on",mode==="over");
+  document.getElementById("mEdit").classList.toggle("on",mode==="edit");
+  document.getElementById("btnGhosts").classList.toggle("on",showGhosts);
+  document.getElementById("btnDelete").style.display = recs[cur]&&!recs[cur].source_auto_id?"":"none";
+}
+function renderAll(){ renderStage(); renderList(); renderForm(); renderMeta(); renderChrome(); syncCentre(); }
+function setMode(m){
+  mode=m;
+  if(m==="over") fitAll(); else focusRec(recs[cur]);
+  renderAll();
+}
+
+/* ================= interaction ================= */
+let drag=null;
+function startDrag(e,kind){
+  e.preventDefault();
+  const r=recs[cur];
+  drag={kind,sx:e.clientX,sy:e.clientY,x1:r.x1_px,y1:r.y1_px,x2:r.x2_px,y2:r.y2_px};
+  window.addEventListener("pointermove",onMove);
+  window.addEventListener("pointerup",onUp);
+}
+function onMove(e){
+  if(!drag) return;
+  const r=recs[cur];
+  const dx=(e.clientX-drag.sx)/view.z, dy=(e.clientY-drag.sy)/view.z;
+  if(drag.kind==="pan"){
+    view.vx=drag.vx-(e.clientX-drag.sx)/view.z;
+    view.vy=drag.vy-(e.clientY-drag.sy)/view.z;
+    applyView(); renderStage(); return;
+  }
+  if(drag.kind==="move"){
+    r.x1_px=drag.x1+dx; r.x2_px=drag.x2+dx; r.y1_px=drag.y1+dy; r.y2_px=drag.y2+dy;
+  }else{
+    if(drag.kind.includes("w")) r.x1_px=Math.min(drag.x1+dx,drag.x2-4);
+    if(drag.kind.includes("e")) r.x2_px=Math.max(drag.x2+dx,drag.x1+4);
+    if(drag.kind.includes("n")) r.y1_px=Math.min(drag.y1+dy,drag.y2-4);
+    if(drag.kind.includes("s")) r.y2_px=Math.max(drag.y2+dy,drag.y1+4);
+  }
+  if(editBox){
+    const [x,y]=toScreen(r.x1_px,r.y1_px);
+    editBox.style.left=x+"px"; editBox.style.top=y+"px";
+    editBox.style.width=(r.x2_px-r.x1_px)*view.z+"px";
+    editBox.style.height=(r.y2_px-r.y1_px)*view.z+"px";
+  }
+  syncCentre();
+}
+function onUp(){
+  const wasBox = drag && drag.kind!=="pan";
+  drag=null;
+  window.removeEventListener("pointermove",onMove);
+  window.removeEventListener("pointerup",onUp);
+  if(wasBox){ save(); renderList(); }
+}
+wrap.addEventListener("pointerdown",e=>{
+  if(e.target.closest(".bx,.gh,#editbox,.h")) return;
+  if(mode==="edit"){
+    drag={kind:"pan",sx:e.clientX,sy:e.clientY,vx:view.vx,vy:view.vy};
+    window.addEventListener("pointermove",onMove);
+    window.addEventListener("pointerup",onUp);
+  }else{
+    const rc=wrap.getBoundingClientRect();
+    const [bx,by]=toBoard(e.clientX-rc.left,e.clientY-rc.top);
+    if(bx<0||by<0||bx>BW||by>BH) return;
+    addAt(bx,by);
+  }
+});
+wrap.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const rc=wrap.getBoundingClientRect();
+  const mx=e.clientX-rc.left, my=e.clientY-rc.top;
+  const [bx,by]=toBoard(mx,my);
+  const f=e.deltaY<0?1.18:1/1.18;
+  view.z=Math.max(0.05,Math.min(8,view.z*f));
+  view.vx=bx-mx/view.z; view.vy=by-my/view.z;
+  applyView(); renderStage();
+},{passive:false});
+window.addEventListener("resize",()=>{ if(mode==="over") fitAll(); renderStage(); });
+
+/* ================= add / delete ================= */
+function nextAddId(){
+  const n=recs.filter(r=>!r.source_auto_id).length+1;
+  return "PNP_ADD_"+String(n).padStart(3,"0");
+}
+function pushAdd(x1,y1,x2,y2,cls,note){
+  recs.push({
+    record_id: nextAddId(), source_auto_id:"", action:"add", verified_refdes:"",
+    class: cls||"", det_class:"", footprint:"", center_x_px:"", center_y_px:"",
+    rotation_deg:"", polarity:"", review_status:"draft", label_source:"human_verified",
+    notes: note||"manually added; detector did not propose this site",
+    x1_px:x1, y1_px:y1, x2_px:x2, y2_px:y2,
+    support_ratio:"", observation_count:"", class_purity:"", center_mad_px:"", detector_gate:""
+  });
+  cur=recs.length-1; save(); setMode("edit");
+}
+function addAt(bx,by){
+  const s=60;
+  pushAdd(bx-s/2,by-s/2,bx+s/2,by+s/2,"");
+  toast("Đã thêm dòng mới — kéo box cho khớp linh kiện");
+}
+function addFromGhost(g){
+  const dup=recs.find(r=>r.notes&&r.notes.includes(g.id));
+  if(dup){ cur=recs.indexOf(dup); setMode("edit"); toast("Chỗ này đã được thêm rồi"); return; }
+  pushAdd(g.x1,g.y1,g.x2,g.y2,g.cls,
+    `added from consensus audit cluster ${g.id}; ${g.obs} frame, support ${g.sup}; not in the generated PnP queue`);
+  toast("Đã thêm từ "+g.id+" — kiểm tra lại box và class");
+}
+document.getElementById("btnDelete").onclick=()=>{
+  if(recs[cur].source_auto_id) return;
+  recs.splice(cur,1); cur=Math.max(0,cur-1); save(); setMode(mode);
+  toast("Đã xoá dòng");
+};
+document.getElementById("btnReset").onclick=()=>{
+  const r=recs[cur], o=DATA.records.find(x=>x.record_id===r.record_id);
+  if(!o){ toast("Dòng tự thêm — không có box gốc"); return; }
+  ["x1_px","y1_px","x2_px","y2_px"].forEach(k=>r[k]=o[k]);
+  save(); renderAll(); toast("Đã đặt lại box gốc");
+};
+
+/* ================= form ================= */
+function chips(host,values,get,set,rej){
+  host.innerHTML="";
+  values.forEach(v=>{
+    const c=document.createElement("span");
+    c.className="chip"+(rej&&v==="reject"?" rej":"")+(get()===v?" on":"");
+    c.textContent=v===""?"— chưa quyết —":v;
+    c.onclick=()=>{ set(v); save(); renderAll(); };
+    host.appendChild(c);
+  });
+}
+function fillSelect(el,values){ el.innerHTML=values.map(v=>`<option>${v}</option>`).join(""); }
+fillSelect(document.getElementById("fStatus"),STATUSES);
+fillSelect(document.getElementById("fSrc"),SOURCES);
+function bind(id,key){
+  const el=document.getElementById(id);
+  el.addEventListener("input",()=>{ recs[cur][key]=el.value; save(); renderList(); renderStage(); });
+}
+["fRef:verified_refdes","fClass:class","fFoot:footprint","fRot:rotation_deg",
+ "fPol:polarity","fNotes:notes","fStatus:review_status","fSrc:label_source"]
+ .forEach(s=>{ const [a,b]=s.split(":"); bind(a,b); });
+
+function renderForm(){
+  const r=recs[cur]; if(!r) return;
+  document.getElementById("fRef").value=r.verified_refdes||"";
+  document.getElementById("fClass").value=r.class||"";
+  document.getElementById("fFoot").value=r.footprint||"";
+  document.getElementById("fRot").value=r.rotation_deg||"";
+  document.getElementById("fPol").value=r.polarity||"";
+  document.getElementById("fNotes").value=r.notes||"";
+  document.getElementById("fStatus").value=r.review_status||"draft";
+  document.getElementById("fSrc").value=r.label_source||"pseudo_label";
+  chips(document.getElementById("chipAction"),ACTIONS,()=>recs[cur].action||"",v=>{
+    recs[cur].action=v;
+    if(v&&recs[cur].label_source==="pseudo_label") recs[cur].label_source="human_verified";
+    if(v&&recs[cur].review_status==="draft")
+      recs[cur].review_status = v==="reject" ? "rejected" : "reviewed";
+  },true);
+  chips(document.getElementById("chipRot"),["0","90","180","270"],
+    ()=>String(recs[cur].rotation_deg||""),v=>{ recs[cur].rotation_deg=v; });
+}
+
+/* ================= import / export ================= */
+function csvCell(v){
+  v=(v===undefined||v===null)?"":String(v);
+  return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+document.getElementById("btnExport").onclick=()=>{
+  const lines=[FIELDS.join(",")];
+  recs.forEach(r=>lines.push(FIELDS.map(f=>csvCell(r[f])).join(",")));
+  const blob=new Blob(["﻿"+lines.join("\r\n")+"\r\n"],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="pnp_pixels_REVIEWED.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+  toast("Đã xuất pnp_pixels_REVIEWED.csv ("+recs.length+" dòng)");
+};
+document.getElementById("btnOverlay").onclick=()=>{
+  const c=document.createElement("canvas"); c.width=BW; c.height=BH;
+  const x=c.getContext("2d");
+  x.drawImage(board,0,0,BW,BH);
+  const COL={"":"#8b949e",accept:"#3fb950",correct:"#58a6ff",reject:"#f85149",
+             add:"#bc8cff",part:"#d29922"};
+  x.lineWidth=4; x.font="600 26px sans-serif"; x.textBaseline="bottom";
+  recs.forEach(r=>{
+    const col=COL[stateOf(r)]||COL[""];
+    x.strokeStyle=col;
+    x.setLineDash(stateOf(r)==="reject"?[12,8]:[]);
+    x.strokeRect(r.x1_px,r.y1_px,r.x2_px-r.x1_px,r.y2_px-r.y1_px);
+    const lab=(r.verified_refdes||r.record_id.replace("PNP_",""))+(r.action?" · "+r.action:"");
+    x.setLineDash([]);
+    const w=x.measureText(lab).width+10;
+    x.fillStyle="rgba(0,0,0,.72)"; x.fillRect(r.x1_px,r.y1_px-30,w,30);
+    x.fillStyle=col; x.fillText(lab,r.x1_px+5,r.y1_px-4);
+  });
+  c.toBlob(b=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(b); a.download="overlay_pnp_REVIEWED.png"; a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Đã xuất overlay_pnp_REVIEWED.png");
+  },"image/png");
+};
+document.getElementById("btnImport").onclick=()=>document.getElementById("fileCsv").click();
+document.getElementById("fileCsv").onchange=ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const rows=parseCsv(rd.result); let n=0, added=0;
+    rows.forEach(row=>{
+      let t=recs.find(r=>r.record_id===row.record_id);
+      if(!t){
+        // A row the CSV has but this session does not: an "add" made elsewhere.
+        t={...row, x1_px:0,y1_px:0,x2_px:60,y2_px:60};
+        recs.push(t); added++;
+      }
+      FIELDS.forEach(k=>{ if(row[k]!==undefined) t[k]=row[k]; });
+      // A CSV carries the centre but not the corners. Shift the stored box onto
+      // the imported centre, keeping its size, so the drawn box and the exported
+      // centre cannot drift apart on the next redraw.
+      const cx=parseFloat(row.center_x_px), cy=parseFloat(row.center_y_px);
+      if(isFinite(cx)&&isFinite(cy)){
+        const w=t.x2_px-t.x1_px, h=t.y2_px-t.y1_px;
+        t.x1_px=cx-w/2; t.x2_px=cx+w/2; t.y1_px=cy-h/2; t.y2_px=cy+h/2;
+      }
+      n++;
+    });
+    save(); setMode(mode);
+    toast("Đã nhập "+n+" dòng"+(added?" (thêm mới "+added+")":""));
+  };
+  rd.readAsText(f);
+};
+function parseCsv(text){
+  const out=[], lines=text.replace(/^﻿/,"").split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return out;
+  const split=l=>{
+    const a=[]; let c="",q=false;
+    for(let i=0;i<l.length;i++){
+      const ch=l[i];
+      if(q){ if(ch==='"'){ if(l[i+1]==='"'){ c+='"'; i++; } else q=false; } else c+=ch; }
+      else if(ch==='"') q=true;
+      else if(ch===","){ a.push(c); c=""; }
+      else c+=ch;
+    }
+    a.push(c); return a;
+  };
+  const head=split(lines[0]);
+  for(let i=1;i<lines.length;i++){
+    const v=split(lines[i]), o={};
+    head.forEach((h,j)=>o[h]=v[j]);
+    out.push(o);
+  }
+  return out;
+}
+
+/* ================= chrome ================= */
+document.getElementById("mOver").onclick=()=>setMode("over");
+document.getElementById("mEdit").onclick=()=>setMode("edit");
+document.getElementById("btnGhosts").onclick=()=>{
+  showGhosts=!showGhosts; renderStage(); renderChrome();
+  if(showGhosts) toast(visibleGhosts().length+" ứng viên — bấm một cái để tạo dòng add");
+};
+document.getElementById("ghostMin").onchange=()=>{
+  if(!showGhosts){ showGhosts=true; }
+  renderStage(); renderChrome();
+  toast(visibleGhosts().length+" ứng viên ở ngưỡng này");
+};
+const helpEl=document.getElementById("help");
+document.getElementById("btnHelp").onclick=()=>helpEl.classList.add("on");
+document.getElementById("btnHelpClose").onclick=()=>helpEl.classList.remove("on");
+helpEl.onclick=e=>{ if(e.target===helpEl) helpEl.classList.remove("on"); };
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){ helpEl.classList.remove("on"); return; }
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if(e.key==="?"||e.key==="/"){ helpEl.classList.toggle("on"); return; }
+  if(helpEl.classList.contains("on")) return;
+  if(e.key==="ArrowRight"&&cur<recs.length-1){ cur++; setMode("edit"); }
+  if(e.key==="ArrowLeft" &&cur>0){ cur--; setMode("edit"); }
+  if(e.key.toLowerCase()==="r") document.getElementById("btnReset").click();
+  if(e.key.toLowerCase()==="o") setMode(mode==="over"?"edit":"over");
+});
+
+board.onload=()=>{ fitAll(); renderAll(); };
+if(board.complete) { fitAll(); renderAll(); }
+</script>

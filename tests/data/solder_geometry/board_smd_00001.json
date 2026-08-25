@@ -1,0 +1,645 @@
+{
+  "image": "board_smd_00001.png",
+  "source": "public SMD board crop, tile 00001 at 1024px, offset (1648, 4120)",
+  "detector": "models/active/detector/best.onnx, confidence 0.25, image_size 1280, end2end False",
+  "note": "All 39 detections are frozen from a real pipeline run so the derivation is exercised on the boxes it actually receives, and so neighbour deconfliction sees the same crowd it sees in production. Pad rectangles were measured by hand on the image and visually verified.",
+  "detections": [
+    {
+      "label": "ic",
+      "confidence": 0.6917,
+      "box": [
+        534.91,
+        642.2,
+        604.29,
+        688.27
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.888,
+      "box": [
+        306.85,
+        906.73,
+        351.89,
+        936.89
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8871,
+      "box": [
+        406.92,
+        811.18,
+        451.48,
+        841.11
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8852,
+      "box": [
+        405.65,
+        907.46,
+        451.13,
+        937.36
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.8812,
+      "box": [
+        570.85,
+        858.83,
+        674.9,
+        974.43
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8807,
+      "box": [
+        306.09,
+        860.33,
+        350.59,
+        890.64
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.2027,
+      "box": [
+        326.99,
+        240.48,
+        473.14,
+        375.52
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8729,
+      "box": [
+        405.71,
+        859.64,
+        451.49,
+        889.93
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8621,
+      "box": [
+        307.6,
+        764.51,
+        352.45,
+        794.44
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.7992,
+      "box": [
+        507.69,
+        921.52,
+        542.75,
+        940.29
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8565,
+      "box": [
+        406.29,
+        762.52,
+        450.09,
+        793.12
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.852,
+      "box": [
+        626.41,
+        653.51,
+        646.81,
+        687.83
+      ]
+    },
+    {
+      "label": "ic",
+      "confidence": 0.8514,
+      "box": [
+        540.32,
+        741.8,
+        606.44,
+        789.42
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.8496,
+      "box": [
+        572.83,
+        462.28,
+        676.95,
+        579.35
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8496,
+      "box": [
+        307.64,
+        811.64,
+        351.8,
+        841.86
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8492,
+      "box": [
+        165.56,
+        129.46,
+        234.33,
+        267.62
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8392,
+      "box": [
+        625.64,
+        753.42,
+        646.18,
+        787.85
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8302,
+      "box": [
+        508.46,
+        882.61,
+        541.99,
+        903.06
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8245,
+      "box": [
+        703.14,
+        918.11,
+        737.06,
+        939.31
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.8238,
+      "box": [
+        796.49,
+        869.35,
+        831.48,
+        888.17
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8224,
+      "box": [
+        704.06,
+        563.63,
+        737.01,
+        584.66
+      ]
+    },
+    {
+      "label": "ic",
+      "confidence": 0.8107,
+      "box": [
+        731.86,
+        661.27,
+        842.98,
+        786.59
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.7904,
+      "box": [
+        886.19,
+        752.75,
+        905.3,
+        786.02
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8096,
+      "box": [
+        882.67,
+        661.6,
+        903.11,
+        694.66
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.8093,
+      "box": [
+        796.92,
+        917.95,
+        830.15,
+        940.14
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.8052,
+      "box": [
+        798.23,
+        562.91,
+        832.02,
+        580.77
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.7623,
+      "box": [
+        507.09,
+        554.68,
+        540.19,
+        572.7
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7964,
+      "box": [
+        798.4,
+        513.95,
+        832.27,
+        535.38
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.725,
+      "box": [
+        94.66,
+        168.25,
+        132.6,
+        244.18
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7854,
+      "box": [
+        703.8,
+        512.84,
+        737.95,
+        534.9
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.7546,
+      "box": [
+        669.01,
+        653.89,
+        687.4,
+        687.98
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7858,
+      "box": [
+        702.31,
+        867.26,
+        736.65,
+        889.73
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7848,
+      "box": [
+        507.74,
+        843.66,
+        541.75,
+        863.6
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7301,
+      "box": [
+        799.14,
+        464.76,
+        834.25,
+        486.55
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7497,
+      "box": [
+        504.8,
+        592.17,
+        538.78,
+        614.15
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.7718,
+      "box": [
+        505.45,
+        512.31,
+        540.77,
+        533.09
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.7219,
+      "box": [
+        669.12,
+        749.2,
+        687.91,
+        787.04
+      ]
+    },
+    {
+      "label": "capacitor",
+      "confidence": 0.5689,
+      "box": [
+        175.02,
+        1011.57,
+        214.18,
+        1023.7
+      ]
+    },
+    {
+      "label": "resistor",
+      "confidence": 0.516,
+      "box": [
+        89.22,
+        964.62,
+        160.71,
+        1024.0
+      ]
+    }
+  ],
+  "components": {
+    "C239": {
+      "package": "smd_electrolytic_can",
+      "detection_index": 6,
+      "pads": [
+        [
+          383,
+          218,
+          417,
+          257
+        ],
+        [
+          383,
+          368,
+          419,
+          409
+        ]
+      ],
+      "note": "the tabs of a V-chip can sit outside the body box, which is what step 5.5 must reach"
+    },
+    "C211": {
+      "package": "smd_electrolytic_can",
+      "detection_index": 13,
+      "pads": [
+        [
+          609,
+          457,
+          642,
+          476
+        ],
+        [
+          609,
+          566,
+          642,
+          579
+        ]
+      ]
+    },
+    "C231": {
+      "package": "smd_electrolytic_can",
+      "detection_index": 4,
+      "pads": [
+        [
+          609,
+          850,
+          639,
+          868
+        ],
+        [
+          608,
+          957,
+          638,
+          974
+        ]
+      ]
+    },
+    "D201": {
+      "package": "sot23",
+      "detection_index": 0,
+      "pads": [
+        [
+          559,
+          628,
+          584,
+          654
+        ],
+        [
+          537,
+          677,
+          563,
+          701
+        ],
+        [
+          578,
+          677,
+          604,
+          701
+        ]
+      ],
+      "note": "the detector calls SOT-23 diodes ic, so they take the multi-pin path"
+    },
+    "D202": {
+      "package": "sot23",
+      "detection_index": 12,
+      "pads": [
+        [
+          537,
+          727,
+          564,
+          752
+        ],
+        [
+          579,
+          727,
+          607,
+          752
+        ],
+        [
+          562,
+          778,
+          587,
+          804
+        ]
+      ],
+      "note": "lead layout is mirrored against D201: two leads on one edge, one on the other"
+    },
+    "U201": {
+      "package": "soic8",
+      "detection_index": 21,
+      "pads": [
+        [
+          733,
+          643,
+          753,
+          678
+        ],
+        [
+          762,
+          643,
+          782,
+          678
+        ],
+        [
+          790,
+          643,
+          810,
+          678
+        ],
+        [
+          818,
+          643,
+          838,
+          678
+        ],
+        [
+          733,
+          770,
+          753,
+          810
+        ],
+        [
+          762,
+          770,
+          782,
+          810
+        ],
+        [
+          790,
+          770,
+          810,
+          810
+        ],
+        [
+          818,
+          770,
+          838,
+          810
+        ]
+      ]
+    },
+    "C220": {
+      "package": "chip_vertical",
+      "detection_index": 28,
+      "pads": [
+        [
+          92,
+          138,
+          136,
+          175
+        ],
+        [
+          92,
+          238,
+          136,
+          275
+        ]
+      ]
+    },
+    "R254": {
+      "package": "chip_horizontal",
+      "detection_index": 8,
+      "pads": [
+        [
+          289,
+          762,
+          313,
+          797
+        ],
+        [
+          347,
+          762,
+          371,
+          797
+        ]
+      ]
+    },
+    "R260": {
+      "package": "chip_horizontal",
+      "detection_index": 14,
+      "pads": [
+        [
+          290,
+          809,
+          314,
+          845
+        ],
+        [
+          346,
+          809,
+          370,
+          845
+        ]
+      ]
+    },
+    "C232": {
+      "package": "chip_horizontal",
+      "detection_index": 35,
+      "note": "reviewer reported the upper ROI on the wrong place and the lower one too wide",
+      "pads": [
+        [
+          494,
+          509,
+          513,
+          535
+        ],
+        [
+          534,
+          509,
+          553,
+          535
+        ]
+      ]
+    }
+  },
+  "known_limitations": {
+    "C120": {
+      "detection_index": 37,
+      "package": "chip_vertical",
+      "visible_pad": [
+        178,
+        988,
+        210,
+        1008
+      ],
+      "reason": "Cut off by the tile edge. The detector box is (175,1012)-(214,1024) -- a 12px sliver at the image boundary, entirely below the one land that is still visible at y 988..1008 -- so no terminal geometry derived from that box can reach the pad. Recorded rather than asserted: the fix belongs to tiling or to the detector, not to step 5.5, and the reviewer agreed it is out of scope here."
+    }
+  }
+}

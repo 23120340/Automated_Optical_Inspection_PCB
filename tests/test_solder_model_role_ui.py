@@ -9,7 +9,7 @@ import app.streamlit_app as ui
 
 
 DETECTOR_MODEL = (
-    ui.PROJECT_ROOT / "models" / "active" / "solder" / "detector" / "best.onnx"
+    ui.PROJECT_ROOT / "models" / "active" / "solder" / "segmenter" / "best.onnx"
 )
 DETECTOR_MANIFEST = DETECTOR_MODEL.with_name("model_manifest.json")
 CLASSIFIER_MODEL = (
@@ -21,11 +21,11 @@ CLASSIFIER_MANIFEST = CLASSIFIER_MODEL.with_name("model_manifest.json")
 def test_sidebar_names_both_solder_roles_and_both_contracts_explicitly() -> None:
     source = inspect.getsource(ui._render_sidebar)
 
-    assert "Detector lỗi mối hàn · YOLO Segment" in source
-    assert "Manifest detector (model_manifest.json)" in source
+    assert "Segmenter lỗi mối hàn · YOLO Segment" in source
+    assert "Manifest segmenter (model_manifest.json)" in source
     assert "Classifier ROI mối hàn · raw logits" in source
     assert "Manifest classifier ROI (model_manifest.json)" in source
-    assert '_render_model_picker("solder_detector")' in source
+    assert '_render_model_picker("solder_segmenter")' in source
     assert '_render_model_picker("solder")' in source
     assert "Contract 6.2" not in source
 
@@ -73,19 +73,19 @@ ui._init_state()
 # A fresh session adopts both role-specific active folders.
 assert Path(st.session_state.solder_model_path) == Path({classifier_model!r})
 assert Path(st.session_state.solder_manifest_path) == Path({classifier_manifest!r})
-assert Path(st.session_state.solder_detector_model_path) == Path({detector_model!r})
-assert Path(st.session_state.solder_detector_manifest_path) == Path({detector_manifest!r})
+assert Path(st.session_state.solder_segmenter_model_path) == Path({detector_model!r})
+assert Path(st.session_state.solder_segmenter_manifest_path) == Path({detector_manifest!r})
 
 # Cross-wiring either manifest must fail before any state is changed.
 classifier_before = st.session_state.solder_manifest_path
-detector_before = st.session_state.solder_detector_manifest_path
+detector_before = st.session_state.solder_segmenter_manifest_path
 try:
-    ui._set_solder_detector_manifest(_Upload({classifier_manifest!r}))
+    ui._set_solder_segmenter_manifest(_Upload({classifier_manifest!r}))
 except ValueError as exc:
     assert "detector/segment" in str(exc)
 else:
     raise AssertionError("classifier manifest was accepted by detector slot")
-assert st.session_state.solder_detector_manifest_path == detector_before
+assert st.session_state.solder_segmenter_manifest_path == detector_before
 
 try:
     ui._set_solder_manifest(_Upload({detector_manifest!r}))
@@ -96,9 +96,9 @@ else:
 assert st.session_state.solder_manifest_path == classifier_before
 
 # Removing the detector must leave the classifier pair and grading config intact.
-ui._remove_solder_detector()
-assert st.session_state.solder_detector_model_path is None
-assert st.session_state.solder_detector_manifest_path is None
+ui._remove_solder_segmenter()
+assert st.session_state.solder_segmenter_model_path is None
+assert st.session_state.solder_segmenter_manifest_path is None
 assert st.session_state.solder_model_path == {classifier_model!r}
 assert st.session_state.solder_manifest_path == {classifier_manifest!r}
 assert st.session_state.config["solder_grading"]["model_path"] == {classifier_model!r}

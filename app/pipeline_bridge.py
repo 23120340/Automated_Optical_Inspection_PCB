@@ -245,8 +245,8 @@ class PipelineBridge:
         board_model_path: str | None = None,
         classifier_model_path: str | None = None,
         classifier_manifest_path: str | None = None,
-        solder_detector_model_path: str | None = None,
-        solder_detector_manifest_path: str | None = None,
+        solder_segmenter_model_path: str | None = None,
+        solder_segmenter_manifest_path: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.config = dict(config or {})
@@ -255,15 +255,15 @@ class PipelineBridge:
         self.board_model_path = board_model_path
         self.classifier_model_path = classifier_model_path
         self.classifier_manifest_path = classifier_manifest_path
-        solder_detector_config = self.config.get("solder_defect_detection")
-        if not isinstance(solder_detector_config, Mapping):
-            solder_detector_config = {}
-        self.solder_detector_model_path = (
-            solder_detector_model_path or solder_detector_config.get("model_path")
+        solder_segmenter_config = self.config.get("solder_defect_detection")
+        if not isinstance(solder_segmenter_config, Mapping):
+            solder_segmenter_config = {}
+        self.solder_segmenter_model_path = (
+            solder_segmenter_model_path or solder_segmenter_config.get("model_path")
         )
-        self.solder_detector_manifest_path = (
-            solder_detector_manifest_path
-            or solder_detector_config.get("manifest_path")
+        self.solder_segmenter_manifest_path = (
+            solder_segmenter_manifest_path
+            or solder_segmenter_config.get("manifest_path")
         )
         self.extra = kwargs
         self.engine: Any = None
@@ -372,8 +372,8 @@ class PipelineBridge:
             "model_path": self.model_path,
             "classifier_model_path": self.classifier_model_path,
             "classifier_manifest_path": self.classifier_manifest_path,
-            "solder_defect_model_path": self.solder_detector_model_path,
-            "solder_defect_manifest_path": self.solder_detector_manifest_path,
+            "solder_defect_model_path": self.solder_segmenter_model_path,
+            "solder_defect_manifest_path": self.solder_segmenter_manifest_path,
         }
         init_kwargs.update(self.extra)
         try:
@@ -916,7 +916,7 @@ class PipelineBridge:
                 "elapsed_ms": _elapsed_ms(started),
                 "joints": joints,
                 "total_rois": len(records),
-                "solder_detector_findings": len(detector_findings),
+                "solder_segmenter_findings": len(detector_findings),
             },
             crops=records,
             verdicts=verdicts,
@@ -943,8 +943,8 @@ class PipelineBridge:
         """Run the optional whole-board segmenter without taking 5.5/6.2 down."""
 
         active = bool(
-            getattr(self, "solder_detector_model_path", None)
-            and getattr(self, "solder_detector_manifest_path", None)
+            getattr(self, "solder_segmenter_model_path", None)
+            and getattr(self, "solder_segmenter_manifest_path", None)
         )
         if not active:
             return ([], False, None)
