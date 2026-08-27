@@ -1,0 +1,582 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Khoanh mối hàn lỗi 6.2 — __DATASET__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1014; --panel:#161a21; --panel2:#1d222b; --line:#2a3039; --fg:#e7eaee;
+  --muted:#98a1ad; --accent:#4c9aff; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+}
+@media (prefers-color-scheme:light){
+  :root{ --bg:#f4f6f8; --panel:#fff; --panel2:#eef1f5; --line:#d8dee6; --fg:#1a1d21;
+         --muted:#5a6472; --accent:#0b6bcb; }
+}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:grid;grid-template-rows:auto 1fr;
+  font:14px/1.5 Montserrat,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg);color:var(--fg);overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:14px;font-weight:700;margin:0;white-space:nowrap}
+header .sp{flex:1}
+.bar{width:180px;height:6px;background:var(--panel2);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--ok);width:0;transition:width .25s}
+.prog{font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+button,select,input{font:inherit;font-size:13px;padding:6px 11px;border-radius:7px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer}
+input[type=text]{cursor:text}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.ghost{background:transparent}
+main{display:grid;grid-template-columns:190px 1fr 320px;min-height:0}
+@media (max-width:1200px){ main{grid-template-columns:1fr 300px} #strip{display:none} }
+#strip{overflow-y:auto;border-right:1px solid var(--line);background:var(--panel);padding:8px;
+  display:grid;gap:7px;align-content:start;grid-template-columns:repeat(2,1fr)}
+.thumb{position:relative;border:2px solid var(--line);border-radius:6px;overflow:hidden;
+  cursor:pointer;background:#000;aspect-ratio:1}
+.thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.thumb.st-verified{border-color:var(--ok)}
+.thumb.st-verified.has{border-color:var(--bad)}
+.thumb.st-skipped{border-color:var(--warn);border-style:dashed}
+.thumb.st-unusable{border-color:var(--muted);border-style:dotted;opacity:.55}
+.thumb .n{position:absolute;left:2px;top:2px;font-size:9px;background:rgba(0,0,0,.7);
+  color:#fff;padding:0 4px;border-radius:3px}
+#stage{position:relative;min-width:0;display:grid;place-items:center;background:#08090b;
+  overflow:hidden}
+#cv{cursor:crosshair;touch-action:none;max-width:100%;max-height:100%}
+#hint{position:absolute;left:12px;bottom:10px;font-size:11.5px;color:var(--muted);
+  background:rgba(0,0,0,.55);padding:4px 9px;border-radius:6px;pointer-events:none}
+#side{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:14px}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);margin:14px 0 5px;font-weight:600}
+.meta{font-size:11.5px;color:var(--muted);word-break:break-all;line-height:1.65}
+.meta b{color:var(--fg);font-weight:600}
+.classes{display:grid;gap:6px}
+.cls{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;
+  border:1px solid var(--line);background:var(--bg);cursor:pointer;text-align:left;width:100%}
+.cls:hover{border-color:var(--accent)}
+.cls.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cls kbd{background:rgba(128,128,128,.25);border-radius:4px;padding:1px 6px;font-size:11px;
+  font-family:inherit;min-width:20px;text-align:center}
+.cls .sw{width:11px;height:11px;border-radius:3px;flex:none}
+.cls .vn{font-size:10.5px;color:var(--muted);display:block;font-weight:400}
+.acts{display:grid;gap:6px;grid-template-columns:1fr 1fr}
+.acts button{width:100%}
+#boxes{display:grid;gap:5px;margin-top:6px}
+.brow{display:flex;align-items:center;gap:7px;font-size:12px;padding:5px 8px;border-radius:6px;
+  border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.brow.on{border-color:var(--accent)}
+.brow .sw{width:9px;height:9px;border-radius:2px;flex:none}
+.brow .sp{flex:1}
+.brow button{padding:1px 7px;font-size:11px}
+.note{background:var(--panel2);border-left:3px solid var(--warn);padding:9px 11px;
+  border-radius:0 6px 6px 0;font-size:12px;line-height:1.55;margin:10px 0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--panel);border:1px solid var(--line);padding:9px 16px;border-radius:8px;
+  font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#help{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;z-index:50;padding:28px;
+  overflow-y:auto}
+#help.on{display:block}
+#help .sheet{max-width:860px;margin:0 auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:24px 28px}
+#help h2{font-size:17px;margin:0 0 6px}
+#help h3{font-size:14px;margin:20px 0 6px;color:var(--accent)}
+#help table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+#help th,#help td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+#help td:first-child{white-space:nowrap;font-weight:600}
+code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-size:.92em}
+</style>
+
+<header>
+  <h1>Khoanh mối hàn lỗi — __DATASET__</h1>
+  <input id="rev" type="text" placeholder="tên người gắn nhãn" size="14">
+  <select id="filter">
+    <option value="all">tất cả</option>
+    <option value="todo">chưa duyệt</option>
+    <option value="has">có box</option>
+    <option value="clean">sạch</option>
+    <option value="skipped">bỏ qua</option>
+    <option value="unusable">ảnh hỏng</option>
+  </select>
+  <select id="byclass"></select>
+  <span class="sp"></span>
+  <span class="prog" id="prog">0 / 0</span>
+  <span class="bar"><i id="fill"></i></span>
+  <button class="ghost" id="load">Nạp file</button>
+  <button class="primary" id="save">Xuất JSON</button>
+  <button class="ghost" id="qhelp">?</button>
+  <input type="file" id="file" accept="application/json" hidden>
+</header>
+
+<main>
+  <div id="strip"></div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hint"></div>
+  </div>
+  <div id="side">
+    <div class="meta" id="meta"></div>
+
+    <label>Lớp cho box kế tiếp</label>
+    <div class="classes" id="clslist"></div>
+
+    <label>Box trên ảnh này</label>
+    <div id="boxes"></div>
+
+    <label>Kết luận</label>
+    <div class="acts">
+      <button id="bclean" style="border-color:var(--ok)">Sạch <kbd>C</kbd></button>
+      <button id="bskip" style="border-color:var(--warn)">Bỏ qua <kbd>S</kbd></button>
+      <button id="bbad" style="border-color:var(--muted)">Ảnh hỏng <kbd>X</kbd></button>
+      <button id="breset" class="ghost">Xoá duyệt</button>
+    </div>
+
+    <div class="note">
+      <b>Sạch</b> khác <b>chưa duyệt</b>. Ảnh đánh <b>Sạch</b> đi vào tập train làm
+      ảnh nền — đó chính là thứ giảm báo nhầm. Ảnh chưa duyệt bị loại hoàn toàn.
+      Không chắc thì bấm <b>Bỏ qua</b>, đừng bấm Sạch.
+    </div>
+
+    <label>Ghi chú</label>
+    <input type="text" id="notes" placeholder="tuỳ chọn" style="width:100%">
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div id="help"><div class="sheet">
+  <h2>Cách dùng</h2>
+  <p class="meta">Mỗi ảnh là một linh kiện đã cắt từ ảnh board. Việc của bạn là
+  <b>khoanh những mối hàn LỖI</b>. Mối hàn tốt thì không khoanh gì cả.</p>
+
+  <h3>Phím tắt</h3>
+  <table>
+    <tr><td>kéo chuột</td><td>vẽ box mới</td></tr>
+    <tr><td>1 … 9</td><td>chọn lớp cho box kế tiếp; đổi lớp của box đang chọn</td></tr>
+    <tr><td>click vào box</td><td>chọn; kéo bên trong để dời, kéo góc để chỉnh</td></tr>
+    <tr><td>Delete / Backspace</td><td>xoá box đang chọn</td></tr>
+    <tr><td>C</td><td>đánh dấu <b>sạch</b> (không lỗi) rồi sang ảnh sau</td></tr>
+    <tr><td>Enter</td><td>xác nhận các box đã vẽ rồi sang ảnh sau</td></tr>
+    <tr><td>S</td><td>bỏ qua — không đủ căn cứ để phán</td></tr>
+    <tr><td>X</td><td>ảnh hỏng: mờ, cắt lệch, không phải linh kiện</td></tr>
+    <tr><td>← →</td><td>ảnh trước / ảnh sau</td></tr>
+    <tr><td>H</td><td>ẩn/hiện khung gợi ý thân linh kiện</td></tr>
+    <tr><td>lăn chuột</td><td>phóng to; giữ chuột phải để kéo ảnh</td></tr>
+  </table>
+
+  <h3>Khoanh cái gì</h3>
+  <p class="meta">Chỉ khoanh <b>vùng mối hàn</b>, không khoanh cả linh kiện. Box nên
+  ôm phần thiếc và chân tiếp xúc, không lấn sang thân. Một chân lỗi = một box.</p>
+
+  <h3>Vì sao chỉ có mấy lớp này</h3>
+  <p class="meta">Các lớp ở đây trùng đúng với tập Roboflow đang dùng để train. Thêm
+  một lớp mới mà chỉ ảnh của bạn có nhãn sẽ dạy model phân biệt <i>nguồn ảnh</i>
+  chứ không phải phân biệt <i>lỗi</i>. Muốn thêm lớp thì phải gắn nhãn lớp đó trên
+  cả hai nguồn.</p>
+
+  <h3>Lưu ở đâu</h3>
+  <p class="meta">Tự lưu vào <code>localStorage</code> của trình duyệt này sau mỗi
+  thao tác. Nhưng đó không phải bản lưu thật — xong việc phải bấm
+  <b>Xuất JSON</b> và giữ file <code>joint_boxes.json</code>. Máy khác thì bấm
+  <b>Nạp file</b> để đọc lại.</p>
+</div></div>
+
+<script>
+const DATA = __DATA__;
+const CLASSES = DATA.classes;
+const KEY = 'jointbox:' + DATA.dataset_id;
+const rows = DATA.rows;
+
+// state[crop_path] = {status, boxes:[{cls,x,y,w,h}], notes}
+let state = {};
+let idx = 0, curClass = 0, selBox = -1, showHint = true;
+let view = {scale:1, ox:0, oy:0};   // fitted at load, adjusted by wheel/pan
+let img = new Image();
+let drag = null;
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d');
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'), 1500); }
+
+function load(){
+  try{ const raw = localStorage.getItem(KEY); if(raw) state = JSON.parse(raw); }
+  catch(e){ state = {}; }
+  try{ const r = localStorage.getItem(KEY+':rev'); if(r) $('#rev').value = r; }catch(e){}
+}
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state));
+       localStorage.setItem(KEY+':rev', $('#rev').value); }
+  catch(e){ toast('Không lưu được vào trình duyệt — nhớ Xuất JSON'); }
+}
+function st(path){
+  if(!state[path]) state[path] = {status:'', boxes:[], notes:''};
+  return state[path];
+}
+
+/* ---------- which rows are on screen ---------- */
+function visible(){
+  const f = $('#filter').value, c = $('#byclass').value;
+  return rows.filter(r=>{
+    if(c && r.component_class !== c) return false;
+    const s = state[r.crop_path] || {status:'', boxes:[]};
+    if(f==='todo') return !s.status;
+    if(f==='has') return s.status==='verified' && s.boxes.length>0;
+    if(f==='clean') return s.status==='verified' && s.boxes.length===0;
+    if(f==='skipped') return s.status==='skipped';
+    if(f==='unusable') return s.status==='unusable';
+    return true;
+  });
+}
+let shown = rows;
+
+function progress(){
+  const done = rows.filter(r=>(state[r.crop_path]||{}).status).length;
+  const withBox = rows.filter(r=>((state[r.crop_path]||{}).boxes||[]).length>0).length;
+  $('#prog').textContent = `${done} / ${rows.length} đã duyệt · ${withBox} có lỗi`;
+  $('#fill').style.width = (100*done/Math.max(1,rows.length)) + '%';
+}
+
+/* ---------- filmstrip ---------- */
+function strip(){
+  const wrap = $('#strip');
+  wrap.innerHTML = '';
+  const from = Math.max(0, idx-6), to = Math.min(shown.length, from+24);
+  for(let i=from;i<to;i++){
+    const r = shown[i], s = state[r.crop_path]||{status:'',boxes:[]};
+    const d = document.createElement('div');
+    d.className = 'thumb' + (i===idx?' sel':'') + (s.status?' st-'+s.status:'')
+                + ((s.boxes||[]).length?' has':'');
+    d.innerHTML = `<img loading="lazy" src="${DATA.crops_dir}/${r.crop_path}" alt="">
+                   <span class="n">${i+1}</span>`;
+    d.onclick = ()=>{ idx=i; show(); };
+    wrap.appendChild(d);
+  }
+}
+
+/* ---------- canvas ---------- */
+function fit(){
+  const box = $('#stage').getBoundingClientRect();
+  const W = Math.max(200, box.width-24), H = Math.max(200, box.height-24);
+  const s = Math.min(W/img.naturalWidth, H/img.naturalHeight);
+  // never below 1:1 unless the crop is larger than the stage; small crops are
+  // the whole point here and shrinking them hides the fillet
+  view.scale = s;
+  cv.width = Math.round(img.naturalWidth*s);
+  cv.height = Math.round(img.naturalHeight*s);
+  view.ox = 0; view.oy = 0;
+}
+function draw(){
+  if(!img.complete || !img.naturalWidth) return;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.imageSmoothingEnabled = view.scale < 2;
+  ctx.setTransform(view.scale,0,0,view.scale,view.ox,view.oy);
+  ctx.drawImage(img,0,0);
+
+  const r = shown[idx]; if(!r) return;
+  const px = 1/view.scale;
+  if(showHint && r.body_w>0){
+    ctx.setLineDash([6*px,4*px]);
+    ctx.lineWidth = 1.5*px; ctx.strokeStyle = 'rgba(120,180,255,.85)';
+    ctx.strokeRect(r.body_x, r.body_y, r.body_w, r.body_h);
+    ctx.setLineDash([]);
+  }
+  const s = st(r.crop_path);
+  s.boxes.forEach((b,i)=>{
+    const col = CLASSES[b.cls] ? CLASSES[b.cls].color : '#f85149';
+    ctx.lineWidth = (i===selBox?3:2)*px;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col + '22';
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+    if(i===selBox){
+      ctx.fillStyle = col;
+      const g = 4*px;
+      [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]]
+        .forEach(([hx,hy])=>ctx.fillRect(hx-g,hy-g,2*g,2*g));
+    }
+  });
+  if(drag && drag.mode==='new'){
+    ctx.lineWidth = 2*px; ctx.setLineDash([5*px,3*px]);
+    ctx.strokeStyle = CLASSES[curClass].color;
+    ctx.strokeRect(drag.x, drag.y, drag.w, drag.h);
+    ctx.setLineDash([]);
+  }
+}
+
+function toImg(ev){
+  const r = cv.getBoundingClientRect();
+  return { x:( (ev.clientX-r.left) * (cv.width/r.width)  - view.ox )/view.scale,
+           y:( (ev.clientY-r.top ) * (cv.height/r.height) - view.oy )/view.scale };
+}
+function norm(b){
+  return {cls:b.cls, x:Math.min(b.x,b.x+b.w), y:Math.min(b.y,b.y+b.h),
+          w:Math.abs(b.w), h:Math.abs(b.h)};
+}
+function hitHandle(b,p){
+  const g = 6/view.scale;
+  const corners = [['nw',b.x,b.y],['ne',b.x+b.w,b.y],['sw',b.x,b.y+b.h],['se',b.x+b.w,b.y+b.h]];
+  for(const [name,hx,hy] of corners)
+    if(Math.abs(p.x-hx)<=g && Math.abs(p.y-hy)<=g) return name;
+  return null;
+}
+
+cv.addEventListener('contextmenu', e=>e.preventDefault());
+cv.addEventListener('pointerdown', ev=>{
+  const r = shown[idx]; if(!r) return;
+  cv.setPointerCapture(ev.pointerId);
+  const p = toImg(ev);
+  if(ev.button===2){ drag = {mode:'pan', sx:ev.clientX, sy:ev.clientY,
+                             ox:view.ox, oy:view.oy}; return; }
+  const s = st(r.crop_path);
+  if(selBox>=0 && s.boxes[selBox]){
+    const h = hitHandle(s.boxes[selBox], p);
+    if(h){ drag = {mode:'resize', corner:h, i:selBox}; return; }
+  }
+  for(let i=s.boxes.length-1;i>=0;i--){
+    const b = s.boxes[i];
+    if(p.x>=b.x && p.x<=b.x+b.w && p.y>=b.y && p.y<=b.y+b.h){
+      selBox = i; drag = {mode:'move', i, px:p.x, py:p.y, bx:b.x, by:b.y};
+      draw(); sidebar(); return;
+    }
+  }
+  selBox = -1;
+  drag = {mode:'new', cls:curClass, x:p.x, y:p.y, w:0, h:0};
+  draw(); sidebar();
+});
+cv.addEventListener('pointermove', ev=>{
+  if(!drag) return;
+  const r = shown[idx]; if(!r) return;
+  if(drag.mode==='pan'){
+    view.ox = drag.ox + (ev.clientX-drag.sx);
+    view.oy = drag.oy + (ev.clientY-drag.sy);
+    draw(); return;
+  }
+  const p = toImg(ev), s = st(r.crop_path);
+  if(drag.mode==='new'){ drag.w = p.x-drag.x; drag.h = p.y-drag.y; }
+  else if(drag.mode==='move'){
+    const b = s.boxes[drag.i];
+    b.x = drag.bx + (p.x-drag.px); b.y = drag.by + (p.y-drag.py);
+  } else if(drag.mode==='resize'){
+    const b = s.boxes[drag.i];
+    if(drag.corner.includes('w')){ b.w += b.x-p.x; b.x = p.x; }
+    if(drag.corner.includes('n')){ b.h += b.y-p.y; b.y = p.y; }
+    if(drag.corner.includes('e')) b.w = p.x-b.x;
+    if(drag.corner.includes('s')) b.h = p.y-b.y;
+  }
+  draw();
+});
+cv.addEventListener('pointerup', ev=>{
+  const r = shown[idx]; if(!r || !drag) { drag=null; return; }
+  const s = st(r.crop_path);
+  if(drag.mode==='new'){
+    const b = norm(drag);
+    // a click that drew nothing is a deselect, not a zero-size box
+    if(b.w>=3 && b.h>=3){
+      b.x = Math.max(0, b.x); b.y = Math.max(0, b.y);
+      b.w = Math.min(b.w, img.naturalWidth-b.x); b.h = Math.min(b.h, img.naturalHeight-b.y);
+      s.boxes.push(b); selBox = s.boxes.length-1;
+      if(s.status==='verified' || !s.status) s.status = 'verified';
+      persist();
+    }
+  } else if(drag.mode==='move' || drag.mode==='resize'){
+    s.boxes[drag.i] = norm(s.boxes[drag.i]); persist();
+  }
+  drag = null; draw(); sidebar(); strip(); progress();
+});
+$('#stage').addEventListener('wheel', ev=>{
+  ev.preventDefault();
+  const before = toImg(ev);
+  const k = ev.deltaY < 0 ? 1.15 : 1/1.15;
+  view.scale = Math.max(0.2, Math.min(40, view.scale*k));
+  const after = toImg(ev);
+  view.ox += (after.x-before.x)*view.scale;
+  view.oy += (after.y-before.y)*view.scale;
+  draw();
+}, {passive:false});
+
+/* ---------- sidebar ---------- */
+function sidebar(){
+  const r = shown[idx];
+  if(!r){ $('#meta').innerHTML = '<b>Không có ảnh nào khớp bộ lọc.</b>'; $('#boxes').innerHTML=''; return; }
+  const s = st(r.crop_path);
+  $('#meta').innerHTML =
+    `<b>${idx+1} / ${shown.length}</b> — ${r.component_class}<br>`
+    + `${r.crop_w}×${r.crop_h} px · nguồn <b>${r.dataset_source}</b><br>`
+    + `cảnh <b>${r.scene_id}</b><br>`
+    + `trạng thái: <b>${s.status || 'chưa duyệt'}</b>`;
+  $('#notes').value = s.notes || '';
+
+  $('#boxes').innerHTML = '';
+  if(!s.boxes.length) $('#boxes').innerHTML = '<div class="meta">chưa có box nào</div>';
+  s.boxes.forEach((b,i)=>{
+    const c = CLASSES[b.cls] || {name:'?', color:'#f85149'};
+    const d = document.createElement('div');
+    d.className = 'brow' + (i===selBox?' on':'');
+    d.innerHTML = `<span class="sw" style="background:${c.color}"></span>`
+      + `<span>${c.name}</span><span class="sp"></span>`
+      + `<span class="meta">${Math.round(b.w)}×${Math.round(b.h)}</span>`
+      + `<button data-i="${i}">✕</button>`;
+    d.onclick = ev=>{
+      if(ev.target.tagName==='BUTTON'){
+        s.boxes.splice(i,1); selBox=-1; persist(); draw(); sidebar(); strip(); progress();
+      } else { selBox = i; draw(); sidebar(); }
+    };
+    $('#boxes').appendChild(d);
+  });
+  document.querySelectorAll('.cls').forEach((el,i)=>el.classList.toggle('on', i===curClass));
+}
+
+function show(){
+  shown = visible();
+  if(idx >= shown.length) idx = Math.max(0, shown.length-1);
+  const r = shown[idx];
+  selBox = -1;
+  if(!r){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+          sidebar(); strip(); progress(); return; }
+  img = new Image();
+  img.onload = ()=>{ fit(); draw(); };
+  img.src = DATA.crops_dir + '/' + r.crop_path;
+  $('#hint').textContent = r.crop_path;
+  sidebar(); strip(); progress();
+}
+function step(d){ idx = Math.max(0, Math.min(shown.length-1, idx+d)); show(); }
+function mark(status){
+  const r = shown[idx]; if(!r) return;
+  const s = st(r.crop_path);
+  s.status = status;
+  if(status==='verified' && !s.boxes.length) { /* an explicit clean crop */ }
+  if(status==='unusable' || status==='skipped') s.boxes = [];
+  s.notes = $('#notes').value;
+  persist(); progress(); strip();
+  const f = $('#filter').value;
+  // when filtering by "chưa duyệt" the row just judged leaves the list, so the
+  // same index is already the next crop
+  if(f==='todo'){ shown = visible(); if(idx>=shown.length) idx=Math.max(0,shown.length-1); show(); }
+  else step(1);
+}
+
+/* ---------- controls ---------- */
+CLASSES.forEach((c,i)=>{
+  const b = document.createElement('button');
+  b.className = 'cls';
+  b.innerHTML = `<kbd>${i+1}</kbd><span class="sw" style="background:${c.color}"></span>`
+    + `<span><b>${c.name}</b><span class="vn">${c.vn||''}</span></span>`;
+  b.onclick = ()=>setClass(i);
+  $('#clslist').appendChild(b);
+});
+function setClass(i){
+  if(i<0 || i>=CLASSES.length) return;
+  curClass = i;
+  const r = shown[idx];
+  if(r && selBox>=0){ st(r.crop_path).boxes[selBox].cls = i; persist(); draw(); }
+  sidebar();
+}
+
+const classes = [...new Set(rows.map(r=>r.component_class))].sort();
+$('#byclass').innerHTML = '<option value="">mọi loại linh kiện</option>'
+  + classes.map(c=>`<option value="${c}">${c}</option>`).join('');
+
+$('#filter').onchange = ()=>{ idx=0; show(); };
+$('#byclass').onchange = ()=>{ idx=0; show(); };
+$('#rev').oninput = persist;
+$('#notes').onchange = ()=>{ const r=shown[idx]; if(r){ st(r.crop_path).notes=$('#notes').value; persist(); } };
+$('#bclean').onclick = ()=>{ const r=shown[idx]; if(r){ st(r.crop_path).boxes=[]; mark('verified'); } };
+$('#bskip').onclick  = ()=>mark('skipped');
+$('#bbad').onclick   = ()=>mark('unusable');
+$('#breset').onclick = ()=>{ const r=shown[idx]; if(!r) return;
+  delete state[r.crop_path]; persist(); show(); };
+$('#qhelp').onclick  = ()=>$('#help').classList.toggle('on');
+$('#help').onclick   = e=>{ if(e.target.id==='help') $('#help').classList.remove('on'); };
+
+$('#save').onclick = ()=>{
+  const payload = {
+    schema: 'aoi-joint-boxes/1.0',
+    dataset_id: DATA.dataset_id,
+    dataset: DATA.dataset_name,
+    reviewer_id: $('#rev').value.trim(),
+    exported_at: new Date().toISOString(),
+    coordinate_space: 'crop_pixels_top_left_origin',
+    classes: CLASSES.map(c=>c.name),
+    crops: {}
+  };
+  let n = 0;
+  for(const [path,s] of Object.entries(state)){
+    if(!s.status) continue;
+    payload.crops[path] = {
+      status: s.status,
+      notes: s.notes || '',
+      boxes: (s.boxes||[]).map(b=>({
+        cls: CLASSES[b.cls] ? CLASSES[b.cls].name : String(b.cls),
+        x: Math.round(b.x), y: Math.round(b.y),
+        w: Math.round(b.w), h: Math.round(b.h)
+      }))
+    };
+    n++;
+  }
+  const blob = new Blob([JSON.stringify(payload,null,1)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'joint_boxes.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast(`Đã xuất ${n} ảnh đã duyệt`);
+};
+$('#load').onclick = ()=>$('#file').click();
+$('#file').onchange = ev=>{
+  const f = ev.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const p = JSON.parse(reader.result);
+      if(p.dataset_id && p.dataset_id !== DATA.dataset_id
+         && !confirm('File này thuộc dataset khác. Vẫn nạp?')) return;
+      const byName = Object.fromEntries(CLASSES.map((c,i)=>[c.name,i]));
+      let n = 0;
+      for(const [path,rec] of Object.entries(p.crops||{})){
+        state[path] = {
+          status: rec.status || '',
+          notes: rec.notes || '',
+          boxes: (rec.boxes||[]).map(b=>({cls: byName[b.cls] ?? 0,
+                                          x:b.x, y:b.y, w:b.w, h:b.h}))
+        };
+        n++;
+      }
+      if(p.reviewer_id) $('#rev').value = p.reviewer_id;
+      persist(); show(); toast(`Đã nạp ${n} ảnh`);
+    }catch(e){ toast('File không đọc được: ' + e.message); }
+  };
+  reader.readAsText(f);
+  ev.target.value = '';
+};
+
+addEventListener('keydown', ev=>{
+  if(ev.target.tagName==='INPUT' || ev.target.tagName==='SELECT') return;
+  const k = ev.key;
+  if(k>='1' && k<='9'){ setClass(+k-1); return; }
+  if(k==='ArrowRight'){ step(1); ev.preventDefault(); return; }
+  if(k==='ArrowLeft'){ step(-1); ev.preventDefault(); return; }
+  if(k==='Delete' || k==='Backspace'){
+    const r = shown[idx];
+    if(r && selBox>=0){ st(r.crop_path).boxes.splice(selBox,1); selBox=-1;
+      persist(); draw(); sidebar(); strip(); progress(); }
+    ev.preventDefault(); return;
+  }
+  const low = k.toLowerCase();
+  if(low==='c'){ const r=shown[idx]; if(r){ st(r.crop_path).boxes=[]; mark('verified'); } }
+  else if(low==='s') mark('skipped');
+  else if(low==='x') mark('unusable');
+  else if(low==='h'){ showHint = !showHint; draw(); }
+  else if(k==='Enter') mark('verified');
+  else if(low==='?') $('#help').classList.toggle('on');
+});
+addEventListener('resize', ()=>{ if(img.complete && img.naturalWidth){ fit(); draw(); } });
+
+load(); show();
+</script>

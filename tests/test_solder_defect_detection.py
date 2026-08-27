@@ -231,12 +231,17 @@ def test_shipped_active_segmenter_manifest_matches_runtime_contract() -> None:
 
     contract = validate_solder_defect_manifest(manifest)
 
-    assert contract.class_names == SOLDER_DEFECT_CLASS_NAMES
-    assert contract.image_size == 640
-    assert contract.model_version == "solder-detector-yolov8m-seg-20260824"
+    # Cố ý KHÔNG khoá vào tên lớp hay version cụ thể. Bản đầu assert đúng bốn
+    # tên của model yolov8m-seg đầu tiên, nên nó kiểm "có phải model đó không"
+    # chứ không kiểm "model đang ship có tự mô tả đúng không" -- và nó chặn luôn
+    # mọi model 6.2 khác kể cả model do notebook của chính dự án train ra.
+    assert contract.class_names, "manifest phải khai class_names"
+    assert contract.ultralytics_task in {"segment", "detect"}
+    assert contract.image_size > 0
+    assert contract.model_version, "manifest phải khai model.version"
 
     model_path = manifest_path.with_name("best.onnx")
-    assert model_path.stat().st_size == manifest["model"]["bytes"] == 109_175_751
+    assert model_path.stat().st_size == manifest["model"]["bytes"]
     digest = hashlib.sha256()
     with model_path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):

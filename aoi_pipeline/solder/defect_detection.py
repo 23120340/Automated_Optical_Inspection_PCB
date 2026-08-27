@@ -27,12 +27,32 @@ SOLDER_DEFECT_MANIFEST_SCHEMA = "aoi-external-yolo-segmentation/1.0"
 SOLDER_DEFECT_TASK = "solder_defect_instance_segmentation"
 SOLDER_DEFECT_PIPELINE_STEP = "standalone_solder_defect_localization"
 SOLDER_DEFECT_SOURCE = "solder_defect_segment"
+#: Tên lớp của model segmentation đầu tiên được nạp vào vai trò này. Giữ lại để
+#: các test và script cũ còn tham chiếu được, **không** còn là ràng buộc.
 SOLDER_DEFECT_CLASS_NAMES = (
     "Dry_joint",
     "Incorrect_installation",
     "PCB_damage",
     "Short_circuit",
 )
+
+# Vai trò này từng bị hàn cứng vào đúng một artifact: schema phải là
+# ``aoi-external-yolo-segmentation/1.0``, task phải là instance segmentation, và
+# ``class_names`` phải trùng từng chữ với bốn tên trên. Hệ quả là một detector
+# train từ chính notebook của dự án -- đúng bài toán, đúng bước, hai lớp khác --
+# bị từ chối, và cách duy nhất để nạp được là sửa manifest cho khớp, tức là bắt
+# hồ sơ nói dối về model.
+#
+# Giờ vai trò nhận cả hai hình thái. Tên lớp **đọc từ manifest**, vì chỉ manifest
+# mới biết model đã học gì; danh sách cứng ở trên không biết.
+SOLDER_DEFECT_SCHEMAS = {
+    "aoi-external-yolo-segmentation/1.0": "segment",
+    "aoi-solder-defect-detection/1.0": "detect",
+}
+SOLDER_DEFECT_TASKS = {
+    "solder_defect_instance_segmentation": "segment",
+    "solder_defect_detection": "detect",
+}
 MAX_MANIFEST_BYTES = 1_048_576
 
 
@@ -50,6 +70,10 @@ class SolderDefectContract:
     model_version: str
     model_sha256: str
     model_bytes: int | None
+    #: ``segment`` hoặc ``detect``. Ultralytics cần biết đúng hình thái để giải
+    #: mã output; đoán sai thì nó đi tìm hệ số mask trong một tensor không có.
+    #: Mặc định giữ ``segment`` cho các contract dựng bằng tay trong test cũ.
+    ultralytics_task: str = "segment"
 
 
 class SolderDefectDetector(UltralyticsDetector):
@@ -133,7 +157,9 @@ class SolderDefectDetector(UltralyticsDetector):
             resolved_path,
             runtime_config,
             model=model,
-            task="segment",
+            # Lấy từ contract, không ghi cứng: model detect-only chỉ có một
+            # output [1, 4+nc, N], không có prototype mask để giải.
+            task=self.contract.ultralytics_task,
             source=SOLDER_DEFECT_SOURCE,
         )
 
@@ -190,16 +216,36 @@ def validate_solder_defect_manifest(
 ) -> SolderDefectContract:
     """Validate that a manifest describes the supported YOLOv8-seg stage."""
 
-    if manifest.get("schema_version") != SOLDER_DEFECT_MANIFEST_SCHEMA:
+    schema = str(manifest.get("schema_version", ""))
+    # Bản detector do notebook của dự án xuất ghi ``schema_version: 1``; chấp nhận
+    # nó khi ``task`` đã tự nói rõ hình thái, thay vì bắt sửa file.
+    if schema in SOLDER_DEFECT_SCHEMAS:
+        model_shape = SOLDER_DEFECT_SCHEMAS[schema]
+    elif str(manifest.get("task", "")) in SOLDER_DEFECT_TASKS:
+        model_shape = SOLDER_DEFECT_TASKS[str(manifest["task"])]
+    else:
         raise DetectorConfigurationError(
-            "Unsupported solder defect manifest schema; expected "
-            f"{SOLDER_DEFECT_MANIFEST_SCHEMA}"
+            "Unsupported solder defect manifest; schema_version must be one of "
+            + ", ".join(sorted(SOLDER_DEFECT_SCHEMAS))
+            + " or task one of "
+            + ", ".join(sorted(SOLDER_DEFECT_TASKS))
         )
-    if manifest.get("task") != SOLDER_DEFECT_TASK:
+    task = str(manifest.get("task", ""))
+    if task not in SOLDER_DEFECT_TASKS:
         raise DetectorConfigurationError(
-            f"Solder defect manifest task must be {SOLDER_DEFECT_TASK}"
+            "Solder defect manifest task must be one of "
+            + ", ".join(sorted(SOLDER_DEFECT_TASKS))
         )
-    if manifest.get("pipeline_step") != SOLDER_DEFECT_PIPELINE_STEP:
+    if SOLDER_DEFECT_TASKS[task] != model_shape:
+        raise DetectorConfigurationError(
+            f"Solder defect manifest task {task!r} does not match schema {schema!r}"
+        )
+    # Hai tên cùng chỉ một bước; bản đầu nhận đúng một chuỗi nên notebook của
+    # chính dự án cũng bị từ chối.
+    if manifest.get("pipeline_step") not in {
+        SOLDER_DEFECT_PIPELINE_STEP,
+        "6_2_solder_defect_localization",
+    }:
         raise DetectorConfigurationError(
             "Solder defect manifest pipeline_step must be "
             f"{SOLDER_DEFECT_PIPELINE_STEP}"
@@ -215,10 +261,9 @@ def validate_solder_defect_manifest(
             "Solder defect manifest class_names must be a list"
         )
     class_names = tuple(str(value).strip() for value in raw_classes)
-    if class_names != SOLDER_DEFECT_CLASS_NAMES:
+    if not class_names or any(not name for name in class_names):
         raise DetectorConfigurationError(
-            "Solder defect manifest class order must be "
-            + ", ".join(SOLDER_DEFECT_CLASS_NAMES)
+            "Solder defect manifest class_names must be a non-empty list of names"
         )
     raw_class_map = manifest.get("class_map")
     if raw_class_map is not None:
@@ -260,9 +305,12 @@ def validate_solder_defect_manifest(
         )
 
     head = _mapping(manifest.get("head"), "head")
-    if "segment" not in str(head.get("type", "")).lower():
+    head_type = str(head.get("type", "")).lower()
+    wanted = "segment" if model_shape == "segment" else "detect"
+    if wanted not in head_type:
         raise DetectorConfigurationError(
-            "Solder defect manifest head.type must describe segmentation"
+            f"Solder defect manifest head.type must describe {wanted} "
+            f"to match task {task!r}, got {head_type!r}"
         )
     if bool(head.get("end2end", False)):
         raise DetectorConfigurationError(
@@ -291,9 +339,16 @@ def validate_solder_defect_manifest(
             "Solder defect manifest model.version cannot be empty"
         )
     architecture = str(model_spec.get("architecture", "")).strip().lower()
-    if not architecture.endswith("-seg"):
+    # ``-seg`` chỉ bắt buộc khi manifest tự khai là segmentation. Một detector
+    # thì kiến trúc của nó *không* được kết thúc bằng ``-seg``, và ép nó khai như
+    # vậy chính là bắt hồ sơ nói dối -- thứ vừa gây ra một model sai nguồn.
+    if model_shape == "segment" and not architecture.endswith("-seg"):
         raise DetectorConfigurationError(
             "Solder defect manifest model.architecture must be a segmentation model"
+        )
+    if model_shape == "detect" and architecture.endswith("-seg"):
+        raise DetectorConfigurationError(
+            "Solder defect manifest declares task=detect but a -seg architecture"
         )
     model_sha256 = str(model_spec.get("sha256", "")).strip().lower()
     if len(model_sha256) != 64 or any(
@@ -320,6 +375,7 @@ def validate_solder_defect_manifest(
         model_version=model_version,
         model_sha256=model_sha256,
         model_bytes=model_bytes,
+        ultralytics_task=model_shape,
     )
 
 

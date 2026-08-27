@@ -1,137 +1,88 @@
 {
-  "schema_version": "aoi-external-yolo-segmentation/1.0",
-  "task": "solder_defect_instance_segmentation",
-  "pipeline_step": "standalone_solder_defect_localization",
+  "schema_version": "aoi-solder-defect-detection/1.0",
+  "task": "solder_defect_detection",
+  "pipeline_step": "6_2_solder_defect_localization",
   "model_format": "onnx",
-  "created_at": "2026-08-24T01:59:35.8122543+00:00",
+  "model_family": "yolo11",
+  "base_model": "yolo11s.pt",
   "class_names": [
-    "Dry_joint",
-    "Incorrect_installation",
-    "PCB_damage",
-    "Short_circuit"
+    "Bad_podu",
+    "Bad_qiaojiao"
   ],
-  "class_map": {
-    "0": "Dry_joint",
-    "1": "Incorrect_installation",
-    "2": "PCB_damage",
-    "3": "Short_circuit"
-  },
   "input": {
-    "name": "images",
+    "layout": "NCHW",
+    "color_space": "RGB",
+    "resize_mode": "letterbox",
     "shape": [
       1,
       3,
-      640,
-      640
-    ],
-    "layout": "NCHW",
-    "dtype": "float32",
-    "color_space": "RGB",
-    "resize_mode": "letterbox",
-    "letterbox_value": 114,
-    "normalization": {
-      "scale": 0.00392156862745098,
-      "mean": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "std": [
-        1.0,
-        1.0,
-        1.0
-      ]
-    },
-    "dynamic_batch": false,
-    "dynamic_spatial": false
-  },
-  "head": {
-    "type": "YOLOv8 Segment",
-    "end2end": false,
-    "nms": "external",
-    "mask_decoding": "external",
-    "mask_coefficients": 32,
-    "max_det": 300
-  },
-  "outputs": [
-    {
-      "name": "output0",
-      "shape": [
-        1,
-        40,
-        8400
-      ],
-      "dtype": "float32",
-      "contract": "4 xywh box channels + 4 class-score channels + 32 mask-coefficient channels"
-    },
-    {
-      "name": "output1",
-      "shape": [
-        1,
-        32,
-        160,
-        160
-      ],
-      "dtype": "float32",
-      "contract": "segmentation mask prototypes"
-    }
-  ],
-  "postprocessing": {
-    "recommended_confidence": 0.25,
-    "recommended_iou_nms": 0.7,
-    "mask_threshold": 0.5,
-    "class_agnostic_nms": false
-  },
-  "model": {
-    "version": "solder-detector-yolov8m-seg-20260824",
-    "architecture": "yolov8m-seg",
-    "sha256": "39a3e03cd165dbd4d428cbb87cd4eae191624ebb58e572a7109f3d50b8628293",
-    "bytes": 109175751,
-    "exported_from": "best.pt",
-    "source_checkpoint_sha256": "7fb72cbedd4603ce382cabf8ab997f1deb2220e50f0e9b858c50d24a519f526d"
-  },
-  "export": {
-    "ultralytics_version": "8.4.104",
-    "torch_version": "2.13.0+cpu",
-    "onnx_version": "1.22.0",
-    "opset": 17,
-    "batch": 1,
-    "imgsz": 640,
-    "dynamic": false,
-    "simplified": true,
-    "nms_embedded": false,
-    "half": false
-  },
-  "reported_metrics": {
-    "source": "config.json supplied with the checkpoint; not re-evaluated locally",
-    "map50_box": 0.56836,
-    "map50_mask": 0.5573
-  },
-  "source_metadata": {
-    "model_type": "v8",
-    "task": "instance-segmentation",
-    "ultralytics_version": "8.0.23",
-    "ultralyticsplus_version": "0.0.24",
-    "dataset_license": "not declared in the supplied artifact",
-    "ultralytics_license": "AGPL-3.0 per embedded ONNX metadata"
-  },
-  "verification": {
-    "onnx_checker_passed": true,
-    "onnxruntime_session_passed": true,
-    "ultralytics_segment_smoke_passed": true,
-    "smoke_input": "synthetic blank 640x640 RGB image",
-    "smoke_detection_count": 0,
-    "providers": [
-      "CPUExecutionProvider"
+      1280,
+      1280
     ]
   },
+  "reported_metrics": {
+    "split": "test (locked, không dùng để chọn epoch)",
+    "test_scenes": 117,
+    "confidence_note": "Đủ cảnh để coi là phép đo.",
+    "map50_minus_map50_95": 0.4524,
+    "map50": 0.8561,
+    "map50_95": 0.4036,
+    "per_class": {
+      "Bad_podu": {
+        "map50": 0.9228409592333185,
+        "precision": 0.8276568967604742,
+        "recall": 0.930952380952381
+      },
+      "Bad_qiaojiao": {
+        "map50": 0.7892796372472257,
+        "precision": 0.6097504581888784,
+        "recall": 0.8064516129032258
+      }
+    }
+  },
+  "training_data": {
+    "source": "pcb-vndkd/solder-dbcbh v3",
+    "license": "CC BY 4.0",
+    "dataset_folder": "roboflow_solder_leadjoints",
+    "images": 2761,
+    "scenes": 1257,
+    "split_check": {
+      "train-valid": 0,
+      "train-test": 0,
+      "valid-test": 0
+    },
+    "test_scenes": 117,
+    "metrics_are_indicative_only": false
+  },
   "aoi_compatibility": {
-    "solder_classifier_6_2": false,
     "solder_defect_detector": true,
-    "current_ultralytics_detector_adapter": true,
-    "required_ultralytics_task": "segment",
+    "solder_classifier_6_2": false,
+    "required_ultralytics_task": "detect",
     "integration": "aoi_pipeline.solder.defect_detection.SolderDefectDetector",
     "diagnostic_only": true,
-    "reason": "This model emits boxes, mask coefficients and prototypes, so AOI loads it through the independent task=segment solder detector. It is never passed to the raw-logit ROI classifier and does not directly decide production PASS/NG."
-  }
+    "bootstrap_only": true,
+    "reason": "Train hoàn toàn trên dữ liệu công khai của camera khác. Đúng dải tỉ lệ (box ~2,3 % khung, board dự án ~2,2 %) nên khác hẳn SolDef_AI, nhưng ánh sáng, ống kính, lớp mạ và phổ lỗi của dây chuyền bạn vẫn chưa được đại diện. Dùng để khoanh vùng nghi ngờ, không tự quyết PASS/NG, và phải fine-tune trên ảnh board thật trước khi tin số liệu.",
+    "no_good_class": "Dataset chỉ khoanh mối hàn lỗi. Model không biết phát biểu 'mối hàn này tốt' — nó chỉ nói 'chỗ này giống lỗi'. Vắng box không phải bằng chứng đạt."
+  },
+  "class_map": {
+    "0": "Bad_podu",
+    "1": "Bad_qiaojiao"
+  },
+  "head": {
+    "type": "detect",
+    "end2end": false,
+    "max_det": 300
+  },
+  "postprocessing": {
+    "recommended_confidence": 0.25,
+    "recommended_iou_nms": 0.45,
+    "mask_threshold": 0.5
+  },
+  "model": {
+    "version": "pcb-solder-detector-yolo11s-leadjoints-20260826",
+    "architecture": "yolo11s",
+    "sha256": "e604cb73d675bdc37a6da15052f239527d36ddbd426ba8c09f206a52adf9a00a",
+    "bytes": 38433620
+  },
+  "created_at": "2026-08-26T09:26:00+00:00"
 }

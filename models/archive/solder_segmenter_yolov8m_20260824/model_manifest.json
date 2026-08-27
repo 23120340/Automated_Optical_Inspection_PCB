@@ -1,0 +1,137 @@
+{
+  "schema_version": "aoi-external-yolo-segmentation/1.0",
+  "task": "solder_defect_instance_segmentation",
+  "pipeline_step": "standalone_solder_defect_localization",
+  "model_format": "onnx",
+  "created_at": "2026-08-24T01:59:35.8122543+00:00",
+  "class_names": [
+    "Dry_joint",
+    "Incorrect_installation",
+    "PCB_damage",
+    "Short_circuit"
+  ],
+  "class_map": {
+    "0": "Dry_joint",
+    "1": "Incorrect_installation",
+    "2": "PCB_damage",
+    "3": "Short_circuit"
+  },
+  "input": {
+    "name": "images",
+    "shape": [
+      1,
+      3,
+      640,
+      640
+    ],
+    "layout": "NCHW",
+    "dtype": "float32",
+    "color_space": "RGB",
+    "resize_mode": "letterbox",
+    "letterbox_value": 114,
+    "normalization": {
+      "scale": 0.00392156862745098,
+      "mean": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "std": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "dynamic_batch": false,
+    "dynamic_spatial": false
+  },
+  "head": {
+    "type": "YOLOv8 Segment",
+    "end2end": false,
+    "nms": "external",
+    "mask_decoding": "external",
+    "mask_coefficients": 32,
+    "max_det": 300
+  },
+  "outputs": [
+    {
+      "name": "output0",
+      "shape": [
+        1,
+        40,
+        8400
+      ],
+      "dtype": "float32",
+      "contract": "4 xywh box channels + 4 class-score channels + 32 mask-coefficient channels"
+    },
+    {
+      "name": "output1",
+      "shape": [
+        1,
+        32,
+        160,
+        160
+      ],
+      "dtype": "float32",
+      "contract": "segmentation mask prototypes"
+    }
+  ],
+  "postprocessing": {
+    "recommended_confidence": 0.25,
+    "recommended_iou_nms": 0.7,
+    "mask_threshold": 0.5,
+    "class_agnostic_nms": false
+  },
+  "model": {
+    "version": "solder-detector-yolov8m-seg-20260824",
+    "architecture": "yolov8m-seg",
+    "sha256": "39a3e03cd165dbd4d428cbb87cd4eae191624ebb58e572a7109f3d50b8628293",
+    "bytes": 109175751,
+    "exported_from": "best.pt",
+    "source_checkpoint_sha256": "7fb72cbedd4603ce382cabf8ab997f1deb2220e50f0e9b858c50d24a519f526d"
+  },
+  "export": {
+    "ultralytics_version": "8.4.104",
+    "torch_version": "2.13.0+cpu",
+    "onnx_version": "1.22.0",
+    "opset": 17,
+    "batch": 1,
+    "imgsz": 640,
+    "dynamic": false,
+    "simplified": true,
+    "nms_embedded": false,
+    "half": false
+  },
+  "reported_metrics": {
+    "source": "config.json supplied with the checkpoint; not re-evaluated locally",
+    "map50_box": 0.56836,
+    "map50_mask": 0.5573
+  },
+  "source_metadata": {
+    "model_type": "v8",
+    "task": "instance-segmentation",
+    "ultralytics_version": "8.0.23",
+    "ultralyticsplus_version": "0.0.24",
+    "dataset_license": "not declared in the supplied artifact",
+    "ultralytics_license": "AGPL-3.0 per embedded ONNX metadata"
+  },
+  "verification": {
+    "onnx_checker_passed": true,
+    "onnxruntime_session_passed": true,
+    "ultralytics_segment_smoke_passed": true,
+    "smoke_input": "synthetic blank 640x640 RGB image",
+    "smoke_detection_count": 0,
+    "providers": [
+      "CPUExecutionProvider"
+    ]
+  },
+  "aoi_compatibility": {
+    "solder_classifier_6_2": false,
+    "solder_defect_detector": true,
+    "current_ultralytics_detector_adapter": true,
+    "required_ultralytics_task": "segment",
+    "integration": "aoi_pipeline.solder.defect_detection.SolderDefectDetector",
+    "diagnostic_only": true,
+    "reason": "This model emits boxes, mask coefficients and prototypes, so AOI loads it through the independent task=segment solder detector. It is never passed to the raw-logit ROI classifier and does not directly decide production PASS/NG."
+  }
+}

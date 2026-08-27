@@ -61,3 +61,17 @@ models/library/*
 # scripts/build_pnp_review_app.py. Chỉ là phương tiện xem, không phải dữ liệu
 # gắn nhãn, và nó là bản JPEG ~2.3MB của một file đã có trong repo.
 datasets/reference_sets/*/review/board.jpg
+
+# Dataset tải từ nguồn ngoài. Không commit ảnh của người khác vào repo này:
+# Ulger solder-joint-dataset không có LICENSE (kiểm 2026-08-25, GitHub API trả
+# license=null) nên mặc định tác giả giữ toàn quyền, và các nguồn Kaggle có
+# điều khoản riêng. Chỉ README.md mô tả nguồn là được theo dõi.
+datasets/public/*
+!datasets/public/README.md
+
+# Component crops cut for step-6.2 labelling: hundreds of megabytes of pixels
+# that crop_components_for_labelling.py reproduces from the public sets. The
+# manifest and provenance are small and are what makes that reproducible, so
+# they stay.
+datasets/labelling/*/crops/
+datasets/labelling/*/label_boxes.html
