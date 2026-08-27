@@ -1,11 +1,16 @@
 """Fetch the public solder datasets that are actually usable, and say why the rest are not.
 
 The survey behind this lives in ``datasets/public/README.md`` and
-``docs/dataset_lead_detection.md``. The short version is that no public source
-gives both the right pixel scale and box labels, so this command deliberately
-downloads little: it exists to make the one usable source reproducible and to
-stop the unusable ones being re-downloaded every few weeks by someone who has
-forgotten why they were rejected.
+``docs/dataset_lead_detection.md``. The short version was once "no public source
+gives both the right pixel scale and box labels"; that held for *solder-joint*
+labels and still does, but it stopped being the whole story once whole-board
+sets with component boxes were measured -- their crops carry joints that a
+person can label. ``crop_components_for_labelling.py`` is that path, and
+``datasets/train/solder_joint_v1`` is what came out of it.
+
+So this command still downloads little: it exists to make the usable sources
+reproducible and to stop the unusable ones being re-downloaded every few weeks
+by someone who has forgotten why they were rejected.
 
     python scripts/fetch_public_solder_datasets.py --list
     python scripts/fetch_public_solder_datasets.py ulger

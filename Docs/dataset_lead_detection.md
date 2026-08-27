@@ -7,7 +7,31 @@
 > Quy ước: mục nào **đã kiểm chứng** thì ghi rõ kiểm bằng cách nào. Mục nào chỉ
 > đọc được mô tả thì ghi là **chưa kiểm chứng** — đừng coi hai loại như nhau.
 
-## Kết luận trước
+> ## ⚠️ Cập nhật 2026-08-28 — kết luận chính của file này ĐÃ BỊ LẬT
+>
+> Câu "không có dataset công khai nào đủ dùng cho lượt 2" **không còn đúng**.
+> Nó đúng với câu hỏi *"có bộ nào gán nhãn sẵn chân hàn không"* — vẫn không có.
+> Nhưng nó bỏ sót một đường thứ ba: **lấy ảnh board công khai đúng tỉ lệ rồi tự
+> gán nhãn**.
+>
+> Đã làm xong đường đó: `datasets/train/solder_joint_v1` — **2.054 crop,
+> 9.232 box vẽ tay, một lớp `solder_joint`**, cắt từ `fpic_boards_rf100` và
+> `pcb_packages_winnies` (cả hai CC BY 4.0) bằng
+> `scripts/crop_components_for_labelling.py`, gắn nhãn bằng
+> `scripts/build_joint_box_app.py`, đóng gói bằng
+> `scripts/pack_joint_detection_dataset.py`. Notebook train:
+> `training/kaggle/pcb_joint_locator_kaggle.py`.
+>
+> Cái ràng buộc vật lý mà file này đo được **vẫn đúng và vẫn là thứ quyết định**
+> — chỉ có điều nó là tiêu chí *lọc*, không phải bản án. Ngưỡng dùng để lọc:
+> linh kiện phải có cạnh ngắn ≥ 48 px thì mối hàn mới ≥ ~24 px, tức bằng pad đo
+> trên board dự án. Ở ngưỡng đó FPIC còn 12,1 % số box và winnies còn 20,9 %.
+>
+> Phần còn lại của file vẫn đúng và vẫn đáng đọc: các số đo về `pads` recall
+> 0.072, về SolDef_AI lệch tỉ lệ 20 lần, và về Ulger không có box đều được dựng
+> lại được. Xem `datasets/public/README.md` cho khảo sát mới nhất.
+
+## Kết luận trước (2026-08-21 — xem ô cảnh báo ở trên)
 
 **Không có dataset công khai nào đủ dùng cho lượt 2.** Đường duy nhất đi tới
 model là gán nhãn trên board của chính dây chuyền. Các nguồn công khai chỉ có
