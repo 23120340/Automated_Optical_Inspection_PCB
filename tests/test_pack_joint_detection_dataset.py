@@ -105,8 +105,10 @@ def test_unreviewed_crops_are_never_written(tmp_path: Path, crops: Path) -> None
                for p in (out / split / "images").iterdir()}
     assert len(written) == 4, "only verified crops belong in the pack"
     manifest = json.loads((out / "pack_manifest.json").read_text(encoding="utf-8"))
-    assert len(manifest["labelled_but_unused"]) == 3
-    assert set(manifest["labelled_but_unused"].values()) == {"skipped"}
+    # Counted per status rather than listed by name: a real session leaves
+    # thousands of crops unusable, and naming each one would bury the manifest.
+    unused = manifest["sources"][0]["labelled_but_unused"]
+    assert unused == {"skipped": 3}
 
 
 def test_clean_crops_become_empty_label_files(tmp_path: Path, crops: Path) -> None:

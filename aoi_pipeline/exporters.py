@@ -21,6 +21,27 @@ from .overlays import (
     render_verdict_overlay,
 )
 
+#: Ký tự mở đầu khiến Excel, LibreOffice và Google Sheets coi ô là công thức.
+_FORMULA_LEADERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def csv_cell(value: Any) -> str:
+    """Vô hiệu hoá công thức bảng tính trong một ô CSV.
+
+    Đây là bản chuẩn duy nhất của phép thoát này. Nó nằm ở đây vì đây là module
+    xuất file, và vì trước đó nó bị chép làm ba bản riêng -- trong
+    ``digitizer``, trong UI và trong ``scripts/build_reference_bundle`` -- mà
+    chính module xuất file thì không dùng bản nào.
+
+    Việc thoát không phải chuyện hình thức: ``designator`` và ``net`` đi thẳng
+    từ file CAD/pick-and-place do người dùng nạp (``solder/cad.py``) xuống bảng
+    CSV mà kỹ thuật viên mở bằng Excel, nên một designator viết là
+    ``=HYPERLINK(...)`` sẽ chạy khi mở file.
+    """
+
+    text = str(value)
+    return f"'{text}" if text.startswith(_FORMULA_LEADERS) else text
+
 
 def export_json(run: PipelineRun, path: str | Path) -> Path:
     destination = Path(path).expanduser().resolve()
@@ -174,18 +195,18 @@ def solder_verdicts_csv(run: PipelineRun) -> str:
         features = verdict.features
         writer.writerow(
             [
-                verdict.joint_id,
-                verdict.detection_id,
-                verdict.designator or "",
-                verdict.pin or "",
-                verdict.component_label,
-                verdict.scope,
-                verdict.label,
-                verdict.decision,
-                verdict.source,
+                csv_cell(verdict.joint_id),
+                csv_cell(verdict.detection_id),
+                csv_cell(verdict.designator or ""),
+                csv_cell(verdict.pin or ""),
+                csv_cell(verdict.component_label),
+                csv_cell(verdict.scope),
+                csv_cell(verdict.label),
+                csv_cell(verdict.decision),
+                csv_cell(verdict.source),
                 f"{verdict.probability:.4f}",
-                verdict.rule_label or "",
-                verdict.model_label or "",
+                csv_cell(verdict.rule_label or ""),
+                csv_cell(verdict.model_label or ""),
                 (
                     ""
                     if verdict.model_probability is None
@@ -198,8 +219,8 @@ def solder_verdicts_csv(run: PipelineRun) -> str:
                 "" if features is None else f"{features.centroid_offset_ratio:.4f}",
                 verdict.metadata.get("roi_width_px", ""),
                 verdict.metadata.get("roi_height_px", ""),
-                verdict.model_version,
-                " | ".join(verdict.reasons),
+                csv_cell(verdict.model_version),
+                csv_cell(" | ".join(verdict.reasons)),
             ]
         )
     return buffer.getvalue()
@@ -236,24 +257,24 @@ def solder_joints_csv(run: PipelineRun) -> str:
         folder = "body_views" if joint.kind == "body" else "joints"
         writer.writerow(
             [
-                joint.joint_id,
-                joint.detection_id,
-                joint.label,
-                joint.kind,
-                joint.position,
+                csv_cell(joint.joint_id),
+                csv_cell(joint.detection_id),
+                csv_cell(joint.label),
+                csv_cell(joint.kind),
+                csv_cell(joint.position),
                 "" if joint.pin_index is None else joint.pin_index,
-                joint.terminal_geometry,
+                csv_cell(joint.terminal_geometry),
                 f"{joint.angle:.2f}",
                 f"{joint.bbox.x1:.2f}",
                 f"{joint.bbox.y1:.2f}",
                 f"{joint.bbox.x2:.2f}",
                 f"{joint.bbox.y2:.2f}",
                 f"{float(joint.metadata.get('detector_confidence', 0.0)):.4f}",
-                joint.source,
-                joint.designator or "",
-                joint.pin or "",
-                joint.net or "",
-                f"{folder}/{crop.filename}",
+                csv_cell(joint.source),
+                csv_cell(joint.designator or ""),
+                csv_cell(joint.pin or ""),
+                csv_cell(joint.net or ""),
+                csv_cell(f"{folder}/{crop.filename}"),
                 "",
             ]
         )
@@ -276,18 +297,18 @@ def cad_findings_csv(run: PipelineRun) -> str:
         bbox = finding.bbox
         writer.writerow(
             [
-                finding.kind,
-                finding.severity,
-                finding.designator or "",
-                finding.detection_id or "",
-                finding.expected_class or "",
-                finding.observed_class or "",
+                csv_cell(finding.kind),
+                csv_cell(finding.severity),
+                csv_cell(finding.designator or ""),
+                csv_cell(finding.detection_id or ""),
+                csv_cell(finding.expected_class or ""),
+                csv_cell(finding.observed_class or ""),
                 "" if finding.shift_mm is None else f"{finding.shift_mm:.3f}",
                 "" if bbox is None else f"{bbox.x1:.2f}",
                 "" if bbox is None else f"{bbox.y1:.2f}",
                 "" if bbox is None else f"{bbox.x2:.2f}",
                 "" if bbox is None else f"{bbox.y2:.2f}",
-                finding.message,
+                csv_cell(finding.message),
             ]
         )
     return buffer.getvalue()

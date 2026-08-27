@@ -154,6 +154,11 @@ def test_the_roi_is_about_the_size_of_the_joint_it_inspects(
     _, truth = board
     entry = truth["components"][name]
     joints = _joints_for(entry, joints_by_detection)
+    # A part may carry a tighter cap of its own. The global gate is set where it
+    # is so it can be applied to every package on the board, which makes it too
+    # loose to catch a regression on a part already measured well inside it --
+    # D201's lone lead went from 2.65 to 1.20 without the global gate moving.
+    limit = float(entry.get("max_roi_to_pad_area", MAX_ROI_TO_PAD_AREA))
 
     oversized = []
     for index, pad in enumerate(entry["pads"]):
@@ -162,11 +167,11 @@ def test_the_roi_is_about_the_size_of_the_joint_it_inspects(
             continue
         pad_area = float((pad[2] - pad[0]) * (pad[3] - pad[1]))
         ratio = (best.bbox.width * best.bbox.height) / max(pad_area, 1.0)
-        if ratio > MAX_ROI_TO_PAD_AREA:
+        if ratio > limit:
             oversized.append((index, best.position, round(ratio, 1)))
 
     assert not oversized, (
-        f"{name} ({entry['package']}): ROI is over {MAX_ROI_TO_PAD_AREA:g}x the pad "
+        f"{name} ({entry['package']}): ROI is over {limit:g}x the pad "
         f"area for {oversized}"
     )
 

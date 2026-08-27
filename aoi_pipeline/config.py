@@ -474,6 +474,29 @@ class SolderJointConfig:
     # its own. Measured on a real board's D201/D202.
     min_pins_per_band: int = 2
     max_pins_per_band: int = 64
+    # Một hàng chân của linh kiện SMD ĐỐI XỨNG qua đường tâm thân. Đó không
+    # phải quan sát may rủi mà là hệ quả của cách vẽ footprint: SOT-23, SOT-223,
+    # SOD, SOIC, QFP đều đặt chân đối xứng, nên hàng lẻ chân bắt buộc có một
+    # chân nằm đúng giữa.
+    #
+    # Đo trên board thật trong ``tests/data``, residual = min|c_j - (L - c_i)|
+    # chia cho chiều dài dải:
+    #   D201 hàng 2 chân   0.006      D202 hàng 2 chân   0.006
+    #   U201 hàng 4 chân   0.011      D202 hàng lẻ chân  0.000
+    #   D201 hàng lẻ chân  0.051
+    # Chữ lụa trong góc dải -- thứ mà sàn đếm ``min_pins_per_band`` sinh ra để
+    # chặn -- nằm ở 0.2..0.6. Ngưỡng đặt giữa hai vùng đó.
+    #
+    # Ràng buộc này an toàn theo cấu trúc: loại một phép tách KHÔNG làm mất mối
+    # hàn nào, nó chỉ quay về ROI cả dải như hiện nay.
+    pin_row_symmetry_max_residual: float = 0.12
+    # Cho phép tách khi chỉ tìm được MỘT chân, với điều kiện chân đó nằm giữa.
+    # Sàn ``min_pins_per_band = 2`` tồn tại vì một đốm sáng lẻ có thể là chữ lụa
+    # hay via chứ không phải chân; tính đối xứng chính là bằng chứng còn thiếu
+    # để phân biệt hai thứ đó. Đo trên D201/D202: chân lẻ thật lệch tâm 0.000 và
+    # 0.051, còn ROI cả dải cho tỉ lệ diện tích 2.65 lần pad so với 1.64 của
+    # hàng tách được -- tức là bỏ qua ca này chính là nguồn "box quá bự".
+    split_lone_centred_pin: bool = True
 
     # --- pad-only geometry --------------------------------------------------
     pad_margin_ratio: float = 0.15
@@ -567,8 +590,12 @@ class LeadDetectionConfig:
     are. A pass-2 model has to find every lead, good ones included.
 
     ``model_path`` accepts anything the Ultralytics adapter can load whose
-    classes include ``pads``/``pins``. With it unset the stage returns nothing
-    and step 5.5 keeps deriving geometry, exactly as before.
+    class names appear in :data:`aoi_pipeline.solder.leads.LEAD_CLASSES` --
+    ``pads``/``pins`` from the public datasets, or ``solder_joint`` from a model
+    trained on this project's own hand-drawn boxes. A class name outside that
+    set is not an error: every detection is simply dropped at fusion, silently.
+    With ``model_path`` unset the stage returns nothing and step 5.5 keeps
+    deriving geometry, exactly as before.
     """
 
     enabled: bool = True

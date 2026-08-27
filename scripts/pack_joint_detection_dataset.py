@@ -36,6 +36,7 @@ from pathlib import Path
 import random
 import shutil
 import sys
+from typing import Any
 
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
@@ -90,10 +91,24 @@ def assign_splits(scenes: list[str], ratios: tuple[float, float, float], seed: i
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("crop_dir", type=Path)
-    parser.add_argument("--boxes", type=Path, required=True,
+    parser.add_argument("crop_dir", type=Path, nargs="?",
+                        help="one crop folder; pair it with --boxes. For several folders "
+                             "use --source instead, which can be repeated")
+    parser.add_argument("--boxes", type=Path,
                         help="joint_boxes.json exported by the labelling page")
+    parser.add_argument("--source", nargs=2, action="append", metavar=("CROP_DIR", "BOXES"),
+                        default=[],
+                        help="a crop folder and its export; repeat once per labelling session")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--collapse-to",
+        default=None,
+        metavar="NAME",
+        help="map every labelled class onto this single class name. Use it when the "
+             "distinction between the source classes was never actually drawn -- "
+             "measuring one class is honest, measuring two that were never separated "
+             "reports a per-class number that means nothing",
+    )
     parser.add_argument("--merge", type=Path, nargs="*", default=[],
                         help="existing YOLO datasets to fold in; class names must match")
     parser.add_argument("--val-ratio", type=float, default=0.15)
@@ -105,25 +120,55 @@ def main(argv: list[str] | None = None) -> int:
                              "positives-only pack should not be packaged silently")
     args = parser.parse_args(argv)
 
-    root = args.crop_dir.resolve()
-    manifest_path, crops_dir = root / "manifest.csv", root / "crops"
-    for path in (manifest_path, crops_dir, args.boxes):
-        if not path.exists():
-            raise SystemExit(f"missing {path}")
+    pairs = [(Path(a), Path(b)) for a, b in args.source]
+    if args.crop_dir is not None:
+        if args.boxes is None:
+            raise SystemExit("a positional crop folder needs --boxes")
+        pairs.insert(0, (args.crop_dir, args.boxes))
+    if not pairs:
+        raise SystemExit("give a crop folder with --boxes, or one or more --source pairs")
 
-    payload = read_boxes(args.boxes)
-    labelled = payload["crops"]
-    classes: list[str] = list(payload["classes"])
+    # Every source keeps its own crop folder, so a crop is addressed by
+    # (source, crop_path). Two labelling sessions can and do reuse a file name.
+    sources: list[dict[str, Any]] = []
+    classes: list[str] | None = None
+    for crop_dir, boxes_path in pairs:
+        root = crop_dir.resolve()
+        manifest_path, crops_dir = root / "manifest.csv", root / "crops"
+        for path in (manifest_path, crops_dir, boxes_path):
+            if not path.exists():
+                raise SystemExit(f"missing {path}")
+        payload = read_boxes(boxes_path)
+        with manifest_path.open(encoding="utf-8", newline="") as handle:
+            manifest = {row["crop_path"]: row for row in csv.DictReader(handle)}
+        unknown = sorted(set(payload["crops"]) - set(manifest))
+        if unknown:
+            raise SystemExit(
+                f"{len(unknown)} labelled crops are not in {manifest_path.name}, "
+                f"first: {unknown[:3]}. The export belongs to a different crop set."
+            )
+        declared = list(payload["classes"])
+        if classes is None:
+            classes = declared
+        elif declared != classes:
+            raise SystemExit(
+                f"{boxes_path} declares classes {declared}, an earlier source declared "
+                f"{classes}. Pack them separately or reconcile the class lists first."
+            )
+        sources.append({
+            "tag": root.name,
+            "root": root,
+            "crops": crops_dir,
+            "manifest": manifest,
+            "labelled": payload["crops"],
+            "payload": payload,
+        })
 
-    with manifest_path.open(encoding="utf-8", newline="") as handle:
-        manifest = {row["crop_path"]: row for row in csv.DictReader(handle)}
-
-    unknown = sorted(set(labelled) - set(manifest))
-    if unknown:
-        raise SystemExit(
-            f"{len(unknown)} labelled crops are not in {manifest_path.name}, first: {unknown[:3]}. "
-            "The export belongs to a different crop set."
-        )
+    assert classes is not None
+    collapsed_from: list[str] | None = None
+    if args.collapse_to:
+        collapsed_from = classes
+        classes = [args.collapse_to]
 
     # every dataset folded in must speak the same class list, in the same order
     for merge_root in args.merge:
@@ -135,12 +180,21 @@ def main(argv: list[str] | None = None) -> int:
                 "that only one camera ever labels."
             )
 
-    usable = {name: rec for name, rec in labelled.items()
-              if rec.get("status") in USABLE_STATUS}
-    if not usable:
+    usable_per_source = [
+        {n: r for n, r in src["labelled"].items() if r.get("status") in USABLE_STATUS}
+        for src in sources
+    ]
+    if not any(usable_per_source):
         raise SystemExit("no crop reached status 'verified'; nothing to pack")
 
-    scenes = sorted({manifest[name]["scene_id"] for name in usable})
+    # Scene ids are namespaced by source: two labelling sessions cut from
+    # different public sets can carry the same scene id, and letting them collide
+    # would put one board's crops on both sides of the split.
+    scenes = sorted({
+        f"{src['tag']}::{src['manifest'][name]['scene_id']}"
+        for src, usable in zip(sources, usable_per_source, strict=True)
+        for name in usable
+    })
     split_of = assign_splits(scenes, (1 - args.val_ratio - args.test_ratio,
                                       args.val_ratio, args.test_ratio), args.seed)
 
@@ -152,39 +206,53 @@ def main(argv: list[str] | None = None) -> int:
     counts = {split: collections.Counter() for split in SPLITS}
     clean = {split: 0 for split in SPLITS}
     written = {split: 0 for split in SPLITS}
+    per_source = {src["tag"]: collections.Counter() for src in sources}
     dropped_boxes = 0
 
-    for name, record in sorted(usable.items()):
-        row = manifest[name]
-        split = split_of[row["scene_id"]]
-        width, height = int(row["crop_w"]), int(row["crop_h"])
-        lines: list[str] = []
-        for box in record.get("boxes", []):
-            if box["cls"] not in classes:
-                raise SystemExit(f"{name}: class {box['cls']!r} is not in {classes}")
-            index = classes.index(box["cls"])
-            # clamp before normalising: a box dragged past the edge is a real
-            # thing a reviewer does, and YOLO rejects coordinates outside [0,1]
-            x0 = max(0, min(width, box["x"]))
-            y0 = max(0, min(height, box["y"]))
-            x1 = max(0, min(width, box["x"] + box["w"]))
-            y1 = max(0, min(height, box["y"] + box["h"]))
-            if x1 - x0 < 2 or y1 - y0 < 2:
-                dropped_boxes += 1
-                continue
-            lines.append(
-                f"{index} {(x0 + x1) / 2 / width:.6f} {(y0 + y1) / 2 / height:.6f} "
-                f"{(x1 - x0) / width:.6f} {(y1 - y0) / height:.6f}"
-            )
-            counts[split][box["cls"]] += 1
+    for src, usable in zip(sources, usable_per_source, strict=True):
+        for name, record in sorted(usable.items()):
+            row = src["manifest"][name]
+            split = split_of[f"{src['tag']}::{row['scene_id']}"]
+            width, height = int(row["crop_w"]), int(row["crop_h"])
+            lines: list[str] = []
+            for box in record.get("boxes", []):
+                if collapsed_from is not None:
+                    if box["cls"] not in collapsed_from:
+                        raise SystemExit(
+                            f"{name}: class {box['cls']!r} is not in {collapsed_from}"
+                        )
+                    index, tallied = 0, classes[0]
+                else:
+                    if box["cls"] not in classes:
+                        raise SystemExit(f"{name}: class {box['cls']!r} is not in {classes}")
+                    index, tallied = classes.index(box["cls"]), box["cls"]
+                # clamp before normalising: a box dragged past the edge is a real
+                # thing a reviewer does, and YOLO rejects coordinates outside [0,1]
+                x0 = max(0, min(width, box["x"]))
+                y0 = max(0, min(height, box["y"]))
+                x1 = max(0, min(width, box["x"] + box["w"]))
+                y1 = max(0, min(height, box["y"] + box["h"]))
+                if x1 - x0 < 2 or y1 - y0 < 2:
+                    dropped_boxes += 1
+                    continue
+                lines.append(
+                    f"{index} {(x0 + x1) / 2 / width:.6f} {(y0 + y1) / 2 / height:.6f} "
+                    f"{(x1 - x0) / width:.6f} {(y1 - y0) / height:.6f}"
+                )
+                counts[split][tallied] += 1
+                per_source[src["tag"]]["boxes"] += 1
 
-        stem = Path(name).stem
-        shutil.copy2(crops_dir / name, out / split / "images" / name)
-        (out / split / "labels" / f"{stem}.txt").write_text(
-            "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-        written[split] += 1
-        if not lines:
-            clean[split] += 1
+            # Namespaced on disk too, so a file name reused by two sessions does
+            # not have one session silently overwrite the other's crop.
+            stored = f"{src['tag']}__{name}" if len(sources) > 1 else name
+            shutil.copy2(src["crops"] / name, out / split / "images" / stored)
+            (out / split / "labels" / f"{Path(stored).stem}.txt").write_text(
+                "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+            written[split] += 1
+            per_source[src["tag"]]["crops"] += 1
+            if not lines:
+                clean[split] += 1
+                per_source[src["tag"]]["clean"] += 1
 
     merged_images = 0
     for merge_root in args.merge:
@@ -219,13 +287,28 @@ def main(argv: list[str] | None = None) -> int:
     clean_ratio = sum(clean.values()) / total_written if total_written else 0.0
     provenance = {
         "schema_version": "aoi-joint-detection-pack/1.0",
-        "crop_dir": str(root),
-        "boxes_file": str(args.boxes),
-        "boxes_sha256": hashlib.sha256(args.boxes.read_bytes()).hexdigest(),
-        "reviewer_id": payload.get("reviewer_id", ""),
-        "exported_at": payload.get("exported_at", ""),
+        "sources": [
+            {
+                "tag": src["tag"],
+                "crop_dir": str(src["root"]),
+                "boxes_file": str(boxes_path),
+                "boxes_sha256": hashlib.sha256(boxes_path.read_bytes()).hexdigest(),
+                "reviewer_id": src["payload"].get("reviewer_id", ""),
+                "exported_at": src["payload"].get("exported_at", ""),
+                "crops_written": per_source[src["tag"]]["crops"],
+                "boxes_written": per_source[src["tag"]]["boxes"],
+                "clean_negatives": per_source[src["tag"]]["clean"],
+                "labelled_but_unused": collections.Counter(
+                    rec.get("status") for rec in src["labelled"].values()
+                    if rec.get("status") not in USABLE_STATUS
+                ),
+            }
+            for src, (_, boxes_path) in zip(sources, pairs, strict=True)
+        ],
         "classes": classes,
+        "collapsed_from": collapsed_from,
         "split_by": "scene_id",
+        "scene_ids_namespaced_by_source": len(sources) > 1,
         "seed": args.seed,
         "scenes": {split: sorted(s for s, v in split_of.items() if v == split)
                    for split in SPLITS},
@@ -236,21 +319,23 @@ def main(argv: list[str] | None = None) -> int:
         "merged_from": [str(Path(m).resolve()) for m in args.merge],
         "merged_images": merged_images,
         "dropped_degenerate_boxes": dropped_boxes,
-        "labelled_but_unused": {
-            name: rec.get("status") for name, rec in labelled.items()
-            if rec.get("status") not in USABLE_STATUS
-        },
     }
     (out / "pack_manifest.json").write_text(
         json.dumps(provenance, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(f"wrote {out}")
+    if collapsed_from:
+        print(f"  gộp lớp {collapsed_from} -> {classes[0]!r}")
+    for src in sources:
+        stat = per_source[src["tag"]]
+        print(f"  nguồn {src['tag']:<22}{stat['crops']:>5} crop  "
+              f"{stat['boxes']:>5} box  ({stat['clean']} sạch)")
     for split in SPLITS:
         print(f"  {split:<6}{written[split]:>6} crop  ({clean[split]} sạch)  "
               f"box: {dict(counts[split])}")
     if merged_images:
         print(f"  ghép thêm {merged_images} ảnh từ {len(args.merge)} bộ")
-    print(f"  ảnh nền (không lỗi): {clean_ratio:.0%} của phần gắn nhãn")
+    print(f"  ảnh nền: {clean_ratio:.0%} của phần gắn nhãn")
     if dropped_boxes:
         print(f"  bỏ {dropped_boxes} box nhỏ hơn 2 px sau khi cắt về biên")
     if clean_ratio < args.min_clean_ratio:

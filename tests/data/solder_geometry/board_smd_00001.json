@@ -474,7 +474,8 @@
           701
         ]
       ],
-      "note": "the detector calls SOT-23 diodes ic, so they take the multi-pin path"
+      "note": "lone lead on the top edge. Before the footprint-symmetry prior min_pins_per_band=2 meant this edge could not be split at all, so its ROI spanned the whole 93px edge for a 25px pad -- 2.65x the pad area. Splitting it on the centring evidence brings that to 1.20. The cap is recorded per component because the global gate of 6.0 cannot see a regression of that size.",
+      "max_roi_to_pad_area": 2.0
     },
     "D202": {
       "package": "sot23",
@@ -499,7 +500,8 @@
           804
         ]
       ],
-      "note": "lead layout is mirrored against D201: two leads on one edge, one on the other"
+      "note": "lead layout is mirrored against D201: two leads on one edge, one on the other. Its lone lead measured 2.66x the pad area before the symmetry prior and 1.12 after.",
+      "max_roi_to_pad_area": 2.0
     },
     "U201": {
       "package": "soic8",

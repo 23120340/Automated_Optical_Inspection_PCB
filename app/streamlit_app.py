@@ -53,6 +53,7 @@ from aoi_pipeline.inspection_map import (  # noqa: E402
     plan_capture_regions,
     uncovered,
 )
+from aoi_pipeline.exporters import csv_cell as _csv_cell  # noqa: E402
 from aoi_pipeline.models import BoundingBox  # noqa: E402
 from aoi_pipeline.model_feedback import (  # noqa: E402
     ERROR_KINDS,
@@ -4038,13 +4039,6 @@ def _detections_csv_bytes() -> bytes:
             }
         )
     return stream.getvalue().encode("utf-8-sig")
-
-
-def _csv_cell(value: Any) -> str:
-    """Prevent spreadsheet formula execution when CSV is opened interactively."""
-
-    text = str(value)
-    return f"'{text}" if text.startswith(("=", "+", "-", "@", "\t", "\r")) else text
 
 
 def _classifications_csv_bytes() -> bytes:

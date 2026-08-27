@@ -589,3 +589,118 @@ def test_removing_a_model_sticks() -> None:
     assert app.session_state["component_model_name"] is None, (
         "model đã gỡ lại được nạp về ở lần chạy lại kế tiếp"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Bước 6.2 nhận được hai hình thái model, và ô chứa chúng chỉ có một tên
+# --------------------------------------------------------------------------- #
+
+
+def test_the_score_of_a_single_head_detector_is_read(tmp_path: Path) -> None:
+    """Model 6.2 chỉ có một đầu ra nên ghi ``map50`` trần, không hậu tố.
+
+    Thiếu đường đọc đó thì bảng in "—" cho model ĐANG CHẠY trong khi bản cũ kém
+    hơn lại khoe được điểm, và người chọn tưởng bản mới chưa từng được đo.
+    """
+
+    manifest = {
+        "task": "solder_defect_detection",
+        "model": {"architecture": "yolo11s"},
+        "created_at": "2026-08-26T00:00:00+00:00",
+        "reported_metrics": {"map50": 0.8561, "map50_95": 0.4036},
+    }
+    summary = _entry(tmp_path, manifest).summary()
+    assert summary.metric == "mAP50 0.856"
+
+
+def test_a_mask_score_still_wins_over_the_plain_one(tmp_path: Path) -> None:
+    """Bản segment ghi cả ba khoá; ``map50`` trần không được che mất mask."""
+
+    manifest = {
+        "model": {"architecture": "yolov8m-seg"},
+        "reported_metrics": {"map50": 0.60, "map50_box": 0.568, "map50_mask": 0.5573},
+    }
+    assert _entry(tmp_path, manifest).summary().metric == "mask mAP50 0.557"
+
+
+def test_the_summary_carries_the_task_so_two_shapes_can_be_told_apart(
+    tmp_path: Path,
+) -> None:
+    """Ô ``solder_segmenter`` nhận cả detect lẫn segment kể từ khi hợp đồng được
+    mở, và tên ô không nói được đang là cái nào -- nhưng đổi giữa hai thứ đó đổi
+    luôn hành vi của bước 6.2."""
+
+    detect = _entry(tmp_path, {"task": "solder_defect_detection"}, folder="d").summary()
+    segment = _entry(
+        tmp_path, {"task": "solder_defect_instance_segmentation"}, folder="s"
+    ).summary()
+    assert detect.task == "solder_defect_detection"
+    assert segment.task == "solder_defect_instance_segmentation"
+    assert detect.task != segment.task
+
+
+def test_the_task_stays_out_of_the_picker_label(tmp_path: Path) -> None:
+    """Cùng lý do với ``sha256``: nhãn bộ chọn không được dài thêm."""
+
+    summary = _entry(tmp_path, {"task": "solder_defect_detection",
+                                "model": {"architecture": "yolo11s"}}).summary()
+    assert "solder_defect_detection" not in summary.as_line()
+
+
+def test_an_empty_summary_still_compares_equal() -> None:
+    """``task`` phải có mặc định, nếu không mọi so sánh cũ đều gãy."""
+
+    assert ModelSummary() == ModelSummary()
+
+
+@pytest.mark.parametrize(
+    "hint, expected",
+    [
+        # Tên thư mục do chính registry đặt phải đọc ngược được
+        ("solder/segmenter", "solder_segmenter"),
+        ("solder/classifier", "solder_classifier"),
+        # Task do notebook của dự án sinh ra
+        ("solder_defect_detection", "solder_segmenter"),
+        ("solder_defect_instance_segmentation", "solder_segmenter"),
+        ("solder_defect_classification", "solder_classifier"),
+        # Schema là hợp đồng, nhận diện được kể cả khi nằm ngoài thư mục solder
+        ("aoi-solder-defect-detection/1.0", "solder_segmenter"),
+        # Không có gợi ý nào thì phải im lặng, không đoán
+        ("solder", None),
+        ("classifier", None),
+    ],
+)
+def test_the_solder_role_resolver_reads_its_own_vocabulary(
+    hint: str, expected: str | None
+) -> None:
+    """``segmenter`` là tên thư mục của chính dự án và từng KHÔNG có trong danh
+    sách token, nên resolver không đọc ngược được đường dẫn nó tự ghi ra."""
+
+    assert model_registry._solder_role_from_hint(hint) == expected
+
+
+def test_adding_defect_as_a_token_would_break_the_classifier() -> None:
+    """Ghi lại một cám dỗ đã bị bác: ``defect`` có mặt trong CẢ HAI task, nên
+    thêm nó vào danh sách detector sẽ làm hai hint cùng đúng và resolver phải
+    im lặng ở đúng vai trò nó đang giải đúng."""
+
+    assert "defect" in "solder_defect_classification"
+    assert model_registry._solder_role_from_hint("solder_defect_classification") == (
+        "solder_classifier"
+    )
+
+
+def test_every_task_the_project_emits_maps_to_a_slot() -> None:
+    """Một task thiếu ở đây nghĩa là một model thả vào ``models/library`` không
+    được phân loại -- đúng luồng "của bạn" mà bộ chọn quảng cáo."""
+
+    emitted = {
+        "component_family_classification",
+        "solder_defect_classification",
+        "solder_defect_detection",
+        "solder_defect_instance_segmentation",
+        "component_detection",
+        "component_and_lead_detection",
+    }
+    missing = emitted - set(model_registry._TASK_TO_KIND)
+    assert not missing, f"task chưa có trong _TASK_TO_KIND: {sorted(missing)}"

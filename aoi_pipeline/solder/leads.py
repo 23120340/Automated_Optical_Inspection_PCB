@@ -35,7 +35,17 @@ __all__ = [
 ]
 
 #: Detector classes that denote a lead/pad rather than a component body.
-LEAD_CLASSES: frozenset[str] = frozenset({"pads", "pad", "pins", "pin", "lead", "leads"})
+#:
+#: The first six come from the public component datasets, which is where the
+#: names ``pads``/``pins`` originate. ``solder_joint`` and ``joint`` are what a
+#: model trained on this project's own hand-drawn boxes calls the same thing --
+#: the labelling tool asks a reviewer to box solder joints, not "pads" -- and a
+#: pass-2 model whose class name is absent from this set has its every detection
+#: dropped here without a word. That failure costs a whole training run to find,
+#: so the synonym belongs in the set rather than in the model's class list.
+LEAD_CLASSES: frozenset[str] = frozenset(
+    {"pads", "pad", "pins", "pin", "lead", "leads", "solder_joint", "joint"}
+)
 
 
 @dataclass(slots=True)

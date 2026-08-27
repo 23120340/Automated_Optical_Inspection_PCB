@@ -277,3 +277,29 @@ def test_the_pipeline_is_unchanged_when_the_detector_reports_no_leads() -> None:
     assert run.solder_crops
     assert all(crop.joint.source in {"derived", "cad", "cad+derived"} for crop in run.solder_crops)
     assert pipeline.last_lead_fusion.used_detected == 0
+
+
+def test_a_model_trained_on_this_projects_own_labels_is_recognised() -> None:
+    """The labelling tool asks a reviewer to box *solder joints*, so a model
+    trained on that export calls its class ``solder_joint``.
+
+    A class name outside ``LEAD_CLASSES`` is not an error anywhere: fusion just
+    drops every detection, silently, and the loss shows up as "the pass-2 model
+    did nothing" after a training run has already been spent.
+    """
+
+    from aoi_pipeline.solder.leads import LEAD_CLASSES
+
+    assert "solder_joint" in LEAD_CLASSES
+    assert "joint" in LEAD_CLASSES
+    # the public-dataset names must survive the addition
+    assert {"pads", "pins"} <= LEAD_CLASSES
+
+
+def test_a_component_class_is_still_not_a_lead() -> None:
+    """The set is a synonym list, not a catch-all: widening it far enough would
+    let a component body be fused as one of its own joints."""
+
+    from aoi_pipeline.solder.leads import LEAD_CLASSES
+
+    assert not {"capacitor", "resistor", "ic", "component"} & LEAD_CLASSES

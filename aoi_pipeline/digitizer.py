@@ -24,6 +24,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from .exporters import csv_cell as _safe_csv_text
 from .models import BoundingBox, Detection
 
 PIXEL_SCHEMA_VERSION = "aoi-pnp-consensus-pixels/1.0"
@@ -829,11 +830,6 @@ def _destination(path: str | Path) -> Path:
     destination = Path(path).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     return destination
-
-
-def _safe_csv_text(value: Any) -> str:
-    text = str(value)
-    return f"'{text}" if text.startswith(("=", "+", "-", "@", "\t", "\r")) else text
 
 
 __all__ = [

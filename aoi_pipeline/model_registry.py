@@ -66,10 +66,16 @@ STAGE_FOLDERS = {
 # yolov8m-seg artifact was called a "detector", which put it one word away from
 # the two slots that genuinely localise things for inspection -- the pass-1
 # component detector and the pass-2 lead detector -- and the three were read as
-# interchangeable.  They are not: this one emits ``Dry_joint``/``Short_circuit``
-# style faults, has no class for a sound joint, and is marked
-# ``diagnostic_only`` in its own manifest.  It segments defects, so it is a
-# segmenter.
+# interchangeable.  They are not: a step-6.2 artifact emits fault classes with
+# no class for a sound joint, and is marked ``diagnostic_only`` in its manifest.
+#
+# The slot keeps the name ``solder_segmenter`` because it is a stable
+# identifier -- saved UI state and third-party scripts key off it -- but the
+# name is now narrower than the slot.  Since the contract was unlocked it holds
+# EITHER shape: the archived ``yolov8m-seg`` (4 classes, masks) or the current
+# ``yolo11s`` detect model (``Bad_podu``/``Bad_qiaojiao``, boxes).  Which one is
+# loaded changes what the pipeline does, so the listing prints each entry's
+# ``task`` rather than relying on the slot name to carry it.
 _KIND_ALIASES = {
     "solder": "solder_classifier",
     "solder_detector": "solder_segmenter",
@@ -121,6 +127,11 @@ _HEADLINE_METRICS = (
     (("metrics", "map50"), "mAP50"),
     (("reported_metrics", "map50_mask"), "mask mAP50"),
     (("reported_metrics", "map50_box"), "box mAP50"),
+    # Model phát hiện lỗi mối hàn của bước 6.2 chỉ có một đầu ra nên ghi
+    # ``map50`` trần, không hậu tố. Thiếu dòng này thì bảng chọn model in "—"
+    # cho model ĐANG CHẠY trong khi bản cũ kém hơn lại khoe được điểm của nó,
+    # và người chọn tưởng bản mới chưa từng được đo.
+    (("reported_metrics", "map50"), "mAP50"),
     (("metrics", "accuracy"), "acc"),
     (("training", "test_accuracy"), "acc"),
     (("training", "test_macro_recall"), "macro recall"),
@@ -165,6 +176,12 @@ class ModelSummary:
     #: Thêm sau cùng, có mặc định, để ``ModelSummary() == ModelSummary()`` giữ
     #: nguyên. KHÔNG đưa vào ``as_line()``: nhãn bộ chọn không được dài thêm.
     sha256: str | None = None
+    #: Task khai trong manifest. Ô ``solder_segmenter`` nhận được cả model
+    #: detect lẫn model segment kể từ khi hợp đồng được mở, và tên ô không nói
+    #: được đang là cái nào -- nhưng đổi model sẽ đổi hành vi của pipeline. Đây
+    #: là chỗ duy nhất đọc được điều đó, nên bảng liệt kê phải in nó ra.
+    #: Cùng lý do với ``sha256``: đứng cuối, có mặc định, không vào ``as_line()``.
+    task: str | None = None
 
     @property
     def metric(self) -> str | None:
@@ -202,6 +219,7 @@ def _summarise(
     if filename:
         paths = (("files", filename, "sha256"),) + paths
     digest = _first(manifest, paths)
+    task = _first(manifest, (("task",), ("aoi_compatibility", "required_ultralytics_task")))
     return ModelSummary(
         architecture=str(architecture) if architecture else None,
         created=str(created)[:10] if created else None,
@@ -209,6 +227,7 @@ def _summarise(
         metric_name=metric_name,
         metric_value=metric_value,
         sha256=str(digest) if digest else None,
+        task=str(task) if task else None,
     )
 
 
@@ -458,6 +477,11 @@ _TASK_TO_KIND = {
     "component_family_classification": "classifier",
     "solder_defect_classification": "solder_classifier",
     "solder_defect_instance_segmentation": "solder_segmenter",
+    # Task mà notebook 6.2 của chính dự án sinh ra
+    # (``training/kaggle/pcb_solder_detector_kaggle.py``). Thiếu nó thì một bản
+    # copy thả vào ``models/library`` không được phân loại, đúng luồng
+    # "của bạn" mà bộ chọn model quảng cáo.
+    "solder_defect_detection": "solder_segmenter",
     "component_and_lead_detection": "detector",
     "component_detection": "detector",
     "detect": "detector",
@@ -489,7 +513,21 @@ def _solder_role_from_hint(value: str) -> str | None:
     classifier_hint = "classifier" in lowered or "classification" in lowered
     detector_hint = any(
         token in lowered
-        for token in ("detector", "detection", "instance_segmentation", "segmentation")
+        for token in (
+            "detector",
+            "detection",
+            "instance_segmentation",
+            "segmentation",
+            # ``segmenter`` is the project's OWN folder name for this slot
+            # (``STAGE_FOLDERS["solder_segmenter"]``) and was not in this list,
+            # so the resolver could not read back a path it had itself written.
+            #
+            # ``defect`` deliberately stays out: it appears in
+            # ``solder_defect_classification`` too, so adding it would make both
+            # hints fire on the classifier and the function would abstain on a
+            # role it currently resolves correctly.
+            "segmenter",
+        )
     )
     if classifier_hint == detector_hint:
         # Neither hint, or contradictory hints: do not guess and accidentally

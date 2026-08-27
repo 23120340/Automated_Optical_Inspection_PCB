@@ -78,7 +78,13 @@ def main() -> int:
     # Cột bước cũng phải co giãn: từ khi bước 6.2 tách vai trò, ``kind`` có thể
     # là ``solder_classifier`` (17 ký tự) và một cột cứng 11 sẽ đè lên cột kế.
     kind_width = max([len("bước")] + [len(e.kind) for e in entries]) + 2
+    # Ô ``solder_segmenter`` nhận cả model detect lẫn model segment, và tên ô
+    # không nói được đang là cái nào -- trong khi đổi giữa hai thứ đó đổi luôn
+    # hành vi của bước 6.2. Task khai trong manifest là chỗ duy nhất nói thật.
+    tasks = [(e.summary().task or "") for e in entries]
+    task_width = max([len("task")] + [len(t) for t in tasks]) + 2
     header = (f"{'bước':<{kind_width}}{'nguồn':<11}{'thư mục':<{width}}"
+              f"{'task':<{task_width}}"
               f"{'kiến trúc':<20}{'ngày':<12}{'điểm':<18}{'MB':>6}")
     print(header)
     print("-" * len(header))
@@ -93,6 +99,7 @@ def main() -> int:
             f"{entry.kind:<{kind_width}}"
             f"{ORIGIN_LABEL.get(entry.origin, entry.origin):<11}"
             f"{folder_of(entry):<{width}}"
+            f"{(summary.task or '—'):<{task_width}}"
             f"{(summary.architecture or '—'):<20}"
             f"{(summary.created or '—'):<12}"
             f"{(summary.metric or '—'):<18}"

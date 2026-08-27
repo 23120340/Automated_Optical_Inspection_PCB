@@ -75,3 +75,12 @@ datasets/public/*
 # they stay.
 datasets/labelling/*/crops/
 datasets/labelling/*/label_boxes.html
+
+# Packed training sets: pixels and the zip built from them. Both are rebuilt by
+# pack_joint_detection_dataset.py from the crop folders plus the exported
+# labels, and the pack_manifest is what makes that reproducible -- so the
+# manifest stays and the 150 MB of images does not.
+datasets/train/*/train/
+datasets/train/*/valid/
+datasets/train/*/test/
+datasets/train/*.zip

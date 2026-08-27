@@ -981,7 +981,15 @@ def _split_one_band(
     if patch_length <= 0:
         return None
     centers = [(start + stop) / 2.0 for start, stop in runs]
-    pitch = float(np.median(np.diff(centers))) if len(centers) > 1 else 0.0
+    if len(centers) > 1:
+        pitch = float(np.median(np.diff(centers)))
+    else:
+        # A lone lead has no pitch, and a growth of zero would clip the ROI to
+        # the bright metal itself -- losing the fillet, which is the part being
+        # graded. Its own width is the available proxy and the right order of
+        # magnitude: on a SOT-23 the lead is 21 px and the pitch on the opposite
+        # edge is 42.
+        pitch = float(np.median([stop - start for start, stop in runs]))
     growth = config.pin_padding_ratio * pitch
 
     rects: list[_LocalRect] = []
@@ -1059,15 +1067,52 @@ def _find_pin_runs(
         low = margin_fraction * profile.size
         high = (1.0 - margin_fraction) * profile.size
         runs = [run for run in runs if low <= (run[0] + run[1]) / 2.0 <= high]
-    if not config.min_pins_per_band <= len(runs) <= config.max_pins_per_band:
+    if not runs or len(runs) > config.max_pins_per_band:
         return None
     centers = np.array([(start + stop) / 2.0 for start, stop in runs])
+
+    # A footprint places its lands symmetrically about the body centre line, so
+    # a row that is not symmetric is not a row of leads. This is the only
+    # regularity check that bites at two runs: ``np.diff`` of two centres is a
+    # single pitch, whose standard deviation is zero by construction, so the
+    # test below has never constrained a SOT-23 edge.
+    if _row_symmetry_residual(centers, float(profile.size)) > (
+        config.pin_row_symmetry_max_residual
+    ):
+        return None
+
+    if len(runs) < config.min_pins_per_band:
+        # One lead on an edge is a real layout -- pin 3 of a SOT-23, the tab of
+        # a SOT-223 -- and the count floor alone cannot tell it from a scrap of
+        # silkscreen. Being centred is what tells them apart, and the symmetry
+        # gate above has already required it: for a single run it reduces to
+        # |2c - L| <= tolerance * L.
+        if len(runs) == 1 and config.split_lone_centred_pin:
+            return runs
+        return None
+
     pitches = np.diff(centers)
     if pitches.size == 0 or float(pitches.mean()) <= 0.0:
         return None
     if float(pitches.std() / pitches.mean()) > 0.35:
         return None
     return runs
+
+
+def _row_symmetry_residual(centers: np.ndarray, length: float) -> float:
+    """Worst mirror mismatch in a lead row, as a fraction of the band length.
+
+    Each centre is reflected through the band's midpoint and matched to the
+    nearest real centre. A row of leads mirrors onto itself; a bright patch of
+    legend with no partner on the far side does not. A single centre is
+    reflected onto itself, so this reduces to how far it sits off the midpoint.
+    """
+
+    if centers.size == 0 or length <= 0.0:
+        return float("inf")
+    mirrored = length - centers
+    residual = np.abs(mirrored[:, None] - centers[None, :]).min(axis=1).max()
+    return float(residual / length)
 
 
 def _axis_offset(angle: float) -> float:
