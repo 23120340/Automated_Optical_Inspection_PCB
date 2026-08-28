@@ -64,6 +64,51 @@ thước.
 vì bộ reference đã được duyệt tay và có nhãn đi kèm ở
 `datasets/reference_sets/pcb_dslr_30_diverse/`.
 
+## `tiles_1024/` — 310 tile zoom
+
+Ảnh toàn board là đầu vào đúng cho bước 0–3 và **sai** cho việc nhìn một linh
+kiện. Thư mục này là góc nhìn còn lại — đúng thứ ảnh mẫu của dự án là,
+`00001__1024__1648___4120.png`: cửa sổ 1024 px lên một phần board, đọc được
+từng linh kiện.
+
+```bash
+python scripts/tile_test_images.py --min-components 6
+```
+
+**Không hạ tỉ lệ, và đó là chủ ý.** Đo bằng chính detector đang dùng:
+
+| | Linh kiện, cạnh ngắn trung vị |
+|---|---|
+| `00001__1024__1648___4120` (ảnh mẫu) | 22 px |
+| `pcb_dslr_001__rec1` | 39 px (**1,78×**) |
+| `pcb31__rec1` | 54 px (**2,43×**) |
+
+Ảnh gốc đã mịn hơn ảnh mẫu, nên tile ở độ phân giải gốc rơi **trên** nó — linh
+kiện to hơn, dễ nhìn hơn. Hạ về 22 px là vứt đi phần đó.
+
+| | |
+|---|---|
+| Tile | **310**, tất cả 1024×1024, 0 file hỏng |
+| Board | 58 board khác nhau |
+| Linh kiện | 4.090 (trung vị 11/tile, ít nhất 6, nhiều nhất 52) |
+| Dung lượng | 552 MB |
+
+**Tile được giữ theo số linh kiện, không theo thống kê pixel.** Độ sáng và bão
+hoà đã thử và không tách được: trên `pcb31` dải nền đọc 133 độ sáng còn tile
+board tối nhất đọc 34. Số linh kiện thì tách được, và nó cũng là thứ quyết định
+— tile không có gì thì không test được bước 4 dù đẹp đến đâu.
+
+> ⚠️ **`components` trong manifest là số của lượt quét TOÀN BOARD**, không phải
+> số linh kiện trong tile. Chạy detector thẳng trên tile ra nhiều hơn hẳn — đo
+> trên hai tile: **52 → 96** và **11 → 120** — vì linh kiện to hơn và không bị
+> bối cảnh cạnh tranh. Chính khoảng cách đó là lý do thư mục này tồn tại.
+
+Board được chụp trên vải đen, nên một tile ở mép board vẫn đủ 6 linh kiện khi
+chúng dồn vào một góc mà phần lớn khung là nền. Những tile đó **không bị loại**
+— mép board là thứ có thật và đáng test — nhưng manifest ghi `dark_fraction` để
+lọc được mà không phải đo lại: trung vị **30%**, 28% số tile trên 50%, 8% trên
+70%. Muốn chặt hơn thì `--max-dark-fraction 0.5`.
+
 ## Vì sao nhiều ảnh cùng một board
 
 `rec1`…`rec5` là cùng một board chụp ở **vị trí và ánh sáng khác nhau**. Đó
