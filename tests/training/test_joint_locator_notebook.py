@@ -20,7 +20,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOK = ROOT / "training" / "kaggle" / "pcb_joint_locator_kaggle.py"
-PACK = ROOT / "datasets" / "train" / "solder_joint_v1"
+PACK = ROOT / "datasets" / "train" / "solder_joint_v2"
 
 SOURCE = NOTEBOOK.read_text(encoding="utf-8")
 

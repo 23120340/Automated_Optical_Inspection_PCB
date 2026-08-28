@@ -135,11 +135,11 @@ const draft = {
   crops: {
     [draftPaths[0]]: {
       status: '', notes: 'AI proposal',
-      boxes: [{ cls: 'Bad_qiaojiao', x: 10.4, y: 20.6, w: 30.2, h: 15.8 }],
+      boxes: [{ cls: 'solder_joint', x: 10.4, y: 20.6, w: 30.2, h: 15.8 }],
     },
     [draftPaths[1]]: {
       status: '', notes: '',
-      boxes: [{ cls: 'Bad_podu', x: 3, y: 4, w: 12, h: 9 }],
+      boxes: [{ cls: 'solder_joint', x: 3, y: 4, w: 12, h: 9 }],
     },
   },
 };
@@ -151,7 +151,7 @@ const loadedDraft = vm.runInContext(
   `JSON.parse(JSON.stringify(state[rows[0].crop_path]))`, sandbox,
 );
 if (loadedDraft.status !== '') fail('AI draft was marked reviewed while loading');
-if (loadedDraft.boxes.length !== 1 || loadedDraft.boxes[0].cls !== 1) {
+if (loadedDraft.boxes.length !== 1 || loadedDraft.boxes[0].cls !== 0) {
   fail('AI draft box/class was not loaded intact: ' + JSON.stringify(loadedDraft));
 }
 vm.runInContext(`$('#filter').value = 'todo'; idx = 0; show();`, sandbox);
@@ -198,7 +198,7 @@ const first = vm.runInContext('rows[0].crop_path', sandbox);
 const rec = payload.crops[first];
 if (!rec || rec.status !== 'verified') fail('verified crop missing from export');
 if (rec.boxes.length !== 1) fail('box not exported');
-if (rec.boxes[0].cls !== 'Bad_qiaojiao') fail('class index exported instead of name: ' + rec.boxes[0].cls);
+if (rec.boxes[0].cls !== 'solder_joint') fail('class index exported instead of name: ' + rec.boxes[0].cls);
 const b = rec.boxes[0];
 if (b.x !== 10 || b.y !== 21 || b.w !== 30 || b.h !== 16) fail('coordinates not rounded as expected: ' + JSON.stringify(b));
 

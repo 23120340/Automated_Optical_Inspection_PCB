@@ -1,15 +1,15 @@
 """Wrap a component-crop folder in an offline app for drawing joint-defect boxes.
 
 ``build_solder_label_app.py`` collects one *class* per crop, which is what the
-6.2 classifier notebook eats. The 6.2 **detector** needs boxes, and it has to
-share a class list with the Roboflow set it is trained beside, so this is a
-separate tool rather than a flag on that one.
+6.2 classifier notebook eats. This tool collects **boxes**, for the pass-2 model
+that tells step 5.5 where the joints are, so it is a separate tool rather than a
+flag on that one.
 
-The class list defaults to the two classes of
-``datasets/public/roboflow_solder_leadjoints`` for a reason worth stating: a
-class present in only one of the two sources teaches the detector to separate
-*cameras* rather than *defects*, because every instance of it also carries that
-source's lighting and optics. Adding a class means labelling it on both sides.
+One class, ``solder_joint``, covering **every** joint including sound ones --
+see ``DEFAULT_CLASSES`` for why the two-class default was dropped. Boxes should
+span the pad and its fillet, not just the bright metal: the first labelling pass
+drew them on the metal alone and the resulting model produced boxes 0.76x the
+pad area, which cut off the very thing step 6.2 grades.
 
     python scripts/build_joint_box_app.py datasets/labelling/fpic_components
 
@@ -34,12 +34,24 @@ for _stream in (sys.stdout, sys.stderr):
 
 TEMPLATE_PATH = Path(__file__).with_name("_joint_box_app_template.html")
 
-#: Matches ``datasets/public/roboflow_solder_leadjoints`` exactly. ``Bad_podu``
-#: (坡度) is a fillet that never wetted into a proper slope; ``Bad_qiaojiao``
-#: (翘脚) is a lead standing off its pad.
+#: Một lớp, và tên nó nói đúng thứ được khoanh: **mọi** mối hàn, kể cả mối hàn
+#: lành. Đó là bài toán *định vị*, không phải bài toán chấm lỗi.
+#:
+#: Mặc định cũ là hai lớp của ``roboflow_solder_leadjoints`` (``Bad_podu`` /
+#: ``Bad_qiaojiao``). Bỏ đi vì hai lý do đo được:
+#:
+#: * Người gắn nhãn **chưa bao giờ phân biệt hai lớp đó** -- 9.283/9.283 box của
+#:   phiên đầu đều mang đúng một lớp. Báo cáo chỉ số theo lớp cho một phân biệt
+#:   chưa từng được vẽ là báo một con số vô nghĩa.
+#: * Bộ Roboflow chỉ khoanh mối hàn **LỖI**; nhãn ở đây khoanh **mọi** mối hàn.
+#:   Cùng một vật -- một mối hàn lành -- là *nền* ở bộ kia và *positive* ở bộ
+#:   này, nên hai bộ không ghép được và việc chung lớp với chúng mất ý nghĩa.
+#:
+#: Tên ``solder_joint`` nằm trong ``aoi_pipeline.solder.leads.LEAD_CLASSES``.
+#: Đổi nó mà không sửa set kia thì mọi detection của lượt 2 bị bỏ qua lặng lẽ.
 DEFAULT_CLASSES = [
-    {"name": "Bad_podu", "vn": "thấm thiếc kém / fillet dốc sai", "color": "#f85149"},
-    {"name": "Bad_qiaojiao", "vn": "chân vênh, không chạm pad", "color": "#d29922"},
+    {"name": "solder_joint", "vn": "mối hàn — khoanh cả pad và fillet",
+     "color": "#3fb950"},
 ]
 
 #: Carried into the page so the reviewer sees what they are judging.
@@ -82,8 +94,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("crop_dir", type=Path,
                         help="directory written by crop_components_for_labelling.py")
     parser.add_argument("--classes", nargs="*", default=None,
-                        help="override the defect class list; must match the class list of "
-                             "every dataset it will be trained beside")
+                        help="override the class list; every name must appear in "
+                             "aoi_pipeline.solder.leads.LEAD_CLASSES or fusion drops it")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
 
@@ -128,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     scenes = {row["scene_id"] for row in rows}
     print(f"wrote {out}")
     print(f"  {len(rows)} crop, {len(scenes)} cảnh gốc, "
-          f"lớp lỗi: {', '.join(c['name'] for c in classes)}")
+          f"lớp: {', '.join(c['name'] for c in classes)}")
     for name, count in sorted(by_class.items(), key=lambda kv: -kv[1])[:10]:
         print(f"    {name:<24}{count:>6}")
     return 0

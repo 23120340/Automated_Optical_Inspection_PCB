@@ -36,7 +36,7 @@
 #
 # ## Dữ liệu vào
 #
-# `datasets/train/solder_joint_v1`, do
+# `datasets/train/solder_joint_v2`, do
 # `scripts/pack_joint_detection_dataset.py` đóng gói từ hai phiên gắn nhãn:
 #
 # | | crop | box | ảnh nền | cảnh gốc |
@@ -50,7 +50,7 @@
 #
 # ## Trước khi Run All
 #
-# - Add Input thư mục `solder_joint_v1`, trỏ `CONFIG["data_root"]` **thẳng vào
+# - Add Input thư mục `solder_joint_v2`, trỏ `CONFIG["data_root"]` **thẳng vào
 #   thư mục có `data.yaml`**.
 # - GPU T4 đủ. `imgsz=640` nên nhanh hơn notebook detector lỗi (1280) khoảng 4 lần.
 #
@@ -62,7 +62,7 @@ CONFIG = {
     "seed": 42,
 
     # --- dữ liệu ---------------------------------------------------------
-    "data_root": "/kaggle/input/solder-joint-v1",
+    "data_root": "/kaggle/input/solder-joint-v2",
     "work_dir": "/kaggle/working/pcb_joint_locator",
     "artifact_dir": "/kaggle/working/pcb_joint_locator_artifacts",
 

@@ -5,28 +5,28 @@
       "tag": "fpic_components",
       "crop_dir": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\datasets\\labelling\\fpic_components",
       "boxes_file": "C:\\Users\\Acer\\Downloads\\fpic_components.json",
-      "boxes_sha256": "64455f5fedda6e8eef6d3a2df1cb693c0597ad2c342a8b0aaa5c5191576158cd",
+      "boxes_sha256": "89b5556582a08b6735aaeb9eaaaf2ceaf191fdf611263822b5326f374f16c336",
       "reviewer_id": "",
-      "exported_at": "2026-08-27T07:17:35.883Z",
-      "crops_written": 1046,
-      "boxes_written": 4614,
-      "clean_negatives": 425,
+      "exported_at": "2026-08-28T06:13:20.286Z",
+      "crops_written": 1044,
+      "boxes_written": 4595,
+      "clean_negatives": 426,
       "labelled_but_unused": {
-        "unusable": 4301
+        "unusable": 4303
       }
     },
     {
       "tag": "winnies_components",
       "crop_dir": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\datasets\\labelling\\winnies_components",
       "boxes_file": "C:\\Users\\Acer\\Downloads\\winnies_components.json",
-      "boxes_sha256": "20c90f20212b7294f1e1f323bcd902dd605d5c044731ccc840f67b46457e764d",
+      "boxes_sha256": "b2855fdf97e49be03169b4ac52a54dadb961287bb7e31b81b7d510a6c7611c8e",
       "reviewer_id": "",
-      "exported_at": "2026-08-27T16:48:43.438Z",
-      "crops_written": 1008,
-      "boxes_written": 4618,
+      "exported_at": "2026-08-28T09:29:08.508Z",
+      "crops_written": 987,
+      "boxes_written": 4494,
       "clean_negatives": 0,
       "labelled_but_unused": {
-        "unusable": 468
+        "unusable": 489
       }
     }
   ],
@@ -214,25 +214,25 @@
     ]
   },
   "crops_written": {
-    "train": 1519,
-    "valid": 247,
-    "test": 288
+    "train": 1498,
+    "valid": 246,
+    "test": 287
   },
   "clean_negatives": {
-    "train": 350,
+    "train": 351,
     "valid": 40,
     "test": 35
   },
-  "clean_ratio": 0.2069,
+  "clean_ratio": 0.2097,
   "boxes_per_split": {
     "train": {
-      "solder_joint": 6748
+      "solder_joint": 6625
     },
     "valid": {
-      "solder_joint": 1040
+      "solder_joint": 1042
     },
     "test": {
-      "solder_joint": 1444
+      "solder_joint": 1422
     }
   },
   "merged_from": [],
