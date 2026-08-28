@@ -912,10 +912,11 @@ def _render_pass2_lead_controls() -> None:
     )
     st.warning(
         "Ô này **không tự nạp** khi mở app, khác các ô model khác. Đo trên board "
-        "thật trong `tests/data/solder_geometry`: hình học 5.5 đạt **0/28 pad bỏ "
-        "sót**, còn bật model `lead_detector` hiện có lên thành **2/28** — box của "
-        "nó nhỏ hơn pad nên cắt mất fillet. Đọc `on_board_validation` trong "
-        "manifest trước khi bật.",
+        "thật trong `tests/data/solder_geometry`, bản `lead_detector` hiện tại "
+        "**không làm mất pad nào** (28/28, bản trước mất 2) — nhưng độ phủ pad "
+        "trung vị tụt **0,97 → 0,79** và pad thấp nhất còn **0,52**, chỉ trên "
+        "ngưỡng 0,50 đúng 0,02. Đọc `on_board_validation` trong manifest trước "
+        "khi bật; phần `what_is_NOT_settled` nói rõ chỗ chưa ngã ngũ.",
         icon="⚠️",
     )
     if _render_model_picker("lead_detector"):

@@ -1,5 +1,6 @@
 {
   "schema_version": "aoi-lead-detection/1.0",
+  "created_at": "2026-08-28T12:58:43.886836+00:00",
   "task": "solder_joint_localization",
   "pipeline_step": "5_5_pass2_lead_detection",
   "model_format": "onnx",
@@ -23,34 +24,34 @@
     "split": "test (khoá, không dùng để chọn epoch)",
     "test_scenes": 25,
     "confidence_note": "Đủ cảnh để coi là phép đo.",
-    "map50": 0.8714,
-    "map50_95": 0.3767,
-    "precision": 0.8784,
-    "recall": 0.8837,
-    "train_map50": 0.9925,
-    "train_test_gap": 0.1211,
+    "map50": 0.9912,
+    "map50_95": 0.5598,
+    "precision": 0.9732,
+    "recall": 0.9768,
+    "train_map50": 0.993,
+    "train_test_gap": 0.0018,
     "scene_memorisation_warning": false
   },
   "training_data": {
     "sources": [
       {
         "tag": "fpic_components",
-        "crops": 1046,
-        "boxes": 4614,
+        "crops": 1044,
+        "boxes": 4595,
         "reviewer_id": "",
-        "boxes_sha256": "64455f5fedda6e8eef6d3a2df1cb693c0597ad2c342a8b0aaa5c5191576158cd"
+        "boxes_sha256": "89b5556582a08b6735aaeb9eaaaf2ceaf191fdf611263822b5326f374f16c336"
       },
       {
         "tag": "winnies_components",
-        "crops": 1008,
-        "boxes": 4618,
+        "crops": 987,
+        "boxes": 4494,
         "reviewer_id": "",
-        "boxes_sha256": "20c90f20212b7294f1e1f323bcd902dd605d5c044731ccc840f67b46457e764d"
+        "boxes_sha256": "b2855fdf97e49be03169b4ac52a54dadb961287bb7e31b81b7d510a6c7611c8e"
       }
     ],
-    "images": 2054,
-    "boxes": 9232,
-    "background_images": 425,
+    "images": 2031,
+    "boxes": 9089,
+    "background_images": 426,
     "scenes": {
       "train": 115,
       "valid": 25,
@@ -79,7 +80,7 @@
     "bootstrap_only": true,
     "reason": "Ảnh công khai (fpic_boards_rf100 và pcb_packages_winnies, cả hai CC BY 4.0), box do người của dự án vẽ tay. Ánh sáng, ống kính và lớp mạ của dây chuyền bạn chưa được đại diện, nên phải fine-tune trên ảnh board thật trước khi tin số liệu.",
     "safe_to_enable_in_production": false,
-    "enable_for_experiment_only": "Đặt lead_detection.model_path trỏ vào file này. Mặc định pipeline KHÔNG nạp nó, nên chỉ có mặt trong models/active không làm đổi hành vi."
+    "enable_for_experiment_only": "Đặt lead_detection.model_path trỏ vào file này, hoặc chọn trong bộ chọn ở mục 'Lượt 2' của app. Mặc định pipeline KHÔNG nạp nó."
   },
   "postprocessing": {
     "recommended_confidence": 0.25,
@@ -88,25 +89,36 @@
   "model": {
     "version": "pcb-joint-locator-yolo11s-solderjoint",
     "architecture": "yolo11s",
-    "sha256": "93e5d69a4ce3ce6d5ff8d50c868b1f59398a1d57436e9d6e1e5079b737539b95",
+    "sha256": "e4993b3cc03c7d8c9cb85d99bbf92f4adb3132f8230686c60bf132243fb99083",
     "bytes": 37927780
   },
   "on_board_validation": {
     "board": "tests/data/solder_geometry/board_smd_00001.png",
-    "method": "Chạy qua đúng đường lượt 2 (detect_leads_in_components + fuse_detected_leads) trên khung ảnh SAU bước 1, rồi đối chiếu với 26 pad đo tay đã kiểm thị giác.",
+    "method": "Chạy qua đúng đường lượt 2 (detect_leads_in_components + fuse_detected_leads) trên khung ảnh SAU bước 1, đối chiếu 28 pad đo tay đã kiểm thị giác.",
     "pads_total": 28,
     "pads_covered_geometry_only": 28,
-    "pads_covered_with_this_model": 26,
-    "escapes_introduced": 2,
-    "escaped_pads": [
-      "U201 pad5 (phủ 0.47)",
-      "U201 pad6 (phủ 0.42)"
-    ],
-    "roi_to_pad_area_ratio_median": 0.76,
-    "verdict": "CHUA DAT de bat trong san xuat",
-    "why": "Box của model NHỎ HƠN pad (trung vị 0.76x diện tích). Ở luật hợp nhất mặc định (replace_ios=0.30) một box như thế vẫn thay thế ROI hình học đúng, và fillet — thứ bước 6.2 chấm — bị cắt mất. Hình học 5.5 hiện đạt 0/28 pad bỏ sót; bật model này lên thành 2/28. Quét tham số cho thấy chỉ replace_ios=0.90 mới về 0 bỏ sót, nhưng ở mức đó model gần như không thay thế gì nữa (110 ROI so với 90) nên cũng không cải thiện gì.",
-    "root_cause": "Nhãn train vẽ trên phần KIM LOẠI của mối hàn, còn ROI mà 5.5/6.2 cần phải trùm cả fillet vốn rộng hơn. Khớp với mAP50-95 chỉ 0.377 trên chính tập test của nó, dù mAP50 đạt 0.871.",
-    "next_step": "Gắn nhãn lại với box trùm cả fillet, hoặc nới box của model một hệ số cố định trước khi hợp nhất rồi đo lại trên đúng board này."
-  },
-  "created_at": "2026-08-27T18:51:00+00:00"
+    "pads_covered_with_this_model": 28,
+    "escapes_introduced": 0,
+    "previous_model_escapes": 2,
+    "coverage_median_geometry_only": 0.97,
+    "coverage_median_with_model": 0.79,
+    "coverage_min_with_model": 0.52,
+    "coverage_gate": 0.5,
+    "roi_to_pad_area_ratio_median": 0.88,
+    "improved_pads": {
+      "D201 pad0": "0.71 -> 0.97",
+      "D202 pad2": "0.73 -> 0.82",
+      "C231 pad1": "0.89 -> 0.96"
+    },
+    "degraded_pads": {
+      "R254 pad1": "1.00 -> 0.52",
+      "U201 pad0": "0.97 -> 0.52",
+      "U201 pad6": "0.97 -> 0.52",
+      "C220 pad1": "1.00 -> 0.57"
+    },
+    "verdict": "TIEN BO RO so voi ban truoc, nhung bien an toan mong",
+    "what_is_settled": "Bản trước gây 2 ca lọt lưới (26/28); bản này 0 (28/28). Nhãn vẽ trùm cả fillet đã sửa đúng nguyên nhân: mAP50-95 trên tập test của nó lên từ 0.377 thành 0.560, và chênh lệch train-test còn 0.0018 nên không học thuộc cảnh.",
+    "what_is_NOT_settled": "Độ phủ trung vị vẫn tụt 0.97 -> 0.79 và pad thấp nhất còn 0.52, chỉ trên ngưỡng 0.50 đúng 0.02. NHƯNG xem tận mắt thì ở U201 pad0 và C220 pad1, box của model nằm trên phần thiếc còn pad đo tay trườn lên thân linh kiện -- tức ở những ca đó model có thể ĐÚNG HƠN ground truth. Ground truth này được đo cho bài toán hình học ('ROI có với tới land không') nên nó rộng rãi. Câu 'box bám sát thiếc hay box rộng trùm land tốt hơn cho bước 6.2' CHƯA được đo, vì cần ground truth về LỖI mà board này không có.",
+    "next_step": "Chấm cùng một board bằng hai bộ ROI rồi so phán quyết 6.2 với nhãn lỗi thật. Trước khi có phép đo đó, đừng bật mặc định."
+  }
 }

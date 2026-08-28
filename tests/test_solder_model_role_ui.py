@@ -165,7 +165,8 @@ def test_the_pass_two_section_warns_before_anyone_turns_it_on() -> None:
     trong khi phép đo trên board thật nói ngược lại."""
 
     source = inspect.getsource(ui._render_pass2_lead_controls)
-    assert "0/28" in source and "2/28" in source
+    assert "28/28" in source
+    assert "0,97" in source and "0,79" in source, "cảnh báo phải mang con số"
     assert "on_board_validation" in source
 
 

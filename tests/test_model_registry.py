@@ -738,10 +738,20 @@ def test_the_installed_lead_detector_admits_it_is_not_production_ready() -> None
     )
     assert manifest["aoi_compatibility"]["safe_to_enable_in_production"] is False
     validation = manifest["on_board_validation"]
-    assert validation["pads_covered_geometry_only"] > validation[
-        "pads_covered_with_this_model"
-    ], "số đo phải cho thấy vì sao chưa bật được"
-    assert validation["escapes_introduced"] == 2
+    # Bản thứ hai không còn làm mất pad nào (bản đầu mất 2), nên lý do "chưa bật
+    # được" đổi: không phải lọt lưới nữa mà là ĐỘ PHỦ tụt và biên còn mỏng.
+    assert validation["escapes_introduced"] == 0
+    assert validation["previous_model_escapes"] == 2
+    assert (
+        validation["coverage_median_with_model"]
+        < validation["coverage_median_geometry_only"]
+    ), "số đo phải cho thấy vì sao chưa bật mặc định"
+    assert validation["coverage_min_with_model"] > validation["coverage_gate"], (
+        "nếu tụt dưới ngưỡng thì đây là ca lọt lưới, phải ghi là escapes"
+    )
+    assert validation["what_is_NOT_settled"], (
+        "một phép đo có phần chưa ngã ngũ phải nói ra phần đó"
+    )
 
 
 def test_installing_a_lead_detector_does_not_switch_it_on() -> None:
