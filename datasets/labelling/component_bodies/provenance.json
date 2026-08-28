@@ -1,0 +1,8 @@
+{
+  "source": "D:\\repos\\Internship\\Automated_Optical_Inspection_PCB\\datasets\\test_images\\tiles_1024",
+  "tiles_available": 310,
+  "tiles_prepared": 120,
+  "max_dark_fraction": 0.6,
+  "purpose": "gán nhãn THÂN linh kiện để train lại detector lượt 1",
+  "box_convention": "Khoanh THÂN (gói đen / thân gốm / vỏ can), KHÔNG bao chân. Bước 5.5 đặt dải chân vắt qua mép hộp (lead_inner_ratio 0.14 vào trong, lead_outer_ratio 0.26 ra ngoài). Đo trên 10 linh kiện kiểm tay: pad nằm 42% trong hộp, 58% ngoài."
+}

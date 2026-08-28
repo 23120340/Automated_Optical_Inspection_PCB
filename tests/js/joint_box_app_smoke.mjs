@@ -129,17 +129,21 @@ if (total < 4) fail(`fixture needs at least four crops, got ${total}`);
 // Loading it must keep the blank status, and the todo filter must include it.
 const draftPaths = vm.runInContext('[rows[0].crop_path, rows[1].crop_path]', sandbox);
 const datasetId = vm.runInContext('DATA.dataset_id', sandbox);
+// Tên lớp đọc TỪ TRANG, không viết cứng: cùng một tool phục vụ cả bộ mối hàn
+// (solder_joint) lẫn bộ thân linh kiện (component), và một test chỉ chạy được
+// với một trong hai thì nó kiểm cấu hình chứ không kiểm code.
+const firstClass = vm.runInContext('CLASSES[0].name', sandbox);
 const draft = {
   schema: 'aoi-joint-boxes/1.0',
   dataset_id: datasetId,
   crops: {
     [draftPaths[0]]: {
       status: '', notes: 'AI proposal',
-      boxes: [{ cls: 'solder_joint', x: 10.4, y: 20.6, w: 30.2, h: 15.8 }],
+      boxes: [{ cls: firstClass, x: 10.4, y: 20.6, w: 30.2, h: 15.8 }],
     },
     [draftPaths[1]]: {
       status: '', notes: '',
-      boxes: [{ cls: 'solder_joint', x: 3, y: 4, w: 12, h: 9 }],
+      boxes: [{ cls: firstClass, x: 3, y: 4, w: 12, h: 9 }],
     },
   },
 };
@@ -198,7 +202,7 @@ const first = vm.runInContext('rows[0].crop_path', sandbox);
 const rec = payload.crops[first];
 if (!rec || rec.status !== 'verified') fail('verified crop missing from export');
 if (rec.boxes.length !== 1) fail('box not exported');
-if (rec.boxes[0].cls !== 'solder_joint') fail('class index exported instead of name: ' + rec.boxes[0].cls);
+if (rec.boxes[0].cls !== firstClass) fail('class index exported instead of name: ' + rec.boxes[0].cls);
 const b = rec.boxes[0];
 if (b.x !== 10 || b.y !== 21 || b.w !== 30 || b.h !== 16) fail('coordinates not rounded as expected: ' + JSON.stringify(b));
 
