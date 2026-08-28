@@ -54,7 +54,20 @@ STAGE_FOLDERS = {
     "detector": "detector",
     "classifier": "classifier",
     "solder_classifier": "solder/classifier",
-    "solder_segmenter": "solder/segmenter",
+    # ``solder_segmenter`` (detect lỗi trên toàn board) đã được GỠ khỏi app và
+    # pipeline: dự án đi theo hướng lượt 2 (định vị mối hàn) + 6.2 (chấm từng
+    # ROI), và lớp chẩn đoán toàn board chỉ là một đường thứ ba, ``diagnostic_only``
+    # và train trên camera khác.
+    #
+    # Module ``aoi_pipeline/solder/defect_detection.py`` và model trong
+    # ``models/active/solder/defect/`` vẫn còn trên đĩa; thiếu ở đây nghĩa là
+    # không có ô nào tự nạp chúng nữa.
+    # Lượt 2 của bước 5.5: tìm mối hàn BÊN TRONG crop linh kiện. Khác cả ba ô
+    # trên. Không phải ``detector`` (ô đó nhìn cả board và học thân linh kiện),
+    # không phải ``solder_segmenter`` (ô đó khoanh LỖI và không có lớp nào cho
+    # mối hàn lành). Ô này cần model khoanh MỌI mối hàn, kể cả lành, vì thứ nó
+    # cung cấp là *vị trí* để bước 6.2 chấm, không phải phán quyết.
+    "lead_detector": "lead_detector",
 }
 
 # ``solder`` was the public name of the classifier slot before step 6.2 was
@@ -66,16 +79,13 @@ STAGE_FOLDERS = {
 # yolov8m-seg artifact was called a "detector", which put it one word away from
 # the two slots that genuinely localise things for inspection -- the pass-1
 # component detector and the pass-2 lead detector -- and the three were read as
-# interchangeable.  They are not: a step-6.2 artifact emits fault classes with
-# no class for a sound joint, and is marked ``diagnostic_only`` in its manifest.
+# interchangeable.
 #
-# The slot keeps the name ``solder_segmenter`` because it is a stable
-# identifier -- saved UI state and third-party scripts key off it -- but the
-# name is now narrower than the slot.  Since the contract was unlocked it holds
-# EITHER shape: the archived ``yolov8m-seg`` (4 classes, masks) or the current
-# ``yolo11s`` detect model (``Bad_podu``/``Bad_qiaojiao``, boxes).  Which one is
-# loaded changes what the pipeline does, so the listing prints each entry's
-# ``task`` rather than relying on the slot name to carry it.
+# ``solder_segmenter`` no longer has a folder under ``models/active``: the
+# whole-board defect stage was removed from the app and the pipeline. The kind
+# is still recognised so an artifact sitting in ``models/archive`` or
+# ``models/library`` still classifies rather than showing up as "unknown", but
+# nothing loads one any more.
 _KIND_ALIASES = {
     "solder": "solder_classifier",
     "solder_detector": "solder_segmenter",
@@ -485,6 +495,11 @@ _TASK_TO_KIND = {
     "component_and_lead_detection": "detector",
     "component_detection": "detector",
     "detect": "detector",
+    # Task do ``training/kaggle/pcb_joint_locator_kaggle.py`` sinh ra. Tên nó
+    # chứa "solder" nên phải nằm ở đây: ``_solder_role_from_hint`` sẽ trả None
+    # cho nó (không có token detector nào), và thiếu dòng này thì một model
+    # lượt 2 thả vào ``models/library`` không được phân loại.
+    "solder_joint_localization": "lead_detector",
 }
 
 

@@ -175,7 +175,7 @@ def test_a_picker_only_offers_models_for_its_own_stage() -> None:
             assert entry.kind in (kind, "unknown"), (
                 f"bộ chọn {kind} chào một model loại {entry.kind}: {entry.name}"
             )
-    for kind in ("solder_classifier", "solder_segmenter"):
+    for kind in ("solder_classifier", "lead_detector"):
         for entry in discover_models(kind):
             assert entry.kind == kind, (
                 f"bộ chọn {kind} chào một model loại {entry.kind}: {entry.name}"
@@ -238,7 +238,7 @@ def test_the_default_for_each_stage_is_still_found() -> None:
     """`active/<bước>/best.onnx` là đường app tìm mặc định. Đổi tên các thư mục
     đó sẽ làm app không tìm thấy gì, và test này là thứ báo."""
 
-    for kind in ("detector", "classifier", "solder_classifier", "solder_segmenter"):
+    for kind in ("detector", "classifier", "solder_classifier", "lead_detector"):
         entry = find_active(kind)
         assert entry is not None, f"không thấy model mặc định cho {kind}"
         assert entry.model_path.is_file()
@@ -332,7 +332,6 @@ def test_a_fresh_session_already_has_the_active_models_loaded() -> None:
         ("component_model_name", "detector"),
         ("classifier_model_name", "classifier"),
         ("solder_model_name", "solder/classifier"),
-        ("solder_segmenter_model_name", "solder/segmenter"),
     ):
         assert app.session_state[key], f"{key} vẫn trống sau khi khởi tạo"
         assert folder in app.session_state[key]
@@ -353,7 +352,6 @@ def test_the_picker_shows_the_active_model_as_chosen_not_as_unused() -> None:
         "component_model_choice",
         "classifier_model_choice",
         "solder_model_choice",
-        "solder_segmenter_model_choice",
     ):
         assert key in choices, f"thiếu bộ chọn {key}"
         assert "đang dùng" in choices[key], (
@@ -704,3 +702,53 @@ def test_every_task_the_project_emits_maps_to_a_slot() -> None:
     }
     missing = emitted - set(model_registry._TASK_TO_KIND)
     assert not missing, f"task chưa có trong _TASK_TO_KIND: {sorted(missing)}"
+
+
+def test_the_pass_two_lead_detector_has_a_slot_of_its_own() -> None:
+    """Ba ô model cũ đều trả lời câu khác. ``detector`` nhìn cả board và học
+    thân linh kiện; ``solder_segmenter`` khoanh LỖI và không có lớp nào cho mối
+    hàn lành. Lượt 2 cần model khoanh MỌI mối hàn, kể cả lành, nên nó là ô riêng
+    -- và nếu không có ô, model chỉ có thể bị nhét vào một ô sai."""
+
+    assert model_registry.STAGE_FOLDERS["lead_detector"] == "lead_detector"
+    assert model_registry._TASK_TO_KIND["solder_joint_localization"] == "lead_detector"
+
+
+def test_a_joint_locator_is_not_mistaken_for_a_solder_role() -> None:
+    """``solder_joint_localization`` chứa chữ "solder", nên nó đi ngang qua
+    ``_solder_role_from_hint``. Hàm đó phải TRỪU chứ không được đoán, nếu không
+    model lượt 2 sẽ hiện trong bộ chọn của bước 6.2."""
+
+    assert model_registry._solder_role_from_hint("solder_joint_localization") is None
+
+
+@pytest.mark.skipif(
+    not (PROJECT_ROOT / "models/active/lead_detector/model_manifest.json").is_file(),
+    reason="chưa cài model lượt 2",
+)
+def test_the_installed_lead_detector_admits_it_is_not_production_ready() -> None:
+    """Đo trên board thật: hình học 5.5 đạt 0/28 pad bỏ sót, bật model này lên
+    thành 2/28. Manifest phải nói ra điều đó, vì bảng chọn chỉ hiện mAP50 0.871
+    và con số đó một mình sẽ mời người ta bật nó lên."""
+
+    manifest = json.loads(
+        (PROJECT_ROOT / "models/active/lead_detector/model_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert manifest["aoi_compatibility"]["safe_to_enable_in_production"] is False
+    validation = manifest["on_board_validation"]
+    assert validation["pads_covered_geometry_only"] > validation[
+        "pads_covered_with_this_model"
+    ], "số đo phải cho thấy vì sao chưa bật được"
+    assert validation["escapes_introduced"] == 2
+
+
+def test_installing_a_lead_detector_does_not_switch_it_on() -> None:
+    """Có mặt trong models/active KHÔNG được đồng nghĩa với đang chạy. Lượt 2 là
+    opt-in qua lead_detection.model_path, và đó là thứ giữ cho pipeline không
+    đổi hành vi khi một model chưa đạt được cài vào để thử."""
+
+    from aoi_pipeline.config import PipelineConfig
+
+    assert PipelineConfig().lead_detection.model_path is None

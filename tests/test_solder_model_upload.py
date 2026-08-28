@@ -97,7 +97,7 @@ def test_default_config_declares_every_section_the_sidebar_writes_into() -> None
     section the UI assigns into must already exist."""
 
     config = ui._default_config()
-    for section in ("solder", "solder_grading", "solder_defect_detection"):
+    for section in ("solder", "solder_grading"):
         assert section in config, f"_default_config thiếu section '{section}'"
         assert isinstance(config[section], dict)
 

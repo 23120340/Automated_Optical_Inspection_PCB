@@ -1,0 +1,112 @@
+{
+  "schema_version": "aoi-lead-detection/1.0",
+  "task": "solder_joint_localization",
+  "pipeline_step": "5_5_pass2_lead_detection",
+  "model_format": "onnx",
+  "model_family": "yolo11",
+  "base_model": "yolo11s.pt",
+  "class_names": [
+    "solder_joint"
+  ],
+  "input": {
+    "layout": "NCHW",
+    "color_space": "RGB",
+    "resize_mode": "letterbox",
+    "shape": [
+      1,
+      3,
+      640,
+      640
+    ]
+  },
+  "reported_metrics": {
+    "split": "test (khoá, không dùng để chọn epoch)",
+    "test_scenes": 25,
+    "confidence_note": "Đủ cảnh để coi là phép đo.",
+    "map50": 0.8714,
+    "map50_95": 0.3767,
+    "precision": 0.8784,
+    "recall": 0.8837,
+    "train_map50": 0.9925,
+    "train_test_gap": 0.1211,
+    "scene_memorisation_warning": false
+  },
+  "training_data": {
+    "sources": [
+      {
+        "tag": "fpic_components",
+        "crops": 1046,
+        "boxes": 4614,
+        "reviewer_id": "",
+        "boxes_sha256": "64455f5fedda6e8eef6d3a2df1cb693c0597ad2c342a8b0aaa5c5191576158cd"
+      },
+      {
+        "tag": "winnies_components",
+        "crops": 1008,
+        "boxes": 4618,
+        "reviewer_id": "",
+        "boxes_sha256": "20c90f20212b7294f1e1f323bcd902dd605d5c044731ccc840f67b46457e764d"
+      }
+    ],
+    "images": 2054,
+    "boxes": 9232,
+    "background_images": 425,
+    "scenes": {
+      "train": 115,
+      "valid": 25,
+      "test": 25
+    },
+    "split_by": "scene_id",
+    "collapsed_from": [
+      "Bad_podu",
+      "Bad_qiaojiao"
+    ],
+    "split_check": {
+      "train-valid": 0,
+      "train-test": 0,
+      "valid-test": 0
+    }
+  },
+  "aoi_compatibility": {
+    "lead_detector_pass2": true,
+    "solder_defect_detector": false,
+    "solder_classifier_6_2": false,
+    "required_ultralytics_task": "detect",
+    "integration": "aoi_pipeline.solder.lead_detection.detect_leads_in_components",
+    "config_key": "lead_detection.model_path",
+    "fusion_note": "Tên lớp phải nằm trong aoi_pipeline.solder.leads.LEAD_CLASSES, nếu không mọi detection bị bỏ qua lặng lẽ ở bước hợp nhất. ['solder_joint'] hiện nằm trong set đó.",
+    "not_a_defect_detector": "Model này khoanh MỌI mối hàn, kể cả mối hàn tốt. Nó không có lớp nào cho lỗi và không được dùng để ra phán quyết PASS/NG. Việc chấm lỗi thuộc về bước 6.2 (classifier hoặc detector lỗi).",
+    "bootstrap_only": true,
+    "reason": "Ảnh công khai (fpic_boards_rf100 và pcb_packages_winnies, cả hai CC BY 4.0), box do người của dự án vẽ tay. Ánh sáng, ống kính và lớp mạ của dây chuyền bạn chưa được đại diện, nên phải fine-tune trên ảnh board thật trước khi tin số liệu.",
+    "safe_to_enable_in_production": false,
+    "enable_for_experiment_only": "Đặt lead_detection.model_path trỏ vào file này. Mặc định pipeline KHÔNG nạp nó, nên chỉ có mặt trong models/active không làm đổi hành vi."
+  },
+  "postprocessing": {
+    "recommended_confidence": 0.25,
+    "recommended_iou_nms": 0.45
+  },
+  "model": {
+    "version": "pcb-joint-locator-yolo11s-solderjoint",
+    "architecture": "yolo11s",
+    "sha256": "93e5d69a4ce3ce6d5ff8d50c868b1f59398a1d57436e9d6e1e5079b737539b95",
+    "bytes": 37927780
+  },
+  "on_board_validation": {
+    "board": "tests/data/solder_geometry/board_smd_00001.png",
+    "method": "Chạy qua đúng đường lượt 2 (detect_leads_in_components + fuse_detected_leads) trên khung ảnh SAU bước 1, rồi đối chiếu với 26 pad đo tay đã kiểm thị giác.",
+    "pads_total": 28,
+    "pads_covered_geometry_only": 28,
+    "pads_covered_with_this_model": 26,
+    "escapes_introduced": 2,
+    "escaped_pads": [
+      "U201 pad5 (phủ 0.47)",
+      "U201 pad6 (phủ 0.42)"
+    ],
+    "roi_to_pad_area_ratio_median": 0.76,
+    "verdict": "CHUA DAT de bat trong san xuat",
+    "why": "Box của model NHỎ HƠN pad (trung vị 0.76x diện tích). Ở luật hợp nhất mặc định (replace_ios=0.30) một box như thế vẫn thay thế ROI hình học đúng, và fillet — thứ bước 6.2 chấm — bị cắt mất. Hình học 5.5 hiện đạt 0/28 pad bỏ sót; bật model này lên thành 2/28. Quét tham số cho thấy chỉ replace_ios=0.90 mới về 0 bỏ sót, nhưng ở mức đó model gần như không thay thế gì nữa (110 ROI so với 90) nên cũng không cải thiện gì.",
+    "root_cause": "Nhãn train vẽ trên phần KIM LOẠI của mối hàn, còn ROI mà 5.5/6.2 cần phải trùm cả fillet vốn rộng hơn. Khớp với mAP50-95 chỉ 0.377 trên chính tập test của nó, dù mAP50 đạt 0.871.",
+    "next_step": "Gắn nhãn lại với box trùm cả fillet, hoặc nới box của model một hệ số cố định trước khi hợp nhất rồi đo lại trên đúng board này."
+  },
+  "created_at": "2026-08-27T18:51:00+00:00"
+}

@@ -170,8 +170,8 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     config = PipelineConfig.from_mapping(
         {
             "solder_defect_detection": {
-                "model": "models/active/solder/segmenter/best.onnx",
-                "manifest": "models/active/solder/segmenter/model_manifest.json",
+                "model": "models/active/solder/defect/best.onnx",
+                "manifest": "models/active/solder/defect/model_manifest.json",
                 "conf": 0.31,
                 "iou": 0.66,
                 "imgsz": 640,
@@ -183,8 +183,8 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     )
 
     segment = config.solder_defect_detection
-    assert segment.model_path.endswith("segmenter/best.onnx")
-    assert segment.manifest_path.endswith("segmenter/model_manifest.json")
+    assert segment.model_path.endswith("defect/best.onnx")
+    assert segment.manifest_path.endswith("defect/model_manifest.json")
     assert segment.confidence == pytest.approx(0.31)
     assert segment.iou == pytest.approx(0.66)
     assert segment.image_size == 640
@@ -194,37 +194,13 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     assert config.solder_grading.model_path is None
     assert config.solder_grading.manifest_path is None
 
-
-def test_pipeline_exposes_diagnostic_stage_without_changing_component_detector() -> None:
-    component = MockComponentDetector(
-        [Detection("resistor", 0.9, BoundingBox(2, 3, 12, 14))]
-    )
-    solder = MockComponentDetector(
-        [Detection("Dry_joint", 0.8, BoundingBox(20, 21, 31, 34))]
-    )
-    pipeline = AOIPipeline(
-        detector=component,
-        solder_defect_detector=solder,
-    )
-    image = np.zeros((50, 60, 3), dtype=np.uint8)
-
-    components = pipeline.detect_components(image)
-    findings = pipeline.detect_solder_defects(image)
-
-    assert [item.label for item in components] == ["resistor"]
-    assert [item.label for item in findings] == ["Dry_joint"]
-    assert findings[0].metadata["diagnostic_only"] is True
-    assert findings[0].metadata["coordinate_space"] == "analysis_image_pixels"
-    assert pipeline.grade_solder([]) == []
-
-
 def test_shipped_active_segmenter_manifest_matches_runtime_contract() -> None:
     manifest_path = (
         Path(__file__).parents[1]
         / "models"
         / "active"
         / "solder"
-        / "segmenter"
+        / "defect"
         / "model_manifest.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

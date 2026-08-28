@@ -124,6 +124,7 @@ subprocess.run(
 
 # %%
 import collections
+from datetime import datetime, timezone
 import hashlib
 import json
 import random
@@ -399,6 +400,9 @@ digest = hashlib.sha256((artifacts / "best.onnx").read_bytes()).hexdigest()
 sources = pack_manifest.get("sources", [])
 manifest = {
     "schema_version": "aoi-lead-detection/1.0",
+    # Không có nó thì bảng chọn model in "—" ở cột ngày và hai lần train của
+    # cùng một notebook không phân biệt được bằng mắt.
+    "created_at": datetime.now(timezone.utc).isoformat(),
     "task": "solder_joint_localization",
     "pipeline_step": "5_5_pass2_lead_detection",
     "model_format": "onnx",

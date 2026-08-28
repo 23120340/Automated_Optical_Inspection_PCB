@@ -159,11 +159,6 @@ class SolderResult(StageResult):
     registration: dict[str, Any] | None = None
     cad_stats: dict[str, Any] = field(default_factory=dict)
     cad_warnings: list[str] = field(default_factory=list)
-    # Independent whole-board instance-segmentation findings. These are
-    # diagnostic/review signals and never rewrite the ROI classifier verdicts.
-    detector_findings: list[DetectionRecord] = field(default_factory=list)
-    detector_active: bool = False
-    detector_error: str | None = None
 
 
 @dataclass
@@ -245,8 +240,6 @@ class PipelineBridge:
         board_model_path: str | None = None,
         classifier_model_path: str | None = None,
         classifier_manifest_path: str | None = None,
-        solder_segmenter_model_path: str | None = None,
-        solder_segmenter_manifest_path: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.config = dict(config or {})
@@ -255,16 +248,6 @@ class PipelineBridge:
         self.board_model_path = board_model_path
         self.classifier_model_path = classifier_model_path
         self.classifier_manifest_path = classifier_manifest_path
-        solder_segmenter_config = self.config.get("solder_defect_detection")
-        if not isinstance(solder_segmenter_config, Mapping):
-            solder_segmenter_config = {}
-        self.solder_segmenter_model_path = (
-            solder_segmenter_model_path or solder_segmenter_config.get("model_path")
-        )
-        self.solder_segmenter_manifest_path = (
-            solder_segmenter_manifest_path
-            or solder_segmenter_config.get("manifest_path")
-        )
         self.extra = kwargs
         self.engine: Any = None
         self.engine_error: str | None = None
@@ -372,8 +355,6 @@ class PipelineBridge:
             "model_path": self.model_path,
             "classifier_model_path": self.classifier_model_path,
             "classifier_manifest_path": self.classifier_manifest_path,
-            "solder_defect_model_path": self.solder_segmenter_model_path,
-            "solder_defect_manifest_path": self.solder_segmenter_manifest_path,
         }
         init_kwargs.update(self.extra)
         try:
@@ -799,9 +780,6 @@ class PipelineBridge:
         """
 
         started = time.perf_counter()
-        detector_findings, detector_active, detector_error = (
-            self._detect_solder_defects(image)
-        )
         if self.engine is None or not hasattr(self.engine, "make_solder_crops"):
             return SolderResult(
                 image=image,
@@ -810,9 +788,6 @@ class PipelineBridge:
                     "Pipeline hiện tại chưa có bước 5.5; cập nhật aoi_pipeline để "
                     "sinh ROI mối hàn."
                 ),
-                detector_findings=detector_findings,
-                detector_active=detector_active,
-                detector_error=detector_error,
             )
         raw_detections = [item.raw if item.raw is not None else item for item in detections]
         try:
@@ -901,13 +876,6 @@ class PipelineBridge:
             )
         if grading_error and joints:
             message += f" Bước 6.2 không chấm được: {grading_error}"
-        if detector_active:
-            if detector_error:
-                message += f" Detector solder lỗi: {detector_error}"
-            else:
-                message += (
-                    f" Detector toàn board tìm thấy {len(detector_findings)} vùng nghi lỗi."
-                )
         return SolderResult(
             image=image,
             mode="CAD FUSION" if used_cad else "MODEL",
@@ -916,7 +884,6 @@ class PipelineBridge:
                 "elapsed_ms": _elapsed_ms(started),
                 "joints": joints,
                 "total_rois": len(records),
-                "solder_segmenter_findings": len(detector_findings),
             },
             crops=records,
             verdicts=verdicts,
@@ -932,34 +899,7 @@ class PipelineBridge:
                 list(getattr(fusion, "warnings", None) or [])
                 + list(getattr(self.engine, "cad_warnings", None) or [])
             ),
-            detector_findings=detector_findings,
-            detector_active=detector_active,
-            detector_error=detector_error,
         )
-
-    def _detect_solder_defects(
-        self, image: np.ndarray
-    ) -> tuple[list[DetectionRecord], bool, str | None]:
-        """Run the optional whole-board segmenter without taking 5.5/6.2 down."""
-
-        active = bool(
-            getattr(self, "solder_segmenter_model_path", None)
-            and getattr(self, "solder_segmenter_manifest_path", None)
-        )
-        if not active:
-            return ([], False, None)
-        if self.engine is None or not hasattr(self.engine, "detect_solder_defects"):
-            detail = self.engine_error or "AOIPipeline chưa hỗ trợ solder segmenter"
-            return ([], True, detail)
-        try:
-            raw = _call_supported(self.engine.detect_solder_defects, image)
-            return (
-                _normalize_detections(raw, image.shape, "solder_defect_segment"),
-                True,
-                None,
-            )
-        except Exception as exc:  # noqa: BLE001 - isolated diagnostic layer
-            return ([], True, f"{type(exc).__name__}: {exc}")
 
     def _grade_solder(
         self,
