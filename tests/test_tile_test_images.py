@@ -214,3 +214,55 @@ def test_the_dark_filter_can_drop_a_tile_the_component_count_would_keep(
     dropped = tile_one(dark_board, detector, tile=1024, stride=1024, min_components=4,
                        output=out, dry_run=True, max_dark=0.5)
     assert not dropped, "cổng nền không loại được tile mà cổng đếm giữ lại"
+
+
+# --------------------------------------------------------------------------- #
+# Bản nháp của model không được tự thành nhãn
+# --------------------------------------------------------------------------- #
+
+
+def test_a_drafted_box_is_never_marked_reviewed(tmp_path: Path) -> None:
+    """Cả app lẫn packer đọc ``status`` rỗng là "chưa ai xem". Nếu bước vẽ nháp
+    đặt 'verified', phỏng đoán của model thành sự thật -- và model sau học đúng
+    điểm mù của model trước, mà điểm mù đó chính là lý do gán nhãn lại.
+    """
+
+    import inspect
+    from scripts.prelabel_component_bodies import prelabel
+
+    source = inspect.getsource(prelabel)
+    assert '"status": ""' in source
+    assert '"verified"' not in source, "bước nháp không được tự duyệt"
+
+
+def test_the_draft_drops_lead_comb_boxes(tmp_path: Path) -> None:
+    """Hộp tỉ lệ cạnh 4.5 và 5.6 đo được trên pcb7 là hộp đặt trên DÃY CHÂN, không
+    phải trên gói. Người duyệt xoá một hộp sai mất công ngang vẽ một hộp đúng,
+    nên đưa chúng vào bản nháp chỉ tổ thêm việc."""
+
+    from scripts.prelabel_component_bodies import MAX_ASPECT
+
+    assert MAX_ASPECT <= 3.0
+    # các gói thật đo được trên cùng tile đều dưới 2.5
+    assert MAX_ASPECT > 2.5
+
+
+@pytest.mark.skipif(
+    not (Path(__file__).resolve().parents[1]
+         / "datasets/labelling/component_bodies/draft_boxes.json").is_file(),
+    reason="chưa sinh bản nháp",
+)
+def test_the_generated_draft_matches_what_the_app_reads() -> None:
+    """Một bản nháp sai định dạng nạp vào app thì im lặng không hiện gì."""
+
+    root = Path(__file__).resolve().parents[1] / "datasets/labelling/component_bodies"
+    draft = json.loads((root / "draft_boxes.json").read_text(encoding="utf-8"))
+    page = (root / "label_boxes.html").read_text(encoding="utf-8")
+    data = json.loads(page.split("const DATA = ")[1].split(";\nconst CLASSES")[0])
+
+    assert draft["schema"] == "aoi-joint-boxes/1.0"
+    assert draft["coordinate_space"] == "crop_pixels_top_left_origin"
+    assert draft["classes"] == [c["name"] for c in data["classes"]]
+    known = {r["crop_path"] for r in data["rows"]}
+    assert not set(draft["crops"]) - known, "bản nháp trỏ tới crop app không biết"
+    assert {v["status"] for v in draft["crops"].values()} == {""}
