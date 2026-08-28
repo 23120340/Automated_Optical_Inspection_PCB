@@ -90,3 +90,9 @@ datasets/train/*/train/
 datasets/train/*/valid/
 datasets/train/*/test/
 datasets/train/*.zip
+
+# Ảnh board để test: hàng trăm MB ảnh chụp, tải lại được bằng
+# scripts/fetch_test_board_images.py. Bộ CVL PCB DSLR còn giới hạn nghiên cứu
+# phi thương mại nên không được đẩy lên repo. README và manifest thì giữ.
+datasets/test_images/*/
+datasets/test_images/*.json
