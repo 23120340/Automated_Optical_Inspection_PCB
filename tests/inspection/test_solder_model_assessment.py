@@ -31,7 +31,13 @@ import pytest
 from aoi_pipeline.config import SolderGradingConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-MANIFEST_PATH = PROJECT_ROOT / "models" / "active" / "solder" / "model_manifest.json"
+#: `7515191` tách `models/active/solder/` thành `classifier/` và `defect/` (nay
+#: là `defect/` sau `1447ed5`) nhưng không dời đường dẫn này theo. Manifest ở chỗ
+#: cũ biến mất, `skipif` thấy thiếu file và **bỏ qua** hai test ghim điểm làm
+#: việc — chúng im lặng ngừng canh từ 24/08 mà không có gì đỏ lên.
+MANIFEST_PATH = (
+    PROJECT_ROOT / "models" / "active" / "solder" / "classifier" / "model_manifest.json"
+)
 
 #: Đo trên board thật, xem docstring. Một model thay thế phải khá hơn con số này.
 MEASURED_BRIDGE_RATE_ON_REAL_ROIS = 0.613
@@ -71,6 +77,20 @@ def test_the_pipeline_still_works_with_no_model_at_all() -> None:
     assert config.enabled is True
     assert config.model_path is None
     assert config.manifest_path is None
+
+
+def test_the_shipped_manifest_is_where_the_guards_below_look_for_it() -> None:
+    """Hai test dưới đây đứng sau `skipif` trỏ vào `MANIFEST_PATH`. Dời thư mục
+    model mà quên đường dẫn này thì chúng **bỏ qua trong im lặng** — bộ test vẫn
+    xanh trong khi hai cái chốt của bước 6.2 đã ngừng canh. Đã xảy ra thật một
+    lần (`7515191`, 24/08). Manifest nằm trong `models/active/` và được commit
+    kèm repo, nên thiếu nó là lỗi chứ không phải môi trường thiếu artifact."""
+
+    assert MANIFEST_PATH.is_file(), (
+        f"không thấy manifest 6.2 ở {MANIFEST_PATH.relative_to(PROJECT_ROOT)} — "
+        "nếu thư mục model vừa đổi chỗ thì sửa MANIFEST_PATH, đừng để hai test "
+        "phía dưới tự bỏ qua."
+    )
 
 
 @pytest.mark.skipif(not MANIFEST_PATH.is_file(), reason="chưa có artifact 6.2")
