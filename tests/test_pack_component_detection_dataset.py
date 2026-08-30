@@ -24,6 +24,8 @@ from scripts.pack_component_detection_dataset import (  # noqa: E402
     LOCAL_TAG,
     RF100_AMBIGUOUS_CLASSES,
     RF100_CLASSES,
+    CONSOLIDATED_CLASSES,
+    CONSOLIDATED_NON_BODY_CLASSES,
     RF100_TAG,
     WINNIES_CLASSES,
     WINNIES_TAG,
@@ -849,3 +851,59 @@ def test_an_empty_split_names_the_unreviewed_boards_that_would_fill_it(
     # Board đã duyệt không bao giờ được đề nghị duyệt lại.
     for boards in readiness["boards_that_would_fill"].values():
         assert all(board["verified_tiles"] == 0 for board in boards)
+
+
+def test_consolidated_class_contract_matches_the_shipped_detector() -> None:
+    """Consolidated **chính là** bộ đã train ra detector đang chạy, nên danh sách
+    lớp phải khớp `class_map` trong manifest của nó. Lệch thứ tự là mọi nhãn bị
+    hoán vị mà không có gì báo -- và ở đây hậu quả nhẹ hơn bình thường (gộp về
+    một lớp `component`) nhưng cái bị loại (`pads`/`pins`) thì lại lệch theo."""
+
+    manifest = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "models" / "active" / "detector" / "model_manifest.json"
+        ).read_text(encoding="utf-8")
+    )
+    shipped = [manifest["class_map"][str(i)] for i in range(len(manifest["class_map"]))]
+    assert list(CONSOLIDATED_CLASSES) == shipped
+
+    # pads/pins là vùng hàn, không phải thân: chúng phải nằm trong danh sách loại.
+    assert CONSOLIDATED_NON_BODY_CLASSES <= set(CONSOLIDATED_CLASSES)
+    assert CONSOLIDATED_NON_BODY_CLASSES == {"pads", "pins"}
+
+
+def test_a_public_image_that_matches_a_validation_fixture_is_dropped(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """Ảnh công khai trùng pixel với board dùng để chấm 28 pad phải bị loại.
+
+    Đây là rò rỉ mà phép khử trùng theo board group KHÔNG thấy: fixture nghiệm
+    thu không có nhãn nên không thuộc split nào. Đo được trên thực tế —
+    Consolidated chứa một tile trùng từng pixel với
+    `tests/data/solder_geometry/board_smd_00001.png`.
+    """
+
+    crop_root, boxes = _write_local_checkpoint(tmp_path, _verified_boards(3))
+    rf100, winnies = _minimal_public_archives(tmp_path)
+
+    # Vân tay của đúng một ảnh trong archive công khai, giả làm fixture.
+    victim, _ = _load_public_archive(rf100, RF100_TAG)
+    assert victim, "fixture công khai rỗng"
+    target_hash = victim[0].pixel_sha256
+
+    monkeypatch.setattr(
+        "scripts.pack_component_detection_dataset._validation_fixture_hashes",
+        lambda: {target_hash},
+    )
+    plan = build_plan(
+        crop_root, boxes, rf100, winnies,
+        val_ratio=0.15, test_ratio=0.15, seed=17,
+        min_target_groups=3, audit_only=True,
+    )
+
+    leaks = plan.report["validation_fixture_leaks"]
+    assert [entry["pixel_sha256"] for entry in leaks] == [target_hash]
+    assert all(
+        image.pixel_sha256 != target_hash for image in plan.public
+    ), "ảnh rò rỉ vẫn lọt vào pack"

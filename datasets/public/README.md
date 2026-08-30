@@ -116,6 +116,17 @@ khi tin vào các con số phía dưới. Cũng không đưa `draft_boxes.json` 
 `--boxes`: đó là bản nháp để seed app, mọi record còn trống, và packer từ chối
 kèm lý do.
 
+**Nguồn thứ ba, tuỳ chọn:** thêm `--consolidated <đường dẫn zip>` để nạp
+**PCB Component Detection Consolidated** (Kaggle, 917 ảnh / 29.669 box, 22 lớp).
+Đây chính là bộ đã train ra detector đang chạy, nên nó vào được thẳng: packer gộp
+22 lớp về một lớp `component` và **loại `pads`/`pins`** vì đó là vùng hàn, không
+phải thân. Bộ này không nằm trong repo — tải từ Kaggle rồi trỏ vào file zip.
+
+⚠️ Nó **chồng ảnh với kho tile của dự án**: một tile của nó trùng từng pixel với
+`tests/data/solder_geometry/board_smd_00001.png`, tức board dùng làm cổng nghiệm
+thu 28 pad của bước 5.5. Packer tự loại mọi ảnh công khai trùng pixel với fixture
+nghiệm thu và in ra số ảnh đã loại — nhưng biết trước thì đỡ ngạc nhiên.
+
 `--audit-only` không ghi file. Khi đủ board mục tiêu đã xác nhận, bỏ cờ đó và
 thêm `--output datasets\train\component_detect_v2`. Public data chỉ vào train;
 valid/test chỉ gồm tile local `verified`. Annotation IC chính thức chỉ dùng để
@@ -249,7 +260,7 @@ Kiểm 2026-08-25, ba lý do độc lập, mỗi lý do đủ để loại:
 
 `kaggle.com/datasets/aryanstein/...` — đây là detect **linh kiện**, không phải
 mối hàn. Lớp `pads`/`pins` chỉ **186/261 instance trên ~30 ảnh** trong 670 ảnh
-train; recall đo được **0.072**. Chi tiết: `docs/dataset_lead_detection.md`.
+train; recall đo được **0.072**. Chi tiết: `docs/khao_sat/dataset_lead_detection.md`.
 
 ### SolDef_AI — sai tỉ lệ 20 lần, và đã được dùng tự động rồi
 

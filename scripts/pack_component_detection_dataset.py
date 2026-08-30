@@ -79,6 +79,7 @@ PCB_DSLR_BOARD_ONLY = re.compile(
 )
 
 RF100_TAG = "rf100_printed_circuit_board_v4"
+CONSOLIDATED_TAG = "pcb_component_detection_consolidated_v1"
 WINNIES_TAG = "winnies_pcb_components_v3"
 LOCAL_TAG = "local_component_bodies"
 CHECKPOINT_STATUSES = frozenset({"verified", "skipped", "unusable"})
@@ -160,6 +161,19 @@ WINNIES_CLASSES = (
     "resistor",
 )
 
+#: Thứ tự đúng như `components_data_uncropped/data.yaml`; chỉ số phải khớp
+#: `class_map` trong models/active/detector/model_manifest.json, vì đây chính
+#: là bộ đã train ra detector đang chạy.
+CONSOLIDATED_CLASSES = (
+    "battery", "button", "buzzer", "capacitor", "clock", "connector", "diode",
+    "display", "fuse", "heatsink", "ic", "inductor", "led", "pads", "pins",
+    "potentiometer", "relay", "resistor", "switch", "transducer", "transformer",
+    "transistor",
+)
+#: `pads`/`pins` là VÙNG HÀN, không phải thân linh kiện. Giữ chúng lại trong một
+#: detector một lớp `component` là dạy model gọi mối hàn là linh kiện.
+CONSOLIDATED_NON_BODY_CLASSES = frozenset({"pads", "pins"})
+
 PUBLIC_SPECS = {
     RF100_TAG: {
         "workspace": "roboflow-100",
@@ -168,6 +182,14 @@ PUBLIC_SPECS = {
         "license": "CC BY 4.0",
         "url": "https://universe.roboflow.com/roboflow-100/printed-circuit-board/dataset/4",
         "classes": RF100_CLASSES,
+        "non_body_classes": RF100_NON_BODY_CLASSES,
+        "ambiguous_classes": RF100_AMBIGUOUS_CLASSES,
+        "roboflow_metadata": True,
+        "provenance_caveat": (
+            "Some numbered boards overlap TU Wien PCB-DSLR, whose official terms "
+            "limit use to noncommercial research; downstream CC BY metadata does "
+            "not by itself clear commercial reuse."
+        ),
     },
     WINNIES_TAG: {
         "workspace": "winnies-workspace-0yaec",
@@ -176,6 +198,31 @@ PUBLIC_SPECS = {
         "license": "CC BY 4.0",
         "url": "https://universe.roboflow.com/winnies-workspace-0yaec/pcb-components-wc8ms/dataset/3",
         "classes": WINNIES_CLASSES,
+        "non_body_classes": frozenset(),
+        "ambiguous_classes": frozenset(),
+        "roboflow_metadata": True,
+        "provenance_caveat": (
+            "Community-origin dataset; retain attribution and keep locked "
+            "target validation/test independent."
+        ),
+    },
+    CONSOLIDATED_TAG: {
+        "workspace": "aryanstein",
+        "project": "pcb-component-detection-consolidated-dataset",
+        "version": "1",
+        "license": "Apache-2.0 (khai bởi người đăng Kaggle)",
+        "url": "https://www.kaggle.com/datasets/aryanstein/pcb-component-detection-consolidated-dataset",
+        "classes": CONSOLIDATED_CLASSES,
+        "non_body_classes": CONSOLIDATED_NON_BODY_CLASSES,
+        "ambiguous_classes": frozenset(),
+        # Gói Kaggle, không có khối `roboflow:` trong data.yaml.
+        "roboflow_metadata": False,
+        "provenance_caveat": (
+            "Hợp nhất từ WACV/FICS-PCB/PCB-Vision/CompDetect; Apache-2.0 là khai "
+            "báo của người đăng, giấy phép từng nguồn thành phần phải tự kiểm. "
+            "Ảnh của nó CHỒNG với kho tile của dự án -- xem fixture_leaks trong "
+            "báo cáo audit."
+        ),
     },
 }
 
@@ -732,10 +779,8 @@ def _public_candidate(
         archive.read(label_member).decode("utf-8", errors="replace"), classes
     )
     original = collections.Counter(name for name, _box in parsed)
-    if source_tag == RF100_TAG:
-        boxes = [box for name, box in parsed if name in RF100_BODY_CLASSES]
-    else:
-        boxes = [box for _name, box in parsed]
+    non_body = PUBLIC_SPECS[source_tag].get("non_body_classes", frozenset())
+    boxes = [box for name, box in parsed if name not in non_body]
     scene = source_scene(image_member)
     return (
         PublicCandidate(
@@ -765,6 +810,12 @@ def _validate_public_contract(
             f"{archive_path}: taxonomy drift for {source_tag}; expected "
             f"{list(spec['classes'])}, got {classes}"
         )
+    if not spec.get("roboflow_metadata", True):
+        # Nguồn ngoài Roboflow không có khối `roboflow:`; danh sách lớp ở trên
+        # vẫn là hợp đồng, chỉ metadata là lấy từ spec.
+        return classes, {
+            key: str(spec[key]) for key in ("workspace", "project", "version", "license")
+        }
     metadata = read_roboflow_metadata(yaml_text)
     for key in ("workspace", "project", "version", "license"):
         expected = str(spec[key])
@@ -819,10 +870,13 @@ def _load_public_archive(
         selected_classes: collections.Counter[str] = collections.Counter()
         variants_discarded = 0
         for scene, variants in sorted(by_scene.items()):
-            if source_tag == RF100_TAG:
+            ambiguous_names = PUBLIC_SPECS[source_tag].get(
+                "ambiguous_classes", frozenset()
+            )
+            if ambiguous_names:
                 ambiguous = collections.Counter()
                 for candidate in variants:
-                    for name in RF100_AMBIGUOUS_CLASSES:
+                    for name in ambiguous_names:
                         ambiguous[name] += candidate.original_classes.get(name, 0)
                 ambiguous = +ambiguous
                 if ambiguous:
@@ -866,8 +920,8 @@ def _load_public_archive(
 
     dropped_non_body = {
         name: selected_classes.get(name, 0)
-        for name in sorted(RF100_NON_BODY_CLASSES)
-        if source_tag == RF100_TAG and selected_classes.get(name, 0)
+        for name in sorted(spec.get("non_body_classes", frozenset()))
+        if selected_classes.get(name, 0)
     }
     report = {
         "tag": source_tag,
@@ -878,14 +932,7 @@ def _load_public_archive(
         "version": int(metadata["version"]),
         "declared_license": metadata["license"],
         "url": str(spec["url"]),
-        "provenance_caveat": (
-            "Some numbered boards overlap TU Wien PCB-DSLR, whose official terms "
-            "limit use to noncommercial research; downstream CC BY metadata does "
-            "not by itself clear commercial reuse."
-            if source_tag == RF100_TAG
-            else "Community-origin dataset; retain attribution and keep locked "
-            "target validation/test independent."
-        ),
+        "provenance_caveat": str(spec["provenance_caveat"]),
         "class_contract": list(classes),
         "image_variants": len(image_members),
         "source_scenes": len(by_scene),
@@ -1271,12 +1318,33 @@ def _audit_pcb_dslr_ic_completeness(
     }
 
 
+def _validation_fixture_hashes() -> set[str]:
+    """Vân tay pixel của các board dùng làm cổng nghiệm thu trên board thật.
+
+    Không phải nhãn, nên chúng không nằm trong split nào -- và vì thế phép khử
+    trùng theo board group không nhìn thấy chúng.
+    """
+
+    root = PROJECT_ROOT / "tests" / "data" / "solder_geometry"
+    hashes: set[str] = set()
+    if not root.is_dir():
+        return hashes
+    for path in sorted(root.glob("*.png")):
+        try:
+            _w, _h, digest = _pixel_identity(path)
+        except SystemExit:
+            continue
+        hashes.add(digest)
+    return hashes
+
+
 def build_plan(
     crop_root: Path,
     boxes_path: Path,
     rf100_path: Path,
     winnies_path: Path,
     *,
+    consolidated_path: Path | None = None,
     val_ratio: float,
     test_ratio: float,
     seed: int,
@@ -1320,7 +1388,30 @@ def build_plan(
         }
     rf100, rf100_report = _load_public_archive(rf100_path, RF100_TAG)
     winnies, winnies_report = _load_public_archive(winnies_path, WINNIES_TAG)
-    public, public_exact_duplicates = _dedupe_public_exact([*rf100, *winnies])
+    public_reports = [rf100_report, winnies_report]
+    consolidated: list[PackedImage] = []
+    if consolidated_path is not None:
+        consolidated, consolidated_report = _load_public_archive(
+            consolidated_path, CONSOLIDATED_TAG
+        )
+        public_reports.append(consolidated_report)
+    # Ảnh công khai trùng PIXEL với fixture nghiệm thu phải bị loại. Đo được:
+    # `components_data_uncropped/train/images/00001__1024__1648___4120.png` của
+    # Consolidated trùng từng pixel với `tests/data/solder_geometry/
+    # board_smd_00001.png` -- board dùng để chấm 28 pad của bước 5.5. Train lên
+    # chính ảnh dùng để chấm thì con số nghiệm thu không còn nghĩa gì.
+    fixture_hashes = _validation_fixture_hashes()
+    fixture_leaks = [
+        {"tag": item.source_tag, "scene": item.source_scene, "pixel_sha256": item.pixel_sha256}
+        for item in [*rf100, *winnies, *consolidated]
+        if item.pixel_sha256 in fixture_hashes
+    ]
+    leaked = {entry["pixel_sha256"] for entry in fixture_leaks}
+    keep = [
+        item for item in [*rf100, *winnies, *consolidated]
+        if item.pixel_sha256 not in leaked
+    ]
+    public, public_exact_duplicates = _dedupe_public_exact(keep)
 
     target_groups = sorted({item.group_id for item in local})
     split_of_group = assign_splits(
@@ -1433,7 +1524,8 @@ def build_plan(
         "box_convention": "visible component body only; exclude leads, pads and test points",
         "local": local_report,
         "pcb_dslr_ic_completeness": ic_audit,
-        "public_sources": [rf100_report, winnies_report],
+        "public_sources": public_reports,
+        "validation_fixture_leaks": fixture_leaks,
         "public_exact_duplicate_groups": public_exact_duplicates,
         "split_policy": {
             "unit": "canonical physical board",
@@ -1569,6 +1661,12 @@ def _print_summary(plan: PackPlan, *, audit_only: bool) -> None:
             f"{source['component_boxes_after_mapping']} component box, "
             f"quarantine {source['quarantined_scenes']} scene"
         )
+    leaks = plan.report.get("validation_fixture_leaks") or []
+    if leaks:
+        print(
+            f"  loại {len(leaks)} ảnh công khai trùng pixel với fixture nghiệm thu: "
+            + ", ".join(sorted({str(entry["scene"]) for entry in leaks})[:3])
+        )
     ic_audit = plan.report["pcb_dslr_ic_completeness"]
     if ic_audit.get("mode") != "not_requested":
         print(
@@ -1656,6 +1754,13 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="refuse packing if any fully-contained auditable upstream IC is missing",
     )
+    parser.add_argument(
+        "--consolidated",
+        type=Path,
+        default=None,
+        help="zip PCB Component Detection Consolidated (Kaggle). Không bắt buộc; "
+        "bỏ qua thì pack chỉ dùng RF100 + Winnies.",
+    )
     parser.add_argument("--val-ratio", type=float, default=0.15)
     parser.add_argument("--test-ratio", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=17)
@@ -1693,6 +1798,7 @@ def main(argv: list[str] | None = None) -> int:
         test_ratio=args.test_ratio,
         seed=args.seed,
         min_target_groups=args.min_target_groups,
+        consolidated_path=args.consolidated,
         audit_only=args.audit_only,
         pcb_dslr_reference_root=(
             None
