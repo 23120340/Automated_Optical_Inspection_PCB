@@ -4,7 +4,7 @@
 > ghi hạng mục ra **trước khi** bắt tay, đổi trạng thái sang `ĐANG LÀM` khi bắt
 > đầu, và tích `HOÀN THÀNH` **ngay khi xong** kèm bằng chứng đã đo.
 >
-> Cập nhật lần cuối: 2026-08-21
+> Cập nhật lần cuối: 2026-08-30
 
 ## Quy ước trạng thái
 
@@ -100,16 +100,41 @@ Mục tiêu: có chỗ cắm model detect chân, chạy được ngay cả khi *
   inference không làm mất các linh kiện còn lại.
   Đã kiểm chứng test **bắt được lỗi thật**: ngắt dây nối ở pipeline thì
   `test_detected_leads_reach_the_fusion_stage` fail đúng như mong đợi.
-- `[ ] CHƯA LÀM` **B6.** *(mới, phát sinh)* Chỗ nạp model lượt 2 trên sidebar +
-  đường truyền qua `PipelineBridge`. **Cố tình chưa làm**: chưa có model nào để
-  kiểm chứng, dựng UI lúc này là dựng thứ không test được.
+- `[x] HOÀN THÀNH` **B6.** *(28/08)* Ô nạp model lượt 2 trên sidebar +
+  đường truyền qua `PipelineBridge`. Trước đó cố tình chưa làm vì chưa có model;
+  giờ có model nên dựng được thứ kiểm chứng được. `app/streamlit_app.py` khối
+  "Lượt 2 · Detect chân trong crop linh kiện" + `_render_model_picker(
+  "lead_detector")`.
+  **Một tính chất không giống bất kỳ ô model nào khác: nó không bao giờ tự nạp**
+  (`_NO_AUTO_ADOPT`). Con số 26/28 trong `1447ed5` là của bản locator **cũ**;
+  bản đã promote ở `0b8c34d` phủ **28/28 pad, 0 ca lọt lưới**. Cái vẫn chưa an
+  toàn là **độ ôm** chứ không phải độ phủ: mức phủ trung vị tụt 0.97 → **0.79**
+  và pad yếu nhất còn **0.52** so với cổng 0.50 — sát mép, 4 pad tệ đi
+  (R254 1.00→0.52, U201 pad0/pad6 0.97→0.52, C220 1.00→0.57) đổi lấy 3 pad tốt
+  lên. Đó là lý do nó opt-in: bảng chọn chỉ hiện mAP50 0.9912, và riêng con số
+  đó là một lời mời. Sidebar in phần đo trên board ra trước.
+  Kèm theo: sửa `KeyError` làm app chết **đúng lúc bấm vào chính ô này** —
+  `_use_model_entry` ghi `config["lead_detection"]` trong khi `_default_config`
+  không tạo khoá đó.
 
 ## Giai đoạn C — Model cho lượt 2
+
+> **Cập nhật 28–30/08 — hai câu dưới đây đã sai, giữ lại để thấy vì sao.**
+> Câu "việc còn lại là gán nhãn, không code được" hoá ra ngược: gán nhãn được
+> là **nhờ** viết công cụ. Riêng `22a7e5d` thêm 5 script và một app HTML gán
+> nhãn chạy offline; `c0ccfd3` thêm packer và notebook. Không có chúng thì
+> 9.089 box đã không tồn tại.
 
 Khảo sát và notebook đã xong. Việc còn lại là **gán nhãn**, không code được.
 
 - `[x] HOÀN THÀNH` **C0a.** Khảo sát → `Docs/dataset_lead_detection.md`.
-  **Kết luận: không nguồn công khai nào đủ dùng.** `pads`/`pins` trong
+  ~~**Kết luận: không nguồn công khai nào đủ dùng.**~~ **Kết luận này đã bị bác
+  bỏ ngày 28/08** (`07bbe99`, banner ở đầu `Docs/dataset_lead_detection.md`).
+  Khảo sát chỉ xét hai đường — tìm dataset *đã có nhãn chân*, hoặc tự chụp — và
+  bỏ sót đường thứ ba đã thành công: **lấy ảnh board công khai ĐÚNG TỈ LỆ PIXEL
+  rồi tự gán nhãn**. Phần vật lý của khảo sát vẫn đúng (lọc cạnh ngắn 48 px:
+  RF100 còn 12,1%, Winnies 20,9%); phần suy ra từ nó thì sai.
+  Nguyên văn kết luận cũ: `pads`/`pins` trong
   Consolidated chỉ 186/261 instance trên ~30 ảnh (đọc từ manifest ver2);
   SolDef_AI đúng loại nhãn nhưng sai tỉ lệ 20 lần (đo: 0 box). Ứng viên đáng
   xem nhất là **PCB-SAID** (ICCVW 2025) — nhưng openaccess trả 403 khi fetch,
@@ -147,14 +172,30 @@ Khảo sát và notebook đã xong. Việc còn lại là **gán nhãn**, không
 Pad 23 px là **học được**. Ngưỡng cảnh báo của notebook (quá nửa dưới 8 px) còn
 rất xa. Đây là dấu hiệu tốt nhất cho thấy lượt 2 khả thi ở độ phân giải hiện tại.
 
-- `[ ] CHƯA LÀM` **C1.** Chụp/thu thập ảnh board thật của dây chuyền.
-- `[ ] CHƯA LÀM` **C2.** Chạy `scripts/bootstrap_lead_labels.py` để xuất ROI suy
-  ra thành dataset YOLO cho người sửa (sửa box nhanh hơn vẽ box).
-- `[ ] CHƯA LÀM` **C3.** Sửa nhãn bằng LabelImg/CVAT/Roboflow. **Đây là phần tốn
-  công nhất và không có cách nào bỏ qua.**
-- `[ ] CHƯA LÀM` **C4.** Train bằng `training/kaggle/pcb_lead_detector_kaggle.ipynb`
-  (đã soạn ở C0c). Notebook `soldef-ai.ipynb` giữ làm tham khảo khung xử lý.
-- `[ ] CHƯA LÀM` **C5.** Export ONNX + `model_manifest.json`, nạp qua sidebar.
+- `[x] HOÀN THÀNH` **C1a.** *(28/08)* Thu ảnh board **công khai** đúng tỉ lệ
+  pixel: 235 ảnh toàn board (`2df01b3`) cắt thành 310 tile mức linh kiện
+  (`171bd97`). Đây là thứ đã mở khoá cả giai đoạn C.
+- `[!] CHẶN` **C1b.** Ảnh từ **chính dây chuyền** vẫn chưa có (repo mới có 3 ảnh
+  điện thoại ở `real_pcb/`). Chặn cùng lý do với D2. Manifest của model lượt 2
+  tự khai `bootstrap_only`: camera/ánh sáng/lớp mạ của dây chuyền không nằm
+  trong tập train, nên mọi con số dưới đây là số của miền công khai.
+- `[x] HOÀN THÀNH` **C2.** Không dùng `bootstrap_lead_labels.py` như kế hoạch.
+  Đường thật sự chạy: `crop_components_for_labelling.py` →
+  `prelabel_joint_boxes.py` → `build_joint_box_app.py` (`22a7e5d`). Lý do đổi:
+  bootstrap xuất ROI **suy ra** nên người duyệt sửa lại đúng công thức hình học
+  đã sinh ra nó; cắt crop từ ảnh công khai rồi vẽ mới thì nhãn độc lập với hình
+  học.
+- `[x] HOÀN THÀNH` **C3.** Gán nhãn **hai lượt**, bằng app HTML trong repo chứ
+  không phải LabelImg/CVAT/Roboflow. Kết quả ở `datasets/train/solder_joint_v2`:
+  **2.031 crop / 9.089 box** (train 1.498/6.625, valid 246/1.042, test 287/1.422).
+  Lượt 2 là lượt **gán nhãn lại** (`105b10f`): box lượt 1 chỉ ôm phần thiếc, box
+  lượt 2 phủ cả fillet — diện tích box trung vị 581 → 848 px², gấp 1,39 lần.
+- `[x] HOÀN THÀNH` **C4.** Train bằng `training/kaggle/pcb_joint_locator_kaggle.ipynb`
+  (không phải `pcb_lead_detector_kaggle.ipynb` của C0c). Đo trên test:
+  mAP50 **0.9912**, mAP50-95 **0.5598**, P/R **0.973/0.977**, khoảng cách
+  train–test **0.0018** ⇒ không học thuộc board.
+- `[x] HOÀN THÀNH` **C5.** ONNX + `model_manifest.json` ở
+  `models/active/lead_detector/`, nạp qua sidebar (xem B6). **Mặc định TẮT.**
 
 ## Giai đoạn D — Phần cứng
 
@@ -352,8 +393,18 @@ an toàn, không có giá trị tự động hoá, và **không đẩy board t�
 - `[x] ĐÃ HOÀN THÀNH` **J1.** Agent con khảo sát dataset + chọn model. Kết quả
   và **các chỗ tôi đo lại khác với đề xuất của nó** ghi ở
   `Docs/dataset_lead_detection.md`, mục "Cập nhật 2026-08-22".
-- `[~] ĐANG LÀM` **J2.** Đường ống đã sẵn sàng; **còn chờ dữ liệu gán nhãn**
-  (C1–C3), không chờ code nữa.
+- `[x] HOÀN THÀNH (bootstrap)` **J2.** Đường ống chạy, dữ liệu có, model có.
+  **Nút chặn đã dời chỗ**, không còn là "chờ dữ liệu gán nhãn".
+- `[!] CHẶN` **J3.** *(mới)* Model lượt 2 vẫn opt-in vì ba lý do đã đo, ghi
+  trong `models/active/lead_detector/model_manifest.json`:
+  (a) phủ pad trung vị **0.97 → 0.79** khi bật model, pad yếu nhất 0.52 so với
+  cổng 0.50 — sát mép;
+  (b) `bootstrap_only`: train toàn ảnh công khai, chưa có ảnh dây chuyền (C1b);
+  (c) **chưa quyết được** box ôm sát thiếc hay box rộng trùm cả land thì bước
+  6.2 chấm chuẩn hơn — muốn quyết phải có ground truth lỗi mà board này không
+  có. Xem trường `what_is_NOT_settled` trong manifest.
+  Ngoài ra `49b26fb` đo được: ROI kỳ quặc trên IC là lỗi **lượt 1**, không phải
+  lượt 2 — box lớn nhất detector cho ra 251×250 px trong khi QFP thật ~350 px.
 
 **Hai tham số trong kế hoạch ban đầu đều sai khi đem đo.**
 
@@ -373,6 +424,13 @@ lớn, mà crop lớn chính là IC và connector, những thứ **nhiều chân
 không mất pad nào) và **`yolo11n`** thay vì `yolo11s` — với 10–20 board tự gán
 nhãn bạn có ~10–20k crop nhưng chỉ **10–20 cảnh độc lập**, model to hơn sẽ học
 thuộc danh tính board thay vì hình dạng pad.
+
+> **Đính chính 28/08 — model đã ship là `yolo11s` ở `imgsz=640`.** Lời khuyên
+> trên đúng với giả định "10–20 cảnh độc lập", và giả định đó không còn: dữ liệu
+> thật có **165 cảnh** (train 115 / valid 25 / test 25). Nỗi lo học thuộc đã
+> được đo chứ không phỏng đoán — khoảng cách train–test 0.0018,
+> `scene_memorisation_warning` là `false`. Phần đo cỡ lô (lô 4 tối ưu trên CPU)
+> không bị ảnh hưởng, vẫn giữ nguyên.
 
 Gom lô: khảo sát đề nghị 64–256. Đo thì **lô 64 là cấu hình tệ nhất**:
 
@@ -416,3 +474,19 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-24 | Fiducial cho bước 3 | `aoi_pipeline/imaging/fiducials.py`; bấm tay là đường tin cậy, dò tự động chỉ đề xuất; 630 test |
 | 2026-08-24 | Kế hoạch fine-tune tại chỗ | `Docs/ke_hoach_fine_tune_cuc_bo.md`; đo trên máy này: khả thi ở imgsz 256, ~1–5 giờ |
 | 2026-08-24 | Bản đồ kiểm tra + kế hoạch chụp | `aoi_pipeline/inspection_map.py`; board 197×148 mm → 4 khung, 0 linh kiện lọt; 646 test |
+| 2026-08-25 | Sửa luật hình học 6.2 + verify bộ reference | `041b99b` |
+| 2026-08-27 | Bộ công cụ gán nhãn: 5 script + app HTML offline | `22a7e5d`; khảo sát nguồn công khai vào `datasets/public/README.md` |
+| 2026-08-28 | Thu 235 ảnh toàn board, cắt 310 tile | `2df01b3`, `171bd97` |
+| 2026-08-28 | Gán nhãn lại mối hàn để box phủ cả fillet | `105b10f`; diện tích box trung vị 581 → 848 px² |
+| 2026-08-28 | Dataset `solder_joint_v2` | `c0ccfd3`; 2.031 crop / 9.089 box |
+| 2026-08-28 | **Gỡ tầng detect lỗi hàn toàn board**, thay bằng ô model lượt 2 | `1447ed5`; xem B6 |
+| 2026-08-28 | Model lượt 2 lên `models/active/lead_detector` | `0b8c34d`; test mAP50 0.9912, opt-in, không tự nạp |
+| 2026-08-28 | Bộ gán nhãn thân linh kiện lượt 1 + bản nháp để SỬA thay vì VẼ | `49b26fb`, `956ddda` |
+| 2026-08-30 | Khử trùng bộ gán nhãn → vòng 2 | 310 tile chỉ có 170 nhóm pixel độc nhất; `component_bodies_round2_20260830`: 120 tile, 120 hash khác nhau, 30 bo, giữ nguyên 16 tile đã duyệt / 1.595 box |
+| 2026-08-30 | Packer dataset một lớp `component` | `scripts/pack_component_detection_dataset.py`; audit: 8/10 bo, thiếu bucket `valid` ⇒ **chưa pack được** |
+| 2026-08-30 | Sửa hai chốt 6.2 im lặng bỏ qua từ 24/08 | `MANIFEST_PATH` trỏ vào thư mục model đã dời; 4+2 skip → 7 pass |
+| 2026-08-30 | Chống mất việc đã duyệt khi nạp file vào app gán nhãn | nạp checkpoint mâu thuẫn nay huỷ toàn bộ import thay vì ghi đè im lặng |
+| 2026-08-31 | Trang gán nhãn trên đĩa dựng từ template CŨ, thiếu chốt chống ghi đè | trang nằm trong .gitignore nên trôi lệch không ai thấy; đã dựng lại cả 4 bộ + thêm vân tay template để test bắt được |
+| 2026-08-31 | Packer nêu TÊN bo cần duyệt khi một bucket trống | trước chỉ báo "thiếu bucket valid", mà bucket là hàm băm nên không ai đoán được |
+| 2026-08-31 | Kế hoạch phân nhóm package | `Docs/ke_hoach_phan_nhom_package.md` — **chờ duyệt**; đo được 13,5% linh kiện mang 31,2% mối hàn và đều chỉ có chân ở 2/4 cạnh |
+| 2026-08-31 | Kế hoạch lỗi toàn mạch | `Docs/ke_hoach_pcb_defect_toan_mach.md` — **chờ duyệt**; VisA pcb1–4 là nguồn có xước trên board ĐÃ LẮP, script fetch đã có sẵn |

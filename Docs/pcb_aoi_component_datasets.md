@@ -1,6 +1,6 @@
 # Khảo sát dataset nhận dạng linh kiện PCB cho AOI
 
-> Cập nhật: 2026-08-17. Mục tiêu là **phát hiện/phân loại linh kiện đã gắn trên PCB từ ảnh quang học**, không phải phát hiện lỗi đường mạch trên bare PCB.
+> Cập nhật: 2026-08-29. Mục tiêu là **phát hiện/phân loại linh kiện đã gắn trên PCB từ ảnh quang học**, không phải phát hiện lỗi đường mạch trên bare PCB.
 
 ## Kết luận nhanh
 
@@ -9,7 +9,7 @@ Không có dataset công khai nào bao phủ đủ danh sách 30 nhóm ở mức
 Khuyến nghị thực tế:
 
 1. Dùng **PCB Component Detection Consolidated v1** làm bootstrap detector nhiều lớp. Kaggle API xác nhận gói ~2,87 GB và YAML dùng trực tiếp là `components_data_uncropped/data.yaml`; notebook đã có preset cho nguồn này.
-2. Bổ sung **FPIC/FICS-PCB** để tăng dữ liệu linh kiện nhỏ và ảnh độ phân giải cao; dùng **WACV 2019** cho các lớp cơ bản/connector/fuse/LED/heatsink.
+2. Bổ sung **FPIC/FICS-PCB** chỉ sau khi được cấp quyền và xác minh license; dùng **WACV 2019** cho breadth, nhưng kiểm tra trùng nguồn trước khi ghép với Consolidated/RF100.
 3. Dùng **PCB-SAID** cho trạng thái lắp ráp và lỗi SMD; không coi đây là nguồn chính để nhận dạng chức năng điện tử.
 4. Tự chụp ảnh đúng camera, lens, ánh sáng, góc, PCB và dây chuyền đích; join annotation với BOM/centroid. Đây mới là tập quyết định độ chính xác AOI sản xuất.
 
@@ -28,11 +28,11 @@ Khuyến nghị thực tế:
 | 1 | [PCB Component Detection Consolidated (Kaggle)](https://www.kaggle.com/datasets/aryanstein/pcb-component-detection-consolidated-dataset/data) · [pipeline/mapping](https://github.com/aryan-programmer/pcb-fault-detection) | ~2.87 GB; hợp nhất WACV, FICS-PCB, PCB-Vision, CompDetect và oriented PCB; YOLO | `battery`, `button`, `buzzer`, `capacitor`, `clock`, `connector`, `diode`, `display`, `emi_filter`, `ferrite_bead`, `fuse`, `heatsink`, `ic`, `inductor`, `jumper`, `led`, `mosfet`, `potentiometer`, `resistor`, `transformer`, `transistor` (kiểm tra file YAML/version trước train) | **Cao để bootstrap**, nhưng **trung bình cho validation** vì nguồn trộn, taxonomy được remap, nguy cơ trùng ảnh/source leakage | Trang Kaggle ghi Apache-2.0; vẫn cần kiểm tra điều khoản của từng nguồn thành phần trước dùng thương mại. Chia train/val/test theo **board/source**, không random theo tile. |
 | 2 | [FPIC – FICS PCB Image Collection](https://physicaldb.ece.ufl.edu/index.php/fics-pcb-image-collection-fpic/) · [paper](https://doi.org/10.1145/3588032) | 261 ảnh độ phân giải cao của 93 PCB; >71.000 instance gồm text và mounted components; polygon CSV, OCR, metadata | SMD theo họ: resistor, capacitor, inductor, transistor, diode, LED, IC và các lớp SMD/refdes khác; xem taxonomy thực tế sau khi được cấp quyền | **Cao** cho localization/segmentation và OCR; đa board/camera. **Không đủ** cho subtype chức năng | Cần yêu cầu access code. License không được trình bày rõ trên trang tổng hợp; phải xác nhận với chủ dữ liệu trước dùng thương mại. |
 | 3 | [FICS-PCB multimodal](https://eprint.iacr.org/2020/366) | Ảnh DSLR độ phân giải cao + digital microscope với biến thiên chiếu sáng/scale; bbox CSV, marking/logo | **6 lớp:** IC, capacitor, resistor, inductor, transistor, diode | **Cao** cho 6 họ linh kiện; nhãn rộng, không phân subtype. Số board tương đối nhỏ nên dễ domain shift | Dataset qua Trust-Hub/PhysicalDB; kiểm tra quyền truy cập và license tại thời điểm tải. Không nhầm FICS-PCB với FPIC dù cùng nhóm nghiên cứu. |
-| 4 | [WACV 2019 PCB Component Detection](https://sites.google.com/view/chiawen-kuo/home/pcb-component-detection) · [paper](https://arxiv.org/abs/1811.06994) | 47 ảnh PCB, khoảng 17.829 annotation thô; Pascal VOC; download ~287 MB | 20 lớp đã chuẩn hóa: battery, button, buzzer, capacitor, clock, connector, diode, display, EMI filter, ferrite bead, fuse, heatsink, IC, inductor, jumper, LED, potentiometer, resistor, transformer, transistor | **Trung bình–cao** cho breadth/ít-shot; **trung bình–thấp** cho generalization vì chỉ 47 ảnh, nhãn mất cân bằng và ảnh không hoàn toàn theo cell AOI | Trang tác giả cho tải trực tiếp; không thấy license thương mại rõ ràng trên landing page—cần xin phép nếu dùng sản phẩm. |
+| 4 | [WACV 2019 PCB Component Detection](https://sites.google.com/view/chiawen-kuo/home/pcb-component-detection) · [paper](https://arxiv.org/abs/1811.06994) | Trang tác giả: **47 ảnh độ phân giải cao, 31 loại linh kiện, khoảng 62.000 instance**, download ~287 MB; các bản downstream có thể đã chuẩn hóa còn 20 lớp/Pascal VOC | Các họ cơ bản như battery, button, buzzer, capacitor, clock, connector, diode, display, EMI filter, ferrite bead, fuse, heatsink, IC, inductor, jumper, LED, potentiometer, resistor, transformer, transistor; đọc taxonomy trong gói tải thay vì suy từ bản remap | **Trung bình–cao** cho breadth/ít-shot; **trung bình–thấp** cho generalization vì chỉ 47 ảnh, nhãn mất cân bằng và ảnh không hoàn toàn theo cell AOI | Trang tác giả cho tải trực tiếp nhưng không nêu license thương mại rõ ràng—cần xin phép nếu dùng sản phẩm. Có khả năng ảnh đã đi vào Consolidated/RF100; kiểm hash/board identity trước khi ghép. |
 | 5 | [PCB-SAID](https://doi.org/10.1109/ICCVW69036.2025.00145) · [paper open access](https://www.openaccess.thecvf.com/content/ICCV2025W/VISION%2725/html/Mineo_PCB-SAID_A_Low-Cost_Camera-Based_Dataset_for_Few-Shot_SMD_Assembly_Inspection_ICCVW_2025_paper.html) | 175 RGB ảnh; bbox + polygon; 66 fine-grained state classes, 10 loại SMD, 22 package; good/missing/misaligned/lifted/rotated/short | Các loại/package SMD và **trạng thái lắp**; taxonomy chi tiết cần lấy từ release kèm paper | **Cao** cho bài toán defect/assembly few-shot; **trung bình** cho component taxonomy vì ảnh web-sourced và tập nhỏ | “Open dataset” theo paper; xác minh license cụ thể trong gói phát hành trước sử dụng thương mại. |
 | 6 | [PCB-Vision](https://github.com/hifexplo/PCBVision) · [data record](https://doi.org/10.14278/rodare.2704) | 53 PCB; 53 RGB + 53 hyperspectral cubes 224 bands; pixel masks General/Monoseg | **IC, capacitor (chủ yếu electrolytic), connector** | **Cao** cho segmentation ba lớp và nghiên cứu RGB/HSI; **trung bình–thấp** để train detector tổng quát do chỉ 53 board và IC chiếm ưu thế lớn | Dữ liệu/codes công khai; xem license trong record/repository. Camera conveyor/recycling khác miền AOI lắp ráp. |
 | 7 | [PCB DSLR Dataset](https://cvl.tuwien.ac.at/research/cvl-databases/pcb-dslr-dataset/) | 748 ảnh, 165 PCB, 9.313 bbox IC; 2.048 IC duy nhất; segmentation PCB | **IC** (và label text cho một phần IC) | **Cao** cho pretrain detector IC và OCR; **trung bình** cho AOI vì PCB phế liệu, ~220 ppi, điều kiện recycling | Chỉ miễn phí cho **nghiên cứu phi thương mại**. Không có nhãn các linh kiện khác. |
-| 8 | [Printed Circuit Board / RF100 (Roboflow)](https://universe.roboflow.com/jossuema/printed-circuit-board-uems3) · [RF100 repo](https://github.com/roboflow/roboflow-100-benchmark) | 672 ảnh object detection | **Clock, Button, Switch, Resistor, Capacitor** | **Trung bình–thấp**: community dataset, ít lớp; tốt để thử pipeline, không nên là benchmark cuối | CC BY 4.0 trên trang dataset. Cần audit nhãn và ảnh trùng trước khi merge. |
+| 8 | [Printed Circuit Board / RF100 (Roboflow)](https://universe.roboflow.com/roboflow-100/printed-circuit-board) · [RF100 repo](https://github.com/roboflow/roboflow-100-benchmark) | 672 file object detection, **199 stem cảnh** trong export v4 local; nhiều cảnh có 2–4 bản crop/rectify/resize. YAML v4 local có 23 lớp; trang Universe hiện hiển thị 34 | `Button`, `Capacitor`, `Clock`, `Connector`, `Diode`, `IC`, `Inductor`, `LED`, `Resistor`, `Switch`, `Transistor` và các nhãn pad/pin/test-point cần loại khi gom về `component` | **Trung bình** để bootstrap body detector; **thấp cho validation** vì duplicate, nhãn community và chồng nguồn. Đây **không phải FPIC**; ảnh `pcbNrecM` khớp PCB DSLR | Trang Roboflow ghi CC BY 4.0, nhưng PCB DSLR upstream giới hạn nghiên cứu phi thương mại. Giữ điều kiện chặt hơn cho đến khi provenance được làm rõ. Khử trùng theo board, không theo file. |
 | 9 | [PCB Component Detection – 9 classes](https://datasetninja.com/pcb-component-detection) | 1.410 ảnh, 11.119 object; bbox | `MOSFET`, `transformer`, `MOV`, `resistor` và 4 nhóm capacitor (`cap1`–`cap4`), cộng một nhãn resistor viết sai | **Trung bình–thấp**: có lớp hiếm hữu ích nhưng tên `cap1..4` không mang ngữ nghĩa nếu không đọc data card/source; cần relabel thủ công | Trang chỉ mục dẫn nguồn Kaggle/Roboflow; kiểm tra license gốc. Không merge mù vì typo/unknown labels. |
 | 10 | [Electronic Component Recognizer (Kaggle)](https://www.kaggle.com/datasets/mdfaisalahmed025/electronic-component-recognizer) | 3.661 ảnh đã làm sạch, 20 lớp; chủ yếu classification/crop linh kiện | 20 lớp linh kiện điện tử theo data card (cần tải và xác minh `class_indices`) | **Thấp cho AOI**, **trung bình cho pretraining crop classifier**: background/scale thường khác linh kiện đã gắn trên PCB | Community dataset; xác minh nguồn ảnh, license và leakage. Không dùng làm test AOI. |
 
@@ -114,16 +114,34 @@ Không có một ranking phổ quát cho mọi PCB. Danh sách dưới là **ưu
 
 Sau đó tạo tầng identity: `bbox/crop → OCR marking → normalize → candidate lookup từ BOM → geometry/package/pin-count verification`. Với AOI theo một SKU, cách đáng tin cậy hơn là so từng vị trí với CAD/centroid và golden board thay vì yêu cầu model đoán mọi chức năng từ ảnh.
 
+## Trạng thái pack detector một lớp `component`
+
+Audit ngày 2026-08-30 trên checkpoint đã duyệt mới nhất hiện có **8/10 board
+vật lý mục tiêu** tối thiểu. Phép chia ổn định theo hash của board cho 7 nhóm
+`train`, 0 nhóm `valid` và 1 nhóm `test`, nên readiness đang là **false — thiếu
+`valid`**. Packer chỉ audit và từ chối ghi dataset ở trạng thái này; cần duyệt
+thêm các board vật lý độc lập rồi chạy audit lại, không hạ điều kiện bằng cách
+chia các tile của cùng board sang nhiều split.
+
+RF100 và Winnies chỉ được đưa vào **train**. Validation/test phải đến từ ảnh
+local đã `verified` trong miền camera đích; nếu dùng ảnh public để chấm điểm,
+augmentation và các board PCB-DSLR chồng nguồn sẽ làm metric lạc quan giả. Mọi
+ảnh public trùng board với local holdout bị loại khỏi pack. Annotation IC chính
+thức của PCB-DSLR chỉ dùng audit độ đầy đủ, không tự nhập làm ground truth cho
+detector một lớp. Lệnh audit/pack được ghi trong `datasets/public/README.md`.
+
 ## Checklist trước khi gộp và train
 
 1. **Tải và inventory:** lưu URL, version/hash, license, số board, số instance/class, resolution, camera và annotation format.
 2. **Audit 100–300 instance mỗi nguồn:** sai bbox, class ambiguity, linh kiện không được gán, ảnh duplicate, bbox cực nhỏ, orientation/polarity.
 3. **Chuẩn hóa taxonomy có provenance:** giữ `source_label`, `source_dataset`, `board_id`, `component_refdes`; không xóa nhãn gốc.
-4. **Chia theo board/SKU/source:** tất cả crop/tile của cùng PCB phải ở cùng split. Có một test set chỉ gồm ảnh camera AOI nội bộ chưa từng xuất hiện.
-5. **Không tin accuracy ngẫu nhiên theo ảnh:** nhiều dataset chụp cùng board 3–5 lần; random split gây leakage và điểm ảo.
-6. **Xử lý vật thể nhỏ:** train bằng tile/SAHI, giữ độ phân giải đủ lớn, cân bằng rare class; augmentation phải giống biến thiên thật của cell AOI.
-7. **Đánh giá theo class và kích thước:** mAP50-95, precision/recall, miss rate, false call per board, confusion matrix; riêng polarity/presence/offset phải có metric riêng.
-8. **Calibrate confidence trên dữ liệu nhà máy:** “độ tin cậy dataset” trong tài liệu này không thay thế confidence threshold của model.
+4. **Chuẩn hoá board identity trước khi chia:** ví dụ `pcb7rec1`, `pcb7__rec1` và `pcb_dslr_007__rec1` đều phải về cùng board `pcb_dslr:007`. Tất cả rec/crop/tile/biến thể của board đó ở cùng split; dùng cả exact hash và mapping tên, không chỉ stem file.
+5. **Tách vai trò nguồn:** dữ liệu public/community chủ yếu vào train. Validation/test mục tiêu nên là board đã duyệt từ camera/domain đích. Nếu RF100/WACV/Consolidated trùng một board local giữ lại, loại bản public khỏi train hoặc buộc nó theo cùng split; không để một biến thể của board test lọt vào train.
+6. **Khử augment trước split:** Winnies có 173 file từ 73 ảnh nguồn qua flip/xoay; RF100 có nhiều bản crop/rectify/resize của cùng cảnh. Nhóm theo nguồn trước rồi mới chia. Không tin split do export community cung cấp khi chưa audit.
+7. **Không tin accuracy ngẫu nhiên theo ảnh:** nhiều dataset chụp cùng board 3–5 lần; random split gây leakage và điểm ảo.
+8. **Xử lý vật thể nhỏ:** train bằng tile/SAHI, giữ độ phân giải đủ lớn, cân bằng rare class; augmentation phải giống biến thiên thật của cell AOI.
+9. **Đánh giá theo class và kích thước:** mAP50-95, precision/recall, miss rate, false call per board, confusion matrix; riêng polarity/presence/offset phải có metric riêng.
+10. **Calibrate confidence trên dữ liệu nhà máy:** “độ tin cậy dataset” trong tài liệu này không thay thế confidence threshold của model.
 
 ## Khoảng trống dữ liệu cần tự thu thập
 
@@ -134,6 +152,7 @@ Cho mỗi SKU/board side, nên có golden images và defect injection có kiểm
 - FPIC: 261 ảnh/93 PCB/>71k instance trên [PhysicalDB](https://physicaldb.ece.ufl.edu/index.php/fics-pcb-image-collection-fpic/) và bài báo [ACM JETC](https://doi.org/10.1145/3588032).
 - FICS-PCB: taxonomy sáu lớp và mô tả multimodal trong [paper gốc](https://eprint.iacr.org/2020/366).
 - WACV PCB component detection: [trang tác giả và download](https://sites.google.com/view/chiawen-kuo/home/pcb-component-detection), [paper](https://arxiv.org/abs/1811.06994).
+- RF100 `printed-circuit-board`: [trang dataset](https://universe.roboflow.com/roboflow-100/printed-circuit-board), [benchmark repo](https://github.com/roboflow/roboflow-100-benchmark). Việc khử 672 file thành 194 PCB và phân biệt với FPIC được mô tả trong [PCB-Detection](https://github.com/SanderGi/PCB-Detection).
 - PCB-Vision: dữ liệu/codes ở [GitHub](https://github.com/hifexplo/PCBVision), [paper](https://arxiv.org/abs/2401.06528), [DOI dataset](https://doi.org/10.14278/rodare.2704).
 - PCB DSLR: quy mô, annotation và điều khoản nghiên cứu phi thương mại trên [TU Wien CVL](https://cvl.tuwien.ac.at/research/cvl-databases/pcb-dslr-dataset/).
 - PCB-SAID: 175 ảnh, 66 state classes, bbox/mask theo [IEEE](https://doi.org/10.1109/ICCVW69036.2025.00145).

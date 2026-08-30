@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Khoanh mối hàn lỗi 6.2 — __DATASET__</title>
+<title>__PAGE_TITLE__ — __DATASET__</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -92,13 +92,13 @@ code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-siz
 </style>
 
 <header>
-  <h1>Khoanh mối hàn lỗi — __DATASET__</h1>
+  <h1>__PAGE_TITLE__ — __DATASET__</h1>
   <input id="rev" type="text" placeholder="tên người gắn nhãn" size="14">
   <select id="filter">
     <option value="all">tất cả</option>
     <option value="todo">chưa duyệt</option>
     <option value="has">có box</option>
-    <option value="clean">sạch</option>
+    <option value="clean">__CLEAN_FILTER__</option>
     <option value="skipped">bỏ qua</option>
     <option value="unusable">ảnh hỏng</option>
   </select>
@@ -129,17 +129,13 @@ code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-siz
 
     <label>Kết luận</label>
     <div class="acts">
-      <button id="bclean" style="border-color:var(--ok)">Sạch <kbd>C</kbd></button>
+      <button id="bclean" style="border-color:var(--ok)">__CLEAN_BUTTON__ <kbd>C</kbd></button>
       <button id="bskip" style="border-color:var(--warn)">Bỏ qua <kbd>S</kbd></button>
       <button id="bbad" style="border-color:var(--muted)">Ảnh hỏng <kbd>X</kbd></button>
       <button id="breset" class="ghost">Xoá duyệt</button>
     </div>
 
-    <div class="note">
-      <b>Sạch</b> khác <b>chưa duyệt</b>. Ảnh đánh <b>Sạch</b> đi vào tập train làm
-      ảnh nền — đó chính là thứ giảm báo nhầm. Ảnh chưa duyệt bị loại hoàn toàn.
-      Không chắc thì bấm <b>Bỏ qua</b>, đừng bấm Sạch.
-    </div>
+    <div class="note">__DECISION_NOTE__</div>
 
     <label>Ghi chú</label>
     <input type="text" id="notes" placeholder="tuỳ chọn" style="width:100%">
@@ -150,8 +146,7 @@ code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-siz
 
 <div id="help"><div class="sheet">
   <h2>Cách dùng</h2>
-  <p class="meta">Mỗi ảnh là một linh kiện đã cắt từ ảnh board. Việc của bạn là
-  <b>khoanh những mối hàn LỖI</b>. Mối hàn tốt thì không khoanh gì cả.</p>
+  <p class="meta">__HELP_INTRO__</p>
 
   <h3>Phím tắt</h3>
   <table>
@@ -159,7 +154,7 @@ code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-siz
     <tr><td>1 … 9</td><td>chọn lớp cho box kế tiếp; đổi lớp của box đang chọn</td></tr>
     <tr><td>click vào box</td><td>chọn; kéo bên trong để dời, kéo góc để chỉnh</td></tr>
     <tr><td>Delete / Backspace</td><td>xoá box đang chọn</td></tr>
-    <tr><td>C</td><td>đánh dấu <b>sạch</b> (không lỗi) rồi sang ảnh sau</td></tr>
+    <tr><td>C</td><td>__SHORTCUT_C__</td></tr>
     <tr><td>Enter</td><td>xác nhận các box đã vẽ rồi sang ảnh sau</td></tr>
     <tr><td>S</td><td>bỏ qua — không đủ căn cứ để phán</td></tr>
     <tr><td>X</td><td>ảnh hỏng: mờ, cắt lệch, không phải linh kiện</td></tr>
@@ -169,14 +164,10 @@ code{background:rgba(128,128,128,.18);padding:1px 4px;border-radius:3px;font-siz
   </table>
 
   <h3>Khoanh cái gì</h3>
-  <p class="meta">Chỉ khoanh <b>vùng mối hàn</b>, không khoanh cả linh kiện. Box nên
-  ôm phần thiếc và chân tiếp xúc, không lấn sang thân. Một chân lỗi = một box.</p>
+  <p class="meta">__BOX_GUIDANCE__</p>
 
   <h3>Vì sao chỉ có mấy lớp này</h3>
-  <p class="meta">Các lớp ở đây trùng đúng với tập Roboflow đang dùng để train. Thêm
-  một lớp mới mà chỉ ảnh của bạn có nhãn sẽ dạy model phân biệt <i>nguồn ảnh</i>
-  chứ không phải phân biệt <i>lỗi</i>. Muốn thêm lớp thì phải gắn nhãn lớp đó trên
-  cả hai nguồn.</p>
+  <p class="meta">__CLASS_GUIDANCE__</p>
 
   <h3>Lưu ở đâu</h3>
   <p class="meta">Tự lưu vào <code>localStorage</code> của trình duyệt này sau mỗi
@@ -205,7 +196,9 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'), 1500); }
 
 function load(){
-  try{ const raw = localStorage.getItem(KEY); if(raw) state = JSON.parse(raw); }
+  try{ const raw = localStorage.getItem(KEY);
+       if(raw) state = JSON.parse(raw);
+       else if(DATA.initial_state) state = JSON.parse(JSON.stringify(DATA.initial_state)); }
   catch(e){ state = {}; }
   try{ const r = localStorage.getItem(KEY+':rev'); if(r) $('#rev').value = r; }catch(e){}
 }
@@ -507,7 +500,9 @@ $('#save').onclick = ()=>{
     crops: {}
   };
   let n = 0;
-  for(const [path,s] of Object.entries(state)){
+  for(const r of rows){
+    const path = r.crop_path, s = state[path];
+    if(!s) continue;
     if(!s.status) continue;
     payload.crops[path] = {
       status: s.status,
@@ -535,21 +530,75 @@ $('#file').onchange = ev=>{
   reader.onload = ()=>{
     try{
       const p = JSON.parse(reader.result);
-      if(p.dataset_id && p.dataset_id !== DATA.dataset_id
-         && !confirm('File này thuộc dataset khác. Vẫn nạp?')) return;
+      if(p.schema !== 'aoi-joint-boxes/1.0') throw new Error('schema không đúng');
+      if(p.dataset_id !== DATA.dataset_id) throw new Error('dataset_id không khớp');
+      if(p.dataset !== DATA.dataset_name) throw new Error('tên dataset không khớp');
+      if(p.coordinate_space !== 'crop_pixels_top_left_origin')
+        throw new Error('hệ toạ độ không đúng');
+      const expectedClasses = CLASSES.map(c=>c.name);
+      if(!Array.isArray(p.classes) || JSON.stringify(p.classes)!==JSON.stringify(expectedClasses))
+        throw new Error('danh sách lớp không khớp');
       const byName = Object.fromEntries(CLASSES.map((c,i)=>[c.name,i]));
+      const knownPaths = new Set(rows.map(r=>r.crop_path));
+      const allowedStatuses = new Set(['','verified','skipped','unusable']);
+      const incoming = {};
       let n = 0;
       for(const [path,rec] of Object.entries(p.crops||{})){
-        state[path] = {
+        if(!knownPaths.has(path)) throw new Error(`crop lạ: ${path}`);
+        if(!rec || !allowedStatuses.has(rec.status ?? ''))
+          throw new Error(`status không hợp lệ: ${path}`);
+        if(!Array.isArray(rec.boxes||[])) throw new Error(`boxes không hợp lệ: ${path}`);
+        const boxes = (rec.boxes||[]).map(b=>{
+          if(!(b.cls in byName)) throw new Error(`lớp box không hợp lệ: ${path}`);
+          for(const field of ['x','y','w','h'])
+            if(!Number.isFinite(b[field])) throw new Error(`toạ độ box không hợp lệ: ${path}`);
+          return {cls:byName[b.cls], x:b.x, y:b.y, w:b.w, h:b.h};
+        });
+        incoming[path] = {
           status: rec.status || '',
           notes: rec.notes || '',
-          boxes: (rec.boxes||[]).map(b=>({cls: byName[b.cls] ?? 0,
-                                          x:b.x, y:b.y, w:b.w, h:b.h}))
+          boxes
         };
         n++;
       }
+      // Nạp file KHÔNG được là "ghi đè những gì đang có". Kịch bản thật: bạn
+      // duyệt tiếp 40 ảnh, rồi nạp lại một bản xuất CŨ "cho chắc" — mọi ảnh
+      // bạn vừa sửa lại quay về bản cũ, kèm một dòng "Đã nạp 40 ảnh" trông y
+      // như thành công. Nên khi bản nạp mâu thuẫn với việc đã duyệt tại chỗ,
+      // huỷ TOÀN BỘ import: không có bản trộn một nửa nào là đúng cả.
+      const sig = r => JSON.stringify([
+        r.status || '', r.notes || '',
+        (r.boxes||[]).map(b=>[b.cls,Math.round(b.x),Math.round(b.y),Math.round(b.w),Math.round(b.h)])
+      ]);
+      const conflicts = [];
+      let unchanged = 0;
+      for(const [path,rec] of Object.entries(incoming)){
+        const here = state[path];
+        if(!here || !here.status) continue;      // chưa duyệt tại chỗ: nạp vào là thêm mới
+        if(sig(here) === sig(rec)){
+          // Bản nạp không mang thêm thông tin gì. Giữ nguyên bản đang có thay vì
+          // ghi đè: xuất file làm tròn toạ độ, nên nạp lại chính bản vừa xuất sẽ
+          // âm thầm cắt phần thập phân của mọi box nếu ta gán đè.
+          unchanged++;
+          delete incoming[path];
+          continue;
+        }
+        conflicts.push(path);
+      }
+      if(conflicts.length){
+        const head = conflicts.slice(0,3).join(', ');
+        const more = conflicts.length > 3 ? ` và ${conflicts.length-3} ảnh nữa` : '';
+        throw new Error(
+          `${conflicts.length} ảnh đã duyệt tại chỗ khác với file nạp (${head}${more}). ` +
+          `Không nạp gì cả để khỏi mất phần vừa duyệt — hãy Xuất JSON bản hiện tại ra trước, ` +
+          `rồi so hai file, hoặc mở app ở cửa sổ ẩn danh nếu muốn nạp file này vào state trắng.`
+        );
+      }
+      Object.assign(state, incoming);
       if(p.reviewer_id) $('#rev').value = p.reviewer_id;
-      persist(); show(); toast(`Đã nạp ${n} ảnh`);
+      persist(); show();
+      const added = n - unchanged;
+      toast(`Đã nạp ${n} ảnh (${added} mới, ${unchanged} trùng khớp bản đang có)`);
     }catch(e){ toast('File không đọc được: ' + e.message); }
   };
   reader.readAsText(f);

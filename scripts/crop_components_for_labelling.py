@@ -11,8 +11,11 @@ guessed from that is worse than no label.
 
 The measured cost of the gate on the two accepted sources:
 
-    fpic_boards_rf100   134,047 boxes -> 12.1% pass   (IC 68%, Connector 77%)
+    RF100 printed-circuit-board 134,047 boxes -> 12.1% pass (IC 68%, Connector 77%)
     pcb_packages_winnies 16,632 boxes -> 20.9% pass   (SOT/SOD packages 35-100%)
+
+The RF100 archive currently lives under the legacy directory name
+``fpic_boards_rf100``. It is not FPIC; keep the path only for compatibility.
 
 Capacitors and resistors are the bulk of both sets and almost all fail, because a
 0402 chip part at these optical scales is 12-17 px wide. That is a property of
@@ -24,7 +27,8 @@ axis, so a two-terminal part gets most of its padding along the axis its
 terminals lie on.
 
     python scripts/crop_components_for_labelling.py datasets/public/fpic_boards_rf100 \
-        --output datasets/labelling/fpic_components
+        --output datasets/labelling/rf100_components \
+        --dataset-source rf100_printed_circuit_board
 
 The output is a crops/ folder plus manifest.csv, which is what
 ``build_joint_box_app.py`` reads. No label is invented: ``label_status`` is
@@ -50,8 +54,8 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 #: Classes that are not a soldered component and so carry no joint to grade.
-#: ``Test Point`` is a bare exposed pad; ``Unknown Unlabeled`` is FPIC's marker
-#: for an instance the annotators declined to name.
+#: ``Test Point`` is a bare exposed pad; ``Unknown Unlabeled`` is the RF100
+#: export's marker for an instance the annotators declined to name.
 DEFAULT_DENY = ("unknown unlabeled", "unknown", "test point", "pcb", "board", "text")
 
 #: Roboflow appends ``.rf.<hash>`` to every augmented copy but keeps the original

@@ -24,7 +24,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.build_joint_box_app import DEFAULT_CLASSES, main  # noqa: E402
+from scripts.build_joint_box_app import (  # noqa: E402
+    DEFAULT_CLASSES,
+    dataset_id_for,
+    load_rows,
+    main,
+    template_digest,
+)
 from scripts.crop_components_for_labelling import main as crop_main  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
@@ -73,6 +79,14 @@ def test_geometry_reaches_the_page_as_numbers(crop_dir: Path) -> None:
             assert isinstance(row[field], int), f"{field} arrived as {type(row[field])}"
 
 
+def test_component_body_mode_never_tells_reviewer_to_box_solder(crop_dir: Path) -> None:
+    main([str(crop_dir), "--classes", "component"])
+    page = (crop_dir / "label_boxes.html").read_text(encoding="utf-8")
+    assert "Khoanh THÂN linh kiện" in page
+    assert "Không bao chân, pad hay vùng thiếc" in page
+    assert "Khoanh mối hàn lỗi —" not in page
+
+
 def test_dataset_id_changes_when_the_class_list_changes(crop_dir: Path) -> None:
     """Saved progress is keyed on this; inheriting it across class lists would
     reinterpret every stored box index as a different defect."""
@@ -83,6 +97,49 @@ def test_dataset_id_changes_when_the_class_list_changes(crop_dir: Path) -> None:
     second = json.loads((crop_dir / "label_boxes.html").read_text(encoding="utf-8")
                         .split("const DATA = ")[1].split(";\nconst CLASSES")[0])["dataset_id"]
     assert first != second
+
+
+def test_validated_seed_is_embedded_for_a_fresh_browser(crop_dir: Path) -> None:
+    rows = load_rows(crop_dir / "manifest.csv", crop_dir / "crops")
+    dataset_id = dataset_id_for(crop_dir, rows, ["component"])
+    first = str(rows[0]["crop_path"])
+    seed = crop_dir / "continuation.json"
+    seed.write_text(json.dumps({
+        "schema": "aoi-joint-boxes/1.0",
+        "dataset": crop_dir.name,
+        "dataset_id": dataset_id,
+        "coordinate_space": "crop_pixels_top_left_origin",
+        "classes": ["component"],
+        "crops": {
+            first: {
+                "status": "verified", "notes": "reviewed",
+                "boxes": [{"cls": "component", "x": -2, "y": 3, "w": 12, "h": 9}],
+            }
+        },
+    }), encoding="utf-8")
+
+    assert main([str(crop_dir), "--classes", "component", "--seed-json", str(seed)]) == 0
+    page = (crop_dir / "label_boxes.html").read_text(encoding="utf-8")
+    payload = json.loads(page.split("const DATA = ")[1].split(";\nconst CLASSES")[0])
+    assert payload["initial_state"][first] == {
+        "status": "verified", "notes": "reviewed",
+        "boxes": [{"cls": 0, "x": -2.0, "y": 3.0, "w": 12.0, "h": 9.0}],
+    }
+    assert "else if(DATA.initial_state)" in page
+
+
+def test_seed_from_another_dataset_is_rejected(crop_dir: Path) -> None:
+    seed = crop_dir / "wrong.json"
+    seed.write_text(json.dumps({
+        "schema": "aoi-joint-boxes/1.0",
+        "dataset": "another_dataset",
+        "dataset_id": "wrong",
+        "coordinate_space": "crop_pixels_top_left_origin",
+        "classes": ["component"],
+        "crops": {},
+    }), encoding="utf-8")
+    with pytest.raises(SystemExit, match="dataset mismatch"):
+        main([str(crop_dir), "--classes", "component", "--seed-json", str(seed)])
 
 
 def test_refuses_a_manifest_whose_crops_are_gone(crop_dir: Path) -> None:
@@ -102,3 +159,30 @@ def test_page_runs_and_exports_the_agreed_shape(crop_dir: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "ok:" in result.stdout
+
+
+def test_every_labelling_page_on_disk_was_built_from_the_current_template() -> None:
+    """Trang gán nhãn nằm trong ``.gitignore`` (nó nhúng cả ảnh), nên sửa
+    template xong mà quên dựng lại thì **không có gì báo**: git không thấy file,
+    CI không dựng nó, và người duyệt vẫn mở đúng trang cũ.
+
+    Đã xảy ra thật ngày 30/08: bản vá chống ghi đè khi nạp checkpoint nằm trong
+    template nhưng vắng ở `component_bodies_round2_20260830/label_boxes.html`,
+    tức trang mà người duyệt đang mở vẫn có thể xoá trắng box đã vẽ tay.
+    """
+
+    current = template_digest()
+    stale: list[str] = []
+    for page in sorted((REPO / "datasets" / "labelling").glob("*/label_boxes.html")):
+        data = json.loads(
+            page.read_text(encoding="utf-8").split("const DATA = ")[1].split(";\nconst CLASSES")[0]
+        )
+        if data.get("template_sha256") != current:
+            stale.append(page.parent.name)
+
+    assert not stale, (
+        "trang gán nhãn dựng từ template cũ: " + ", ".join(stale) + ". Dựng lại bằng "
+        "scripts/build_joint_box_app.py <thư mục> --classes component "
+        "--seed-json <thư mục>/draft_boxes.json (dataset_id không đổi nên không "
+        "mất tiến độ đã duyệt trong localStorage)."
+    )

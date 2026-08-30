@@ -15,6 +15,7 @@ laminate qualify on its neighbour's connector.
 
 from __future__ import annotations
 
+import csv
 import inspect
 import json
 from pathlib import Path
@@ -22,6 +23,7 @@ import sys
 from types import SimpleNamespace
 
 import numpy as np
+from PIL import Image
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -221,18 +223,69 @@ def test_the_dark_filter_can_drop_a_tile_the_component_count_would_keep(
 # --------------------------------------------------------------------------- #
 
 
-def test_a_drafted_box_is_never_marked_reviewed(tmp_path: Path) -> None:
+def test_a_drafted_box_is_never_marked_reviewed(tmp_path: Path, monkeypatch) -> None:
     """Cả app lẫn packer đọc ``status`` rỗng là "chưa ai xem". Nếu bước vẽ nháp
     đặt 'verified', phỏng đoán của model thành sự thật -- và model sau học đúng
     điểm mù của model trước, mà điểm mù đó chính là lý do gán nhãn lại.
+
+    Chạy thật đường KHÔNG checkpoint -- đường mặc định, và là đường duy nhất
+    không có test hành vi nào khác che. Bản trước của test này chỉ ``grep`` mã
+    nguồn tìm hai chuỗi; đổi nhánh detector thành ``"status": "verified"`` vẫn
+    để nguyên cả hai chuỗi, nên nó không thể đỏ vì đúng lý do nó đặt tên.
     """
 
-    import inspect
     from scripts.prelabel_component_bodies import prelabel
 
-    source = inspect.getsource(prelabel)
-    assert '"status": ""' in source
-    assert '"verified"' not in source, "bước nháp không được tự duyệt"
+    folder = tmp_path / "component_bodies"
+    crops = folder / "crops"
+    crops.mkdir(parents=True)
+    names = []
+    for index in range(3):
+        name = f"board{index}__rec1__tile.png"
+        Image.new("RGB", (40, 30), (20 + index * 30, 60, 90)).save(crops / name)
+        names.append(name)
+    with (folder / "manifest.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=("crop_path", "scene_id", "crop_w", "crop_h")
+        )
+        writer.writeheader()
+        for index, name in enumerate(names):
+            writer.writerow(
+                {
+                    "crop_path": name,
+                    "scene_id": f"board{index}__rec1",
+                    "crop_w": 40,
+                    "crop_h": 30,
+                }
+            )
+
+    class Detector:
+        """Model rất tự tin, và tự tin không phải là đã duyệt."""
+
+        def detect(self, image):
+            return [SimpleNamespace(bbox=BoundingBox(4, 3, 18, 14))]
+
+    monkeypatch.setattr(
+        "aoi_pipeline.detection.detectors.create_detector",
+        lambda *_args, **_kwargs: Detector(),
+    )
+
+    assert (
+        prelabel(
+            folder,
+            tmp_path / "unused.onnx",
+            confidence=0.3,
+            max_aspect=3.0,
+            dry_run=False,
+        )
+        == 0
+    )
+
+    draft = json.loads((folder / "draft_boxes.json").read_text(encoding="utf-8"))
+    assert set(draft["crops"]) == set(names)
+    assert {record["status"] for record in draft["crops"].values()} == {""}
+    # Hộp phải CÓ mặt -- bản nháp rỗng thì chốt này xanh một cách vô nghĩa.
+    assert all(record["boxes"] for record in draft["crops"].values())
 
 
 def test_the_draft_drops_lead_comb_boxes(tmp_path: Path) -> None:

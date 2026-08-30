@@ -1,6 +1,6 @@
 # Báo cáo tiến độ — Dự án AOI PCB
 
-> Cập nhật: 2026-08-21. Tóm tắt những gì đã làm được, chưa xong đến đâu là
+> Cập nhật: 2026-08-31. Tóm tắt những gì đã làm được, chưa xong đến đâu là
 > chính xác — không tô hồng. Chi tiết kỹ thuật từng phần xem các file khác
 > trong `Docs/` và `README.md` ở gốc repo.
 
@@ -8,16 +8,17 @@
 
 ```
 0 import → 1 tiền xử lý → 2 align (golden image) → 3 khoanh PCB →
-4 detect linh kiện → 5 crop → 5.5 suy ra ROI mối hàn → 6.1 phân loại họ
-linh kiện → 6.2 chấm lỗi mối hàn
+3.5 Golden Inspection → 4 detect linh kiện → 5 crop →
+5.5 ROI mối hàn (lượt 2 → CAD → hình học) → 6.1 phân loại họ linh kiện →
+6.2 chấm lỗi mối hàn
 ```
 
 Streamlit + OpenCV + Ultralytics YOLO + ONNX Runtime. Bộ test hiện tại:
-**374/374 pass**.
+**1012/1012 pass, 0 skip** (đo 2026-08-31, 211 s).
 
-Ứng dụng có hai workspace: **Golden Inspection** (recipe cố định cho
-Position/Appearance) và pipeline 0→6.2 ở trên. Bước **6.2 là mục riêng** trong
-điều hướng, không phải tab con của bước 4.
+Golden Inspection **không còn là workspace riêng**: từ 23/08 nó là **bước 3.5**
+trong chính đường ống, ngay sau khi khoanh vùng board. Bước **6.2 là mục riêng**
+trong điều hướng, không phải tab con của bước 4.
 
 ## Đã hoàn thành theo từng bước
 
@@ -86,11 +87,24 @@ qua thư viện `datasets`, không cần thao tác tay.
 
 ## Trạng thái model hiện tại
 
-| Model | Kiến trúc | Trạng thái (21/08) |
-|---|---|---|
-| Detector (bước 4) | YOLO26s, 1536px | **v2 xong**, 122 epoch. mAP50 **0.505**, mAP50-95 **0.231**; `pads` recall 0.000→**0.265**, `pins` 0.145→**0.595**. Artifact ở `models/active/detector/` |
-| Classifier (bước 6.1) | ConvNeXt-Base, 288px | Train xong, macro recall **0.9369** trên model-val — nhưng **chưa có số test** và **chưa có `best.onnx`**: 3 cell cuối (calibration/test/export) chưa chạy |
-| Solder grading (bước 6.2) | MobileNetV3-Small | **Có artifact**, 7 lớp (thêm `shift_component` 4192 mẫu). Accuracy **89.9%**, escape 2.4% |
+Bảng dưới dựng lại **từ chính bốn `model_manifest.json` trong
+`models/active/`** (đo 2026-08-31), không chép lại từ CONFIG của notebook — bản
+trước mô tả model **archive** chứ không phải model app đang nạp.
+
+| Ô model | Kiến trúc | Phiên bản trong manifest | Số đo |
+|---|---|---|---|
+| `detector` (bước 4) | YOLO26s, **imgsz 1280** | `detector-yolo26s-kaggle-ver1` | val mAP50 **0.579**, mAP50-95 **0.287**; test mAP50 0.558. Macro recall **0.522** |
+| `classifier` (bước 6.1) | **EfficientNet-B0**, 224px | `classifier-efficientnet_b0-kaggle-ver1` | test accuracy **0.958**, macro F1 **0.890**, accept coverage 0.949 |
+| `lead_detector` (lượt 2 của 5.5) | YOLO11s, 640px | `pcb-joint-locator-yolo11s-solderjoint` | test mAP50 **0.9912**, mAP50-95 0.560. **Opt-in, không tự nạp** |
+| `solder/classifier` (bước 6.2) | MobileNetV3-Small, 128px | `solder-mobilenet_v3_small-ver1` | 7 lớp; ở ngưỡng 0.85: review **45.7%**, escape **0.98%**, false call 22.8% |
+
+Hai điều chỉnh so với bản 21/08, cả hai đều là **bản trước ghi nhầm**, không phải
+model bị thay:
+
+- Detector đang chạy là **ver1 @1280**, không phải ver2 @1536. ver2
+  (mAP50 0.505) nằm ở `models/archive/detector-yolo26s-kaggle-ver2/`.
+- Classifier đang chạy là **EfficientNet-B0**. Bản ConvNeXt-Base nằm ở
+  `models/library/`, tức **không tự nạp** — đó là thư mục model cá nhân.
 
 **Về con số 89.9% của 6.2**: lần chạy trước báo 97.65%, nhưng đó là số **ảo** do
 Roboflow sinh nhiều bản augment cho cùng một ảnh và chúng bị tách thành các
@@ -123,15 +137,25 @@ nguồn** và chưa kiểm chứng leave-one-source-out, nên chưa nên tin.
 
 ## Việc tiếp theo, theo thứ tự ưu tiên
 
-1. **Chạy nốt 3 cell cuối của notebook classifier** — training đã xong nhưng
-   chưa có `best.onnx` nên bước 6.1 chưa nạp được model v2. Nếu session Kaggle
-   còn sống thì chỉ mất vài phút; nếu đã chết thì phải train lại (notebook nay
-   ghi `best_state.pt` ra đĩa mỗi lần cải thiện nên lần sau đứt mạng không mất
-   trắng, và có `CONFIG["resume_state"]` để bỏ qua train).
-2. Chạy `compare_preprocessing_ab.py` trên ảnh board thật ngay khi có model,
-   quyết định giữ/tắt từng bước tiền xử lý dựa trên số đo thật.
-3. Xem ảnh mẫu cho `no_good`/`poor_solder` (cell đã có trong notebook 6.2),
-   bổ sung `LABEL_MAPS` nếu xác định được — thêm gần gấp đôi dữ liệu hiện có.
-4. Tự thu thập ảnh từ chính dây chuyền/board thật — nguồn dữ liệu giá trị
-   nhất, không dataset công khai nào thay thế được
-   (`scripts/export_solder_dataset.py --overlays` hỗ trợ bootstrap nhãn).
+> Cập nhật 31/08. Ba việc đầu của bản 21/08 đã xong hoặc không còn là đường đi;
+> danh sách dưới đây là ưu tiên thật hiện nay.
+
+1. **Duyệt thêm 2 bo trong bộ gán nhãn vòng 2** — đây là **việc chặn duy nhất**
+   giữa dự án và dataset train detector một lớp `component`. Packer từ chối ghi
+   khi chưa đủ 10 bo và khi bucket `valid` còn trống; hiện 8 bo, `valid` trống.
+   Packer tự nêu tên bo cần duyệt khi chạy (`pcb_dslr:017`, `pcb_dslr:030` ở
+   checkpoint 30/08). Không có dòng code nào thay thế được việc này.
+2. **Chạy `compare_preprocessing_ab.py --isolate`** trên ảnh board thật, quyết
+   định giữ/tắt từng bước tiền xử lý bằng số đo. Việc này chặn cả kế hoạch
+   phân nhóm package (các lớp dựa vào màu).
+3. **Fine-tune model lượt 2 trên ảnh dây chuyền.** Manifest của nó tự khai
+   `bootstrap_only`; phủ pad trung vị tụt 0.97 → 0.79 khi bật, pad yếu nhất
+   0.52 so với cổng 0.50.
+4. **Quyết hai kế hoạch mới đang chờ duyệt**:
+   [phân nhóm package](ke_hoach_phan_nhom_package.md) và
+   [lỗi toàn mạch](ke_hoach_pcb_defect_toan_mach.md).
+5. Xem ảnh mẫu cho `no_good`/`poor_solder` (cell đã có trong notebook 6.2),
+   bổ sung `LABEL_MAPS` nếu xác định được — thêm gần gấp đôi dữ liệu 6.2.
+6. Tự thu thập ảnh từ chính dây chuyền/board thật — nguồn dữ liệu giá trị nhất,
+   không dataset công khai nào thay thế được. Repo hiện có **3 ảnh điện thoại**
+   ở `real_pcb/`; 235 ảnh toàn board đang dùng đều là ảnh công khai.

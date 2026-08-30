@@ -215,6 +215,14 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
 - [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
 - [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach_pretrain_6_1_classification.md).
+- [Kế hoạch phân nhóm package](Docs/ke_hoach_phan_nhom_package.md) — **chờ duyệt**.
+  Bảy nhóm KIỂU VỎ phân biệt được bằng mắt, để bước 5.5 biết trước linh kiện có
+  mấy chân và chân ở cạnh nào thay vì đoán từ pixel. Viết theo giả định **không
+  có CAD**: khi đó `pad_count` không được sinh ra ở đâu nữa, và nhãn package là
+  nguồn duy nhất còn lại thay thế được.
+- [Kế hoạch kiểm tra lỗi toàn mạch](Docs/ke_hoach_pcb_defect_toan_mach.md) —
+  **chờ duyệt**. Xước, lem thiếc, vật lạ trên phần mặt board mà Golden Compare
+  (theo ô) và 6.2 (theo ROI) không hề nhìn tới.
 
 ## Bước 6.2 — Kiểm tra mối hàn
 
@@ -368,10 +376,26 @@ báo rõ. Runtime **từ chối** manifest sai schema thay vì đoán — đoán
 class là biến mọi lỗi thành "đạt". Schema đầy đủ:
 [docs/solder_model_manifest_template.json](docs/solder_model_manifest_template.json).
 
-Detector YOLO Segment chạy toàn board là một contract khác, đặt tại
-`models/active/solder/detector/` và được chọn ở khối **Detector lỗi mối hàn ·
-YOLO Segment**. Nó tạo vùng nghi lỗi để review, không được nạp vào
-`solder_grading` và không tự quyết định PASS/NG.
+> **Đã gỡ 2026-08-28 (`1447ed5`).** Trước đây ở đây có một tầng "detector lỗi
+> mối hàn chạy toàn board", đặt tại `models/active/solder/detector/`. Tầng đó
+> **không còn trong app lẫn trong pipeline**, và thư mục đó cũng không còn tồn
+> tại (`models/active/solder/` nay là `classifier/` và `defect/`). Lý do gỡ: nó
+> là **đường thứ ba** trả lời cùng câu hỏi mà 5.5 + 6.2 đã trả lời, bằng một
+> model train trên camera khác mà manifest của chính nó ghi `diagnostic_only`.
+> Trọng số vẫn nằm trên đĩa nhưng không gì nạp chúng nữa — đó là chủ ý.
+
+Thay vào chỗ đó là **ô model lượt 2**, `models/active/lead_detector/`, chọn ở
+khối sidebar **Lượt 2 · Detect chân trong crop linh kiện**. Một lớp duy nhất
+`solder_joint`, và nó khoanh **mọi** mối hàn kể cả mối hàn tốt: cái nó cung cấp
+là **vị trí** cho bước 6.2 chấm, không phải phán quyết. Manifest ghi thẳng
+`not_a_defect_detector`. Ô này **không bao giờ tự nạp** (`_NO_AUTO_ADOPT`) —
+khác mọi ô model khác — vì đo trên board thật cho thấy nó làm ROI *ôm sát hơn
+mức an toàn*: phủ pad trung vị 0.97 → 0.79, pad yếu nhất 0.52 so với cổng 0.50.
+Sidebar in con số đó ra trước khi bạn bật, vì bảng chọn chỉ hiện mAP50 0.9912.
+
+Ý tưởng kiểm tra **lỗi trên toàn mặt board** (xước, lem thiếc, vật lạ) chưa mất
+— nó được tách thành một kế hoạch riêng, với ranh giới rõ ràng là *không* đụng
+vào mối hàn: [Docs/ke_hoach_pcb_defect_toan_mach.md](Docs/ke_hoach_pcb_defect_toan_mach.md).
 
 ### Kết quả xem ở đâu
 
