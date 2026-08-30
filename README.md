@@ -216,8 +216,10 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 - [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
 - [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach_pretrain_6_1_classification.md).
 - [Kế hoạch phân nhóm package](Docs/ke_hoach_phan_nhom_package.md) — **chờ duyệt**.
-  Chia mỗi họ thành nhóm KIỂU VỎ phân biệt được bằng mắt, để bước 5.5 biết trước
-  linh kiện có mấy chân và chân ở cạnh nào thay vì đoán từ pixel.
+  Bảy nhóm KIỂU VỎ phân biệt được bằng mắt, để bước 5.5 biết trước linh kiện có
+  mấy chân và chân ở cạnh nào thay vì đoán từ pixel. Viết theo giả định **không
+  có CAD**: khi đó `pad_count` không được sinh ra ở đâu nữa, và nhãn package là
+  nguồn duy nhất còn lại thay thế được.
 - [Kế hoạch kiểm tra lỗi toàn mạch](Docs/ke_hoach_pcb_defect_toan_mach.md) —
   **chờ duyệt**. Xước, lem thiếc, vật lạ trên phần mặt board mà Golden Compare
   (theo ô) và 6.2 (theo ROI) không hề nhìn tới.
