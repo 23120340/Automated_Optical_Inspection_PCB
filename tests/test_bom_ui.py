@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from aoi_pipeline.bom import BillOfMaterials, BomEntry
+from aoi_pipeline.placement.bom import BillOfMaterials, BomEntry
 from aoi_pipeline.models import BoundingBox, Detection
 
 APP = str(Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py")
@@ -102,7 +102,7 @@ def test_reconciliation_renders_when_a_board_matches_its_bom(app: AppTest) -> No
 def test_an_unlisted_component_reaches_the_operator_as_an_error(app: AppTest) -> None:
     """Ca người dùng nêu, đi hết đường từ state tới màn hình."""
 
-    from aoi_pipeline.bom import reconcile_bom
+    from aoi_pipeline.placement.bom import reconcile_bom
 
     bom = BillOfMaterials(
         entries=[BomEntry(designator="R1", part_class="resistor")],
@@ -131,7 +131,7 @@ def test_findings_are_sorted_with_errors_first() -> None:
     bị bỏ qua."""
 
     import app.streamlit_app as ui
-    from aoi_pipeline.bom import BomFinding
+    from aoi_pipeline.placement.bom import BomFinding
 
     findings = [
         BomFinding(kind="class_mismatch", severity="warning", message="w"),
@@ -194,7 +194,7 @@ def test_the_projection_the_ui_hands_over_is_actually_callable() -> None:
         f"chiếu (5, 5) mm ra {projected[0]}, phải gần (50, 50) px"
     )
 
-    from aoi_pipeline.bom import reconcile_bom
+    from aoi_pipeline.placement.bom import reconcile_bom
 
     result = reconcile_bom(bom, detections, project)
     assert result.stats["method"] == "position"

@@ -37,7 +37,7 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from aoi_pipeline.solder.cad import CadError, load_cad, register_cad  # noqa: E402
-from aoi_pipeline.bom import (  # noqa: E402
+from aoi_pipeline.placement.bom import (  # noqa: E402
     BillOfMaterials,
     BomError,
     load_bom,
@@ -45,7 +45,7 @@ from aoi_pipeline.bom import (  # noqa: E402
 )
 from streamlit_image_coordinates import streamlit_image_coordinates  # noqa: E402
 from aoi_pipeline.imaging.fiducials import find_fiducials  # noqa: E402
-from aoi_pipeline.inspection_map import (  # noqa: E402
+from aoi_pipeline.placement.inspection_map import (  # noqa: E402
     MapError,
     build_from_bom,
     build_from_cad,
@@ -53,9 +53,9 @@ from aoi_pipeline.inspection_map import (  # noqa: E402
     plan_capture_regions,
     uncovered,
 )
-from aoi_pipeline.exporters import csv_cell as _csv_cell  # noqa: E402
+from aoi_pipeline.reporting.exporters import csv_cell as _csv_cell  # noqa: E402
 from aoi_pipeline.models import BoundingBox  # noqa: E402
-from aoi_pipeline.model_feedback import (  # noqa: E402
+from aoi_pipeline.modelops.model_feedback import (  # noqa: E402
     ERROR_KINDS,
     FeedbackEntry,
     FeedbackError,
@@ -68,7 +68,7 @@ from aoi_pipeline.model_feedback import (  # noqa: E402
     load_feedback,
     preprocess_identity,
 )
-from aoi_pipeline.model_registry import (  # noqa: E402
+from aoi_pipeline.modelops.model_registry import (  # noqa: E402
     ModelEntry,
     ModelFolderRenameError,
     discover_models,
@@ -2267,7 +2267,7 @@ def _render_bom_reconciliation(detections: Sequence[Any]) -> None:
 
 # --------------------------------------------------------------------------
 # Đánh giá model: người vận hành ghi lại chỗ model sai, ngay trong trang của
-# bước đó. Lưu toạ độ chứ không lưu ảnh -- xem aoi_pipeline/model_feedback.py.
+# bước đó. Lưu toạ độ chứ không lưu ảnh -- xem aoi_pipeline/modelops/model_feedback.py.
 # --------------------------------------------------------------------------
 
 #: Bước nào đánh giá model nào, và tiêu đề hiển thị.
@@ -2902,7 +2902,7 @@ def _render_inspection_map() -> None:
 
     st.caption(
         "Trường nhìn lấy từ camera của bạn. Khuyến nghị ở "
-        "`Docs/yeu_cau_phan_cung_camera.md`: cảm biến 20 MP cho ~137 × 91 mm ở "
+        "`Docs/thiet_ke/yeu_cau_phan_cung_camera.md`: cảm biến 20 MP cho ~137 × 91 mm ở "
         "25 µm/px."
     )
     left, right, third = st.columns(3)

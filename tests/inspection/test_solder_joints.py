@@ -23,8 +23,8 @@ from aoi_pipeline import (
     terminal_geometry,
 )
 from aoi_pipeline.detection.cropping import ComponentCropper
-from aoi_pipeline.exporters import solder_joints_csv
-from aoi_pipeline.overlays import render_solder_overlay
+from aoi_pipeline.reporting.exporters import solder_joints_csv
+from aoi_pipeline.reporting.overlays import render_solder_overlay
 from aoi_pipeline.solder.geometry import deconflict_joint_rois, estimate_component_angle
 
 BOARD_SIZE = (400, 700)

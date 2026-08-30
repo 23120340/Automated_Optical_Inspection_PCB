@@ -2,7 +2,7 @@
 
 The escaping was already correct in the Streamlit exporter, in ``digitizer`` and
 in ``scripts/build_reference_bundle`` -- three private copies of the same four
-lines -- while ``aoi_pipeline/exporters.py``, whose entire job is writing these
+lines -- while ``aoi_pipeline/reporting/exporters.py``, whose entire job is writing these
 files, had none. That is the wrong way round: the exporter's output is what a
 technician opens in Excel, and ``designator``/``net`` reach it straight from a
 user-supplied CAD or pick-and-place file via ``aoi_pipeline.solder.cad``.
@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from aoi_pipeline.exporters import (
+from aoi_pipeline.reporting.exporters import (
     cad_findings_csv,
     csv_cell,
     solder_joints_csv,
@@ -131,7 +131,7 @@ def test_numeric_columns_are_not_quoted_into_text() -> None:
 def test_all_four_call_sites_share_one_implementation() -> None:
     """Three private copies is how they drift apart silently."""
 
-    import aoi_pipeline.digitizer as digitizer
+    import aoi_pipeline.placement.digitizer as digitizer
     import scripts.build_reference_bundle as bundle
 
     assert digitizer._safe_csv_text is csv_cell

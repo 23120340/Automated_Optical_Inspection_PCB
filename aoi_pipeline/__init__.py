@@ -2,7 +2,7 @@
 
 from .imaging.alignment import AnchorMatch, PCBAligner, StrictAlignmentResult
 from .imaging.board import PCBLocalizer
-from .classification import (
+from .classification.family import (
     ComponentClassifier,
     MANIFEST_SCHEMA,
     ONNXComponentClassifier,
@@ -45,7 +45,7 @@ from .detection.detectors import (
     create_detector,
     non_maximum_suppression,
 )
-from .evidence import (
+from .reporting.evidence import (
     DefectEvidence,
     EvidenceBundle,
     EvidenceMismatch,
@@ -64,14 +64,14 @@ from .exceptions import (
     ModelDependencyError,
     RecipeValidationError,
 )
-from .exporters import (
+from .reporting.exporters import (
     cad_findings_csv,
     export_json,
     export_zip,
     solder_joints_csv,
     solder_verdicts_csv,
 )
-from .overlays import (
+from .reporting.overlays import (
     render_annotations,
     render_solder_overlay,
     render_verdict_overlay,

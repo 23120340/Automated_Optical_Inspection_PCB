@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from aoi_pipeline.model_feedback import load_feedback
+from aoi_pipeline.modelops.model_feedback import load_feedback
 
 APP = str(Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py")
 DIGEST = "d" * 64
@@ -179,7 +179,7 @@ def test_the_entry_carries_the_digest_of_the_model_it_judges(feedback_dir) -> No
     ``models/active/``, và bản ghi phải gắn với **file trọng số** đó — tên file
     luôn là ``best.onnx``, chỉ sha256 mới phân biệt được hai bản."""
 
-    from aoi_pipeline.model_registry import find_active
+    from aoi_pipeline.modelops.model_registry import find_active
 
     app = _app(4, detections=[_detection(0)])
     app.session_state["fb_detection_selected"] = 0
@@ -235,7 +235,7 @@ def test_a_saved_entry_comes_back_in_the_history(feedback_dir) -> None:
 def test_an_entry_from_another_image_is_not_shown_for_this_one(feedback_dir) -> None:
     """Toạ độ chỉ có nghĩa với đúng tấm ảnh đã đo trên nó."""
 
-    from aoi_pipeline.model_feedback import (
+    from aoi_pipeline.modelops.model_feedback import (
         FeedbackEntry, ModelIdentity, append_feedback,
     )
 

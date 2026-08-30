@@ -1,7 +1,7 @@
 """Fetch the public solder datasets that are actually usable, and say why the rest are not.
 
 The survey behind this lives in ``datasets/public/README.md`` and
-``docs/dataset_lead_detection.md``. The short version was once "no public source
+``docs/khao_sat/dataset_lead_detection.md``. The short version was once "no public source
 gives both the right pixel scale and box labels"; that held for *solder-joint*
 labels and still does, but it stopped being the whole story once whole-board
 sets with component boxes were measured -- their crops carry joints that a

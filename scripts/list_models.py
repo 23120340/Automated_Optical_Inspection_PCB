@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from aoi_pipeline.model_registry import (  # noqa: E402
+from aoi_pipeline.modelops.model_registry import (  # noqa: E402
     ACTIVE_ROOT,
     ARCHIVE_ROOT,
     LIBRARY_ROOT,

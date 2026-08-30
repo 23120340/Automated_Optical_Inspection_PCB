@@ -14,7 +14,7 @@ import numpy as np
 from .imaging.alignment import PCBAligner
 from .imaging.board import PCBLocalizer
 from .solder.cad import BoardCad, CadError, CadRegistration, load_cad, register_cad, register_from_fiducials
-from .classification import ComponentClassifier, create_classifier
+from .classification.family import ComponentClassifier, create_classifier
 from .config import ModelDetectorConfig, PipelineConfig
 from .detection.cropping import ComponentCropper
 from .detection.detectors import (
@@ -28,8 +28,8 @@ from .grading.inspector import SolderInspector
 from .solder.cad_fusion import FusionResult, fuse_solder_joints
 from .solder.lead_detection import detect_leads_in_components
 from .solder.leads import fuse_detected_leads, split_lead_detections
-from .exporters import export_json as write_json
-from .exporters import export_zip as write_zip
+from .reporting.exporters import export_json as write_json
+from .reporting.exporters import export_zip as write_zip
 from .imaging.image_io import ImageSource, load_image
 from .models import (
     AlignmentResult,

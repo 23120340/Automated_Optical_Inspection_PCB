@@ -50,8 +50,8 @@ import numpy as np  # noqa: E402
 
 from aoi_pipeline import AOIPipeline, PipelineConfig  # noqa: E402
 from aoi_pipeline.detection.detectors import detector_identifier  # noqa: E402
-from aoi_pipeline.exporters import csv_cell as _safe_csv_text  # noqa: E402
-from aoi_pipeline.digitizer import (  # noqa: E402
+from aoi_pipeline.reporting.exporters import csv_cell as _safe_csv_text  # noqa: E402
+from aoi_pipeline.placement.digitizer import (  # noqa: E402
     ConsensusComponent,
     ConsensusConfig,
     PnpConsensus,

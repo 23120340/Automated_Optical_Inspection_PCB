@@ -18,7 +18,7 @@ tắt bất kỳ cái nào cũng biến một model gọi 61% mối hàn là ch�
 quyền, và mọi board sẽ thành phế phẩm. Sửa được các test này — nhưng phải kèm
 số đo mới chứng minh model đã khác.
 
-Đầy đủ ở `Docs/danh_gia_model_6_2.md`.
+Đầy đủ ở `Docs/danh_gia/danh_gia_model_6_2.md`.
 """
 
 from __future__ import annotations

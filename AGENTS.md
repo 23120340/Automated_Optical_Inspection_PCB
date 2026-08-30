@@ -4,7 +4,7 @@
 
 ## 1. Nhiệm vụ
 
-Triển khai Position Check và Golden Compare theo `Docs/thiet_ke_position_va_golden_compare.md` cho dự án `Automated_Optical_Inspection_PCB`.
+Triển khai Position Check và Golden Compare theo `Docs/thiet_ke/thiet_ke_position_va_golden_compare.md` cho dự án `Automated_Optical_Inspection_PCB`.
 
 Kết quả mục tiêu:
 
@@ -20,7 +20,7 @@ Phần cứng được coi là hoàn chỉnh và ổn định. Không mở rộn
 
 ## 2. Việc phải làm trước khi sửa code
 
-1. Đọc toàn bộ `Docs/thiet_ke_position_va_golden_compare.md`.
+1. Đọc toàn bộ `Docs/thiet_ke/thiet_ke_position_va_golden_compare.md`.
 2. Kiểm tra `git status`, branch và commit hiện tại; không giả định checkout giống snapshot trong context.
 3. Đọc tối thiểu:
    - `README.md`
@@ -30,13 +30,13 @@ Phần cứng được coi là hoàn chỉnh và ổn định. Không mở rộn
    - `aoi_pipeline/imaging/alignment.py`
    - `aoi_pipeline/detection/detectors.py`
    - `aoi_pipeline/detection/cropping.py`
-   - `aoi_pipeline/exporters.py`
+   - `aoi_pipeline/reporting/exporters.py`
    - `app/pipeline_bridge.py`
    - các test liên quan.
 4. Chạy test baseline và ghi nhận kết quả trước khi thay đổi.
 5. Giữ nguyên mọi thay đổi không liên quan đã có trong worktree.
 
-Nếu code hiện tại đã khác `Docs/thiet_ke_position_va_golden_compare.md`, ưu tiên code thực tế và báo rõ khác biệt trước khi thay đổi kiến trúc lớn.
+Nếu code hiện tại đã khác `Docs/thiet_ke/thiet_ke_position_va_golden_compare.md`, ưu tiên code thực tế và báo rõ khác biệt trước khi thay đổi kiến trúc lớn.
 
 ## 3. Nguyên tắc kiến trúc bắt buộc
 

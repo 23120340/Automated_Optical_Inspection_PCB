@@ -93,7 +93,7 @@ def test_no_module_shares_its_name_with_its_own_package() -> None:
         "aoi_pipeline.grading.rules",
         "aoi_pipeline.grading.classifier",
         "aoi_pipeline.grading.inspector",
-        "aoi_pipeline.classification",
+        "aoi_pipeline.classification.family",
         "aoi_pipeline.pipeline",
     ],
 )

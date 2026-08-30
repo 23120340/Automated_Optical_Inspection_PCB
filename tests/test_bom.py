@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from aoi_pipeline.bom import (
+from aoi_pipeline.placement.bom import (
     BillOfMaterials,
     BomEntry,
     BomError,

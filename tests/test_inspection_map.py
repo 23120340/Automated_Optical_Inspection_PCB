@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from aoi_pipeline.inspection_map import (
+from aoi_pipeline.placement.inspection_map import (
     CaptureRegion,
     InspectionMap,
     MapComponent,
@@ -62,7 +62,7 @@ def test_a_bom_without_coordinates_is_refused_not_guessed() -> None:
     """BOM dạng mua hàng nói board có NHỮNG GÌ, không nói Ở ĐÂU. Trả về một bản
     đồ mà mọi linh kiện chồng lên nhau ở gốc toạ độ thì tệ hơn là từ chối."""
 
-    from aoi_pipeline.bom import BillOfMaterials, BomEntry
+    from aoi_pipeline.placement.bom import BillOfMaterials, BomEntry
 
     bom = BillOfMaterials(entries=[
         BomEntry(designator="R1"), BomEntry(designator="R2"),
@@ -73,7 +73,7 @@ def test_a_bom_without_coordinates_is_refused_not_guessed() -> None:
 
 
 def test_a_positioned_bom_works_just_like_cad() -> None:
-    from aoi_pipeline.bom import BillOfMaterials, BomEntry
+    from aoi_pipeline.placement.bom import BillOfMaterials, BomEntry
 
     bom = BillOfMaterials(entries=[
         BomEntry(designator="R1", x=5.0, y=6.0, width=2.0, height=1.0),
@@ -250,7 +250,7 @@ def test_only_the_components_of_that_capture_are_returned() -> None:
 
 
 def test_the_camera_plan_matches_the_hardware_document() -> None:
-    """`Docs/yeu_cau_phan_cung_camera.md` khuyến nghị cảm biến 20 MP với trường
+    """`Docs/thiet_ke/yeu_cau_phan_cung_camera.md` khuyến nghị cảm biến 20 MP với trường
     nhìn ~137 × 91 mm ở 25 µm/px. Board 200 × 150 mm thì phải chụp nhiều khung
     — đây là lý do module này tồn tại."""
 

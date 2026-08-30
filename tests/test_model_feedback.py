@@ -18,8 +18,8 @@ import cv2
 import numpy as np
 import pytest
 
-from aoi_pipeline.evidence import EvidenceMismatch, EvidenceViewer
-from aoi_pipeline.model_feedback import (
+from aoi_pipeline.reporting.evidence import EvidenceMismatch, EvidenceViewer
+from aoi_pipeline.modelops.model_feedback import (
     ERROR_KINDS,
     MAX_COMMENT_CHARS,
     SCHEMA_VERSION,
@@ -215,7 +215,7 @@ def test_the_record_leaks_no_absolute_workstation_path() -> None:
 def test_the_shipped_manifests_all_yield_a_digest() -> None:
     """`compare_key` chỉ có giá trị khi manifest thật sự khai sha256."""
 
-    from aoi_pipeline.model_registry import discover_models
+    from aoi_pipeline.modelops.model_registry import discover_models
 
     for entry in discover_models():
         assert entry.summary().sha256, f"{entry.name} không khai sha256"

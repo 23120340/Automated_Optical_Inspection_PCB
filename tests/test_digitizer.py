@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from aoi_pipeline.digitizer import (
+from aoi_pipeline.placement.digitizer import (
     PIXEL_ARTIFACT_STATUS,
     PIXEL_COORDINATE_SPACE,
     PLACEMENT_DRAFT_STATUS,

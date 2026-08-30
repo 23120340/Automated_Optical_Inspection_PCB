@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from ..evidence import file_digest as _sha256_file
+from ..reporting.evidence import file_digest as _sha256_file
 from ..config import ModelDetectorConfig, SolderDefectDetectionConfig
 from ..detection.detectors import UltralyticsDetector
 from ..exceptions import DetectorConfigurationError

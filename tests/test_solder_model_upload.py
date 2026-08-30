@@ -165,7 +165,7 @@ def test_the_manifest_schema_literals_still_match_the_core() -> None:
     the core at module load. That is only safe while the literals track the
     constants they mirror."""
 
-    from aoi_pipeline.classification import MANIFEST_SCHEMA as CLASSIFIER_SCHEMA
+    from aoi_pipeline.classification.family import MANIFEST_SCHEMA as CLASSIFIER_SCHEMA
     from aoi_pipeline.grading.classifier import MANIFEST_SCHEMA as SOLDER_SCHEMA
 
     assert ui.CLASSIFIER_MANIFEST_SCHEMA == CLASSIFIER_SCHEMA

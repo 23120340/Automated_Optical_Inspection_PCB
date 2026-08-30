@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-import aoi_pipeline.model_registry as model_registry
-from aoi_pipeline.model_registry import (
+import aoi_pipeline.modelops.model_registry as model_registry
+from aoi_pipeline.modelops.model_registry import (
     ModelEntry,
     ModelFolderRenameError,
     ModelSummary,
@@ -186,7 +186,7 @@ def test_the_stage_is_taken_from_the_manifest_not_the_folder_name(tmp_path) -> N
     """Tên thư mục do người đặt và có thể sai; `task` do notebook sinh ra cùng
     lúc với trọng số."""
 
-    from aoi_pipeline.model_registry import _kind_of
+    from aoi_pipeline.modelops.model_registry import _kind_of
 
     assert _kind_of(
         {"task": "solder_defect_classification"}, "ten-lung-tung"
@@ -205,7 +205,7 @@ def test_the_stage_is_taken_from_the_manifest_not_the_folder_name(tmp_path) -> N
 
 
 def test_solder_schema_fallbacks_are_role_specific() -> None:
-    from aoi_pipeline.model_registry import _kind_of
+    from aoi_pipeline.modelops.model_registry import _kind_of
 
     assert _kind_of(
         {"schema_version": "pcb-solder-defect-classifier/1.0"}, "khong-goi-y"

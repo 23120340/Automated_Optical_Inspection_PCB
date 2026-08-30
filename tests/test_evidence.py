@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 import pytest
 
-from aoi_pipeline.evidence import (
+from aoi_pipeline.reporting.evidence import (
     DefectEvidence,
     EvidenceBundle,
     EvidenceMismatch,

@@ -36,7 +36,7 @@ from aoi_pipeline import (  # noqa: E402
     encode_image,
     load_image,
 )
-from aoi_pipeline.overlays import render_solder_overlay  # noqa: E402
+from aoi_pipeline.reporting.overlays import render_solder_overlay  # noqa: E402
 
 IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
 

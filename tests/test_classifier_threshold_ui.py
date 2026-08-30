@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-import aoi_pipeline.model_registry as model_registry
+import aoi_pipeline.modelops.model_registry as model_registry
 import app.streamlit_app as ui
 from aoi_pipeline.config import PipelineConfig
-from aoi_pipeline.model_registry import discover_models
+from aoi_pipeline.modelops.model_registry import discover_models
 
 
 def test_convnext_manifest_thresholds_are_available_to_the_ui() -> None:

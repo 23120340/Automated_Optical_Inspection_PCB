@@ -213,14 +213,14 @@ Raspberry Pi ARM64; YOLO chỉ thuộc bước phát hiện 4, không dùng cho 
 
 Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
-- [Khảo sát dataset linh kiện PCB](Docs/pcb_aoi_component_datasets.md).
-- [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach_pretrain_6_1_classification.md).
-- [Kế hoạch phân nhóm package](Docs/ke_hoach_phan_nhom_package.md) — **chờ duyệt**.
+- [Khảo sát dataset linh kiện PCB](Docs/khao_sat/pcb_aoi_component_datasets.md).
+- [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach/ke_hoach_pretrain_6_1_classification.md).
+- [Kế hoạch phân nhóm package](Docs/ke_hoach/ke_hoach_phan_nhom_package.md) — **chờ duyệt**.
   Bảy nhóm KIỂU VỎ phân biệt được bằng mắt, để bước 5.5 biết trước linh kiện có
   mấy chân và chân ở cạnh nào thay vì đoán từ pixel. Viết theo giả định **không
   có CAD**: khi đó `pad_count` không được sinh ra ở đâu nữa, và nhãn package là
   nguồn duy nhất còn lại thay thế được.
-- [Kế hoạch kiểm tra lỗi toàn mạch](Docs/ke_hoach_pcb_defect_toan_mach.md) —
+- [Kế hoạch kiểm tra lỗi toàn mạch](Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md) —
   **chờ duyệt**. Xước, lem thiếc, vật lạ trên phần mặt board mà Golden Compare
   (theo ô) và 6.2 (theo ROI) không hề nhìn tới.
 
@@ -374,7 +374,7 @@ config.solder_grading.manifest_path = "models/active/solder/classifier/model_man
 Không cần đổi gì khác. Thiếu một trong hai thì bước 6.2 vẫn chạy bằng luật và
 báo rõ. Runtime **từ chối** manifest sai schema thay vì đoán — đoán sai thứ tự
 class là biến mọi lỗi thành "đạt". Schema đầy đủ:
-[docs/solder_model_manifest_template.json](docs/solder_model_manifest_template.json).
+[docs/thiet_ke/solder_model_manifest_template.json](docs/thiet_ke/solder_model_manifest_template.json).
 
 > **Đã gỡ 2026-08-28 (`1447ed5`).** Trước đây ở đây có một tầng "detector lỗi
 > mối hàn chạy toàn board", đặt tại `models/active/solder/detector/`. Tầng đó
@@ -395,7 +395,7 @@ Sidebar in con số đó ra trước khi bạn bật, vì bảng chọn chỉ hi
 
 Ý tưởng kiểm tra **lỗi trên toàn mặt board** (xước, lem thiếc, vật lạ) chưa mất
 — nó được tách thành một kế hoạch riêng, với ranh giới rõ ràng là *không* đụng
-vào mối hàn: [Docs/ke_hoach_pcb_defect_toan_mach.md](Docs/ke_hoach_pcb_defect_toan_mach.md).
+vào mối hàn: [Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md](Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md).
 
 ### Kết quả xem ở đâu
 
@@ -714,32 +714,42 @@ tìm code của một bước là mở đúng thư mục mang tên bước đó.
 ```text
 app/                    Streamlit UI và bridge sang pipeline
 aoi_pipeline/
-  ├─ models.py          Kiểu dữ liệu và hàm hình học dùng chung (BoundingBox, IoU…)
-  ├─ config.py          Toàn bộ dataclass cấu hình của mọi bước
-  ├─ exceptions.py      Cây ngoại lệ
   ├─ pipeline.py        Facade AOIPipeline: ghép các bước lại
+  ├─ config.py          Toàn bộ dataclass cấu hình của mọi bước
+  ├─ models.py          Kiểu dữ liệu và hàm hình học dùng chung (BoundingBox, IoU…)
+  ├─ exceptions.py      Cây ngoại lệ
+  │                     ── bốn file này ở gốc vì MỌI subpackage import ngược lên
   │
   ├─ imaging/           Bước 0–3 · từ file ảnh tới vùng board đã căn chỉnh
-  │    image_io · preprocessing · calibration · alignment · board
+  │    image_io · preprocessing · calibration · alignment · board · fiducials
+  ├─ golden/            Bước 3.5 · Golden Inspection
+  │    recipe · inspector · position · compare · enrollment
   ├─ detection/         Bước 4–5 · tìm linh kiện rồi cắt ra
   │    detectors · tiling · cropping
   ├─ solder/            Bước 5.5 · chân hàn nằm ở đâu
-  │    geometry · leads · lead_detection · cad · cad_fusion
-  ├─ classification.py  Bước 6.1 · phân loại họ linh kiện
+  │    geometry · leads · lead_detection · cad · cad_fusion · defect_detection
+  ├─ classification/    Bước 6.1 · phân loại trên crop linh kiện
+  │    family          (chỗ cho package.py của bước 5.2 khi kế hoạch được duyệt)
   ├─ grading/           Bước 6.2 · đo vật lý → luật → model ONNX → hợp nhất
   │    features · rules · classifier · inspector · datasets
-  ├─ golden/            Golden Inspection · bước 8 của đường ống
-  │    recipe · inspector · position · compare
-  ├─ exporters.py       Xuất JSON/CSV/ZIP
-  └─ overlays.py        Vẽ chồng lên ảnh
+  │
+  ├─ placement/         Board PHẢI mang gì, ở đâu — độc lập với ảnh
+  │    bom · digitizer · inspection_map
+  ├─ modelops/          Tìm model trên đĩa, và ghi lại chỗ model làm sai
+  │    model_registry · model_feedback
+  └─ reporting/         Thứ người vận hành nhìn thấy
+       overlays · exporters · evidence
 
 tests/                  Unit test, gương theo cấu trúc trên
 training/kaggle/        Notebook train: detector (4), classifier (6.1),
                         solder (6.2), lead detector (lượt 2)
 models/                 Model local — chỉ commit .onnx + model_manifest.json
-Docs/                   Khảo sát dataset, kế hoạch, báo cáo, yêu cầu phần cứng
-scripts/                Setup/chạy app, bootstrap nhãn chân, kiểm artifact
+Docs/                   Tài liệu, gom theo VIỆC — xem Docs/README.md
+scripts/                Setup/chạy app, chuẩn bị dữ liệu gán nhãn, kiểm artifact
 ```
+
+Sáu nhóm đầu là **các bước của đường ống**, theo đúng thứ tự chạy. Ba nhóm cuối
+cắt ngang: chúng phục vụ mọi bước chứ không thuộc bước nào.
 
 ### Vì sao trước đây là layout phẳng, và vì sao đổi
 
@@ -757,6 +767,19 @@ Bề mặt công khai không đổi: `aoi_pipeline/__init__.py` vẫn export đ�
 tên** như trước, và một test đối chiếu để không ai làm rơi tên nào. Import trong
 package dùng dạng tương đối theo tầng: `from ..models import ...` từ trong một
 subpackage, `from .leads import ...` giữa các module cùng nhóm.
+
+**Đợt gom thứ hai (31/08)** dọn nốt 13 module còn nằm rời ở gốc xuống còn 4.
+Bốn file ở lại — `pipeline`, `config`, `models`, `exceptions` — là bốn file mà
+mọi subpackage đều import ngược lên; đẩy chúng vào một `core/` chỉ tạo ra một
+package mà tất cả phải với lên, và bản `core/*` trước đây đã bị làm phẳng đúng
+vì lý do đó.
+
+Một cái bẫy của đợt này đáng ghi lại: `model_registry.py` và `model_feedback.py`
+tính đường dẫn bằng `Path(__file__).resolve().parents[1]`. Tụt thêm một tầng là
+`parents[1]` trỏ vào `aoi_pipeline/` thay vì gốc repo, nên `MODELS_ROOT` thành
+`aoi_pipeline/models` — thư mục không tồn tại. Không có lỗi import nào, chỉ là
+**app không thấy model nào nữa**; 9 test đỏ mới lộ ra. Dời file thì phải soát
+lại mọi `parents[n]`.
 
 ## Giới hạn hiện tại
 

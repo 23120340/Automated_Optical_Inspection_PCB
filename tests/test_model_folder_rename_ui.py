@@ -6,8 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 
-import aoi_pipeline.model_registry as model_registry
-from aoi_pipeline.model_registry import ModelEntry, discover_models
+import aoi_pipeline.modelops.model_registry as model_registry
+from aoi_pipeline.modelops.model_registry import ModelEntry, discover_models
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
