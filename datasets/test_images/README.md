@@ -64,6 +64,17 @@ thước.
 vì bộ reference đã được duyệt tay và có nhãn đi kèm ở
 `datasets/reference_sets/pcb_dslr_30_diverse/`.
 
+> ⚠️ Khi dùng một phần các ảnh/tile này để gán nhãn train, phải khử trùng ở bước
+> đóng gói và chia theo **board vật lý**, không theo tên thư mục hay tile. Ví dụ
+> `pcb7__rec1` và `pcb_dslr_007__rec1` là cùng board; một số tile tạo từ hai
+> thư mục còn trùng byte. Giữ nguyên manifest/export đã được duyệt, ưu tiên bản
+> `verified`, bỏ bản `unusable`, rồi loại exact duplicate khi pack.
+
+> RF100 `printed-circuit-board` cũng có ảnh kiểu `pcb7rec1` khớp nguồn PCB DSLR.
+> Nếu board local được giữ cho validation/test thì mọi bản RF100 của chính board
+> đó phải bị loại khỏi train (hoặc đi cùng split). Không dùng public split có sẵn
+> để suy ra rằng hai ảnh là độc lập.
+
 ## `tiles_1024/` — 310 tile zoom
 
 Ảnh toàn board là đầu vào đúng cho bước 0–3 và **sai** cho việc nhìn một linh
@@ -109,6 +120,29 @@ chúng dồn vào một góc mà phần lớn khung là nền. Những tile đó
 lọc được mà không phải đo lại: trung vị **30%**, 28% số tile trên 50%, 8% trên
 70%. Muốn chặt hơn thì `--max-dark-fraction 0.5`.
 
+## Bộ gán nhãn thân linh kiện — vòng 2
+
+Audit ngày 2026-08-30 cho thấy 310 dòng nguồn chỉ tạo thành **170 nhóm pixel
+độc nhất**; 140 dòng còn lại là exact duplicate sau khi giải mã ảnh. Bộ kế tiếp
+ở `datasets/labelling/component_bodies_round2_20260830/` có 120 tile và
+**120/120 hash pixel khác nhau**, phủ 30 board vật lý (tối đa 6 tile/board).
+Bộ cũ `component_bodies/` được giữ nguyên làm dấu vết, không bị ghi đè.
+
+Vòng 2 được tạo từ checkpoint `joint_boxes (3).json`: mang nguyên trạng **16
+tile `verified` / 1.595 box**, loại 29 tile `unusable`, giữ 36 tile chưa duyệt
+thật sự độc nhất và lấy thêm 68 tile từ phần chưa dùng của kho nguồn. Xem chi
+tiết và SHA-256 checkpoint trong `provenance.json` của vòng 2.
+
+Để tiếp tục gán nhãn, mở trực tiếp
+`datasets/labelling/component_bodies_round2_20260830/label_boxes.html`. App đã
+được seed: lần mở đầu tiên của dataset ID mới sẽ hiện sẵn 16 ảnh `verified` và
+các box gợi ý cho ảnh còn lại; box chưa `verified` vẫn chỉ là bản nháp cần duyệt.
+Sau mỗi phiên phải bấm **Xuất JSON** và giữ file xuất mới nhất làm checkpoint.
+
+**Không bấm Nạp file để đưa checkpoint của `component_bodies/` vào app vòng
+2.** Checkpoint cũ có dataset ID khác và app phải từ chối; 16 record đã duyệt đã
+được chuyển sẵn, nên nạp lại vừa không cần thiết vừa dễ nhầm phiên làm việc.
+
 ## Vì sao nhiều ảnh cùng một board
 
 `rec1`…`rec5` là cùng một board chụp ở **vị trí và ánh sáng khác nhau**. Đó
@@ -139,4 +173,9 @@ khai; các bài dẫn lại đều ghi "not available to this publication date".
 ## Giấy phép
 
 Xem `ATTRIBUTION.md`. Bộ CVL PCB DSLR giới hạn **nghiên cứu phi thương mại**;
-điều kiện đó đi theo các file này. Thư mục đã bị `.gitignore` chặn.
+điều kiện đó đi theo các file này và các tile/nhãn phái sinh. Việc một bản sao
+downstream trên Roboflow ghi CC BY 4.0 không tự ghi đè quyền upstream; dùng
+thương mại cần làm rõ provenance với chủ dữ liệu. Annotation chính thức của PCB
+DSLR chỉ khoanh **IC**; không ghép nguyên ảnh vào detector một lớp `component`
+như thể mọi linh kiện không được khoanh là background. Thư mục đã bị
+`.gitignore` chặn.

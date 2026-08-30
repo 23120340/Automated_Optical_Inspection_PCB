@@ -1,0 +1,27 @@
+{
+  "schema": "aoi-component-labelling-preparation/2.0",
+  "source": "datasets/test_images/tiles_1024",
+  "tiles_available": 310,
+  "unique_pixel_groups_available": 170,
+  "exact_duplicate_rows_available": 140,
+  "tiles_prepared": 120,
+  "unique_pixel_groups_prepared": 120,
+  "physical_boards_prepared": 30,
+  "max_dark_fraction": 0.6,
+  "max_tiles_per_physical_board": 6,
+  "selection_policy": "verified checkpoint records first; reject skipped/unusable pixel groups; one decoded-pixel representative; cover physical boards; then component count descending under the per-board cap",
+  "checkpoint": {
+    "file": "joint_boxes (3).json",
+    "sha256": "387ac647dbbc27a5d191a687815e949b4b94d9de0c5c7a27561c02ca1ba28f00",
+    "dataset": "component_bodies",
+    "dataset_id": "6b9533c126bc110d",
+    "exported_at": "2026-08-29T17:38:15.208Z",
+    "verified_carried": 16,
+    "verified_boxes_carried": 1595,
+    "reviewed_rejected": 29
+  },
+  "retained_unreviewed_from_previous_set": 36,
+  "new_tiles_from_source_pool": 68,
+  "purpose": "gán nhãn THÂN linh kiện để train lại detector lượt 1",
+  "box_convention": "Khoanh THÂN (gói đen / thân gốm / vỏ can), KHÔNG bao chân. Bước 5.5 đặt dải chân vắt qua mép hộp (lead_inner_ratio 0.14 vào trong, lead_outer_ratio 0.26 ra ngoài). Đo trên 10 linh kiện kiểm tay: pad nằm 42% trong hộp, 58% ngoài."
+}

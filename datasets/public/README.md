@@ -37,19 +37,21 @@ Hai lớp là tiếng Trung phiên âm: `Bad_podu` (坡度 — thấm thiếc k�
 > chân, kể cả chân lành). Muốn có `good` thì tự thêm bằng
 > `scripts/build_solder_label_app.py`.
 
-### `fpic_boards_rf100/` — 199 board độ phân giải gốc ⭐ NGUỒN CROP TỐT NHẤT
+### `fpic_boards_rf100/` — RF100, 199 cảnh gốc (tên thư mục legacy) ⭐ NGUỒN CROP TỐT
 
 `universe.roboflow.com/roboflow-100/printed-circuit-board` **v4** · **CC BY 4.0**
 
-Thượng nguồn gần như chắc chắn là **FPIC** (Lu et al., ACM JETC 2023,
-arXiv:2202.08414 — 261 ảnh / 93 board, CC BY 4.0): tên board trùng
-(`Arty_Top`, `ATTIOT_Bottom`, `XLVDSproSupply_Bottom2`) và taxonomy lớp đặc
-trưng cũng trùng (`Capacitor Jumper`, `Resistor Network`, `Test Point`).
+> **Đính chính 2026-08-29:** tên thư mục có `fpic` là tên legacy và được giữ để
+> không làm hỏng script/path đang dùng. Archive này là export **RF100
+> `printed-circuit-board`**, **không phải FPIC**. Các file kiểu `pcb7rec1` khớp
+> với board của **TU Wien PCB DSLR**; repo `PCB-Detection` cũng tách 672 file
+> RF100 thành 194 PCB sau khử trùng và ghi FPIC là nguồn khác, vẫn đang chờ
+> quyền truy cập. Không dùng số liệu hay giấy phép FPIC để mô tả archive này.
 
 | | |
 |---|---|
-| Ảnh | 672 file, **199 cảnh gốc** (mỗi cảnh lưu 2–4 bản, MAD 0.7 ⇒ chỉ khác nén) |
-| Box | 134.047 hộp linh kiện, 20+ lớp |
+| Ảnh | 672 file, **199 stem cảnh**; một cảnh có 2–4 bản crop/rectify/resize khác nhau, không chỉ khác nén |
+| Box | 134.047 hộp linh kiện thô; YAML v4 local có **23 lớp** (trang Universe hiện hiển thị 34) |
 | Kích thước ảnh | **504…5985 px bề rộng**, native — v4 là bản duy nhất `resize=None` |
 | Chroma | 39.1 — ảnh màu |
 
@@ -62,7 +64,14 @@ transistor, fillet hai đầu điện trở chip, pad xuyên lỗ của connecto
 không phải một dây chuyền.
 
 > ⚠️ Tụ và điện trở chiếm phần lớn số box nhưng **8% và 3%** qua ngưỡng 48 px.
-> Đó là giới hạn quang học, không phải giới hạn của ngưỡng.
+> Đó là giới hạn quang học, không phải giới hạn của ngưỡng. Khi dùng cho detector
+> một lớp `component`, loại `Pads`, `Pins`, `Test Point`, `Unknown Unlabeled` và
+> audit lớp mơ hồ `EM`; các nhãn này không phải thân linh kiện.
+
+> ⚠️ Trang Roboflow ghi **CC BY 4.0**, nhưng ảnh `pcbNrecM` khớp nguồn PCB DSLR
+> mà TU Wien giới hạn **nghiên cứu phi thương mại**. Metadata downstream không
+> tự xoá điều kiện của ảnh upstream. Tạm coi bộ này là research-only, giữ
+> attribution và chỉ dùng thương mại sau khi làm rõ provenance/quyền ảnh.
 
 ### `pcb_packages_winnies/` — 73 cảnh, phân lớp theo KIỂU VỎ
 
@@ -70,7 +79,7 @@ không phải một dây chuyền.
 
 | | |
 |---|---|
-| Ảnh | 173 file, **73 cảnh gốc**, đồng nhất **1536×2048** |
+| Ảnh | 173 file từ **73 ảnh nguồn**, đồng nhất **1536×2048**; phần train tạo tối đa 3 biến thể/ảnh bằng flip và xoay 90° |
 | Box | 16.632 · **20,9% ≥48 px** |
 | Lớp | `SOT23, SOT96, SOT753, SOT223, SOT143, SOT457, SOD123, SOD128, SOD323, SOIC-12/14/16, TSSOP-14/16, MOSFET, Polyfuse_*, Resistor rond, …` |
 
@@ -79,7 +88,47 @@ mới là thứ quyết định hình học chân hàn. `SOD123`/`SOD323` là đ
 D201/D202 đang lỗi, `Resistor rond` là **MELF hình trụ** — đúng bài toán "tụ/diode
 tròn" mà luật hình học 5.5 phải xử lý. Ảnh đủ nét để thấy fillet ở cả hai đầu.
 
-> ⚠️ Chỉ **73 ảnh gốc**. Đủ để bổ sung dạng vỏ, không đủ làm nền chính.
+> ⚠️ Chỉ **73 ảnh nguồn** và provenance upstream của project community chưa
+> mạnh dù trang Roboflow ghi CC BY 4.0. Khử các biến thể `.rf.*` theo ảnh nguồn,
+> dùng để bootstrap/bổ sung package; không dùng làm validation/test mục tiêu.
+
+#### Ghép an toàn cho detector một lớp `component`
+
+Không giải nén rồi nối thẳng hai export. Dùng packer chuyên biệt để giữ nguyên
+checkpoint đã duyệt, lọc taxonomy, khử biến thể và khóa split theo board vật lý:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\pack_component_detection_dataset.py `
+  datasets\labelling\component_bodies_round2_20260830 `
+  --boxes "$HOME\Downloads\joint_boxes (3).json" `
+  --pcb-dslr-reference-root datasets\reference_sets\pcb_dslr_30_diverse `
+  --require-ic-audit-pass `
+  --audit-only
+```
+
+⚠️ **`--boxes` phải là file MỚI NHẤT app xuất ra, không phải file đầu tiên.**
+Trình duyệt đặt tên mọi lần xuất là `joint_boxes (N).json` với N tăng dần, nên
+`joint_boxes.json` là lần xuất *đầu tiên* và thường chỉ còn vài record. Trỏ nhầm
+vào nó thì audit vẫn chạy đúng định dạng nhưng đọc một checkpoint cũ — không có
+gì báo lỗi. Vì vậy packer in `checkpoint: <tên file> · xuất lúc <ngày> · sha256`
+ngay dòng thứ ba; đối chiếu ngày đó với phiên gán nhãn gần nhất của bạn trước
+khi tin vào các con số phía dưới. Cũng không đưa `draft_boxes.json` vào
+`--boxes`: đó là bản nháp để seed app, mọi record còn trống, và packer từ chối
+kèm lý do.
+
+`--audit-only` không ghi file. Khi đủ board mục tiêu đã xác nhận, bỏ cờ đó và
+thêm `--output datasets\train\component_detect_v2`. Public data chỉ vào train;
+valid/test chỉ gồm tile local `verified`. Annotation IC chính thức chỉ dùng để
+kiểm tra box bị bỏ sót, không được tự nhập làm ground truth.
+
+Khi một bucket còn trống, packer **nêu tên board cần duyệt** thay vì chỉ báo
+thiếu — bucket là hàm băm của board id nên không ai đoán được bằng mắt. Đo trên
+checkpoint 30/08 của bộ vòng 1:
+
+```
+CHƯA ĐỦ để khóa benchmark: 8/10 board đích, thiếu bucket valid
+  duyệt 1 tile của board sau để lấp bucket valid: pcb_dslr:017 (6 tile), pcb_dslr:030 (2 tile)
+```
 
 ### `roboflow_solder_extra/` — 837 ảnh, 2.511 box
 
@@ -145,8 +194,8 @@ tụ tròn thành elip, pad vuông thành chữ nhật. Với bài toán hình h
 |---|---:|---:|---|
 | **roboflow-100/printed-circuit-board v4** | 672 / **199** | 12,1% | ✅ **lấy** |
 | **winnies-workspace/pcb-components-wc8ms v3** | 173 / **73** | 20,9% | ✅ lấy |
-| clara-y7ocp/pcb-component-detection-odem1 v2 | 855 / 855 | 17,8% | ✗ **trộn lại**: 174 tile trùng y hệt Consolidated + ảnh của FPIC |
-| pcb-test-neely/pcb-component-detection v8 | 328 / **40** | 24,7% | ✗ tập con FPIC, chỉ 40 cảnh, đã hạ xuống 1280 |
+| clara-y7ocp/pcb-component-detection-odem1 v2 | 855 / 855 | 17,8% | ✗ **trộn lại**: 174 tile trùng y hệt Consolidated + ảnh từ các kho PCB công khai khác |
+| pcb-test-neely/pcb-component-detection v8 | 328 / **40** | 24,7% | ✗ tập con/phái sinh cùng kho ảnh PCB community, chỉ 40 cảnh, đã hạ xuống 1280 |
 | obudai-egyetem-nik/pcb-components v6 | 2275 / 43 | 4,8% | ✗ ảnh **400×270**, 43 cảnh |
 | rf100-vl-fsod/smd-components v7 | 380 / 380 | **60,6%** | ✗ xem bên dưới |
 | marco-filippozzi/smd-component-detection v9 | 5003 native | — | ⏳ **không tải được**: Roboflow không sinh nổi export (trả rỗng sau 60 phút) |
@@ -165,14 +214,18 @@ cho việc **cắt ảnh linh kiện** thì: 917 ảnh, 29.669 box, và
 **trùng từng pixel** với `tests/data/solder_geometry/board_smd_00001.png`
 (`np.array_equal → True`) — tức Consolidated chính là nguồn ảnh test của dự án,
 đúng tỉ lệ làm việc. Nhưng chỉ **17,1% box** qua ngưỡng 48 px, và
-`clara`/`neely` cho thấy nó bị trộn lẫn khắp Universe. `fpic_boards_rf100` phủ
-cùng nguồn ở độ phân giải gốc chưa cắt tile, nên lấy bộ đó thay.
+`clara`/`neely` cho thấy nó bị trộn lẫn khắp Universe. Archive RF100 ở thư mục
+legacy `fpic_boards_rf100` phủ lại một phần nguồn PCB DSLR ở độ phân giải cao;
+đó là lý do dùng nó để bootstrap, **không** phải vì nó là FPIC.
 
-### FPIC-Component (bản Dataset Ninja) — giấy phép chặn
+### FPIC-Component (bản Dataset Ninja) — nguồn độc lập, giấy phép chưa thống nhất
 
 19.158 crop linh kiện 768×768, nhưng bản đóng gói của Dataset Ninja ghi
-**CC BY-NC-ND 4.0**. ND cấm phân phối bản phái sinh. Bài báo gốc ghi CC BY 4.0;
-khi hai nguồn mâu thuẫn thì lấy bản Roboflow (CC BY 4.0, khớp bài báo) và tự cắt.
+**CC BY-NC-ND 4.0**. ND cấm phân phối bản phái sinh, còn landing page FPIC
+không nêu giấy phép đủ rõ và yêu cầu access code. Khi các nguồn mâu thuẫn thì
+không suy diễn quyền sử dụng: xin xác nhận từ chủ dữ liệu trước khi dùng hoặc
+phân phối. RF100 ở trên là dataset khác và không thể thay thế FPIC về provenance
+hay giấy phép.
 
 
 ### PHME Data Challenge 2022 — không có ảnh nào
