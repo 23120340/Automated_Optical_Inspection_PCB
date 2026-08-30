@@ -27,12 +27,19 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+from typing import Any
 
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 TEMPLATE_PATH = Path(__file__).with_name("_joint_box_app_template.html")
+
+
+def template_digest() -> str:
+    """SHA-256 của template dựng trang, để trang tự khai nó sinh ra từ bản nào."""
+
+    return hashlib.sha256(TEMPLATE_PATH.read_bytes()).hexdigest()
 
 #: Một lớp, và tên nó nói đúng thứ được khoanh: **mọi** mối hàn, kể cả mối hàn
 #: lành. Đó là bài toán *định vị*, không phải bài toán chấm lỗi.
@@ -89,6 +96,92 @@ def load_rows(manifest: Path, crops: Path) -> list[dict[str, object]]:
     return rows
 
 
+def dataset_id_for(
+    root: Path,
+    rows: list[dict[str, object]],
+    class_names: list[str],
+) -> str:
+    """Return the identity used by the browser export/localStorage contract.
+
+    Keep this calculation compatible with already exported checkpoints.  A new
+    continuation folder gets a new ``root.name`` and therefore a fresh storage
+    key, while old reviewed JSON remains verifiable by the packer.
+    """
+
+    if not rows:
+        raise ValueError("cannot identify an empty crop set")
+    return hashlib.sha256(
+        f"{root.name}|{len(rows)}|{rows[0]['crop_path']}|"
+        f"{','.join(class_names)}".encode()
+    ).hexdigest()[:16]
+
+
+def load_seed(
+    path: Path,
+    *,
+    dataset_name: str,
+    dataset_id: str,
+    crop_names: set[str],
+    class_names: list[str],
+) -> dict[str, dict[str, object]]:
+    """Validate a continuation draft before embedding it in the offline app."""
+
+    try:
+        payload: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read seed JSON {path}: {exc}") from exc
+    expected = {
+        "schema": "aoi-joint-boxes/1.0",
+        "dataset": dataset_name,
+        "dataset_id": dataset_id,
+        "coordinate_space": "crop_pixels_top_left_origin",
+        "classes": class_names,
+    }
+    for field, value in expected.items():
+        if payload.get(field) != value:
+            raise SystemExit(
+                f"{path}: {field} mismatch; expected {value!r}, got {payload.get(field)!r}"
+            )
+    records = payload.get("crops")
+    if not isinstance(records, dict):
+        raise SystemExit(f"{path}: crops must be an object")
+    unknown = sorted(set(records) - crop_names)
+    if unknown:
+        raise SystemExit(f"{path}: seed has unknown crop paths: {unknown[:3]}")
+
+    by_class = {name: index for index, name in enumerate(class_names)}
+    allowed_statuses = {"", "verified", "skipped", "unusable"}
+    state: dict[str, dict[str, object]] = {}
+    for crop_name, record in records.items():
+        if not isinstance(record, dict):
+            raise SystemExit(f"{path}: {crop_name} record must be an object")
+        status = record.get("status", "")
+        if status not in allowed_statuses:
+            raise SystemExit(f"{path}: {crop_name} has invalid status {status!r}")
+        boxes = record.get("boxes", [])
+        if not isinstance(boxes, list):
+            raise SystemExit(f"{path}: {crop_name} boxes must be a list")
+        converted: list[dict[str, object]] = []
+        for box in boxes:
+            if not isinstance(box, dict) or box.get("cls") not in by_class:
+                raise SystemExit(f"{path}: {crop_name} has invalid box class")
+            geometry: dict[str, float] = {}
+            for field in ("x", "y", "w", "h"):
+                value = box.get(field)
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise SystemExit(
+                        f"{path}: {crop_name} box has non-numeric {field}={value!r}"
+                    )
+                geometry[field] = float(value)
+            converted.append({"cls": by_class[str(box["cls"])], **geometry})
+        state[crop_name] = {
+            "status": status,
+            "notes": str(record.get("notes", "")),
+            "boxes": converted,
+        }
+    return state
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("crop_dir", type=Path,
@@ -97,6 +190,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="override the class list; every name must appear in "
                              "aoi_pipeline.solder.leads.LEAD_CLASSES or fusion drops it")
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--seed-json", type=Path, default=None,
+                        help="validated draft/checkpoint used only when this dataset has "
+                             "no localStorage yet")
     args = parser.parse_args(argv)
 
     root = args.crop_dir.resolve()
@@ -114,23 +210,92 @@ def main(argv: list[str] | None = None) -> int:
         classes = DEFAULT_CLASSES
 
     rows = load_rows(manifest, crops)
+    dataset_id = dataset_id_for(root, rows, [str(c["name"]) for c in classes])
+    initial_state: dict[str, dict[str, object]] = {}
+    if args.seed_json is not None:
+        initial_state = load_seed(
+            args.seed_json.resolve(),
+            dataset_name=root.name,
+            dataset_id=dataset_id,
+            crop_names={str(row["crop_path"]) for row in rows},
+            class_names=[str(c["name"]) for c in classes],
+        )
     payload = {
         # Keyed on content: relabelling a regenerated crop set must not silently
         # inherit saved progress that was drawn on different pixels.
-        "dataset_id": hashlib.sha256(
-            f"{root.name}|{len(rows)}|{rows[0]['crop_path']}|"
-            f"{','.join(c['name'] for c in classes)}".encode()
-        ).hexdigest()[:16],
+        "dataset_id": dataset_id,
         "dataset_name": root.name,
         "crops_dir": "crops",
         "classes": classes,
         "rows": rows,
+        "initial_state": initial_state,
+        # Vân tay của template đã dựng ra trang này. Trang nằm trong .gitignore
+        # (nó nhúng cả ảnh), nên sửa template xong mà quên dựng lại thì người
+        # duyệt vẫn mở trang cũ và KHÔNG có gì báo. Đã xảy ra thật: bản vá chống
+        # ghi đè khi nạp file có trong template nhưng vắng ở trang trên đĩa.
+        "template_sha256": template_digest(),
     }
+    component_body_task = [str(c["name"]) for c in classes] == ["component"]
+    if component_body_task:
+        wording = {
+            "__PAGE_TITLE__": "Khoanh THÂN linh kiện",
+            "__CLEAN_FILTER__": "không có thân",
+            "__CLEAN_BUTTON__": "Không có thân",
+            "__DECISION_NOTE__": (
+                "<b>Enter</b> xác nhận mọi box thân linh kiện trên tile. <b>C</b> chỉ dùng "
+                "khi tile thật sự không có thân nào; ảnh chưa duyệt bị loại hoàn toàn. "
+                "Không chắc thì bấm <b>Bỏ qua</b>."
+            ),
+            "__HELP_INTRO__": (
+                "Mỗi ảnh là một tile của bo mạch. Khoanh <b>MỌI THÂN linh kiện</b> "
+                "nhìn thấy; box nháp của detector chỉ là gợi ý và phải được sửa trước "
+                "khi nhấn Enter."
+            ),
+            "__SHORTCUT_C__": (
+                "xác nhận tile <b>không có thân linh kiện</b> rồi sang ảnh sau"
+            ),
+            "__BOX_GUIDANCE__": (
+                "Khoanh sát <b>thân/gói/vỏ linh kiện</b> (gói đen, thân gốm, vỏ can). "
+                "<b>Không bao chân, pad hay vùng thiếc.</b> Mỗi thân = một box, kể cả "
+                "linh kiện tốt; đây là bài toán định vị chứ không phải phân loại lỗi."
+            ),
+            "__CLASS_GUIDANCE__": (
+                "Chỉ có một lớp <b>component</b> vì detector lượt 1 cần định vị mọi "
+                "thân linh kiện. Kiểu gói và tình trạng lỗi được xử lý ở bước sau."
+            ),
+        }
+    else:
+        wording = {
+            "__PAGE_TITLE__": "Khoanh mối hàn lỗi 6.2",
+            "__CLEAN_FILTER__": "sạch",
+            "__CLEAN_BUTTON__": "Sạch",
+            "__DECISION_NOTE__": (
+                "<b>Sạch</b> khác <b>chưa duyệt</b>. Ảnh đánh <b>Sạch</b> đi vào tập "
+                "train làm ảnh nền — đó chính là thứ giảm báo nhầm. Ảnh chưa duyệt bị "
+                "loại hoàn toàn. Không chắc thì bấm <b>Bỏ qua</b>, đừng bấm Sạch."
+            ),
+            "__HELP_INTRO__": (
+                "Mỗi ảnh là một linh kiện đã cắt từ ảnh board. Việc của bạn là "
+                "<b>khoanh những mối hàn LỖI</b>. Mối hàn tốt thì không khoanh gì cả."
+            ),
+            "__SHORTCUT_C__": "đánh dấu <b>sạch</b> (không lỗi) rồi sang ảnh sau",
+            "__BOX_GUIDANCE__": (
+                "Chỉ khoanh <b>vùng mối hàn</b>, không khoanh cả linh kiện. Box nên "
+                "ôm phần thiếc và chân tiếp xúc, không lấn sang thân. Một chân lỗi = một box."
+            ),
+            "__CLASS_GUIDANCE__": (
+                "Các lớp ở đây trùng đúng với tập đang dùng để train. Thêm một lớp mới "
+                "mà chỉ ảnh của bạn có nhãn sẽ dạy model phân biệt <i>nguồn ảnh</i> chứ "
+                "không phải phân biệt <i>lỗi</i>."
+            ),
+        }
     html = (
         TEMPLATE_PATH.read_text(encoding="utf-8")
         .replace("__DATA__", json.dumps(payload, ensure_ascii=False))
         .replace("__DATASET__", root.name)
     )
+    for marker, text in wording.items():
+        html = html.replace(marker, text)
     out = args.output.resolve() if args.output else root / "label_boxes.html"
     out.write_text(html, encoding="utf-8")
 
@@ -141,6 +306,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {out}")
     print(f"  {len(rows)} crop, {len(scenes)} cảnh gốc, "
           f"lớp: {', '.join(c['name'] for c in classes)}")
+    if initial_state:
+        seeded = sum(bool(record["status"]) for record in initial_state.values())
+        print(f"  seed: {len(initial_state)} crop ({seeded} đã duyệt)")
     for name, count in sorted(by_class.items(), key=lambda kv: -kv[1])[:10]:
         print(f"    {name:<24}{count:>6}")
     return 0

@@ -127,7 +127,18 @@ if (total < 4) fail(`fixture needs at least four crops, got ${total}`);
 
 // 2. An AI draft is deliberately unreviewed even though it already has boxes.
 // Loading it must keep the blank status, and the todo filter must include it.
-const draftPaths = vm.runInContext('[rows[0].crop_path, rows[1].crop_path]', sandbox);
+// Chọn hai ảnh CHƯA duyệt thay vì rows[0]/rows[1]: trang thật đã được seed nên
+// hai hàng đầu thường đã 'verified', và khi đó chốt chống ghi đè (đúng đắn) sẽ
+// từ chối bản nháp — test đỏ vì trang ĐÚNG. Chạy được trên trang thật mới là
+// thứ đã phát hiện ra trang cũ nằm trên đĩa.
+const draftPaths = vm.runInContext(
+  'rows.filter(r => !(state[r.crop_path] && state[r.crop_path].status))' +
+  '.slice(0, 2).map(r => r.crop_path)', sandbox,
+);
+if (draftPaths.length < 2) fail('trang không còn 2 ảnh chưa duyệt để thử nạp bản nháp');
+const at = i => vm.runInContext(
+  `JSON.parse(JSON.stringify(state[${JSON.stringify(draftPaths[i])}]))`, sandbox,
+);
 const datasetId = vm.runInContext('DATA.dataset_id', sandbox);
 // Tên lớp đọc TỪ TRANG, không viết cứng: cùng một tool phục vụ cả bộ mối hàn
 // (solder_joint) lẫn bộ thân linh kiện (component), và một test chỉ chạy được
@@ -136,6 +147,9 @@ const firstClass = vm.runInContext('CLASSES[0].name', sandbox);
 const draft = {
   schema: 'aoi-joint-boxes/1.0',
   dataset_id: datasetId,
+  dataset: vm.runInContext('DATA.dataset_name', sandbox),
+  coordinate_space: 'crop_pixels_top_left_origin',
+  classes: [firstClass],
   crops: {
     [draftPaths[0]]: {
       status: '', notes: 'AI proposal',
@@ -151,9 +165,7 @@ const fileInput = elements.get('file');
 fileInput.files = [{ contents: JSON.stringify(draft) }];
 fileInput.onchange({ target: fileInput });
 
-const loadedDraft = vm.runInContext(
-  `JSON.parse(JSON.stringify(state[rows[0].crop_path]))`, sandbox,
-);
+const loadedDraft = at(0);
 if (loadedDraft.status !== '') fail('AI draft was marked reviewed while loading');
 if (loadedDraft.boxes.length !== 1 || loadedDraft.boxes[0].cls !== 0) {
   fail('AI draft box/class was not loaded intact: ' + JSON.stringify(loadedDraft));
@@ -166,17 +178,18 @@ if (!todoPaths.includes(draftPaths[0]) || !todoPaths.includes(draftPaths[1])) {
 
 // Enter approves an AI proposal without changing its boxes. C approves the next
 // crop as clean and therefore removes the proposed box.
-press('Enter');
-const enterResult = vm.runInContext(
-  `JSON.parse(JSON.stringify(state[rows[0].crop_path]))`, sandbox,
+const goTo = path => vm.runInContext(
+  `idx = shown.findIndex(r => r.crop_path === ${JSON.stringify(path)}); show();`, sandbox,
 );
+goTo(draftPaths[0]);
+press('Enter');
+const enterResult = at(0);
 if (enterResult.status !== 'verified' || enterResult.boxes.length !== 1) {
   fail('Enter did not approve and preserve the AI box');
 }
+goTo(draftPaths[1]);
 press('c');
-const cleanResult = vm.runInContext(
-  `JSON.parse(JSON.stringify(state[rows[1].crop_path]))`, sandbox,
-);
+const cleanResult = at(1);
 if (cleanResult.status !== 'verified' || cleanResult.boxes.length !== 0) {
   fail('C did not approve the crop as clean');
 }
@@ -186,10 +199,12 @@ if (remainingTodo.includes(draftPaths[0]) || remainingTodo.includes(draftPaths[1
 }
 
 // 3. Export carries only reviewed records and writes crop-pixel coordinates.
-vm.runInContext(`
-  st(rows[2].crop_path).status = 'skipped';
-  $('#rev').value = 'qnn';
-`, sandbox);
+const skipPath = vm.runInContext(
+  'rows.filter(r => !(state[r.crop_path] && state[r.crop_path].status))[0].crop_path', sandbox,
+);
+vm.runInContext(
+  `st(${JSON.stringify(skipPath)}).status = 'skipped'; $('#rev').value = 'qnn';`, sandbox,
+);
 vm.runInContext(`$('#save').onclick()`, sandbox);
 if (!downloaded) fail('export produced nothing');
 const payload = JSON.parse(downloaded);
@@ -198,7 +213,7 @@ if (payload.schema !== 'aoi-joint-boxes/1.0') fail('wrong schema tag: ' + payloa
 if (payload.reviewer_id !== 'qnn') fail('reviewer not carried into the export');
 if (payload.coordinate_space !== 'crop_pixels_top_left_origin') fail('coordinate space undeclared');
 
-const first = vm.runInContext('rows[0].crop_path', sandbox);
+const first = draftPaths[0];
 const rec = payload.crops[first];
 if (!rec || rec.status !== 'verified') fail('verified crop missing from export');
 if (rec.boxes.length !== 1) fail('box not exported');
@@ -206,12 +221,59 @@ if (rec.boxes[0].cls !== firstClass) fail('class index exported instead of name:
 const b = rec.boxes[0];
 if (b.x !== 10 || b.y !== 21 || b.w !== 30 || b.h !== 16) fail('coordinates not rounded as expected: ' + JSON.stringify(b));
 
-const second = vm.runInContext('rows[1].crop_path', sandbox);
+const second = draftPaths[1];
 if (payload.crops[second].boxes.length !== 0) fail('clean crop should export zero boxes');
 if (payload.crops[second].status !== 'verified') fail('clean crop must be verified, not blank');
 
 // 4. an untouched crop must never appear: silence is not a label
 const untouched = vm.runInContext('rows[rows.length-1].crop_path', sandbox);
 if (untouched in payload.crops) fail('unreviewed crop leaked into the export');
+
+// 5. Nạp file phải THẤT BẠI SẠCH, không trộn một nửa. Loader tự bắt lỗi của
+// mình và chỉ hiện toast, nên hợp đồng quan sát được là "state không đổi".
+const snapshot = () => vm.runInContext('JSON.stringify(state)', sandbox);
+const loadAndExpectRefusal = (label, payloadObj) => {
+  const before = snapshot();
+  fileInput.files = [{ contents: JSON.stringify(payloadObj) }];
+  fileInput.onchange({ target: fileInput });
+  if (snapshot() !== before) fail(`${label}: state đã bị đổi dù file lẽ ra phải bị từ chối`);
+};
+
+// 5a. Bản xuất CŨ của chính dataset này: rows[0] đã duyệt tại chỗ với 1 box,
+// file mang một bản khác. Đây là cách mất việc đã duyệt trong im lặng.
+loadAndExpectRefusal('checkpoint cũ mâu thuẫn', {
+  ...draft,
+  crops: {
+    [draftPaths[0]]: {
+      status: 'verified', notes: 'ban cu',
+      boxes: [{ cls: firstClass, x: 1, y: 1, w: 5, h: 5 }],
+    },
+  },
+});
+
+// 5b. Checkpoint của một bộ crop khác.
+loadAndExpectRefusal('dataset_id không khớp', { ...draft, dataset_id: 'deadbeefdeadbeef' });
+
+// 5c. Đường dẫn crop không có trong manifest.
+loadAndExpectRefusal('crop lạ', {
+  ...draft,
+  crops: { 'khong_ton_tai.png': { status: 'verified', notes: '', boxes: [] } },
+});
+
+// 5d. Nạp lại ĐÚNG bản vừa xuất phải được chấp nhận, và không được đụng vào
+// bản đang có: từ chối mọi thứ thì an toàn nhưng vô dụng, còn ghi đè thì âm
+// thầm cắt phần thập phân của mọi box (file xuất đã làm tròn toạ độ).
+// So phần ĐÃ DUYỆT chứ không so cả state: `show()` có quyền tạo bản ghi rỗng
+// cho ảnh đang xem, và đó không phải thứ test này canh.
+const reviewed = () => vm.runInContext(
+  'JSON.stringify(Object.fromEntries(Object.entries(state).filter(([,v])=>v.status)))', sandbox,
+);
+const beforeReload = reviewed();
+fileInput.files = [{ contents: downloaded }];
+fileInput.onchange({ target: fileInput });
+if (reviewed() !== beforeReload) {
+  fail('nạp lại đúng bản vừa xuất mà bản đã duyệt lại đổi -- trước: '
+       + beforeReload + ' | sau: ' + reviewed());
+}
 
 console.log(`ok: ${total} rows, export carries ${Object.keys(payload.crops).length} reviewed crops`);
