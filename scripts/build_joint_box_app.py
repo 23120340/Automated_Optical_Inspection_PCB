@@ -37,9 +37,16 @@ TEMPLATE_PATH = Path(__file__).with_name("_joint_box_app_template.html")
 
 
 def template_digest() -> str:
-    """SHA-256 của template dựng trang, để trang tự khai nó sinh ra từ bản nào."""
+    """SHA-256 của template dựng trang, để trang tự khai nó sinh ra từ bản nào.
 
-    return hashlib.sha256(TEMPLATE_PATH.read_bytes()).hexdigest()
+    Băm nội dung đã **chuẩn hoá xuống dòng**, không băm byte thô. Git tự đổi
+    LF/CRLF theo `core.autocrlf` mỗi lần checkout, nên vân tay theo byte thô
+    đổi khi chỉ đổi nhánh — chốt sẽ báo "trang cũ" trong khi template y
+    nguyên. Đã dính đúng một lần: 631 ký tự CR xuất hiện sau `git checkout`.
+    """
+
+    normalised = TEMPLATE_PATH.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalised).hexdigest()
 
 #: Một lớp, và tên nó nói đúng thứ được khoanh: **mọi** mối hàn, kể cả mối hàn
 #: lành. Đó là bài toán *định vị*, không phải bài toán chấm lỗi.
