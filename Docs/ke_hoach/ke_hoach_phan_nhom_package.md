@@ -1,17 +1,21 @@
 # Kế hoạch phân nhóm package cho linh kiện
 
-> Soạn 2026-08-31, sửa lần 2 theo góp ý: **giả định không có CAD**, và **rút gọn
-> còn các loại package cơ bản phân biệt được bằng mắt thường**.
+> Soạn 2026-08-31, sửa lần 3: **giả định không có CAD**, **rút gọn còn các loại
+> package cơ bản phân biệt bằng mắt thường**, và **xét lại theo tình huống chỉ có
+> golden image hoặc BOM/pick-and-place** — tình huống đó làm §4 phải viết lại.
 > **Bản để bạn duyệt, chưa code gì cả.** Con số có chữ *đo được* đều chạy ra từ
 > dữ liệu trong repo; chỗ nào là suy đoán thì nói thẳng là suy đoán.
 
 ## 1. Kết luận nhanh
 
-- **Không có CAD thì việc này từ "nên làm" thành "phải làm".** Trong toàn bộ
-  pipeline, `pad_count` — số chân *kỳ vọng* của một linh kiện — chỉ được sinh ra
-  ở **đúng một dòng**: `cad_fusion.py:734`, từ file CAD. Không có CAD nghĩa là
-  con số đó **không tồn tại ở đâu cả**, và nhãn package là nguồn duy nhất còn
-  lại thay thế được. Chi tiết ở §4.
+- **Package là phương án CUỐI, không phải phương án duy nhất.** `pad_count` —
+  số chân *kỳ vọng* — hiện chỉ sinh ra ở **đúng một dòng**: `cad_fusion.py:734`.
+  Nhưng **BOM và pick-and-place cũng trả lời được**, và rẻ hơn nhiều: cả hai
+  reader trong repo **đã đọc cột `footprint`** rồi **vứt đi không dùng**. Một
+  bộ đọc tên footprint (`SOIC-16` → 16 chân, 2 cạnh) cho số chân **chính xác,
+  không cần model, không cần gán nhãn**. Bảng đầy đủ ở §4.
+- **Vì vậy thứ tự làm nên đổi:** bộ đọc footprint trước (rẻ, chính xác),
+  classifier package sau — cho board **không có hồ sơ gì cả**.
 - **Giá trị nằm ở hình học, không ở cái nhãn.** Package nói cho bước 5.5 biết
   linh kiện có mấy chân và chân ở cạnh nào. Hiện 5.5 phải **đoán điều đó từ
   pixel**, và mã nguồn đã ghi lại một ca đoán sai.
@@ -132,13 +136,44 @@ dáng** — vuông có chân bốn bên, hay vuông nhẵn không chân — và 
 Bỏ CAD đi thì vế trái biến mất. Cụ thể, **ba** thứ mất — và package chỉ bù được
 **một**, nhưng đúng cái quan trọng nhất:
 
-| CAD cho | Không có CAD | Package bù được? |
+| CAD cho | Không có CAD | Ai bù được? |
 |---|---|---|
-| **Số chân thật của linh kiện** | `pad_count` **không được sinh ra ở đâu cả** — grep toàn repo, nguồn duy nhất là `cad_fusion.py:734` | ✅ **Có.** Đây là lý do chính của kế hoạch |
-| Toạ độ land theo mm, chính xác từng pad | mất hẳn | ❌ Package chỉ nói "chân ở cạnh nào, khoảng bao nhiêu" |
-| Land **không có linh kiện** (test point, thermal pad, lỗ bắt vít) | mất hẳn | ❌ Package chỉ thấy linh kiện detector tìm ra |
+| **Số chân thật của linh kiện** | `pad_count` chỉ sinh ra ở `cad_fusion.py:734` | ✅ **IPC-356**, hoặc **footprint trong BOM/PnP**, hoặc **golden lúc enroll**, hoặc package classifier — xem §4.1 |
+| Toạ độ land theo mm, chính xác từng pad | mất hẳn | ✅ **IPC-356** cho đúng cái này; ❌ các nguồn còn lại không |
+| Land **không có linh kiện** (test point, thermal pad, lỗ bắt vít) | mất hẳn | ✅ **IPC-356**; ⚠️ golden thấy được nếu người enroll khoanh; ❌ package không |
 
-**Điều nghiêm trọng nhất, và repo đã có sẵn một test đặt tên đúng nó:**
+### 4.1. Xếp hạng nguồn cho SỐ CHÂN, khi không có CAD
+
+Đọc từ code, không phải suy đoán:
+
+| # | Nguồn | Cho được gì | Trạng thái trong repo |
+|---|---|---|---|
+| 1 | **IPC-D-356 netlist** | **Từng pad một**: toạ độ + số hiệu chân ⇒ `pad_count` chính xác, gần bằng CAD | ✅ **đã đọc được** — `load_ipc356()`. CM thường có sẵn vì đây là file test điện |
+| 2 | **BOM hoặc PnP có cột `footprint`** | Chuỗi `SOIC-16` / `0603` / `QFP-64` **mã hoá sẵn gói và số chân** | ⚠️ **đã đọc, chưa dùng** — `BomEntry.footprint`, `CadComponent.footprint`; grep cho thấy 3 chỗ, cả 3 chỉ để ghi ra `to_dict()` |
+| 3 | **Pick-and-place không có footprint** | Vị trí + **góc xoay** + mặt. Docstring `load_placement_csv` nói thẳng: *"no lands... the terminal topology then still comes from the derived geometry"* | ✅ đã dùng — góc xoay là `axis_known` |
+| 4 | **Tiền tố RefDes** (R/C/U/Q/D/J…) | Chỉ **họ**, đúng bằng mức `terminal_geometry()` hôm nay | ✅ đã có — `designator_to_class()` |
+| 5 | **Golden image** | Số chân **từng ô**, chốt lúc enroll, người xác nhận một lần cho mỗi SKU. Nói được cái **thực tế nằm trên board**, không phải cái bản vẽ định | ⚠️ hạ tầng có (bước 3.5), chưa có bước đếm chân |
+| 6 | **Package classifier** (kế hoạch này) | Hạng số chân (2 / 3–5 / nhiều-hai-bên / nhiều-bốn-bên / không đếm được) | ❌ chưa có |
+
+**Trả lời thẳng câu hỏi "có đủ tài nguyên để detect đủ số chân không":**
+
+- **Chỉ có golden image:** **có**, nhưng phải trả một lượt **người xác nhận khi
+  enroll**, cho mỗi SKU. Đổi lại nó chính xác cho đúng SKU đó và phản ánh board
+  thật. Đây là đường CAD-free tự nhiên nhất cho một dây chuyền ít SKU.
+- **Chỉ có BOM/PnP:** **tuỳ có cột `footprint` hay không.** Có → **chính xác,
+  miễn phí, không cần model**. Không có → chỉ được họ + góc xoay, tức **không**
+  đủ số chân.
+- **Xin được IPC-356:** **có, chính xác nhất**, và repo đã đọc được sẵn. Nếu
+  hỏi được CM thì hỏi cái này trước mọi thứ khác.
+- **Không có gì cả:** lúc đó mới cần classifier package ở §3.
+
+⇒ **Việc rẻ nhất nên làm trước kế hoạch này:** viết bộ đọc tên footprint và cho
+`terminal_geometry()` ưu tiên nó. Không model, không gán nhãn, dùng lại đúng
+chuỗi mà hai reader đang đọc rồi bỏ. Classifier package vẫn đáng làm, nhưng nó
+là lưới cuối chứ không phải lưới duy nhất.
+
+**Dù đi đường nào, cái bẫy dưới đây vẫn phải chặn — repo đã có sẵn một test
+đặt tên đúng nó:**
 
 ```
 tests/inspection/test_cad_fusion.py:457
@@ -152,7 +187,8 @@ duy nhất chặn được chuyện đó**. Không có CAD thì **không gì ch�
 sót một mối hàn không để lại dấu vết nào: không cảnh báo, không cột trống, chỉ
 là hai ROI ít hơn mức đáng có.
 
-Với 7 lớp ở §3, chuỗi kiểm tra đó sống lại mà không cần CAD:
+Chuỗi kiểm tra đó sống lại mà không cần CAD — bằng **bất kỳ** nguồn nào ở
+§4.1, không nhất thiết phải là classifier:
 
 - Lớp package nói **hạng số chân kỳ vọng** (2 / 3–5 / nhiều-hai-bên / nhiều-bốn-bên
   / không đếm được). Đây là con số thô hơn CAD, nhưng đủ để bắt đúng ca nguy
@@ -164,6 +200,8 @@ Với 7 lớp ở §3, chuỗi kiểm tra đó sống lại mà không cần CAD
 
 **Hai hệ quả cho phần còn lại của kế hoạch, do bỏ CAD:**
 
+0. **Làm bộ đọc footprint TRƯỚC.** Nó rẻ hơn, chính xác hơn và không cần dữ
+   liệu gán nhãn nào. Chỉ khi board không có hồ sơ thì classifier mới vào cuộc.
 1. **Không được dùng CAD làm ground truth khi nghiệm thu.** Cổng ở §8 phải đo
    trên **28 pad đếm tay** đã có sẵn ở `tests/data/solder_geometry`, không phải
    trên pad_count của một file CAD giả lập.
@@ -346,11 +384,16 @@ cách gán tay 100 box rồi so.
    X-quang, nằm ngoài phạm vi dự án.
 5. **Xác nhận là sẽ KHÔNG có CAD chứ?** Nếu sau này có, tôi không phải bỏ gì cả —
    hai nguồn sẽ kiểm chéo nhau. Nhưng nếu chắc chắn không có, thì **cờ `review`
-   khi lệch số chân kỳ vọng** (§4) trở thành bắt buộc chứ không còn là tuỳ chọn,
-   vì đó là lưới an toàn duy nhất còn lại.
+   khi lệch số chân kỳ vọng** (§4) trở thành bắt buộc chứ không còn là tuỳ chọn.
+6. **BOM/pick-and-place của bạn có cột `footprint` (hay `package`/`pattern`)
+   không?** Đây là câu hỏi rẻ nhất trong danh sách và đổi được cả thứ tự công
+   việc: **có** thì làm bộ đọc footprint trước và hạ classifier package xuống
+   ưu tiên thấp; **không** thì classifier lên đầu.
+7. **Có xin được file IPC-D-356 từ bên gia công không?** Repo đọc được sẵn, và
+   nó cho *từng pad một* — gần bằng có CAD. Đây là đường tắt lớn nhất còn lại.
 
 ---
 
-Xem thêm: `Docs/tien_do_detect_2_luot.md` (bảng công việc sống),
-`Docs/ke_hoach_pcb_defect_toan_mach.md` (kế hoạch lỗi toàn mạch),
+Xem thêm: `Docs/bao_cao/tien_do_detect_2_luot.md` (bảng công việc sống),
+`Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md` (kế hoạch lỗi toàn mạch),
 `datasets/public/README.md` (khảo sát nguồn ảnh công khai).
