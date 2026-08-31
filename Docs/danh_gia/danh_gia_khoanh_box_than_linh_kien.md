@@ -162,3 +162,115 @@ Ghi chú về `bám đúng 34,8%` ở nhóm lớn ≥60px: nhóm này gần như
 chân, tức là nhóm mà hàng chân ngay sát mép thân hút thước đo mạnh nhất. Kiểm
 bằng mắt ở §3 cho thấy chính nhóm này lại là nhóm khoanh chuẩn nhất. **Đừng
 dùng con số đó để kết luận nhóm IC bị khoanh hụt.**
+
+---
+
+## 7. Khoanh sát thân có ảnh hưởng classifier 6.1 không?
+
+**Có, đo được — nhưng nó KHÔNG phải lỗi của cách bạn khoanh.** Đây là lệch *hợp
+đồng*, và nó chỉ phát tác vào lúc detector lượt 1 được train lại trên nhãn tay.
+
+Chạy lại bằng `python scripts/audit_crop_contract.py datasets/labelling/component_bodies --boxes "~/Downloads/joint_boxes (N).json"`.
+
+### 7.1. Vì sao có lệch
+
+Classifier 6.1 được train trên crop cắt từ box của **Consolidated**
+(`model_manifest.json` → `dataset.slug`) — **đúng bộ đã train detector đang
+chạy**. Nên detector hiện tại chính là bản sao sống của quy ước box mà classifier
+mong đợi, và `CropConfig.padding_ratio = 0.15` là phần còn lại của hợp đồng đó.
+
+Đo trên 861 cặp ghép được giữa detection và box tay:
+
+> **Detector khoanh rộng hơn tay +22% mỗi cạnh** (trung vị; tỉ lệ diện tích 1,46).
+
+Nghĩa là box tay của bạn *chặt hơn đáng kể* so với thứ classifier từng thấy.
+
+### 7.2. Hậu quả, đo bằng chính classifier
+
+Cắt crop hai kiểu trên **cùng một linh kiện** rồi hỏi classifier:
+
+| | kết quả |
+|---|---|
+| Đổi nhãn khi cắt theo box tay | **192/861 = 22,3%** |
+| Trong đó vẫn vượt ngưỡng accept 0,817 | **92 ca** |
+| Cặp đổi nhiều nhất | `capacitor → led` **91 ca** (47% số ca đổi) |
+| Kế tiếp | `resistor → capacitor` 33 · `ic → resistor` 12 |
+
+Điều khó chịu nhất không phải con số 22,3%, mà là **92 ca đổi nhãn vẫn tự tin
+vượt ngưỡng** — chúng sẽ được chấp nhận im lặng với nhãn mới, không rơi vào hàng
+chờ xem tay. Ngưỡng review không bảo vệ được trước dạng lệch này.
+
+### 7.3. Do hẹp hơn, hay do detector khoanh lệch chỗ?
+
+Hai nguyên nhân này dễ lẫn, nên tách ra đo:
+
+| Chênh lệch độ ôm | n | đổi nhãn |
+|---|---:|---:|
+| gần bằng nhau (<10%) | 288 | **10,1%** |
+| rộng hơn 10–35% | 334 | 22,8% |
+| rộng hơn >35% | 239 | **36,4%** |
+
+Tăng đơn điệu theo mức chênh độ ôm ⇒ **đúng là do độ ôm**, không phải do lệch vị
+trí. Mức 10,1% ở nhóm gần trùng nhau là nền nhiễu của chính classifier.
+
+### 7.4. Nâng pad có cứu được không? — Không hẳn
+
+Công thức giữ nguyên vùng nhìn cho pad `0,15 → 0,29`. Đo thật:
+
+| | số ca đổi nhãn |
+|---|---:|
+| box tay + pad 0,15 | 192 |
+| box tay + pad **0,29** | **154** |
+
+Chỉ cứu được 38 ca (22,3% → 17,9%). **Không phải cách sửa.** Lý do: pad phục hồi
+*diện tích* nhìn thấy chứ không phục hồi *tỉ lệ thân/nền* trong khung — mà đó mới
+là thứ classifier đã học.
+
+### 7.5. Vậy classifier hiện tại đã ổn chưa? Có cần đổi model không?
+
+**Số của nó tốt, trên miền của chính nó:**
+
+| | |
+|---|---|
+| accuracy (test) | 0,958 |
+| macro F1 | 0,890 |
+| accepted precision / coverage | 0,980 / 0,949 |
+
+**Nhưng manifest của nó tự khai đúng cái điểm yếu vừa đo được:**
+
+> `"unknown_policy_limit": "Confidence reject only; OOD behavior is not validated by this dataset."`
+
+Thí nghiệm ở §7.2 chính là một phép thử OOD, và kết quả khớp lời cảnh báo đó: nó
+đổi ý và **vẫn tự tin**.
+
+**Khuyến nghị: KHÔNG đổi kiến trúc.**
+
+1. Đây không phải vấn đề backbone. Tỉ lệ đổi nhãn tăng theo *chênh lệch độ ôm*
+   (§7.3) — đổi sang ConvNeXt hay ViT cũng gặp đúng chuyện đó, vì nguyên nhân
+   nằm ở dữ liệu train chứ không ở sức mạnh model.
+2. Bản ConvNeXt-Base trong `models/library/` **không dùng thay được**: manifest
+   của nó có `metrics: {}` — **chưa có số đo test nào cả**. Con số 0,9369 từng
+   nhắc tới là macro recall trên model-val, không phải test, và ba cell cuối của
+   notebook (calibration/test/export) chưa từng chạy. Không có số thì không
+   nghiệm thu được, bất kể kiến trúc.
+
+**Việc cần làm, theo thứ tự:**
+
+1. **Bây giờ: không đụng gì.** Detector đang chạy vẫn sinh ra đúng loại crop mà
+   classifier được fit. Hôm nay **không có gì hỏng**.
+2. **Khi detector lượt 1 được train lại trên nhãn tay: train lại classifier trên
+   crop cắt cùng kiểu.** Đây là *train lại*, không phải *đổi model* — và rẻ, vì
+   crop sinh ra từ chính bộ nhãn đó, không cần gán nhãn thêm.
+3. **Đừng dựa vào chỉnh pad** như cách sửa: đo được chỉ 4 điểm phần trăm (§7.4).
+4. **Cổng nghiệm thu cho classifier mới:** chạy lại `audit_crop_contract.py`,
+   yêu cầu tỉ lệ đổi nhãn giữa crop-cũ và crop-mới **≤ 10%** — tức về bằng nền
+   nhiễu ở §7.3.
+5. Ghi `padding_ratio` thực dùng vào manifest của classifier mới, để lần sau
+   không ai phải đi đo ngược lại hợp đồng này.
+
+### 7.6. Một con số phụ đáng chú ý
+
+**734/1.595 box tay không có detection nào khớp** (IoU ≥ 0,4) — detector hiện tại
+bỏ sót **46%** số linh kiện bạn đã khoanh trên chính các tile này. Con số đó
+không liên quan tới cách khoanh của bạn, nhưng nó là lý do rõ ràng nhất cho việc
+train lại detector lượt 1, và là thước đo để so sau khi train.
