@@ -274,3 +274,59 @@ Thí nghiệm ở §7.2 chính là một phép thử OOD, và kết quả khớp
 bỏ sót **46%** số linh kiện bạn đã khoanh trên chính các tile này. Con số đó
 không liên quan tới cách khoanh của bạn, nhưng nó là lý do rõ ràng nhất cho việc
 train lại detector lượt 1, và là thước đo để so sau khi train.
+
+### 7.7. Nới BOX lúc chạy để khỏi phải train lại classifier — có được không?
+
+Ý tưởng: sau khi detector lượt 1 đã train xong trên nhãn tay và cho ra box chặt,
+**nới box đó ra lúc suy luận** cho khớp quy ước cũ, rồi mới cắt crop. Như vậy
+classifier giữ nguyên, không phải train lại.
+
+Đây là ý khác với §7.4. Nới **lề** cộng một biên *bằng nhau cho bốn phía*, tính
+theo cạnh dài (`pad = 0.15 × max(w,h)`). Nới **box** thì mỗi cạnh giãn theo chính
+độ dài của nó — với linh kiện dài (trung vị tỉ lệ cạnh 1,38) hai cách cho ra hai
+khung hình khác nhau. Nới box đúng về nguyên tắc hơn: nó dựng lại *cái box mà
+detector cũ sẽ cho*, chứ không chỉ nới rộng khung.
+
+Đo trên 861 cặp, so với A = box detector + pad 0,15 (thứ classifier được fit):
+
+| Cách cắt | đổi nhãn | % |
+|---|---:|---:|
+| B — không bù gì | 192 | 22,3% |
+| C — nới **lề** lên 0,29 | 154 | 17,9% |
+| D — nới **box** ×1,13/1,15 (một hệ số chung) | 155 | **18,0%** |
+| **F — nới box theo DẢI CỠ** (nhỏ ×1,25 · vừa ×1,13 · lớn ×1,05) | **124** | **14,4%** |
+| E — nới box bằng hệ số **ORACLE** của từng linh kiện | 48 | **5,6%** |
+
+**Đọc kết quả:**
+
+- **Ý tưởng đúng, nhưng một hệ số chung thì vô ích.** D (18,0%) không hơn gì C
+  (17,9%). Lý do đo được: hệ số nới **phụ thuộc cỡ linh kiện** — tương quan với
+  cạnh ngắn `r = −0,45`. Linh kiện nhỏ cần ×1,25 còn linh kiện lớn chỉ ×1,05, mà
+  D áp một con số cho tất cả nên nới hụt đúng ở nhóm đông nhất.
+- **Chia theo cỡ thì ăn tiền thật:** F kéo từ 22,3% xuống **14,4%** — cắt được
+  một phần ba thiệt hại, đổi lại khoảng mười dòng code và **không train lại gì**.
+- **Nhưng vẫn chưa đủ.** Nền nhiễu của chính classifier là **10,1%** (§7.3), nên
+  14,4% vẫn còn dư khoảng 4 điểm phần trăm so với mức không thể tránh.
+- **Trần là 5,6%, và không cài đặt được.** E dùng đúng tỉ lệ thật của *từng*
+  linh kiện — con số mà lúc chạy không ai biết, vì nó chính là box mà detector
+  cũ *sẽ* cho ra. Khoảng cách F → E là **nhiễu per-box của detector** (độ lệch
+  chuẩn 0,12–0,17 ngay trong từng dải cỡ), không quy tắc nào lấy lại được.
+
+**Kết luận thực dụng:**
+
+| Nếu bạn muốn | thì |
+|---|---|
+| Không train lại classifier, chấp nhận sai số | dùng **F** — nới box theo dải cỡ. 22,3% → 14,4% |
+| Về đúng mức nhiễu nền (10%) | **phải train lại classifier** trên crop cắt cùng kiểu |
+
+Nới box là **biện pháp giảm nhẹ tốt nhất trong các cách không train lại**, và
+đáng làm ngay cả khi đã định train lại — nó che khoảng thời gian giữa lúc
+detector mới lên và lúc classifier mới xong.
+
+> **Một điều phải nói rõ để không đọc sai bảng trên.** Phép đo này lấy A làm
+> chuẩn, tức coi *câu trả lời trên box của detector cũ* là đúng. Nó đo **độ lệch
+> phân bố**, không đo **độ sai**. Nếu detector mới khoanh chính xác hơn detector
+> cũ — mà nhiều khả năng là thế, vì nó học từ 1.595 box người duyệt — thì một
+> phần trong 124 ca "đổi nhãn" của F có thể là classifier đang *đúng hơn*, chứ
+> không phải sai đi. Muốn biết chắc thì phải có nhãn họ linh kiện thật cho các
+> crop này, mà hiện chưa có.

@@ -64,6 +64,15 @@ def _cut(image, box: tuple[float, ...], pad_ratio: float):
     return image[b:d, a:c].copy()
 
 
+def _grow(box: tuple[float, ...], fx: float, fy: float) -> tuple[float, ...]:
+    """Giãn quanh TÂM, mỗi trục theo hệ số riêng."""
+
+    x1, y1, x2, y2 = box
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+    w, h = (x2 - x1) * fx, (y2 - y1) * fy
+    return (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+
+
 def _classify(clf, patches: list[Any]) -> list[tuple[str, float, str]]:
     out: list[tuple[str, float, str]] = []
     for start in range(0, len(patches), 32):
@@ -106,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     accept = classifier.accept_threshold
 
     payload = json.loads(args.boxes.expanduser().read_text(encoding="utf-8"))
-    patches_a, patches_b, hands, ratios, unmatched = [], [], [], [], 0
+    pairs, unmatched = [], 0
     for name, record in sorted(payload.get("crops", {}).items()):
         if record.get("status") != "verified":
             continue
@@ -127,42 +136,94 @@ def main(argv: list[str] | None = None) -> int:
             if best is None or best_iou < MIN_MATCH_IOU:
                 unmatched += 1
                 continue
-            cut_a, cut_b = _cut(image, best, args.pad), _cut(image, hand, args.pad)
-            if cut_a is None or cut_b is None:
-                continue
-            patches_a.append(cut_a)
-            patches_b.append(cut_b)
-            hands.append((str(crop_root / "crops" / name), hand))
-            ratios.append(
-                ((best[2] - best[0]) / max(w, 1e-6) + (best[3] - best[1]) / max(h, 1e-6)) / 2
-            )
+            pairs.append((str(crop_root / "crops" / name), hand, best, w, h))
 
-    if not patches_a:
+    if not pairs:
         raise SystemExit("không ghép được cặp box nào")
 
-    result_a = _classify(classifier, patches_a)
-    result_b = _classify(classifier, patches_b)
-    total = len(result_a)
+    # Một phương án cắt = một lượt cắt + chấm + giải phóng. Giữ cả năm lượt patch
+    # cùng lúc làm tràn RAM trên máy 8 GB, mà năm lượt tuần tự thì không.
+    def band_of(short: float) -> int:
+        return 0 if short < 20 else (1 if short < 60 else 2)
+
+    fx = [(d[2] - d[0]) / max(w, 1e-6) for _p, _h, d, w, _hh in pairs]
+    fy = [(d[3] - d[1]) / max(h, 1e-6) for _p, _h, d, _w, h in pairs]
+    median_ratio = st.median([(a + b) / 2 for a, b in zip(fx, fy)])
+    bands: dict[int, tuple[float, float]] = {}
+    for index in (0, 1, 2):
+        subset = [i for i, item in enumerate(pairs) if band_of(min(item[3], item[4])) == index]
+        if subset:
+            bands[index] = (st.median([fx[i] for i in subset]),
+                            st.median([fy[i] for i in subset]))
+
+    wide = args.wide_pad
+    if wide is None:
+        wide = round((median_ratio * (1 + 2 * args.pad) - 1) / 2, 2)
+
+    def box_for(variant: str, hand, dbox, w, h):
+        if variant == "A":
+            return dbox, args.pad
+        if variant == "B":
+            return hand, args.pad
+        if variant == "C":
+            return hand, wide
+        if variant == "D":
+            return _grow(hand, st.median(fx), st.median(fy)), args.pad
+        if variant == "F":
+            return _grow(hand, *bands[band_of(min(w, h))]), args.pad
+        ratio_x = (dbox[2] - dbox[0]) / max(w, 1e-6)
+        ratio_y = (dbox[3] - dbox[1]) / max(h, 1e-6)
+        return _grow(hand, ratio_x, ratio_y), args.pad
+
+    VARIANTS = ("A", "B", "C", "D", "F", "E")
+    results: dict[str, list[tuple[str, float, str]]] = {}
+    for variant in VARIANTS:
+        out: list[tuple[str, float, str]] = []
+        for path_text, hand, dbox, w, h in pairs:
+            image = cv2.imread(path_text)
+            box, pad_ratio = box_for(variant, hand, dbox, w, h)
+            patch = _cut(image, box, pad_ratio)
+            if patch is None:
+                patch = _cut(image, hand, args.pad)
+            out.extend(_classify(classifier, [patch]))
+            del image, patch
+        results[variant] = out
+    total = len(results["A"])
+    result_a, result_b = results["A"], results["B"]
     changed = [i for i in range(total) if result_a[i][0] != result_b[i][0]]
-    median_ratio = st.median(ratios)
 
     print(f"ghép được {total} cặp; {unmatched} box tay không có detection nào khớp")
     print(f"detector khoanh rộng hơn tay {100 * (median_ratio - 1):+.0f}% mỗi cạnh "
-          f"(trung vị)\n")
+          f"(trung vị)")
+    print("hệ số nới theo dải cỡ: " + "  ".join(
+        f"{['nhỏ', 'vừa', 'lớn'][k]} x{v[0]:.2f}/{v[1]:.2f}" for k, v in bands.items()))
+    print()
 
-    print(f"ĐỔI NHÃN khi cắt theo box tay thay vì box detector (pad {args.pad:.2f})")
-    print(f"  {len(changed)}/{total} = {100 * len(changed) / total:.1f}%")
+    print("ĐỔI NHÃN so với A = box detector + pad (thứ classifier được fit)\n")
+    print(f"  {'cách cắt':52s} {'đổi nhãn':>9s} {'%':>7s}")
+    rows = (
+        ("B  box tay + pad (không bù gì)", "B"),
+        (f"C  box tay + pad {wide:.2f} (nới LỀ)", "C"),
+        ("D  box tay x hệ số CHUNG + pad (nới BOX)", "D"),
+        ("F  box tay x hệ số THEO CỠ + pad (nới BOX có điều kiện)", "F"),
+        ("E  box tay x hệ số ORACLE + pad (TRẦN, không cài được)", "E"),
+    )
+    for label, key in rows:
+        flipped = sum(1 for i in range(total) if result_a[i][0] != results[key][i][0])
+        print(f"  {label:52s} {flipped:9d} {100 * flipped / total:6.1f}%")
+
     still_accepted = sum(1 for i in changed if result_b[i][1] >= accept)
-    print(f"  trong đó {still_accepted} ca VẪN vượt ngưỡng accept {accept:.3f} "
-          "⇒ đổi nhãn mà không rơi vào hàng chờ xem tay\n")
+    print(f"\n  B: {still_accepted}/{len(changed)} ca đổi nhãn VẪN vượt ngưỡng accept "
+          f"{accept:.3f}\n  ⇒ đổi nhãn mà không rơi vào hàng chờ xem tay")
 
-    print("  cặp đổi nhiều nhất:")
+    print("\n  cặp đổi nhiều nhất ở B:")
     flips = collections.Counter((result_a[i][0], result_b[i][0]) for i in changed)
     for (src, dst), count in flips.most_common(5):
         print(f"    {count:4d}  {src} -> {dst}")
 
     print("\nNGUYÊN NHÂN: do box HẸP HƠN, hay do detector khoanh LỆCH CHỖ?")
     print("  (nếu do hẹp hơn, tỉ lệ đổi nhãn phải tăng theo mức chênh độ ôm)")
+    ratios = [(a + b) / 2 for a, b in zip(fx, fy)]
     for low, high, label in ((0.0, 1.10, "gần bằng nhau (<10%)"),
                              (1.10, 1.35, "rộng hơn 10-35%"),
                              (1.35, 99.0, "rộng hơn >35%")):
@@ -172,28 +233,10 @@ def main(argv: list[str] | None = None) -> int:
         flipped = sum(1 for i in index if result_a[i][0] != result_b[i][0])
         print(f"    {label:22s} n={len(index):4d}  đổi nhãn {100 * flipped / len(index):5.1f}%")
 
-    # Nâng pad để bù lại vùng nhìn: có cứu được không? Đo, đừng đoán.
-    wide = args.wide_pad
-    if wide is None:
-        wide = round((median_ratio * (1 + 2 * args.pad) - 1) / 2, 2)
-    patches_wide = []
-    cache: dict[str, Any] = {}
-    for path_text, hand in hands:
-        image = cache.get(path_text)
-        if image is None:
-            image = cv2.imread(path_text)
-            cache[path_text] = image
-        patch = _cut(image, hand, wide)
-        patches_wide.append(patch if patch is not None else patches_b[len(patches_wide)])
-    result_c = _classify(classifier, patches_wide)
-    changed_c = sum(1 for i in range(total) if result_a[i][0] != result_c[i][0])
-    print(f"\nNÂNG PAD CÓ CỨU ĐƯỢC KHÔNG? (pad {args.pad:.2f} -> {wide:.2f})")
-    print(f"  công thức giữ nguyên vùng nhìn: "
-          f"pad_mới = (tỉ_lệ_rộng x (1 + 2 x pad_cũ) - 1) / 2 = {wide:.2f}")
-    print(f"  đổi nhãn: {len(changed)} -> {changed_c} "
-          f"({100 * len(changed) / total:.1f}% -> {100 * changed_c / total:.1f}%)")
-    print("  Pad phục hồi DIỆN TÍCH nhìn thấy, không phục hồi TỈ LỆ thân/nền trong")
-    print("  khung — mà đó mới là thứ classifier đã học. Đừng coi đây là cách sửa.")
+    print("\nĐỌC KẾT QUẢ: E là trần lý thuyết — nó dùng đúng tỉ lệ thật của TỪNG")
+    print("linh kiện, con số mà lúc chạy không ai biết. Khoảng cách F -> E chính là")
+    print("phần nhiễu per-box của detector, không quy tắc nào lấy lại được.")
+    
     return 0
 
 
