@@ -60,3 +60,55 @@ Packer từ chối ghi khi chưa đủ **10 board vật lý đã duyệt** và k
 train/valid/test còn trống. Đo trên checkpoint 30/08: 8 board, bucket `valid`
 trống. Packer tự nêu tên board cần duyệt — chạy lệnh audit trong
 `datasets/public/README.md` để lấy danh sách hiện tại.
+
+## Cho thành viên mới vào gán nhãn cùng
+
+**Một lệnh duy nhất**, sau khi clone repo và cài `requirements.txt`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\setup_labelling_workspace.py `
+  datasets\labelling\component_bodies_round2_20260830
+```
+
+Nó chép 120 tile vào `crops/`, **đối chiếu từng file với `crops.sha256`**, rồi
+dựng cả hai trang gán nhãn. Nếu chưa có kho tile, nó dừng lại và in đúng ba lệnh
+cần chạy trước.
+
+### Vì sao ảnh không nằm trong git
+
+Không phải quên. 120 tile là **215 MB pixel** trong một repo **công khai**, và
+quan trọng hơn: chúng cắt ra từ **CVL PCB-DSLR**, bộ mà chủ dữ liệu giới hạn
+**nghiên cứu phi thương mại**. Điều kiện đó đi theo cả tile phái sinh, nên đăng
+lại chúng ở đây là phát hành lại dữ liệu của người khác sai điều khoản. Mỗi
+người tự tải nguồn theo đúng điều khoản của nguồn — xem
+`datasets/test_images/ATTRIBUTION.md`.
+
+Thứ **có** trong git là thứ làm cho việc dựng lại kiểm chứng được:
+
+| File | Là gì |
+|---|---|
+| `manifest.csv` | 120 tile nào được chọn |
+| `crops.sha256` | đúng pixel nào — nếu lệch, script dừng |
+| `draft_boxes.json` | 16 tile đã duyệt (1.595 box) + box nháp cho phần còn lại |
+| `draft_package_boxes.json` | bản nháp 7 lớp package |
+| `provenance.json` | checkpoint nào sinh ra bộ này, kèm sha256 |
+
+`crops.sha256` là chốt quan trọng nhất: 16 record đã duyệt mang **toạ độ** vẽ
+trên đúng những pixel đó. Dựng ra tile khác một chút thì box sẽ trỏ sai chỗ mà
+không có gì báo lỗi — nên script từ chối chạy tiếp khi hash lệch.
+
+### Quy tắc làm việc nhiều người
+
+- **Đừng bấm "Nạp file"** để nạp checkpoint của người khác. Trang đã seed sẵn;
+  nạp thêm file của người khác sẽ đụng vào phần bạn vừa duyệt, và app sẽ **huỷ
+  toàn bộ import** nếu phát hiện mâu thuẫn — an toàn, nhưng vô ích.
+- **Mỗi người xuất JSON của riêng mình** (nút *Xuất JSON*) khi dừng, đặt tên
+  kèm tên mình, rồi gộp sau.
+- **Chia việc theo BO, không theo tile.** Tile cắt chồng nhau 256 px nên cùng
+  một linh kiện xuất hiện ở nhiều tile; hai người làm hai tile chồng nhau là
+  vẽ lại cùng một linh kiện. `scene_id` trong `manifest.csv` là tên bo.
+- Đang cần gấp nhất: **bo `pcb_dslr:017` và `pcb_dslr:030`** — chỉ cần mỗi bo
+  một tile được duyệt là packer đủ điều kiện xuất bộ train.
+
+Quy ước khoanh và các lỗi thường gặp: xem
+[Docs/danh_gia/danh_gia_khoanh_box_than_linh_kien.md](../../../Docs/danh_gia/danh_gia_khoanh_box_than_linh_kien.md).
