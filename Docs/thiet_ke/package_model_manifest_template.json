@@ -1,0 +1,70 @@
+{
+  "schema_version": "pcb-package-classifier/1.0",
+  "task": "component_package_classification",
+  "model_format": "onnx",
+  "class_names": [
+    "hai_chan",
+    "tru_dung",
+    "goi_nho",
+    "ic_hai_ben",
+    "ic_bon_ben",
+    "ic_khong_chan",
+    "connector"
+  ],
+  "input": {
+    "name": "images",
+    "size": [128, 128],
+    "color_space": "RGB",
+    "resize_mode": "letterbox",
+    "letterbox_value": 114,
+    "normalization": {
+      "mean": [0.485, 0.456, 0.406],
+      "std": [0.229, 0.224, 0.225]
+    }
+  },
+  "output": {
+    "name": "logits"
+  },
+  "calibration": {
+    "temperature": 1.0
+  },
+  "decision_thresholds": {
+    "accept": 0.85,
+    "review": 0.55,
+    "accept_by_class": {}
+  },
+  "model": {
+    "filename": "best.onnx",
+    "version": "REPLACE_AFTER_TRAIN",
+    "architecture": "mobilenet_v3_small",
+    "sha256": ""
+  },
+  "evaluation": {
+    "split_unit": "board",
+    "test_macro_recall": 0.0,
+    "test_confusion_matrix": {
+      "class_names": [
+        "hai_chan",
+        "tru_dung",
+        "goi_nho",
+        "ic_hai_ben",
+        "ic_bon_ben",
+        "ic_khong_chan",
+        "connector"
+      ],
+      "matrix": [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0]
+      ]
+    }
+  },
+  "deployment": {
+    "default_enabled": false,
+    "promotion": "manual_after_package_roi_gate"
+  }
+}

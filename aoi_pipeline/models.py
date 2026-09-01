@@ -515,6 +515,11 @@ class PipelineRun:
     board_region: BoardRegion
     detections: list[Detection]
     crops: list[ComponentCrop]
+    # Kept as ``Any`` to preserve models.py as the dependency leaf: the
+    # manifest-driven package runtime imports the shared crop/probability
+    # models.  Every entry implements ``to_dict``.
+    package_classifications: list[Any] = field(default_factory=list)
+    package_topology_checks: list[Any] = field(default_factory=list)
     classifications: list[ComponentClassification] = field(default_factory=list)
     solder_crops: list[SolderJointCrop] = field(default_factory=list)
     # ``Any`` avoids importing fusion here: models is the leaf module every
@@ -544,6 +549,12 @@ class PipelineRun:
             "board": self.board_region.to_dict(),
             "detections": [detection.to_dict() for detection in self.detections],
             "crops": [crop.to_dict() for crop in self.crops],
+            "package_classifications": [
+                item.to_dict() for item in self.package_classifications
+            ],
+            "package_topology_checks": [
+                item.to_dict() for item in self.package_topology_checks
+            ],
             "solder_crops": [crop.to_dict() for crop in self.solder_crops],
             "solder_verdicts": [item.to_dict() for item in self.solder_verdicts],
             "cad_fusion": (
@@ -566,6 +577,16 @@ class PipelineRun:
                     else {}
                 ),
                 "classification_count": len(self.classifications),
+                "package_classification_count": len(self.package_classifications),
+                "package_classes": _count_attribute(
+                    self.package_classifications, "package_class"
+                ),
+                "package_decisions": _count_attribute(
+                    self.package_classifications, "decision"
+                ),
+                "package_topology_statuses": _count_attribute(
+                    self.package_topology_checks, "status"
+                ),
                 "labels": _count_labels(self.detections),
                 "families": _count_classifications(self.classifications),
                 "classification_decisions": _count_decisions(self.classifications),
@@ -626,4 +647,12 @@ def _count_decisions(
     counts: dict[str, int] = {}
     for item in classifications:
         counts[item.decision] = counts.get(item.decision, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _count_attribute(items: Sequence[Any], name: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = str(getattr(item, name, "unknown"))
+        counts[value] = counts.get(value, 0) + 1
     return dict(sorted(counts.items()))

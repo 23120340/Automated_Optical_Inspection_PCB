@@ -101,7 +101,19 @@ def derive_solder_joints(
     geometry = geometry or terminal_geometry(detection.label)
     frame = frame or _component_frame(box, config, image)
 
-    if geometry == "two_terminal":
+    two_terminal_geometries = {"two_terminal", "hai_chan"}
+    vertical_geometries = {"tru_dung", "vertical_two_terminal"}
+    two_sided_geometries = {
+        "goi_nho",
+        "ic_hai_ben",
+        "sparse_two_sided",
+        "dual_sided",
+    }
+    four_sided_geometries = {"ic_bon_ben", "four_sided"}
+    hidden_geometries = {"ic_khong_chan", "hidden_terminals"}
+    connector_geometries = {"connector", "connector_rows"}
+
+    if geometry in two_terminal_geometries:
         if axis_known:
             # Người gọi đã biết trục từ nguồn khác hộp -- hiện là góc xoay
             # trong file pick-and-place. Đừng đoán lại: phép đoán dựa vào kim
@@ -112,10 +124,29 @@ def derive_solder_joints(
             rects = _resolve_two_terminal_rects(
                 frame, config, image, image_width, image_height
             )
+    elif geometry in vertical_geometries:
+        # A top-view electrolytic can is itself a large metal object, so the
+        # pixel probe used for an ambiguous chip axis answers the wrong
+        # question.  Keep the caller/PnP frame and emit exactly one pair.
+        rects = _two_terminal_rects(frame, config, along_long_axis=True)
     elif geometry == "pad_only":
         rects = _pad_only_rects(frame, config)
+    elif geometry in hidden_geometries:
+        # QFN/BGA/LGA joints are not visible to a top-down 2D camera.  Emitting
+        # perimeter boxes would manufacture evidence on bare board.
+        rects = []
+    elif geometry in connector_geometries:
+        rects = _connector_row_rects(frame, config)
     else:
         rects = _multi_pin_rects(frame, config)
+        if geometry in two_sided_geometries:
+            # Local +x is the body long axis, hence top/bottom are the two long
+            # edges.  Package evidence is the structural answer; do not ask
+            # the noisy band-energy heuristic to remove either row again.
+            rects = [
+                rect for rect in rects
+                if rect.position in {"lead_top", "lead_bottom"}
+            ]
 
     if geometry == "multi_pin" and image is not None:
         # Mọi phép ĐỌC ẢNH chạy trên dải định vị; mọi thứ TRẢ RA dựng từ dải đo.
@@ -148,6 +179,22 @@ def derive_solder_joints(
                 rects, image, frame, image_width, image_height, config,
                 probes={probe.position: probe for probe in probes},
             )
+    elif (
+        image is not None
+        and config.split_pins
+        and geometry in (two_sided_geometries | four_sided_geometries | connector_geometries)
+    ):
+        # The package already fixed which rows are real.  Pixel evidence is
+        # still useful for splitting a row into individual pins, but failure to
+        # split retains the complete band instead of dropping it.
+        rects = _split_bands_into_pins(
+            rects,
+            image,
+            frame,
+            image_width,
+            image_height,
+            config,
+        )
 
     if config.include_body_view and rects:
         rects = [*rects, _body_rect(rects, frame)]
@@ -159,6 +206,19 @@ def derive_solder_joints(
             continue
         if bbox.width < config.min_roi_pixels or bbox.height < config.min_roi_pixels:
             continue
+        metadata = {
+            "source_bbox": box.to_dict(),
+            "local_size": {
+                "width": float(rect.width),
+                "height": float(rect.height),
+            },
+            "detector_confidence": float(detection.confidence),
+        }
+        package_profile = detection.metadata.get("package_profile")
+        if isinstance(package_profile, dict):
+            metadata["package_profile"] = dict(package_profile)
+        if geometry in vertical_geometries and _is_compact(frame, config) and not axis_known:
+            metadata["package_axis_assumed"] = True
         joints.append(
             SolderJoint(
                 detection_id=detection.detection_id,
@@ -170,14 +230,7 @@ def derive_solder_joints(
                 position=rect.position,
                 angle=float(frame.angle),
                 pin_index=rect.pin_index,
-                metadata={
-                    "source_bbox": box.to_dict(),
-                    "local_size": {
-                        "width": float(rect.width),
-                        "height": float(rect.height),
-                    },
-                    "detector_confidence": float(detection.confidence),
-                },
+                metadata=metadata,
             )
         )
     return joints
@@ -580,6 +633,27 @@ def _multi_pin_rects(
         _LocalRect(offset_x, 0.0, depth, frame.span + 2.0 * outer, "lead_right"),
         _LocalRect(0.0, -offset_y, frame.length + 2.0 * outer, depth, "lead_top"),
         _LocalRect(0.0, offset_y, frame.length + 2.0 * outer, depth, "lead_bottom"),
+    ]
+
+
+def _connector_row_rects(
+    frame: ComponentFrame, config: SolderJointConfig
+) -> list[_LocalRect]:
+    """Broad one/two-row hypotheses for connectors and through-hole parts.
+
+    Unlike gull-wing IC leads, through-hole pins commonly sit *inside* the
+    plastic body's bounding box.  Reusing perimeter strips would inspect bare
+    board just outside the connector.  Two overlapping inner rows preserve a
+    one-row connector as well: the pin splitter may resolve the actual bright
+    row, while an uncertain result remains reviewable rather than disappearing.
+    """
+
+    row_depth = max(float(config.min_roi_pixels), 0.38 * frame.span)
+    row_length = frame.length + 0.20 * frame.span
+    offset = 0.22 * frame.span
+    return [
+        _LocalRect(0.0, -offset, row_length, row_depth, "lead_top"),
+        _LocalRect(0.0, offset, row_length, row_depth, "lead_bottom"),
     ]
 
 
@@ -1409,8 +1483,26 @@ class SolderJointCropper:
         height, width = bgr.shape[:2]
         joints: list[SolderJoint] = []
         for detection in detections:
+            profile = detection.metadata.get("package_profile")
+            package_class = (
+                str(profile.get("package_class", ""))
+                if isinstance(profile, dict)
+                else ""
+            )
+            geometry_override = str(
+                detection.metadata.get("terminal_geometry_override", "")
+                or package_class
+            ).strip()
             joints.extend(
-                derive_solder_joints(detection, width, height, self.config, bgr)
+                derive_solder_joints(
+                    detection,
+                    width,
+                    height,
+                    self.config,
+                    bgr,
+                    geometry=geometry_override or None,
+                    axis_known=bool(detection.metadata.get("package_axis_known", False)),
+                )
             )
         # Before refining: two ROIs overlapping 97% would otherwise both snap
         # onto the same blob of metal and read as a confident agreement.

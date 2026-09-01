@@ -12,6 +12,7 @@ nạp.
    → 3. Khoanh vùng PCB
    → 4. Phát hiện linh kiện
    → 5. Crop và xuất dữ liệu linh kiện
+   → 5.2. Phân nhóm package (footprint trước; model opt-in nếu thiếu hồ sơ)
    → 5.5. Suy ra ROI chân/mối hàn (hình học + CAD + detection chân)
    → 6.1. Phân loại family (accept/review/unknown)
    → 6.2. Chấm lỗi mối hàn (luật đo + model + hợp nhất)
@@ -215,7 +216,10 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
 - [Khảo sát dataset linh kiện PCB](Docs/khao_sat/pcb_aoi_component_datasets.md).
 - [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach/ke_hoach_pretrain_6_1_classification.md).
-- [Kế hoạch phân nhóm package](Docs/ke_hoach/ke_hoach_phan_nhom_package.md) — **chờ duyệt**.
+- [Kế hoạch phân nhóm package](Docs/ke_hoach/ke_hoach_phan_nhom_package.md) —
+  **đã triển khai phần code; còn gán nhãn và train thủ công**. Trang làm việc là
+  `datasets/labelling/component_bodies_round2_20260830/label_packages.html`;
+  `unknown` không phải lớp train và chặn cả duyệt lẫn export.
   Bảy nhóm KIỂU VỎ phân biệt được bằng mắt, để bước 5.5 biết trước linh kiện có
   mấy chân và chân ở cạnh nào thay vì đoán từ pixel. Viết theo giả định **không
   có CAD**: khi đó `pad_count` không được sinh ra ở đâu nữa, và nhãn package là
@@ -729,7 +733,7 @@ aoi_pipeline/
   ├─ solder/            Bước 5.5 · chân hàn nằm ở đâu
   │    geometry · leads · lead_detection · cad · cad_fusion · defect_detection
   ├─ classification/    Bước 6.1 · phân loại trên crop linh kiện
-  │    family          (chỗ cho package.py của bước 5.2 khi kế hoạch được duyệt)
+  │    family + package (bước 6.1 và package topology bước 5.2)
   ├─ grading/           Bước 6.2 · đo vật lý → luật → model ONNX → hợp nhất
   │    features · rules · classifier · inspector · datasets
   │
@@ -741,8 +745,8 @@ aoi_pipeline/
        overlays · exporters · evidence
 
 tests/                  Unit test, gương theo cấu trúc trên
-training/kaggle/        Notebook train: detector (4), classifier (6.1),
-                        solder (6.2), lead detector (lượt 2)
+training/kaggle/        Notebook train: detector (4), package (5.2), classifier
+                        (6.1), solder (6.2), lead detector (lượt 2)
 models/                 Model local — chỉ commit .onnx + model_manifest.json
 Docs/                   Tài liệu, gom theo VIỆC — xem Docs/README.md
 scripts/                Setup/chạy app, chuẩn bị dữ liệu gán nhãn, kiểm artifact

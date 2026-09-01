@@ -80,7 +80,11 @@ datasets/public/*
 # manifest and provenance are small and are what makes that reproducible, so
 # they stay.
 datasets/labelling/*/crops/
-datasets/labelling/*/label_boxes.html
+# Mọi trang gán nhãn dựng ra, không riêng label_boxes.html: trang package
+# (`label_packages.html`, 720 KB) lọt qua khuôn cũ và suýt vào git. Trang nào
+# cũng nhúng ảnh và cũng dựng lại được từ draft + crops bằng
+# build_joint_box_app.py, nên khuôn phải bắt theo tiền tố chứ không theo tên.
+datasets/labelling/*/label_*.html
 
 # Packed training sets: pixels and the zip built from them. Both are rebuilt by
 # pack_joint_detection_dataset.py from the crop folders plus the exported

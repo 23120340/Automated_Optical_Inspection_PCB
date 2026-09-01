@@ -159,6 +159,10 @@ class SolderResult(StageResult):
     registration: dict[str, Any] | None = None
     cad_stats: dict[str, Any] = field(default_factory=dict)
     cad_warnings: list[str] = field(default_factory=list)
+    package_classifications: list[PackageClassificationRecord] = field(
+        default_factory=list
+    )
+    package_topology_checks: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -178,6 +182,31 @@ class ClassificationRecord:
 @dataclass
 class ClassificationResult:
     classifications: list[ClassificationRecord] = field(default_factory=list)
+    mode: str = "MODEL"
+    message: str = ""
+    metrics: dict[str, Any] = field(default_factory=dict)
+    raw: Any = None
+
+
+@dataclass
+class PackageClassificationRecord:
+    """One strict seven-class step-5.2 result exposed to the UI."""
+
+    crop_id: str
+    detection_id: str
+    package_class: str
+    probability: float
+    unknown_score: float
+    decision: str
+    top_k: list[dict[str, Any]]
+    model_version: str
+    source: str
+    raw: Any = None
+
+
+@dataclass
+class PackageClassificationResult:
+    classifications: list[PackageClassificationRecord] = field(default_factory=list)
     mode: str = "MODEL"
     message: str = ""
     metrics: dict[str, Any] = field(default_factory=dict)
@@ -240,6 +269,8 @@ class PipelineBridge:
         board_model_path: str | None = None,
         classifier_model_path: str | None = None,
         classifier_manifest_path: str | None = None,
+        package_model_path: str | None = None,
+        package_manifest_path: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.config = dict(config or {})
@@ -248,6 +279,8 @@ class PipelineBridge:
         self.board_model_path = board_model_path
         self.classifier_model_path = classifier_model_path
         self.classifier_manifest_path = classifier_manifest_path
+        self.package_model_path = package_model_path
+        self.package_manifest_path = package_manifest_path
         self.extra = kwargs
         self.engine: Any = None
         self.engine_error: str | None = None
@@ -355,6 +388,8 @@ class PipelineBridge:
             "model_path": self.model_path,
             "classifier_model_path": self.classifier_model_path,
             "classifier_manifest_path": self.classifier_manifest_path,
+            "package_model_path": self.package_model_path,
+            "package_manifest_path": self.package_manifest_path,
         }
         init_kwargs.update(self.extra)
         try:
@@ -770,6 +805,8 @@ class PipelineBridge:
         *,
         keep_images: bool = False,
         radiometric_image: np.ndarray | None = None,
+        component_crops: Sequence[CropRecord] | None = None,
+        package_classifications: Sequence[PackageClassificationRecord] | None = None,
         **kwargs: Any,
     ) -> SolderResult:
         """Derive step-5.5 solder ROIs through the core pipeline.
@@ -790,12 +827,29 @@ class PipelineBridge:
                 ),
             )
         raw_detections = [item.raw if item.raw is not None else item for item in detections]
+        raw_component_crops: list[Any] | None = None
+        if component_crops is not None:
+            raw_component_crops = [item.raw for item in component_crops]
+            if any(item is None for item in raw_component_crops):
+                raise RuntimeError(
+                    "Crop bước 5 không mang metadata lõi cho bước 5.2; "
+                    "hãy chạy lại bước 5."
+                )
+        raw_package_classifications: list[Any] | None = None
+        if package_classifications is not None:
+            raw_package_classifications = [item.raw for item in package_classifications]
+            if any(item is None for item in raw_package_classifications):
+                raise RuntimeError(
+                    "Kết quả package không mang metadata lõi; hãy chạy lại bước 5.2."
+                )
         try:
             raw_crops = _call_supported(
                 self.engine.make_solder_crops,
                 image,
                 raw_detections,
                 output_dir=output_dir,
+                component_crops=raw_component_crops,
+                package_classifications=raw_package_classifications,
             )
         except Exception as exc:
             raise RuntimeError(
@@ -876,6 +930,22 @@ class PipelineBridge:
             )
         if grading_error and joints:
             message += f" Bước 6.2 không chấm được: {grading_error}"
+        package_items = self._package_records(
+            list(getattr(self.engine, "last_package_classifications", None) or [])
+        )
+        topology_checks = [
+            item.to_dict() if hasattr(item, "to_dict") else dict(item)
+            for item in (
+                getattr(self.engine, "last_package_topology_checks", None) or []
+            )
+            if hasattr(item, "to_dict") or isinstance(item, Mapping)
+        ]
+        if package_items:
+            accepted = sum(item.decision == "accept" for item in package_items)
+            message += (
+                f" Bước 5.2: {accepted}/{len(package_items)} package được accept; "
+                "review/unknown không đổi hình học."
+            )
         return SolderResult(
             image=image,
             mode="CAD FUSION" if used_cad else "MODEL",
@@ -899,6 +969,8 @@ class PipelineBridge:
                 list(getattr(fusion, "warnings", None) or [])
                 + list(getattr(self.engine, "cad_warnings", None) or [])
             ),
+            package_classifications=package_items,
+            package_topology_checks=topology_checks,
         )
 
     def _grade_solder(
@@ -1038,6 +1110,91 @@ class PipelineBridge:
                 "elapsed_ms": _elapsed_ms(started),
                 "count": len(records),
                 "decisions": counts,
+            },
+            raw=raw,
+        )
+
+    @staticmethod
+    def _package_records(items: Sequence[Any]) -> list[PackageClassificationRecord]:
+        records: list[PackageClassificationRecord] = []
+        for item in items:
+            top_k_raw = _attr(item, ("top_k",), [])
+            top_k: list[dict[str, Any]] = []
+            for score in top_k_raw if isinstance(top_k_raw, Sequence) else []:
+                top_k.append(
+                    {
+                        "label": str(
+                            _attr(score, ("label", "package_class", "family"), "")
+                        ),
+                        "probability": float(
+                            _attr(score, ("probability", "score"), 0.0)
+                        ),
+                    }
+                )
+            records.append(
+                PackageClassificationRecord(
+                    crop_id=str(_attr(item, ("crop_id",), "")),
+                    detection_id=str(_attr(item, ("detection_id",), "")),
+                    package_class=str(
+                        _attr(item, ("package_class", "label", "family"), "")
+                    ),
+                    probability=float(_attr(item, ("probability",), 0.0)),
+                    unknown_score=float(_attr(item, ("unknown_score",), 0.0)),
+                    decision=str(_attr(item, ("decision",), "unknown")),
+                    top_k=top_k,
+                    model_version=str(_attr(item, ("model_version",), "unknown")),
+                    source=str(_attr(item, ("source",), "onnx_package_classifier")),
+                    raw=item,
+                )
+            )
+        return records
+
+    def classify_packages(
+        self,
+        crops: Sequence[CropRecord],
+        **kwargs: Any,
+    ) -> PackageClassificationResult:
+        """Run opt-in step 5.2; never substitute detector family labels."""
+
+        started = time.perf_counter()
+        if not self.package_model_path or not self.package_manifest_path:
+            raise RuntimeError(
+                "Bước 5.2 cần đủ best.onnx và model_manifest.json package."
+            )
+        if self.engine is None or not hasattr(self.engine, "classify_packages"):
+            detail = self.engine_error or "AOIPipeline không hỗ trợ bước 5.2"
+            raise RuntimeError(
+                "Package classifier đã được chọn nhưng backend không khởi tạo được; "
+                f"không tạo nhãn giả: {detail}"
+            )
+        raw_crops = [item.raw for item in crops]
+        if any(item is None for item in raw_crops):
+            raise RuntimeError(
+                "Crop không mang metadata lõi của bước 5; hãy chạy lại bước 5."
+            )
+        try:
+            raw = _call_supported(self.engine.classify_packages, raw_crops, **kwargs)
+        except Exception as exc:
+            raise RuntimeError(
+                "Package classifier inference thất bại; hình học 5.5 chưa bị đổi: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        if not isinstance(raw, Sequence):
+            raise RuntimeError("AOIPipeline.classify_packages phải trả về một sequence")
+        records = self._package_records(raw)
+        accepted = sum(item.decision == "accept" for item in records)
+        return PackageClassificationResult(
+            classifications=records,
+            mode="MODEL",
+            message=(
+                f"Đã phân nhóm {len(records)} crop package; {accepted} accept, "
+                f"{len(records) - accepted} review/unknown không được đổi ROI."
+            ),
+            metrics={
+                "elapsed_ms": _elapsed_ms(started),
+                "classified": len(records),
+                "accepted": accepted,
+                "review_or_unknown": len(records) - accepted,
             },
             raw=raw,
         )

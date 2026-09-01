@@ -60,6 +60,7 @@ tin nhất: tên thư mục do người đặt và có thể lệch, manifest do
 active/
 ├── detector/                  # detector linh kiện/chân, bước 4
 ├── classifier/                # classifier họ linh kiện, bước 6.1
+├── package/                   # package topology 5.2; KHÔNG tự bật, kể cả khi có artifact
 └── solder/
     ├── classifier/            # classifier ROI, output raw logits
     │   ├── best.onnx

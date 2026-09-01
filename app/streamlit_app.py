@@ -84,6 +84,8 @@ from app.pipeline_bridge import (  # noqa: E402
     DetectionResult,
     InspectionRecipeRecord,
     InspectionResult,
+    PackageClassificationRecord,
+    PackageClassificationResult,
     PipelineBridge,
     SolderCropRecord,
     SolderResult,
@@ -109,6 +111,12 @@ MAX_CALIBRATION_PROFILE_BYTES = 256 * 1024
 # aoi_pipeline.classification.MANIFEST_SCHEMA. Kept as literals so the UI module
 # does not import the core at load time; a drift test asserts they still match.
 CLASSIFIER_MANIFEST_SCHEMA = "pcb-component-classifier/1.0"
+PACKAGE_MANIFEST_SCHEMA = "pcb-package-classifier/1.0"
+PACKAGE_MANIFEST_TASK = "component_package_classification"
+PACKAGE_CLASSES = (
+    "hai_chan", "tru_dung", "goi_nho", "ic_hai_ben", "ic_bon_ben",
+    "ic_khong_chan", "connector",
+)
 SOLDER_MANIFEST_SCHEMA = "pcb-solder-defect-classifier/1.0"
 SOLDER_DETECTOR_MANIFEST_SCHEMA = "aoi-external-yolo-segmentation/1.0"
 #: (chỉ số nội bộ, tên, mô tả, mã, số hiển thị)
@@ -127,6 +135,7 @@ STEP_DEFINITIONS = (
     (8, "Golden Inspection", "Recipe + so sánh với board chuẩn", "GLD", "3.5"),
     (4, "Phát hiện linh kiện", "Detector từ Kaggle", "AI", "4"),
     (5, "Cắt linh kiện", "Crop + normalize + export", "CUT", "5"),
+    (9, "Phân nhóm package", "Topology 7 lớp + accept/review/unknown", "PKG", "5.2"),
     (6, "Phân loại linh kiện", "Family + accept/review/unknown", "CLS", "6.1"),
     (7, "Kiểm tra mối hàn", "ROI chân hàn + chấm lỗi", "SLD", "6.2"),
 )
@@ -358,6 +367,16 @@ def _default_config() -> dict[str, Any]:
             "target_size": 224,
             "image_format": "png",
         },
+        # Step 5.2 is operationally enabled but has no effect without an
+        # explicitly selected artifact pair.  The package slot is also in
+        # ``_NO_AUTO_ADOPT``: installing a candidate never changes ROI topology.
+        "package_classification": {
+            "enabled": True,
+            "apply_to_solder_geometry": True,
+            "batch_size": 32,
+            "top_k": 3,
+            "device": "cpu",
+        },
         "classification": {
             "batch_size": 32,
             "top_k": 3,
@@ -480,6 +499,12 @@ def _init_state() -> None:
         "classifier_manifest_name": None,
         "classifier_manifest_digest": None,
         "classifier_manifest_quality_warning": None,
+        "package_model_path": None,
+        "package_model_name": None,
+        "package_model_digest": None,
+        "package_manifest_path": None,
+        "package_manifest_name": None,
+        "package_manifest_digest": None,
         "pt_model_trusted": False,
         "preprocess_result": None,
         "alignment_result": None,
@@ -487,6 +512,7 @@ def _init_state() -> None:
         "detection_result": None,
         "crops": [],
         "classification_result": None,
+        "package_classification_result": None,
         # Bước 5.5/6.2. Thiếu các key này thì mở tab 6.2 là AttributeError ngay,
         # vì Streamlit không tự sinh thuộc tính chưa khai báo.
         "solder_result": None,
@@ -513,6 +539,8 @@ def _init_state() -> None:
             "component": None,
             "classifier": None,
             "classifier_manifest": None,
+            "package": None,
+            "package_manifest": None,
             "solder_model": None,
             "solder_manifest": None,
         },
@@ -641,6 +669,7 @@ def _invalidate_after(step: int) -> None:
         3: "board_result",
         4: "detection_result",
         5: "crops",
+        9: "package_classification_result",
         6: "classification_result",
         7: "solder_result",
         # Golden Inspection kiểm CHÍNH tấm ảnh của bước 0, nên ảnh mới thì kết
@@ -821,6 +850,61 @@ def _remove_classifier_manifest() -> None:
     st.session_state.classifier_manifest_name = None
     st.session_state.classifier_manifest_digest = None
     st.session_state.classifier_manifest_quality_warning = None
+    _invalidate_after(5)
+
+
+def _validate_package_manifest(manifest: Any) -> None:
+    """Validate the role identity before a package artifact reaches runtime."""
+
+    input_spec = manifest.get("input") if isinstance(manifest, Mapping) else None
+    input_size = input_spec.get("size") if isinstance(input_spec, Mapping) else None
+    if (
+        not isinstance(manifest, Mapping)
+        or manifest.get("schema_version") != PACKAGE_MANIFEST_SCHEMA
+        or manifest.get("task") != PACKAGE_MANIFEST_TASK
+        or manifest.get("class_names") != list(PACKAGE_CLASSES)
+        or input_size not in (128, [128, 128])
+    ):
+        raise ValueError(
+            "Manifest không đúng contract package 5.2: schema/task, thứ tự 7 lớp "
+            "và input 128×128 phải khớp tuyệt đối."
+        )
+
+
+def _set_package_manifest(upload: Any) -> None:
+    """Accept only the strict seven-class, 128px step-5.2 contract."""
+
+    if upload is None:
+        return
+    data = upload.getvalue()
+    if not data or len(data) > 1024 * 1024:
+        raise ValueError("model_manifest.json package rỗng hoặc vượt quá 1 MB.")
+    digest = _digest(data)
+    if digest == st.session_state.ignored_uploads.get("package_manifest"):
+        return
+    try:
+        manifest = json.loads(data.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"model_manifest.json package không hợp lệ: {exc}") from exc
+    _validate_package_manifest(manifest)
+    if digest == st.session_state.package_manifest_digest:
+        return
+    path = _materialize_upload(upload.name, data)
+    st.session_state.package_manifest_path = path
+    st.session_state.package_manifest_name = upload.name
+    st.session_state.package_manifest_digest = digest
+    st.session_state.ignored_uploads["package_manifest"] = None
+    _invalidate_after(5)
+    st.session_state.messages.append(f"Đã nạp package manifest: {upload.name}")
+
+
+def _remove_package_manifest() -> None:
+    st.session_state.ignored_uploads["package_manifest"] = (
+        st.session_state.package_manifest_digest
+    )
+    st.session_state.package_manifest_path = None
+    st.session_state.package_manifest_name = None
+    st.session_state.package_manifest_digest = None
     _invalidate_after(5)
 
 
@@ -1059,6 +1143,8 @@ def _cached_bridge(
     board_model_path: str | None,
     classifier_model_path: str | None,
     classifier_manifest_path: str | None,
+    package_model_path: str | None,
+    package_manifest_path: str | None,
 ) -> PipelineBridge:
     config = json.loads(config_json)
     component_config = dict(config.get("components", {}))
@@ -1103,6 +1189,8 @@ def _cached_bridge(
         board_model_path=board_model_path,
         classifier_model_path=classifier_model_path,
         classifier_manifest_path=classifier_manifest_path,
+        package_model_path=package_model_path,
+        package_manifest_path=package_manifest_path,
     )
 
 
@@ -1129,12 +1217,18 @@ def _get_bridge() -> PipelineBridge:
         st.session_state.classifier_model_path
         and st.session_state.classifier_manifest_path
     )
+    package_ready = bool(
+        st.session_state.package_model_path
+        and st.session_state.package_manifest_path
+    )
     bridge = _cached_bridge(
         config_json,
         st.session_state.component_model_path,
         st.session_state.board_model_path,
         st.session_state.classifier_model_path if classifier_ready else None,
         st.session_state.classifier_manifest_path if classifier_ready else None,
+        st.session_state.package_model_path if package_ready else None,
+        st.session_state.package_manifest_path if package_ready else None,
     )
     st.session_state.last_backend_mode = bridge.backend_mode
     st.session_state.last_backend_detail = bridge.backend_detail
@@ -1337,6 +1431,23 @@ def _execute_classification(bridge: PipelineBridge) -> ClassificationResult:
     return result
 
 
+def _execute_packages(bridge: PipelineBridge) -> PackageClassificationResult:
+    """Step 5.2: classify package topology only from a complete opt-in pair."""
+
+    crops: list[CropRecord] = st.session_state.crops
+    if not crops:
+        raise RuntimeError("Chưa có crop từ bước 5.")
+    if not st.session_state.package_model_path or not st.session_state.package_manifest_path:
+        raise RuntimeError(
+            "Chưa nạp đủ best.onnx và model_manifest.json package; bước 5.2 phải no-op."
+        )
+    st.session_state.statuses[9] = "running"
+    result = bridge.classify_packages(crops)
+    st.session_state.package_classification_result = result
+    _record_stage(9, result)
+    return result
+
+
 def _run_stage(step: int, callback: Callable[[PipelineBridge], Any]) -> None:
     try:
         with st.spinner(f"Đang xử lý bước {step}…"):
@@ -1364,6 +1475,12 @@ def _run_all() -> None:
         (4, "Phát hiện linh kiện", _execute_components),
         (5, "Cắt linh kiện", _execute_crops),
     )
+    package_ready = bool(
+        st.session_state.package_model_path
+        and st.session_state.package_manifest_path
+    )
+    if package_ready:
+        stages += ((9, "5.2 Phân nhóm package", _execute_packages),)
     classifier_ready = bool(
         st.session_state.classifier_model_path
         and st.session_state.classifier_manifest_path
@@ -1402,6 +1519,12 @@ def _run_all() -> None:
         st.info(
             "Bước 6.1 bị bỏ qua vì chưa có best.onnx và model_manifest.json từ "
             "notebook train; các bước còn lại đã chạy."
+        )
+    if not package_ready:
+        st.session_state.statuses[9] = "skipped"
+        st.info(
+            "Bước 5.2 được bỏ qua tuyệt đối vì chưa có cặp model/manifest package "
+            "được chọn thủ công; ROI 5.5 giữ nguyên đường footprint/CAD/hình học cũ."
         )
 
 
@@ -1665,6 +1788,52 @@ def _render_sidebar() -> bool:
                 _set_model(component_upload, "component")
             _render_model_asset("component")
 
+        with st.expander("Model package 5.2 · mặc định tắt", expanded=False):
+            st.warning(
+                "Chưa có model đã vượt gate board thật. Artifact đặt trong "
+                "`models/active/package/` cũng KHÔNG tự bật; chỉ thao tác chọn/nạp "
+                "ở đây mới cho phép nó tác động tới ROI 5.5."
+            )
+            if _render_model_picker("package"):
+                st.rerun()
+            package_upload = st.file_uploader(
+                "Package classifier (best.onnx)",
+                type=["onnx"],
+                key="package_model_uploader",
+                help="Classifier 7 lớp trên crop thân 128×128; không dùng model family 6.1.",
+            )
+            if package_upload is not None:
+                _set_model(package_upload, "package")
+            if st.session_state.package_model_name:
+                st.success(f"Model package: {st.session_state.package_model_name}")
+                if st.button("Gỡ model package", width="stretch"):
+                    _remove_model("package")
+                    st.rerun()
+            else:
+                st.caption("Chưa chọn model · bước 5.2 là no-op tuyệt đối")
+            package_manifest_upload = st.file_uploader(
+                "Contract package (model_manifest.json)",
+                type=["json"],
+                key="package_manifest_uploader",
+                help="Bắt buộc: schema package riêng, đúng thứ tự 7 lớp và input 128×128.",
+            )
+            if package_manifest_upload is not None:
+                try:
+                    _set_package_manifest(package_manifest_upload)
+                except ValueError as exc:
+                    st.error(str(exc))
+            if st.session_state.package_manifest_name:
+                st.success(f"Manifest package: {st.session_state.package_manifest_name}")
+                if st.button("Gỡ manifest package", width="stretch"):
+                    _remove_package_manifest()
+                    st.rerun()
+            elif st.session_state.package_model_name:
+                st.warning("Thiếu manifest · model package chưa được đưa vào runtime")
+            st.caption(
+                "Chỉ prediction `accept` mới được dùng; footprint/CAD luôn ưu tiên hơn, "
+                "review/unknown chỉ vào hàng đợi kiểm tra."
+            )
+
         with st.expander("Model phân loại 6.1", expanded=True):
             if _render_model_picker("classifier"):
                 st.rerun()
@@ -1774,6 +1943,12 @@ _MODEL_SLOTS = {
     "component": ("detector", "component_model_path", "component_model_name", None),
     "classifier": ("classifier", "classifier_model_path", "classifier_model_name",
                    "classifier_manifest_path"),
+    "package": (
+        "package_classifier",
+        "package_model_path",
+        "package_model_name",
+        "package_manifest_path",
+    ),
     # Keep the historical ``solder`` slot/key namespace for the ROI
     # classifier, but make its registry kind explicit. The board-level YOLO
     # segmenter has a completely independent slot and contract.
@@ -1795,7 +1970,7 @@ _MODEL_SLOTS = {
 #: bước 6.2 chấm. Một model như thế phải do người bật, sau khi đọc số đo trong
 #: ``on_board_validation`` của manifest, chứ không được tự chạy chỉ vì có mặt
 #: trong ``models/active``.
-_NO_AUTO_ADOPT = frozenset({"lead_detector"})
+_NO_AUTO_ADOPT = frozenset({"lead_detector", "package"})
 
 
 def _model_entry_id(entry: ModelEntry) -> str:
@@ -2809,7 +2984,7 @@ def _render_step_heading(step: int) -> None:
         f"""
         <div class="section-heading">
           <div class="section-index">{code}</div>
-          <div><span>BƯỚC {step} / 6.1</span><h2>{html.escape(name)}</h2><p>{html.escape(description)}</p></div>
+          <div><span>BƯỚC {shown}</span><h2>{html.escape(name)}</h2><p>{html.escape(description)}</p></div>
           <div class="status-chip {status}">{STATUS_LABELS[status]}</div>
         </div>
         """,
@@ -3662,6 +3837,119 @@ def _render_step_five() -> None:
                 _render_exports()
 
 
+def _packages_frame(items: Sequence[PackageClassificationRecord]) -> pd.DataFrame:
+    return pd.DataFrame([
+        {
+            "crop_id": item.crop_id,
+            "detection_id": item.detection_id,
+            "package": item.package_class,
+            "probability": item.probability,
+            "unknown_score": item.unknown_score,
+            "decision": item.decision,
+            "top_k": " | ".join(
+                f"{score['label']}:{float(score['probability']):.3f}"
+                for score in item.top_k
+            ),
+            "model_version": item.model_version,
+        }
+        for item in items
+    ])
+
+
+def _render_step_package() -> None:
+    """Step 5.2 UI: opt-in evidence before solder geometry is constructed."""
+
+    _render_step_heading(9)
+    crops: list[CropRecord] = st.session_state.crops
+    if not crops:
+        _render_empty("Chưa có crop", "Hoàn thành bước 5 trước khi phân nhóm package.")
+        return
+    ready = bool(
+        st.session_state.package_model_path
+        and st.session_state.package_manifest_path
+    )
+    settings, content = st.columns([0.8, 2.2], gap="large")
+    with settings:
+        st.markdown("#### Package hand-off")
+        st.metric("Crop input", len(crops))
+        if not ready:
+            st.info(
+                "Chưa có model package đã được chọn thủ công. Bước 5.2 là no-op; "
+                "5.5 vẫn ưu tiên footprint/CAD rồi mới dùng hình học hiện hữu."
+            )
+        else:
+            st.warning(
+                "Đây là chế độ đánh giá opt-in. Chỉ `accept` được phép đổi topology; "
+                "review/unknown không sinh hay xóa ROI."
+            )
+        if st.button(
+            "Phân nhóm package",
+            type="primary",
+            width="stretch",
+            disabled=not ready,
+        ):
+            _run_stage(9, _execute_packages)
+        st.caption(
+            "Cần train sau khi hoàn tất gán nhãn 7 lớp, rồi vượt macro recall, "
+            "nhầm lớp 4↔6 và gate phủ 28 pad board thật."
+        )
+
+    with content:
+        result = st.session_state.package_classification_result
+        if not isinstance(result, PackageClassificationResult):
+            _render_empty(
+                "Chưa có kết quả package",
+                "Không dùng nhãn family của detector để giả làm package.",
+            )
+            return
+        items = result.classifications
+        table_tab, review_tab, topology_tab = st.tabs(
+            ["Package table", "Review queue", "Topology gate"]
+        )
+        with table_tab:
+            if items:
+                st.dataframe(
+                    _packages_frame(items),
+                    hide_index=True,
+                    width="stretch",
+                    column_config={
+                        "probability": st.column_config.NumberColumn(format="%.4f"),
+                        "unknown_score": st.column_config.NumberColumn(format="%.4f"),
+                    },
+                )
+            else:
+                st.warning("Model không trả về package classification nào.")
+        with review_tab:
+            queue = [item for item in items if item.decision != "accept"]
+            crop_by_id = {crop.crop_id: crop for crop in crops}
+            if not queue:
+                st.success("Không có package review/unknown.")
+            for offset in range(0, min(len(queue), 60), 4):
+                columns = st.columns(4)
+                for column, item in zip(columns, queue[offset:offset + 4]):
+                    with column:
+                        crop = crop_by_id.get(item.crop_id)
+                        if crop is not None:
+                            _show_image(crop.image)
+                        st.caption(
+                            f"**{item.package_class}** · {item.decision}\n\n"
+                            f"p={item.probability:.3f} · {item.crop_id}"
+                        )
+        with topology_tab:
+            solder = st.session_state.solder_result
+            checks = (
+                solder.package_topology_checks
+                if isinstance(solder, SolderResult)
+                else []
+            )
+            if checks:
+                st.dataframe(pd.DataFrame(checks), hide_index=True, width="stretch")
+            else:
+                st.caption("Chạy bước 5.5 để kiểm số cạnh/chân kỳ vọng với ROI thực tế.")
+        _render_result_notice(result)
+        _render_metrics(result.metrics)
+
+
 def _classifications_frame(items: list[ClassificationRecord]) -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -3815,6 +4103,12 @@ def _manifest() -> dict[str, Any]:
         if isinstance(classification_result, ClassificationResult)
         else []
     )
+    package_result = getattr(st.session_state, "package_classification_result", None)
+    package_classifications = (
+        package_result.classifications
+        if isinstance(package_result, PackageClassificationResult)
+        else []
+    )
     return {
         "schema_version": "aoi-pcb-workbench/0.3",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -3852,6 +4146,17 @@ def _manifest() -> dict[str, Any]:
                 "manifest_sha256": getattr(
                     st.session_state, "classifier_manifest_digest", None
                 ),
+            },
+            "package": {
+                "name": getattr(st.session_state, "package_model_name", None),
+                "sha256": getattr(st.session_state, "package_model_digest", None),
+                "manifest_name": getattr(
+                    st.session_state, "package_manifest_name", None
+                ),
+                "manifest_sha256": getattr(
+                    st.session_state, "package_manifest_digest", None
+                ),
+                "auto_adopted": False,
             },
         },
         "backend": {
@@ -3891,6 +4196,21 @@ def _manifest() -> dict[str, Any]:
             for item in classifications
         ],
         "classification_count": len(classifications),
+        "package_classifications": [
+            {
+                "crop_id": item.crop_id,
+                "detection_id": item.detection_id,
+                "package_class": item.package_class,
+                "probability": item.probability,
+                "unknown_score": item.unknown_score,
+                "decision": item.decision,
+                "top_k": item.top_k,
+                "model_version": item.model_version,
+                "source": item.source,
+            }
+            for item in package_classifications
+        ],
+        "package_classification_count": len(package_classifications),
         "warning": (
             "CV candidate demo; not reliable recognition."
             if isinstance(result, DetectionResult) and "DEMO" in result.mode.upper()
@@ -4755,6 +5075,15 @@ def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
             source,
             detection_result.detections,
             radiometric_image=radiometric_image,
+            component_crops=st.session_state.crops,
+            package_classifications=(
+                st.session_state.package_classification_result.classifications
+                if isinstance(
+                    st.session_state.package_classification_result,
+                    PackageClassificationResult,
+                )
+                else None
+            ),
         )
     except Exception as exc:
         st.session_state.solder_result = None
@@ -4764,6 +5093,24 @@ def _execute_solder(bridge: PipelineBridge) -> SolderResult | None:
         )
         return None
     st.session_state.solder_result = result
+    if result.package_classifications:
+        accepted = sum(
+            item.decision == "accept" for item in result.package_classifications
+        )
+        st.session_state.package_classification_result = PackageClassificationResult(
+            classifications=result.package_classifications,
+            mode="MODEL",
+            message=(
+                f"Đã phân nhóm {len(result.package_classifications)} crop package; "
+                f"{accepted} accept."
+            ),
+            metrics={
+                "classified": len(result.package_classifications),
+                "accepted": accepted,
+                "review_or_unknown": len(result.package_classifications) - accepted,
+            },
+        )
+        st.session_state.statuses[9] = "done"
     # Not ``_record_stage``: this one step covers both 5.5 and 6.2, and the log
     # is more useful naming them than repeating "Bước 7" twice.
     st.session_state.statuses[7] = _mode_to_status(result.mode)
@@ -5337,6 +5684,7 @@ def main() -> None:
         3: _render_step_three,
         4: _render_step_four,
         5: _render_step_five,
+        9: _render_step_package,
         6: _render_step_six,
         7: _render_step_seven,
         8: _render_step_eight,

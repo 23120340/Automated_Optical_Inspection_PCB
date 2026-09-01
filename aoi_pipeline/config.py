@@ -31,6 +31,18 @@ TWO_TERMINAL_CLASSES: frozenset[str] = frozenset(
     {"capacitor", "resistor", "diode", "led", "inductor", "fuse"}
 )
 PAD_ONLY_CLASSES: frozenset[str] = frozenset({"pads"})
+# Seven operator-facing package classes approved for step 5.2.  They are kept
+# as Vietnamese slugs because the same stable values are written by the
+# labelling app, the model manifest and runtime exports.
+PACKAGE_CLASSES: tuple[str, ...] = (
+    "hai_chan",
+    "tru_dung",
+    "goi_nho",
+    "ic_hai_ben",
+    "ic_bon_ben",
+    "ic_khong_chan",
+    "connector",
+)
 # Everything else — ic, connector, transistor, relay, switch, display, clock,
 # buzzer, battery, potentiometer, button, transformer, transducer, heatsink,
 # pins — is treated as multi-pin. Defaulting unknown labels to the perimeter
@@ -39,8 +51,36 @@ PAD_ONLY_CLASSES: frozenset[str] = frozenset({"pads"})
 DEFAULT_TERMINAL_GEOMETRY = "multi_pin"
 
 
-def terminal_geometry(label: str) -> str:
-    """Map a detector class name to its terminal topology."""
+def terminal_geometry(
+    label: str,
+    *,
+    package: str | None = None,
+    footprint: str | None = None,
+) -> str:
+    """Resolve the best available terminal topology.
+
+    The legacy detector-family mapping still returns ``two_terminal``,
+    ``multi_pin`` or ``pad_only`` so existing callers do not change.  A
+    footprint or an accepted step-5.2 package result is more informative and
+    may return one of :data:`PACKAGE_CLASSES`.  Callers that understand the
+    richer contract can therefore opt in without changing the no-model path.
+
+    Priority is footprint -> explicit package -> detector family.  Unknown or
+    malformed footprint names fail safely back to the next source.
+    """
+
+    if footprint:
+        # Lazy import keeps config as the dependency leaf used throughout the
+        # package.  The footprint parser itself does not import config.
+        from .placement.footprints import parse_footprint
+
+        profile = parse_footprint(footprint)
+        if profile is not None:
+            return profile.package_class
+
+    explicit = str(package or "").strip().lower()
+    if explicit in PACKAGE_CLASSES:
+        return explicit
 
     normalized = str(label).strip().lower()
     if normalized in TWO_TERMINAL_CLASSES:
@@ -55,6 +95,13 @@ def _default_pad_profiles() -> dict[str, PadProfile]:
         "two_terminal": PadProfile(long_axis=0.35, short_axis=0.22),
         "multi_pin": PadProfile(long_axis=0.20, short_axis=0.20),
         "pad_only": PadProfile(long_axis=0.10, short_axis=0.10),
+        "hai_chan": PadProfile(long_axis=0.35, short_axis=0.22),
+        "tru_dung": PadProfile(long_axis=0.20, short_axis=0.20),
+        "goi_nho": PadProfile(long_axis=0.25, short_axis=0.25),
+        "ic_hai_ben": PadProfile(long_axis=0.20, short_axis=0.20),
+        "ic_bon_ben": PadProfile(long_axis=0.20, short_axis=0.20),
+        "ic_khong_chan": PadProfile(long_axis=0.0, short_axis=0.0),
+        "connector": PadProfile(long_axis=0.30, short_axis=0.30),
     }
 
 
@@ -737,6 +784,20 @@ class ClassificationConfig:
 
 
 @dataclass(slots=True)
+class PackageClassificationConfig(ClassificationConfig):
+    """Step 5.2 deployment policy for the seven-class package classifier.
+
+    Merely having an artifact on disk must not change solder geometry.  The UI
+    keeps this model in its no-auto-adopt list; programmatic callers opt in by
+    supplying the artifact pair.  ``apply_to_solder_geometry`` is a second,
+    explicit kill switch useful for reporting-only validation runs.
+    """
+
+    enabled: bool = True
+    apply_to_solder_geometry: bool = True
+
+
+@dataclass(slots=True)
 class LeadFusionConfig:
     """Step 5.5: prefer detected lead/pad boxes over derived ones.
 
@@ -869,6 +930,9 @@ class PipelineConfig:
     )
     cad: CadConfig = field(default_factory=CadConfig)
     fusion: FusionConfig = field(default_factory=FusionConfig)
+    package_classification: PackageClassificationConfig = field(
+        default_factory=PackageClassificationConfig
+    )
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     solder_grading: SolderGradingConfig = field(default_factory=SolderGradingConfig)
     solder_defect_detection: SolderDefectDetectionConfig = field(
@@ -913,6 +977,12 @@ class PipelineConfig:
             "solder_segmentation",
         )
         classification_values = _section(values, "classification", "classifier")
+        package_values = _section(
+            values,
+            "package_classification",
+            "package_classifier",
+            "package",
+        )
 
         _assign_known(
             config.preprocess,
@@ -1075,6 +1145,11 @@ class PipelineConfig:
             if config.solder_defect_detection.device == "auto":
                 config.solder_defect_detection.device = None
         _assign_known(config.classification, classification_values)
+        if any(
+            isinstance(values.get(name), Mapping)
+            for name in ("package_classification", "package_classifier", "package")
+        ):
+            _assign_known(config.package_classification, package_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:
             config.detector_mode = detector_mode

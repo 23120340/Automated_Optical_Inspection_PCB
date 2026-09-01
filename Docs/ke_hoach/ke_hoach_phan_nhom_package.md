@@ -3,8 +3,36 @@
 > Soạn 2026-08-31, sửa lần 3: **giả định không có CAD**, **rút gọn còn các loại
 > package cơ bản phân biệt bằng mắt thường**, và **xét lại theo tình huống chỉ có
 > golden image hoặc BOM/pick-and-place** — tình huống đó làm §4 phải viết lại.
-> **Bản để bạn duyệt, chưa code gì cả.** Con số có chữ *đo được* đều chạy ra từ
-> dữ liệu trong repo; chỗ nào là suy đoán thì nói thẳng là suy đoán.
+> **Đã triển khai phần code ngày 2026-09-01.** Con số có chữ *đo được* đều chạy
+> ra từ dữ liệu trong repo; chỗ nào là suy đoán thì nói thẳng là suy đoán.
+> Phần cần người/model được tách riêng ở mục 0 dưới đây và chưa được giả vờ là xong.
+
+## 0. Trạng thái triển khai và phần phải làm thủ công
+
+- `[x]` Parser footprint cho BOM/PnP/CAD; thứ tự bằng chứng là pad CAD →
+  footprint → package model → family legacy.
+- `[x]` Bảy topology ở 5.5, gồm `ic_khong_chan` không sinh ROI giả và cờ
+  review khi số cạnh/chân kỳ vọng lệch ROI thực tế.
+- `[x]` Bước 5.2 ONNX + manifest riêng, chỉ `accept` mới tác động và không đè
+  footprint/CAD. Thiếu artifact là no-op tuyệt đối.
+- `[x]` Registry/Streamlit có slot package riêng và `_NO_AUTO_ADOPT`; đặt file
+  vào `models/active/package/` không tự bật.
+- `[x]` App gán nhãn 7 lớp đã dựng tại
+  `datasets/labelling/component_bodies_round2_20260830/label_packages.html`.
+  Migration giữ nguyên tọa độ box cũ, reset nhãn cũ thành sentinel `unknown`,
+  giữ key localStorage cũ và ghi receipt SHA-256.
+- `[x]` Packer dataset chia theo board, notebook Kaggle xuất ONNX/manifest và
+  gate nghiệm thu 28 pad; mọi bước fail-closed khi taxonomy/split sai.
+- `[ ]` **CẦN NGƯỜI GÁN NHÃN:** 3.847/3.855 box hiện còn `unknown`; 8 prelabel
+  chỉ là gợi ý bảo thủ. `unknown` không phải lớp thứ tám và chặn export.
+- `[ ]` **CẦN TRAIN MODEL:** sau khi nhãn hoàn tất, chạy
+  `pack_package_classification_dataset.py`, notebook
+  `pcb_package_classification_kaggle.ipynb`, rồi
+  `evaluate_package_roi_gate.py`. Chỉ promote thủ công nếu toàn bộ gate đạt.
+
+Các lựa chọn triển khai đã chốt theo khuyến nghị của kế hoạch: đúng 7 lớp,
+package đi cùng lượt duyệt thân, đặt ở 5.2, package ẩn chân là không kiểm được
+bằng ảnh 2D trên xuống, footprint làm trước và model chỉ là lưới cuối.
 
 ## 1. Kết luận nhanh
 

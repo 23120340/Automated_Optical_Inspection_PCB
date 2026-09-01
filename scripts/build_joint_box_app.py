@@ -34,6 +34,26 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 TEMPLATE_PATH = Path(__file__).with_name("_joint_box_app_template.html")
+UNKNOWN_CLASS_INDEX = -1
+_MIGRATION_STRATEGY = "preserve_geometry_reset_box_classes_to_unknown"
+PACKAGE_CLASSES = (
+    "hai_chan",
+    "tru_dung",
+    "goi_nho",
+    "ic_hai_ben",
+    "ic_bon_ben",
+    "ic_khong_chan",
+    "connector",
+)
+PACKAGE_VI = {
+    "hai_chan": "Hai chân",
+    "tru_dung": "Trụ đứng",
+    "goi_nho": "Gói nhỏ 3–5 chân",
+    "ic_hai_ben": "IC chân hai bên",
+    "ic_bon_ben": "IC chân bốn bên",
+    "ic_khong_chan": "IC không thấy chân",
+    "connector": "Connector / xuyên lỗ",
+}
 
 
 def template_digest() -> str:
@@ -123,15 +143,22 @@ def dataset_id_for(
     ).hexdigest()[:16]
 
 
-def load_seed(
+def load_seed_contract(
     path: Path,
     *,
     dataset_name: str,
     dataset_id: str,
     crop_names: set[str],
     class_names: list[str],
-) -> dict[str, dict[str, object]]:
-    """Validate a continuation draft before embedding it in the offline app."""
+) -> tuple[dict[str, dict[str, object]], dict[str, object]]:
+    """Validate a continuation draft and its editor-only migration contract.
+
+    A seed may declare one ``unknown_class`` sentinel outside the training
+    taxonomy.  It is represented in browser state by ``-1`` and may only occur
+    on an unverified record.  ``migration_aliases`` are also kept out of normal
+    exports: they are instructions for carrying an older localStorage key into
+    this page without reinterpreting its old numeric class indices.
+    """
 
     try:
         payload: Any = json.loads(path.read_text(encoding="utf-8"))
@@ -157,6 +184,57 @@ def load_seed(
         raise SystemExit(f"{path}: seed has unknown crop paths: {unknown[:3]}")
 
     by_class = {name: index for index, name in enumerate(class_names)}
+    unknown_class = payload.get("unknown_class")
+    if unknown_class is not None:
+        if not isinstance(unknown_class, str) or not unknown_class:
+            raise SystemExit(f"{path}: unknown_class must be a non-empty string")
+        if unknown_class in by_class:
+            raise SystemExit(
+                f"{path}: unknown_class is an editor sentinel and must not be in classes"
+            )
+
+    raw_aliases = payload.get("migration_aliases", [])
+    if not isinstance(raw_aliases, list):
+        raise SystemExit(f"{path}: migration_aliases must be a list")
+    migration_aliases: list[dict[str, object]] = []
+    seen_aliases: set[str] = set()
+    for index, alias in enumerate(raw_aliases):
+        if not isinstance(alias, dict):
+            raise SystemExit(f"{path}: migration_aliases[{index}] must be an object")
+        alias_id = alias.get("dataset_id")
+        alias_classes = alias.get("classes")
+        strategy = alias.get("strategy")
+        if not isinstance(alias_id, str) or not alias_id or alias_id == dataset_id:
+            raise SystemExit(f"{path}: migration_aliases[{index}] has invalid dataset_id")
+        if alias_id in seen_aliases:
+            raise SystemExit(f"{path}: duplicate migration alias {alias_id!r}")
+        if (
+            not isinstance(alias_classes, list)
+            or not alias_classes
+            or any(not isinstance(name, str) or not name for name in alias_classes)
+        ):
+            raise SystemExit(f"{path}: migration_aliases[{index}] has invalid classes")
+        if strategy != _MIGRATION_STRATEGY:
+            raise SystemExit(
+                f"{path}: migration_aliases[{index}] uses unsupported strategy {strategy!r}"
+            )
+        for field in ("source_crops_semantic_sha256", "box_geometry_semantic_sha256"):
+            digest = alias.get(field)
+            if (
+                not isinstance(digest, str)
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                raise SystemExit(f"{path}: migration_aliases[{index}] has invalid {field}")
+        seen_aliases.add(alias_id)
+        migration_aliases.append({
+            "dataset_id": alias_id,
+            "classes": list(alias_classes),
+            "strategy": strategy,
+            "source_crops_semantic_sha256": alias["source_crops_semantic_sha256"],
+            "box_geometry_semantic_sha256": alias["box_geometry_semantic_sha256"],
+        })
+
     allowed_statuses = {"", "verified", "skipped", "unusable"}
     state: dict[str, dict[str, object]] = {}
     for crop_name, record in records.items():
@@ -170,7 +248,11 @@ def load_seed(
             raise SystemExit(f"{path}: {crop_name} boxes must be a list")
         converted: list[dict[str, object]] = []
         for box in boxes:
-            if not isinstance(box, dict) or box.get("cls") not in by_class:
+            if not isinstance(box, dict):
+                raise SystemExit(f"{path}: {crop_name} has invalid box class")
+            class_name = box.get("cls")
+            is_unknown = unknown_class is not None and class_name == unknown_class
+            if class_name not in by_class and not is_unknown:
                 raise SystemExit(f"{path}: {crop_name} has invalid box class")
             geometry: dict[str, float] = {}
             for field in ("x", "y", "w", "h"):
@@ -180,12 +262,52 @@ def load_seed(
                         f"{path}: {crop_name} box has non-numeric {field}={value!r}"
                     )
                 geometry[field] = float(value)
-            converted.append({"cls": by_class[str(box["cls"])], **geometry})
-        state[crop_name] = {
+            converted_box: dict[str, object] = {
+                "cls": UNKNOWN_CLASS_INDEX if is_unknown else by_class[str(class_name)],
+                **geometry,
+            }
+            for field in ("source_cls", "prelabel_reason", "needs_review"):
+                if field in box:
+                    converted_box[field] = box[field]
+            converted.append(converted_box)
+        if status == "verified" and any(
+            box["cls"] == UNKNOWN_CLASS_INDEX for box in converted
+        ):
+            raise SystemExit(
+                f"{path}: {crop_name} is verified but still contains {unknown_class!r}"
+            )
+        state_record: dict[str, object] = {
             "status": status,
             "notes": str(record.get("notes", "")),
             "boxes": converted,
         }
+        for field in ("source_status", "needs_review"):
+            if field in record:
+                state_record[field] = record[field]
+        state[crop_name] = state_record
+    return state, {
+        "unknown_class": unknown_class,
+        "migration_aliases": migration_aliases,
+    }
+
+
+def load_seed(
+    path: Path,
+    *,
+    dataset_name: str,
+    dataset_id: str,
+    crop_names: set[str],
+    class_names: list[str],
+) -> dict[str, dict[str, object]]:
+    """Validate a seed and return browser state (backwards-compatible API)."""
+
+    state, _ = load_seed_contract(
+        path,
+        dataset_name=dataset_name,
+        dataset_id=dataset_id,
+        crop_names=crop_names,
+        class_names=class_names,
+    )
     return state
 
 
@@ -211,21 +333,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.classes:
         palette = ["#f85149", "#d29922", "#bc8cff", "#58a6ff", "#3fb950",
                    "#ff7b72", "#79c0ff", "#ffa657", "#a5d6ff"]
-        classes = [{"name": n, "vn": "", "color": palette[i % len(palette)]}
+        classes = [{"name": n, "vn": PACKAGE_VI.get(n, ""), "color": palette[i % len(palette)]}
                    for i, n in enumerate(args.classes)]
     else:
         classes = DEFAULT_CLASSES
 
     rows = load_rows(manifest, crops)
-    dataset_id = dataset_id_for(root, rows, [str(c["name"]) for c in classes])
+    class_names = [str(c["name"]) for c in classes]
+    dataset_id = dataset_id_for(root, rows, class_names)
     initial_state: dict[str, dict[str, object]] = {}
+    seed_contract: dict[str, object] = {
+        "unknown_class": None,
+        "migration_aliases": [],
+    }
     if args.seed_json is not None:
-        initial_state = load_seed(
+        initial_state, seed_contract = load_seed_contract(
             args.seed_json.resolve(),
             dataset_name=root.name,
             dataset_id=dataset_id,
             crop_names={str(row["crop_path"]) for row in rows},
-            class_names=[str(c["name"]) for c in classes],
+            class_names=class_names,
         )
     payload = {
         # Keyed on content: relabelling a regenerated crop set must not silently
@@ -236,13 +363,16 @@ def main(argv: list[str] | None = None) -> int:
         "classes": classes,
         "rows": rows,
         "initial_state": initial_state,
+        "unknown_class": seed_contract["unknown_class"],
+        "migration_aliases": seed_contract["migration_aliases"],
         # Vân tay của template đã dựng ra trang này. Trang nằm trong .gitignore
         # (nó nhúng cả ảnh), nên sửa template xong mà quên dựng lại thì người
         # duyệt vẫn mở trang cũ và KHÔNG có gì báo. Đã xảy ra thật: bản vá chống
         # ghi đè khi nạp file có trong template nhưng vắng ở trang trên đĩa.
         "template_sha256": template_digest(),
     }
-    component_body_task = [str(c["name"]) for c in classes] == ["component"]
+    component_body_task = class_names == ["component"]
+    package_task = tuple(class_names) == PACKAGE_CLASSES
     if component_body_task:
         wording = {
             "__PAGE_TITLE__": "Khoanh THÂN linh kiện",
@@ -269,6 +399,34 @@ def main(argv: list[str] | None = None) -> int:
             "__CLASS_GUIDANCE__": (
                 "Chỉ có một lớp <b>component</b> vì detector lượt 1 cần định vị mọi "
                 "thân linh kiện. Kiểu gói và tình trạng lỗi được xử lý ở bước sau."
+            ),
+        }
+    elif package_task:
+        wording = {
+            "__PAGE_TITLE__": "Gán PACKAGE cho thân linh kiện",
+            "__CLEAN_FILTER__": "không có linh kiện",
+            "__CLEAN_BUTTON__": "Không có linh kiện",
+            "__DECISION_NOTE__": (
+                "Chọn từng box rồi bấm <b>1–7</b>. <b>Enter</b> chỉ xác nhận khi mọi box "
+                "đã có một trong bảy package; box <b>unknown</b> màu hồng sẽ chặn xác nhận "
+                "và chặn export."
+            ),
+            "__HELP_INTRO__": (
+                "Box thân linh kiện đã được giữ nguyên từ lượt duyệt trước. Việc cần làm là "
+                "<b>chọn box và bấm 1–7 để gán package</b>; chỉ sửa hình học nếu box thân "
+                "thật sự sai."
+            ),
+            "__SHORTCUT_C__": (
+                "xác nhận tile thật sự <b>không có linh kiện</b> rồi sang ảnh sau"
+            ),
+            "__BOX_GUIDANCE__": (
+                "Giữ box ôm sát <b>thân/gói/vỏ linh kiện</b>, không bao chân, pad hay thiếc. "
+                "Các box đã duyệt được migration nguyên tọa độ; package chỉ thay nhãn lớp."
+            ),
+            "__CLASS_GUIDANCE__": (
+                "Bảy phím tương ứng: 1 hai chân; 2 trụ đứng; 3 gói nhỏ 3–5 chân; "
+                "4 IC chân hai bên; 5 IC chân bốn bên; 6 IC không thấy chân; "
+                "7 connector/xuyên lỗ. Không chắc thì để unknown, không xác nhận bừa."
             ),
         }
     else:

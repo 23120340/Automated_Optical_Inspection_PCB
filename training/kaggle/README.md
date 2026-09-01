@@ -3,6 +3,12 @@
 > Bước 6.1 đã có notebook riêng: xem
 > [README_classification.md](./README_classification.md) và
 > [pcb_component_classification_kaggle.ipynb](./pcb_component_classification_kaggle.ipynb).
+>
+> Bước 5.2 package dùng contract khác: sau khi gán xong 7 lớp bằng
+> `label_packages.html`, pack bằng `scripts/pack_package_classification_dataset.py`
+> rồi chạy [pcb_package_classification_kaggle.ipynb](./pcb_package_classification_kaggle.ipynb).
+> Notebook xuất ONNX + manifest nhưng model vẫn mặc định tắt; phải vượt
+> `scripts/evaluate_package_roi_gate.py` trên 28 pad board thật và promote thủ công.
 
 Notebook [`pcb_component_detection_kaggle.ipynb`](./pcb_component_detection_kaggle.ipynb) huấn luyện detector của bước 4 trong sơ đồ AOI. Nó nhận dataset object detection theo định dạng YOLO, kiểm tra dữ liệu trước khi dùng GPU, fine-tune model pretrained, đánh giá, trực quan hóa và tạo một gói kết quả để đưa về app local.
 

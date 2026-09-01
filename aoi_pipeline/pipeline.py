@@ -15,6 +15,11 @@ from .imaging.alignment import PCBAligner
 from .imaging.board import PCBLocalizer
 from .solder.cad import BoardCad, CadError, CadRegistration, load_cad, register_cad, register_from_fiducials
 from .classification.family import ComponentClassifier, create_classifier
+from .classification.package import (
+    PackageClassification,
+    PackageClassifier,
+    create_package_classifier,
+)
 from .config import ModelDetectorConfig, PipelineConfig
 from .detection.cropping import ComponentCropper
 from .detection.detectors import (
@@ -46,6 +51,11 @@ from .models import (
 )
 from .imaging.preprocessing import ImagePreprocessor
 from .solder.geometry import SolderJointCropper, deconflict_joint_rois
+from .solder.package_validation import (
+    PackageTopologyCheck,
+    assess_package_topology,
+)
+from .placement.footprints import profile_for_package_class
 from .detection.tiling import detect_with_adaptive_tiling
 
 
@@ -66,6 +76,9 @@ class AOIPipeline:
         classifier_manifest_path: str | Path | Mapping[str, object] | None = None,
         cad: BoardCad | str | Path | None = None,
         lead_detector: object | None = None,
+        package_classifier: PackageClassifier | None = None,
+        package_model_path: str | Path | None = None,
+        package_manifest_path: str | Path | Mapping[str, object] | None = None,
     ) -> None:
         self.config = (
             config
@@ -92,6 +105,9 @@ class AOIPipeline:
         self.cad_warnings: list[str] = []
         self.last_fusion: FusionResult = FusionResult()
         self.last_lead_fusion = None
+        self.last_package_classifications: list[PackageClassification] = []
+        self.last_package_topology_checks: list[PackageTopologyCheck] = []
+        self.last_package_detections: list[Detection] = []
         # Pass 2 stays absent until someone names a model for it -- injected
         # here, or configured under ``lead_detection.model_path`` so the UI and
         # the CLI can reach it too. An injected detector wins; the two are never
@@ -122,6 +138,17 @@ class AOIPipeline:
             classifier_model_path,
             classifier_manifest_path,
             self.config.classification,
+        )
+        if package_classifier is not None and (
+            package_model_path is not None or package_manifest_path is not None
+        ):
+            raise DetectorConfigurationError(
+                "Pass either package_classifier or package artifact paths, not both"
+            )
+        self.package_classifier = package_classifier or create_package_classifier(
+            package_model_path,
+            package_manifest_path,
+            self.config.package_classification,
         )
 
     @staticmethod
@@ -430,6 +457,9 @@ class AOIPipeline:
         detections: Sequence[Detection],
         output_dir: str | Path | None = None,
         board_region: BoardRegion | None = None,
+        *,
+        component_crops: Sequence[ComponentCrop] | None = None,
+        package_classifications: Sequence[PackageClassification] | None = None,
     ) -> list[SolderJointCrop]:
         """Step 5.5: derive solder-joint ROIs and cut them out.
 
@@ -444,6 +474,27 @@ class AOIPipeline:
         # first so a pad box is never also treated as a component to derive
         # terminals around.
         bodies, leads = split_lead_detections(detections)
+        if package_classifications is None:
+            if (
+                self.package_classifier is None
+                or not self.config.package_classification.enabled
+            ):
+                # Absolute no-op: with no explicitly configured model, do not
+                # even create an otherwise-unused second set of body crops.
+                package_classifications = []
+            else:
+                package_crops = (
+                    list(component_crops)
+                    if component_crops is not None
+                    else self.make_crops(image, bodies)
+                )
+                body_ids = {item.detection_id for item in bodies}
+                package_classifications = self.classify_packages(
+                    [crop for crop in package_crops if crop.detection_id in body_ids]
+                )
+        self.last_package_classifications = list(package_classifications)
+        bodies = self.apply_package_classifications(bodies, package_classifications)
+        self.last_package_detections = [*bodies, *leads]
         # Đăng ký CAD trước khi suy hình học, không phải sau: phép đăng ký là
         # nơi duy nhất biết px/mm, mà trần độ sâu ROI cần con số đó ngay ở bước
         # suy. Gọi lại là rẻ -- kết quả được nhớ trong ``cad_registration``.
@@ -472,6 +523,10 @@ class AOIPipeline:
         # exists together, so it is the only place the check is complete.
         joints = deconflict_joint_rois(
             fusion.joints, bodies or detections, self.config.solder
+        )
+        self.last_package_topology_checks = assess_package_topology(
+            bodies or detections,
+            joints,
         )
         return self.solder_cropper.extract_joints(image, joints, output_dir)
 
@@ -540,6 +595,64 @@ class AOIPipeline:
             return []
         return self.classifier.classify(crops)
 
+    def classify_packages(
+        self, crops: Sequence[ComponentCrop]
+    ) -> list[PackageClassification]:
+        """Step 5.2: classify visible package topology when explicitly loaded."""
+
+        if (
+            self.package_classifier is None
+            or not self.config.package_classification.enabled
+        ):
+            return []
+        return self.package_classifier.classify(crops)
+
+    def apply_package_classifications(
+        self,
+        detections: Sequence[Detection],
+        classifications: Sequence[PackageClassification],
+    ) -> list[Detection]:
+        """Attach accepted step-5.2 evidence without overriding stronger data.
+
+        Every prediction remains visible in ``package_prediction``.  Only an
+        ``accept`` decision may alter solder geometry, and even then an
+        existing package profile (for example BOM/PnP/CAD footprint evidence)
+        wins.  Review/unknown predictions therefore cannot manufacture ROIs.
+        """
+
+        by_detection = {item.detection_id: item for item in classifications}
+        annotated: list[Detection] = []
+        for detection in detections:
+            result = by_detection.get(detection.detection_id)
+            if result is None:
+                annotated.append(detection)
+                continue
+            metadata = dict(detection.metadata)
+            metadata["package_prediction"] = result.to_dict()
+            may_apply = (
+                result.decision == "accept"
+                and self.config.package_classification.apply_to_solder_geometry
+                and not isinstance(metadata.get("package_profile"), Mapping)
+            )
+            if may_apply:
+                profile = profile_for_package_class(
+                    result.package_class,
+                    source=result.source,
+                )
+                payload = profile.to_dict()
+                payload.update(
+                    {
+                        "source": result.source,
+                        "probability": float(result.probability),
+                        "decision": result.decision,
+                        "model_version": result.model_version,
+                    }
+                )
+                metadata["package_profile"] = payload
+                metadata["terminal_geometry_override"] = profile.terminal_geometry
+            annotated.append(replace(detection, metadata=metadata))
+        return annotated
+
     def run(
         self,
         image: ImageSource,
@@ -567,10 +680,32 @@ class AOIPipeline:
         board = self.detect_board(aligned.image)
         detections = self.detect_components(aligned.image, board)
         crops = self.make_crops(aligned.image, detections, crop_dir)
-        solder_crops = self.make_solder_crops(
-            aligned.image, detections, solder_crop_dir, board_region=board
+        body_ids = {
+            item.detection_id for item in split_lead_detections(detections)[0]
+        }
+        package_classifications = self.classify_packages(
+            [crop for crop in crops if crop.detection_id in body_ids]
         )
+        detections = self.apply_package_classifications(
+            detections,
+            package_classifications,
+        )
+        solder_crops = self.make_solder_crops(
+            aligned.image,
+            detections,
+            solder_crop_dir,
+            board_region=board,
+            component_crops=crops,
+            package_classifications=package_classifications,
+        )
+        package_detection_by_id = {
+            item.detection_id: item for item in self.last_package_detections
+        }
+        detections = [
+            package_detection_by_id.get(item.detection_id, item) for item in detections
+        ]
         fusion = self.last_fusion
+        package_topology_checks = self.last_package_topology_checks
         classifications = self.classify_components(crops)
         solder_verdicts = self.grade_solder(
             solder_crops,
@@ -599,6 +734,30 @@ class AOIPipeline:
                 "ROIs only."
             )
         warnings.extend(self.solder_inspector.warnings)
+        package_review_count = sum(
+            item.decision != "accept" for item in package_classifications
+        )
+        if package_review_count:
+            warnings.append(
+                f"Step 5.2 sent {package_review_count} package prediction(s) "
+                "to review; their predictions did not alter solder geometry."
+            )
+        topology_review_count = sum(
+            item.status == "review" for item in package_topology_checks
+        )
+        if topology_review_count:
+            warnings.append(
+                f"Step 5.5 found {topology_review_count} package/ROI topology "
+                "mismatch(es) requiring review."
+            )
+        hidden_count = sum(
+            item.status == "not_inspectable" for item in package_topology_checks
+        )
+        if hidden_count:
+            warnings.append(
+                f"Step 5.5 marked {hidden_count} hidden-terminal package(s) as "
+                "not inspectable by top-down 2D solder ROIs."
+            )
         lead_result = self.last_lead_fusion
         if lead_result is not None:
             warnings.extend(lead_result.warnings)
@@ -612,7 +771,12 @@ class AOIPipeline:
                 "Bước 6.2 đang chấm bằng luật đo hình học; nạp model ONNX + "
                 "model_manifest.json để bật thêm tầng phân loại."
             )
-        if self.config.solder.enabled and detections and not solder_crops:
+        if (
+            self.config.solder.enabled
+            and detections
+            and not solder_crops
+            and not hidden_count
+        ):
             warnings.append(
                 "Step 5.5 derived no solder ROI; check that detections are larger "
                 "than the minimum ROI size."
@@ -626,6 +790,8 @@ class AOIPipeline:
             board_region=board,
             detections=detections,
             crops=crops,
+            package_classifications=package_classifications,
+            package_topology_checks=package_topology_checks,
             solder_crops=solder_crops,
             fusion=fusion,
             solder_verdicts=solder_verdicts,

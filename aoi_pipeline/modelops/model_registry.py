@@ -16,10 +16,11 @@ Three places, and the difference between them is who owns the file:
     Yours. Drop anything here and it appears in the picker beside the active
     ones. Git ignores it, so it never fights a pull and never bloats the repo.
 
-A model is only offered when its manifest sits beside it. Step 6.1 and 6.2 both
-refuse half a contract at load time -- an ONNX whose class order is unknown
-would have to be guessed at, and guessing wrong maps every defect onto a pass --
-so offering the file alone would only produce a failure one click later.
+A model is only offered when its manifest sits beside it. Steps 5.2, 6.1 and
+6.2 all refuse half a contract at load time -- an ONNX whose class order is
+unknown would have to be guessed at, and guessing wrong can change the solder
+ROI topology or map every defect onto a pass -- so offering the file alone
+would only produce a failure one click later.
 """
 
 from __future__ import annotations
@@ -53,6 +54,9 @@ LIBRARY_ROOT = MODELS_ROOT / "library"
 STAGE_FOLDERS = {
     "detector": "detector",
     "classifier": "classifier",
+    # Step 5.2 package topology.  It remains opt-in in the UI even when an
+    # artifact is installed here; see ``app.streamlit_app._NO_AUTO_ADOPT``.
+    "package_classifier": "package",
     "solder_classifier": "solder/classifier",
     # ``solder_segmenter`` (detect lỗi trên toàn board) đã được GỠ khỏi app và
     # pipeline: dự án đi theo hướng lượt 2 (định vị mối hàn) + 6.2 (chấm từng
@@ -89,8 +93,14 @@ STAGE_FOLDERS = {
 _KIND_ALIASES = {
     "solder": "solder_classifier",
     "solder_detector": "solder_segmenter",
+    "package": "package_classifier",
 }
 _SOLDER_KINDS = frozenset(("solder_classifier", "solder_segmenter"))
+# Unknown artifacts must never leak into roles whose output changes inspection
+# geometry.  A family classifier can safely stay discoverable as ``unknown``
+# for backwards compatibility; package and localisation roles need a positive
+# manifest/folder identity before the picker may offer them.
+_STRICT_KINDS = _SOLDER_KINDS | frozenset(("package_classifier", "lead_detector"))
 
 
 def _canonical_kind(kind: str | None) -> str | None:
@@ -485,6 +495,7 @@ def _read_manifest(manifest_path: Path | None) -> Mapping[str, Any] | None:
 #: sinh ra cùng lúc với trọng số.
 _TASK_TO_KIND = {
     "component_family_classification": "classifier",
+    "component_package_classification": "package_classifier",
     "solder_defect_classification": "solder_classifier",
     "solder_defect_instance_segmentation": "solder_segmenter",
     # Task mà notebook 6.2 của chính dự án sinh ra
@@ -566,6 +577,8 @@ def _kind_of(manifest: Mapping[str, Any] | None, folder: str) -> str:
             if task_kind is not None:
                 return task_kind
         schema = str(manifest.get("schema_version", "")).strip().lower()
+        if "pcb-package-classifier" in schema:
+            return "package_classifier"
         solder_role = _solder_role_from_hint(schema)
         if solder_role is not None:
             return solder_role
@@ -577,6 +590,15 @@ def _kind_of(manifest: Mapping[str, Any] | None, folder: str) -> str:
                 return mapped
 
     lowered = folder.strip().lower().replace("\\", "/")
+    package_parts = tuple(part for part in lowered.split("/") if part)
+    if package_parts and (
+        package_parts[-1] == "package"
+        or (
+            "package" in package_parts[-1]
+            and any(token in package_parts[-1] for token in ("classifier", "classification"))
+        )
+    ):
+        return "package_classifier"
     solder_role = _solder_role_from_hint(lowered)
     if solder_role is not None:
         return solder_role
@@ -613,7 +635,7 @@ def _scan(root: Path, origin: str, kind: str | None) -> Iterable[ModelEntry]:
         # mọi bước, vì giấu hẳn nó đi thì người thả file vào không hiểu vì sao
         # nó biến mất.
         if kind is not None:
-            if kind in _SOLDER_KINDS:
+            if kind in _STRICT_KINDS:
                 # A truly unknown model must not appear in both solder slots:
                 # their output contracts (raw logits vs boxes+masks) are not
                 # interchangeable.  Requiring an explicit role fails safely.

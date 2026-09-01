@@ -40,6 +40,7 @@ main{display:grid;grid-template-columns:190px 1fr 320px;min-height:0}
 .thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
 .thumb.st-verified{border-color:var(--ok)}
 .thumb.st-verified.has{border-color:var(--bad)}
+.thumb.unresolved{border-color:#ff4da6;border-style:dashed}
 .thumb.st-skipped{border-color:var(--warn);border-style:dashed}
 .thumb.st-unusable{border-color:var(--muted);border-style:dotted;opacity:.55}
 .thumb .n{position:absolute;left:2px;top:2px;font-size:9px;background:rgba(0,0,0,.7);
@@ -69,6 +70,7 @@ label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em
 .brow{display:flex;align-items:center;gap:7px;font-size:12px;padding:5px 8px;border-radius:6px;
   border:1px solid var(--line);background:var(--bg);cursor:pointer}
 .brow.on{border-color:var(--accent)}
+.brow.unknown{border-color:#ff4da6;background:rgba(255,77,166,.08)}
 .brow .sw{width:9px;height:9px;border-radius:2px;flex:none}
 .brow .sp{flex:1}
 .brow button{padding:1px 7px;font-size:11px}
@@ -181,6 +183,9 @@ const DATA = __DATA__;
 const CLASSES = DATA.classes;
 const KEY = 'jointbox:' + DATA.dataset_id;
 const rows = DATA.rows;
+const UNKNOWN_INDEX = -1;
+const UNKNOWN_NAME = DATA.unknown_class || 'unknown';
+const KNOWN_PATHS = new Set(rows.map(r=>r.crop_path));
 
 // state[crop_path] = {status, boxes:[{cls,x,y,w,h}], notes}
 let state = {};
@@ -188,6 +193,7 @@ let idx = 0, curClass = 0, selBox = -1, showHint = true;
 let view = {scale:1, ox:0, oy:0};   // fitted at load, adjusted by wheel/pan
 let img = new Image();
 let drag = null;
+let loadNotice = '';
 
 const $ = s => document.querySelector(s);
 const cv = $('#cv'), ctx = cv.getContext('2d');
@@ -195,12 +201,83 @@ const cv = $('#cv'), ctx = cv.getContext('2d');
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on');
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'), 1500); }
 
+function cloneInitial(){ return JSON.parse(JSON.stringify(DATA.initial_state || {})); }
+function hasUnknown(s){ return !!s && (s.boxes||[]).some(b=>b.cls===UNKNOWN_INDEX); }
+function validateLegacyState(raw, alias){
+  const old = JSON.parse(raw);
+  if(!old || typeof old !== 'object' || Array.isArray(old))
+    throw new Error('state cũ không phải object');
+  const allowedStatuses = new Set(['','verified','skipped','unusable']);
+  for(const [path,rec] of Object.entries(old)){
+    if(!KNOWN_PATHS.has(path)) throw new Error(`state cũ có crop lạ: ${path}`);
+    if(!rec || typeof rec !== 'object' || !allowedStatuses.has(rec.status || ''))
+      throw new Error(`state cũ có status không hợp lệ: ${path}`);
+    if(!Array.isArray(rec.boxes||[])) throw new Error(`state cũ có boxes không hợp lệ: ${path}`);
+    for(const box of (rec.boxes||[])){
+      if(!Number.isInteger(box.cls) || box.cls<0 || box.cls>=alias.classes.length)
+        throw new Error(`state cũ có class index không hợp lệ: ${path}`);
+      for(const field of ['x','y','w','h'])
+        if(!Number.isFinite(box[field])) throw new Error(`state cũ có tọa độ lỗi: ${path}`);
+    }
+  }
+  return old;
+}
+function migrateLegacy(){
+  for(const alias of (DATA.migration_aliases||[])){
+    const oldKey = 'jointbox:' + alias.dataset_id;
+    const raw = localStorage.getItem(oldKey);
+    if(!raw) continue;
+    if(alias.strategy !== 'preserve_geometry_reset_box_classes_to_unknown')
+      throw new Error(`chiến lược migration không hỗ trợ: ${alias.strategy}`);
+    const old = validateLegacyState(raw, alias);
+    const migrated = cloneInitial();
+    let records = 0, boxes = 0;
+    for(const [path,rec] of Object.entries(old)){
+      // Merely opening an old crop creates an empty blank record. It must not
+      // erase the package seed. A reviewed empty crop, however, is deliberate.
+      if(!(rec.status || (rec.boxes||[]).length)) continue;
+      const converted = (rec.boxes||[]).map(box=>({
+        cls: UNKNOWN_INDEX, x:box.x, y:box.y, w:box.w, h:box.h,
+        source_cls: alias.classes[box.cls], needs_review:true,
+        prelabel_reason:'migration:old_class_reset_to_unknown'
+      }));
+      migrated[path] = {
+        ...(migrated[path]||{}),
+        status: converted.length ? '' : (rec.status||''),
+        source_status: rec.status||'',
+        notes: rec.notes||'',
+        boxes: converted,
+        needs_review: converted.length>0,
+      };
+      records++; boxes += converted.length;
+    }
+    localStorage.setItem(KEY, JSON.stringify(migrated));
+    localStorage.setItem(KEY+':migration', JSON.stringify({
+      source_dataset_id: alias.dataset_id,
+      strategy: alias.strategy,
+      source_crops_semantic_sha256: alias.source_crops_semantic_sha256,
+      box_geometry_semantic_sha256: alias.box_geometry_semantic_sha256,
+      migrated_records: records,
+      migrated_boxes: boxes,
+      migrated_at: new Date().toISOString(),
+    }));
+    const oldReviewer = localStorage.getItem(oldKey+':rev');
+    if(oldReviewer) localStorage.setItem(KEY+':rev', oldReviewer);
+    loadNotice = `Đã chuyển ${records} tile / ${boxes} box từ phiên cũ; hãy gán lại package 1–7`;
+    return migrated;
+  }
+  return null;
+}
+
 function load(){
   try{ const raw = localStorage.getItem(KEY);
        if(raw) state = JSON.parse(raw);
-       else if(DATA.initial_state) state = JSON.parse(JSON.stringify(DATA.initial_state)); }
-  catch(e){ state = {}; }
+       else if(DATA.initial_state) state = migrateLegacy() || cloneInitial();
+       else state = migrateLegacy() || {}; }
+  catch(e){ state = cloneInitial(); loadNotice = 'Không chuyển được tiến độ cũ: ' + e.message;
+            console.error(loadNotice); }
   try{ const r = localStorage.getItem(KEY+':rev'); if(r) $('#rev').value = r; }catch(e){}
+  if(loadNotice) setTimeout(()=>toast(loadNotice), 0);
 }
 function persist(){
   try{ localStorage.setItem(KEY, JSON.stringify(state));
@@ -231,7 +308,10 @@ let shown = rows;
 function progress(){
   const done = rows.filter(r=>(state[r.crop_path]||{}).status).length;
   const withBox = rows.filter(r=>((state[r.crop_path]||{}).boxes||[]).length>0).length;
-  $('#prog').textContent = `${done} / ${rows.length} đã duyệt · ${withBox} có lỗi`;
+  const unresolved = rows.reduce((n,r)=>n+((state[r.crop_path]||{}).boxes||[])
+    .filter(b=>b.cls===UNKNOWN_INDEX).length, 0);
+  $('#prog').textContent = `${done} / ${rows.length} đã duyệt · ${withBox} có box`
+    + (DATA.unknown_class ? ` · ${unresolved} unknown` : '');
   $('#fill').style.width = (100*done/Math.max(1,rows.length)) + '%';
 }
 
@@ -244,7 +324,7 @@ function strip(){
     const r = shown[i], s = state[r.crop_path]||{status:'',boxes:[]};
     const d = document.createElement('div');
     d.className = 'thumb' + (i===idx?' sel':'') + (s.status?' st-'+s.status:'')
-                + ((s.boxes||[]).length?' has':'');
+                + ((s.boxes||[]).length?' has':'') + (hasUnknown(s)?' unresolved':'');
     d.innerHTML = `<img loading="lazy" src="${DATA.crops_dir}/${r.crop_path}" alt="">
                    <span class="n">${i+1}</span>`;
     d.onclick = ()=>{ idx=i; show(); };
@@ -282,12 +362,15 @@ function draw(){
   }
   const s = st(r.crop_path);
   s.boxes.forEach((b,i)=>{
-    const col = CLASSES[b.cls] ? CLASSES[b.cls].color : '#f85149';
+    const unknown = b.cls===UNKNOWN_INDEX;
+    const col = CLASSES[b.cls] ? CLASSES[b.cls].color : '#ff4da6';
     ctx.lineWidth = (i===selBox?3:2)*px;
     ctx.strokeStyle = col;
     ctx.fillStyle = col + '22';
+    if(unknown) ctx.setLineDash([6*px,4*px]);
     ctx.fillRect(b.x,b.y,b.w,b.h);
     ctx.strokeRect(b.x,b.y,b.w,b.h);
+    if(unknown) ctx.setLineDash([]);
     if(i===selBox){
       ctx.fillStyle = col;
       const g = 4*px;
@@ -375,7 +458,7 @@ cv.addEventListener('pointerup', ev=>{
       b.x = Math.max(0, b.x); b.y = Math.max(0, b.y);
       b.w = Math.min(b.w, img.naturalWidth-b.x); b.h = Math.min(b.h, img.naturalHeight-b.y);
       s.boxes.push(b); selBox = s.boxes.length-1;
-      if(s.status==='verified' || !s.status) s.status = 'verified';
+      if(!hasUnknown(s) && (s.status==='verified' || !s.status)) s.status = 'verified';
       persist();
     }
   } else if(drag.mode==='move' || drag.mode==='resize'){
@@ -403,15 +486,17 @@ function sidebar(){
     `<b>${idx+1} / ${shown.length}</b> — ${r.component_class}<br>`
     + `${r.crop_w}×${r.crop_h} px · nguồn <b>${r.dataset_source}</b><br>`
     + `cảnh <b>${r.scene_id}</b><br>`
-    + `trạng thái: <b>${s.status || 'chưa duyệt'}</b>`;
+    + `trạng thái: <b>${s.status || 'chưa duyệt'}</b>`
+    + (hasUnknown(s) ? `<br><b style="color:#ff4da6">Còn ${s.boxes.filter(b=>b.cls===UNKNOWN_INDEX).length} box unknown</b>` : '');
   $('#notes').value = s.notes || '';
 
   $('#boxes').innerHTML = '';
   if(!s.boxes.length) $('#boxes').innerHTML = '<div class="meta">chưa có box nào</div>';
   s.boxes.forEach((b,i)=>{
-    const c = CLASSES[b.cls] || {name:'?', color:'#f85149'};
+    const unknown = b.cls===UNKNOWN_INDEX;
+    const c = CLASSES[b.cls] || {name:UNKNOWN_NAME, color:'#ff4da6'};
     const d = document.createElement('div');
-    d.className = 'brow' + (i===selBox?' on':'');
+    d.className = 'brow' + (i===selBox?' on':'') + (unknown?' unknown':'');
     d.innerHTML = `<span class="sw" style="background:${c.color}"></span>`
       + `<span>${c.name}</span><span class="sp"></span>`
       + `<span class="meta">${Math.round(b.w)}×${Math.round(b.h)}</span>`
@@ -443,6 +528,10 @@ function step(d){ idx = Math.max(0, Math.min(shown.length-1, idx+d)); show(); }
 function mark(status){
   const r = shown[idx]; if(!r) return;
   const s = st(r.crop_path);
+  if(status==='verified' && hasUnknown(s)){
+    toast('Còn box unknown — chọn package 1–7 trước khi duyệt');
+    return;
+  }
   s.status = status;
   if(status==='verified' && !s.boxes.length) { /* an explicit clean crop */ }
   if(status==='unusable' || status==='skipped') s.boxes = [];
@@ -468,7 +557,13 @@ function setClass(i){
   if(i<0 || i>=CLASSES.length) return;
   curClass = i;
   const r = shown[idx];
-  if(r && selBox>=0){ st(r.crop_path).boxes[selBox].cls = i; persist(); draw(); }
+  if(r && selBox>=0){
+    const s = st(r.crop_path), box = s.boxes[selBox];
+    box.cls = i;
+    box.needs_review = false;
+    s.needs_review = hasUnknown(s);
+    persist(); draw(); strip(); progress();
+  }
   sidebar();
 }
 
@@ -489,6 +584,24 @@ $('#qhelp').onclick  = ()=>$('#help').classList.toggle('on');
 $('#help').onclick   = e=>{ if(e.target.id==='help') $('#help').classList.remove('on'); };
 
 $('#save').onclick = ()=>{
+  const blocked = rows.filter(r=>{
+    const s = state[r.crop_path];
+    return s && s.status==='verified' && hasUnknown(s);
+  });
+  if(blocked.length){
+    toast(`Không xuất: ${blocked.length} ảnh đã duyệt vẫn còn box unknown`);
+    return;
+  }
+  const invalid = rows.filter(r=>{
+    const s = state[r.crop_path];
+    return s && s.status && (s.boxes||[]).some(
+      b=>!Number.isInteger(b.cls) || b.cls<0 || b.cls>=CLASSES.length
+    );
+  });
+  if(invalid.length){
+    toast(`Không xuất: ${invalid.length} ảnh có class box không hợp lệ`);
+    return;
+  }
   const payload = {
     schema: 'aoi-joint-boxes/1.0',
     dataset_id: DATA.dataset_id,
@@ -508,7 +621,7 @@ $('#save').onclick = ()=>{
       status: s.status,
       notes: s.notes || '',
       boxes: (s.boxes||[]).map(b=>({
-        cls: CLASSES[b.cls] ? CLASSES[b.cls].name : String(b.cls),
+        cls: CLASSES[b.cls].name,
         x: Math.round(b.x), y: Math.round(b.y),
         w: Math.round(b.w), h: Math.round(b.h)
       }))

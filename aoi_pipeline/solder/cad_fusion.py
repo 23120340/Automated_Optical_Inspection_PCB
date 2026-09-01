@@ -31,6 +31,7 @@ import numpy as np
 from .cad import BoardCad, CadComponent, CadRegistration, classes_agree, is_informative_label
 from ..config import FusionConfig, terminal_geometry
 from ..models import BoundingBox, Detection, SolderJoint, intersection_over_smaller
+from ..placement.footprints import parse_footprint, profile_for_package_class
 from .geometry import ComponentFrame, derive_solder_joints
 
 __all__ = [
@@ -157,6 +158,17 @@ def fuse_solder_joints(
     for designator, detection_id in pairs:
         component = components_by_designator[designator]
         detection = detections_by_id[detection_id]
+        package_profile = _component_package_profile(component)
+        if package_profile is not None:
+            # BOM/PnP/CAD footprint evidence outranks an image-model package
+            # prediction.  Keep it on the detection as well as on joints so a
+            # hidden-terminal package remains auditable even though it emits
+            # no top-down solder ROI.
+            detection.metadata["package_profile"] = package_profile
+            detection.metadata["terminal_geometry_override"] = str(
+                package_profile["terminal_geometry"]
+            )
+            detection.metadata["package_axis_known"] = True
         own_derived = joints_by_detection.get(detection_id, [])
         offset = _placement_offset(detection, projected[designator])
         shift_mm = float(np.linalg.norm(offset)) / scale
@@ -413,6 +425,15 @@ def _joints_for_matched_component(
 ) -> list[SolderJoint]:
     """Build one component's ROIs from whichever evidence is strongest."""
 
+    footprint_profile = parse_footprint(component.footprint)
+    if (
+        footprint_profile is not None
+        and footprint_profile.terminal_geometry == "hidden_terminals"
+    ):
+        # The CAD pads are real design objects, but on an assembled QFN/BGA/LGA
+        # they are underneath the body and invisible to a top-down camera.
+        return []
+
     if component.has_pads:
         cad_joints = _cad_pad_joints(
             component,
@@ -464,6 +485,7 @@ def _cad_pad_joints(
     centres = centres + correction
     default_size = _default_pad_size_px(component, scale, config)
     board_angle = _registration_angle(registration)
+    package_profile = _component_package_profile(component)
 
     joints: list[SolderJoint] = []
     for index, (pad, centre) in enumerate(zip(component.pads, centres)):
@@ -498,6 +520,11 @@ def _cad_pad_joints(
                     "cad_pad": pad.to_dict(),
                     "local_correction_px": [float(correction[0]), float(correction[1])],
                     "pad_size_known": pad.width > 0 and pad.height > 0,
+                    **(
+                        {"package_profile": dict(package_profile)}
+                        if package_profile is not None
+                        else {}
+                    ),
                 },
             )
         )
@@ -521,7 +548,23 @@ def _reanchored_derived_joints(
     """Re-run the derived geometry on the CAD placement instead of the box."""
 
     if not config.reanchor_on_placement:
-        return [_tagged(joint, "derived", component.designator) for joint in derived]
+        profile = _component_package_profile(component)
+        if profile is not None:
+            geometry = str(profile["terminal_geometry"])
+            rebuilt = derive_solder_joints(
+                detection,
+                image_width,
+                image_height,
+                config.solder,
+                image,
+                geometry=geometry,
+            )
+            if rebuilt or geometry in {"hidden_terminals", "ic_khong_chan"}:
+                derived = rebuilt
+        return [
+            _tagged_with_profile(joint, "derived", component.designator, profile)
+            for joint in derived
+        ]
 
     centre = registration.to_image([[component.x, component.y]])[0] + correction
     angle = _registration_angle(registration) + component.rotation
@@ -556,7 +599,7 @@ def _reanchored_derived_joints(
         # chốt được và phát cả hai cặp ROI, trong đó một cặp nằm trên bo trống.
         axis_known=True,
     )
-    if not joints:
+    if not joints and geometry not in {"hidden_terminals", "ic_khong_chan"}:
         return [_tagged(joint, "derived", component.designator) for joint in derived]
     return [
         _tagged(joint, "cad+derived", component.designator) for joint in joints
@@ -568,9 +611,45 @@ def _geometry_from_cad(component: CadComponent, detection: Detection) -> str:
 
     if component.pads:
         return "two_terminal" if len(component.pads) == 2 else "multi_pin"
+    footprint_profile = parse_footprint(component.footprint)
+    if footprint_profile is not None:
+        return footprint_profile.terminal_geometry
+    detection_profile = detection.metadata.get("package_profile")
+    if isinstance(detection_profile, dict):
+        geometry = str(detection_profile.get("terminal_geometry") or "").strip()
+        if geometry:
+            return geometry
+        package_class = str(detection_profile.get("package_class") or "").strip()
+        if package_class:
+            return terminal_geometry(detection.label, package=package_class)
     if component.part_class:
         return terminal_geometry(component.part_class)
     return terminal_geometry(detection.label)
+
+
+def _component_package_profile(component: CadComponent) -> dict[str, Any] | None:
+    """Return topology evidence carried by a CAD/BOM/PnP component row."""
+
+    profile = parse_footprint(component.footprint)
+    if profile is None and len(component.pads) == 2:
+        profile = profile_for_package_class("hai_chan", source="cad_pad_count")
+    if profile is None:
+        return None
+    payload = profile.to_dict()
+    payload.update(
+        {
+            "source": "cad_pads" if component.pads else "footprint",
+            "designator": component.designator,
+            "footprint": component.footprint,
+        }
+    )
+    if component.pads:
+        footprint_count = payload.get("expected_pin_count")
+        if footprint_count is not None and footprint_count != len(component.pads):
+            payload["footprint_expected_pin_count"] = footprint_count
+        payload["expected_pin_count"] = len(component.pads)
+        payload["expected_pin_count_range"] = None
+    return payload
 
 
 def _reconcile(
@@ -741,11 +820,29 @@ def _tagged(
     return _replace_joint(joint, source=source, designator=designator or joint.designator)
 
 
+def _tagged_with_profile(
+    joint: SolderJoint,
+    source: str,
+    designator: str | None,
+    profile: dict[str, Any] | None,
+) -> SolderJoint:
+    metadata = dict(joint.metadata)
+    if profile is not None:
+        metadata["package_profile"] = dict(profile)
+    return _replace_joint(
+        joint,
+        source=source,
+        designator=designator or joint.designator,
+        metadata=metadata,
+    )
+
+
 def _replace_joint(
     joint: SolderJoint,
     bbox: BoundingBox | None = None,
     source: str | None = None,
     designator: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> SolderJoint:
     return SolderJoint(
         detection_id=joint.detection_id,
@@ -761,5 +858,5 @@ def _replace_joint(
         designator=designator if designator is not None else joint.designator,
         pin=joint.pin,
         net=joint.net,
-        metadata=dict(joint.metadata),
+        metadata=dict(joint.metadata) if metadata is None else dict(metadata),
     )

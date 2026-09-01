@@ -115,6 +115,16 @@ def export_zip(
                     "images/06_solder_verdicts.png",
                     encode_image(render_verdict_overlay(run)),
                 )
+            if run.package_classifications:
+                archive.writestr(
+                    "packages/package_classifications.csv",
+                    package_classifications_csv(run),
+                )
+            if run.package_topology_checks:
+                archive.writestr(
+                    "packages/package_topology_checks.csv",
+                    package_topology_checks_csv(run),
+                )
             if run.fusion is not None and getattr(run.fusion, "used_cad", False):
                 archive.writestr("cad/cad_findings.csv", cad_findings_csv(run))
                 archive.writestr(
@@ -178,6 +188,97 @@ SOLDER_VERDICT_COLUMNS = (
     "model_version",
     "reasons",
 )
+
+PACKAGE_CLASSIFICATION_COLUMNS = (
+    "crop_id",
+    "detection_id",
+    "package_class",
+    "probability",
+    "decision",
+    "model_version",
+    "source",
+    "detector_hint",
+    "top_k",
+)
+
+PACKAGE_TOPOLOGY_COLUMNS = (
+    "detection_id",
+    "package_class",
+    "source",
+    "status",
+    "review_required",
+    "expected_pin_min",
+    "expected_pin_max",
+    "expected_lead_sides",
+    "actual_pin_count",
+    "actual_roi_count",
+    "actual_lead_sides",
+    "reason",
+)
+
+
+def package_classifications_csv(run: PipelineRun) -> str:
+    """Portable step-5.2 predictions, separate from family classification."""
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(PACKAGE_CLASSIFICATION_COLUMNS)
+    for item in run.package_classifications:
+        top_k = getattr(item, "top_k", []) or []
+        writer.writerow(
+            [
+                csv_cell(getattr(item, "crop_id", "")),
+                csv_cell(getattr(item, "detection_id", "")),
+                csv_cell(getattr(item, "package_class", "")),
+                f"{float(getattr(item, 'probability', 0.0)):.4f}",
+                csv_cell(getattr(item, "decision", "")),
+                csv_cell(getattr(item, "model_version", "")),
+                csv_cell(getattr(item, "source", "")),
+                csv_cell(getattr(item, "detector_hint", "") or ""),
+                csv_cell(
+                    " | ".join(
+                        f"{getattr(score, 'label', '')}:{float(getattr(score, 'probability', 0.0)):.4f}"
+                        for score in top_k
+                    )
+                ),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def package_topology_checks_csv(run: PipelineRun) -> str:
+    """The fail-visible expected-versus-emitted terminal count gate."""
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(PACKAGE_TOPOLOGY_COLUMNS)
+    for item in run.package_topology_checks:
+        writer.writerow(
+            [
+                csv_cell(getattr(item, "detection_id", "")),
+                csv_cell(getattr(item, "package_class", "")),
+                csv_cell(getattr(item, "source", "")),
+                csv_cell(getattr(item, "status", "")),
+                bool(getattr(item, "review_required", False)),
+                _optional_csv_number(getattr(item, "expected_pin_min", None)),
+                _optional_csv_number(getattr(item, "expected_pin_max", None)),
+                csv_cell(
+                    ",".join(
+                        str(value)
+                        for value in getattr(item, "expected_lead_sides", ())
+                    )
+                ),
+                _optional_csv_number(getattr(item, "actual_pin_count", None)),
+                _optional_csv_number(getattr(item, "actual_roi_count", None)),
+                _optional_csv_number(getattr(item, "actual_lead_sides", None)),
+                csv_cell(getattr(item, "reason", "")),
+            ]
+        )
+    return buffer.getvalue()
+
+
+def _optional_csv_number(value: Any) -> str | int | float:
+    return "" if value is None else value
 
 
 def solder_verdicts_csv(run: PipelineRun) -> str:

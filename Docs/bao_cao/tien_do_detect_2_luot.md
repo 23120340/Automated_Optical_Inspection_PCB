@@ -488,5 +488,6 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-30 | Chống mất việc đã duyệt khi nạp file vào app gán nhãn | nạp checkpoint mâu thuẫn nay huỷ toàn bộ import thay vì ghi đè im lặng |
 | 2026-08-31 | Trang gán nhãn trên đĩa dựng từ template CŨ, thiếu chốt chống ghi đè | trang nằm trong .gitignore nên trôi lệch không ai thấy; đã dựng lại cả 4 bộ + thêm vân tay template để test bắt được |
 | 2026-08-31 | Packer nêu TÊN bo cần duyệt khi một bucket trống | trước chỉ báo "thiếu bucket valid", mà bucket là hàm băm nên không ai đoán được |
-| 2026-08-31 | Kế hoạch phân nhóm package | `Docs/ke_hoach/ke_hoach_phan_nhom_package.md` — **chờ duyệt**; đo được 13,5% linh kiện mang 31,2% mối hàn và đều chỉ có chân ở 2/4 cạnh |
+| 2026-08-31 | Kế hoạch phân nhóm package | `Docs/ke_hoach/ke_hoach_phan_nhom_package.md`; đo được 13,5% linh kiện mang 31,2% mối hàn và đều chỉ có chân ở 2/4 cạnh |
+| 2026-09-01 | Triển khai package 5.2 | Parser footprint ưu tiên BOM/PnP/CAD; 7 topology + cờ mismatch; classifier ONNX opt-in/no-op khi thiếu artifact; editor migration giữ nguyên xywh; packer chia theo board, notebook và gate 28 pad. **Còn thủ công:** giải quyết 3.847 `unknown`, train, chạy gate rồi mới promote. |
 | 2026-08-31 | Kế hoạch lỗi toàn mạch | `Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md` — **chờ duyệt**; VisA pcb1–4 là nguồn có xước trên board ĐÃ LẮP, script fetch đã có sẵn |

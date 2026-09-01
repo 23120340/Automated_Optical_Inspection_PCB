@@ -19,6 +19,10 @@ import json
 import sys
 from pathlib import Path
 
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from aoi_pipeline.modelops.model_registry import (  # noqa: E402
@@ -39,7 +43,9 @@ ORIGIN_ORDER = {"active": 0, "library": 1, "archive": 2}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kind", choices=["detector", "classifier", "solder"],
+    parser.add_argument(
+        "--kind",
+        choices=["detector", "classifier", "package", "package_classifier", "solder"],
                         help="chỉ liệt kê một bước")
     parser.add_argument("--json", action="store_true", help="in JSON thay vì bảng")
     parser.add_argument("--all", action="store_true",
