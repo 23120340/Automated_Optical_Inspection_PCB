@@ -16,8 +16,9 @@ Cái *được* commit là thứ làm cho việc dựng lại có thể kiểm c
     python scripts/setup_labelling_workspace.py \\
         datasets/labelling/component_bodies_round2_20260830
 
-Chạy xong sẽ có `crops/` và trang gán nhãn, giống hệt máy người đã duyệt 16 tile
-đầu — giống tới từng byte, và script chứng minh điều đó bằng sha256.
+Chạy xong sẽ có `crops/` và hai trang gán nhãn, giống tới từng byte với workspace
+nguồn; script chứng minh pixel bằng sha256. Chỉ trang **thân linh kiện** mang 16
+tile `verified`; trang **package** cố ý bắt duyệt lại nhãn lớp trên các box đó.
 """
 
 from __future__ import annotations
@@ -164,9 +165,12 @@ def main(argv: list[str] | None = None) -> int:
     for _classes, _seed, output in jobs:
         print(f"    {output}")
     print(
-        "\nLƯU Ý cho người mới: trang đã được SEED sẵn — 16 tile đầu hiện trạng "
-        "\n`verified` và không cần đụng vào. ĐỪNG bấm 'Nạp file' để nạp checkpoint "
-        "\ncủa người khác; mỗi người xuất JSON của riêng mình khi dừng, rồi gộp lại."
+        "\nLƯU Ý cho người mới: hai trang có trạng thái duyệt RIÊNG. "
+        "\n- label_boxes.html: 16 tile thân linh kiện đã `verified`."
+        "\n- label_packages.html: 0 tile đã duyệt package; tọa độ box được giữ nhưng "
+        "nhãn cũ bị reset thành `unknown` và phải chọn lại 1–7."
+        "\nĐỪNG bấm 'Nạp file' để nạp checkpoint của người khác; mỗi người xuất "
+        "JSON của riêng mình khi dừng, rồi gộp lại."
     )
     return 0
 

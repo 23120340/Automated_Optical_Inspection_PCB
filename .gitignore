@@ -85,6 +85,10 @@ datasets/labelling/*/crops/
 # cũng nhúng ảnh và cũng dựng lại được từ draft + crops bằng
 # build_joint_box_app.py, nên khuôn phải bắt theo tiền tố chứ không theo tên.
 datasets/labelling/*/label_*.html
+# Handoff bundle của workspace gán nhãn cũng chứa chính các crop ở trên. File
+# hiện tại ~221 MB (GitHub chặn file thường >100 MB) và ảnh CVL PCB-DSLR chỉ
+# được dùng cho nghiên cứu phi thương mại, nên không phát hành lại qua repo.
+datasets/labelling/*.zip
 
 # Packed training sets: pixels and the zip built from them. Both are rebuilt by
 # pack_joint_detection_dataset.py from the crop folders plus the exported

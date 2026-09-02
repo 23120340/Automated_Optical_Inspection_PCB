@@ -1,8 +1,14 @@
 # Component bodies — vòng 2 (2026-08-30)
 
-Mở `label_boxes.html` trực tiếp để tiếp tục gán nhãn. App đã nhúng sẵn
-`draft_boxes.json`: 16 tile đã duyệt hiện đúng trạng thái `verified`; 104 tile
-còn lại nằm trong bộ lọc **chưa duyệt**.
+Có hai trang, và trạng thái duyệt của chúng **không thay thế nhau**:
+
+- `label_boxes.html`: duyệt hình học thân linh kiện. App đã nhúng
+  `draft_boxes.json`; 16 tile đã duyệt hiện đúng trạng thái `verified`, 104 tile
+  còn lại nằm trong bộ lọc **chưa duyệt**.
+- `label_packages.html`: gán một trong 7 package cho từng box thân. Tọa độ được
+  giữ nguyên từ draft thân, nhưng **0 tile được coi là đã duyệt package**:
+  3.847/3.855 box còn `unknown`, 8 prelabel chỉ là gợi ý bảo thủ. Phải chọn
+  package 1–7 cho từng box; `unknown` chặn cả Enter và export.
 
 Quy ước: khoanh sát **THÂN/gói/vỏ linh kiện**, không bao chân, pad hoặc thiếc.
 Nhấn **Enter** sau khi sửa đủ mọi box trên tile. Phím **C** chỉ dành cho tile
