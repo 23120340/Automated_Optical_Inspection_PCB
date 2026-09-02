@@ -177,27 +177,28 @@ def _candidate_labels(
 def _geometry_prelabel(
     box: Mapping[str, object], row: Mapping[str, object],
 ) -> tuple[str, str] | None:
-    """Return only the narrow geometry case that is safe enough to bootstrap.
+    """Không đoán package từ hình học nữa. Luôn trả ``None``.
 
-    A very small body with aspect >=3.2 is overwhelmingly a chip/axial
-    two-terminal part in this queue.  Everything square or merely elongated is
-    left unknown because it includes exactly the dangerous IC-with-leads versus
-    leadless-IC ambiguity the package task is meant to resolve.
+    Bản trước gán ``hai_chan`` khi ``aspect >= 3.2`` với lý lẽ "thân rất nhỏ và
+    thuôn dài gần như chắc chắn là linh kiện hai chân". Lý lẽ đó **ngược**: chip
+    hai chân thật (0402/0603/0805) có tỉ lệ thân khoảng 1,5–2,5, và trên chính
+    hàng đợi này trung vị tỉ lệ đo được là 1,38. Ngưỡng ``>= 3.2`` vì thế chọn
+    đúng nhóm *ít khả năng là hai chân nhất*.
+
+    Đã kiểm bằng ảnh trên cả 8 box mà luật bắn trúng (tỉ lệ 4,7 · 17,9 · 3,3 ·
+    8,3 · 9,6 · 3,4 · 4,5 · 3,5): ít nhất ba cái là **connector / hàng chân /
+    mép IC**, không phải linh kiện hai chân. Xem
+    ``Docs/danh_gia/danh_gia_khoanh_box_than_linh_kien.md``.
+
+    Luật chỉ bắn 8/3855 box (0,2%) nên không tiết kiệm được công đáng kể, trong
+    khi mỗi lần bắn sai lại tạo ra một box *trông như đã xong* — thứ người duyệt
+    dễ bấm qua theo phản xạ. Đổi lấy: không điền sẵn gì cả, mọi box về
+    ``unknown`` và người duyệt tự chọn.
+
+    Muốn điền sẵn lại thì đo trước: gán tay vài trăm box, tính tỉ lệ đúng của
+    quy tắc ứng viên, rồi mới bật. Đừng suy từ hình học ra nhãn bằng trực giác.
     """
 
-    width, height = float(box["w"]), float(box["h"])
-    crop_width = row.get("crop_w")
-    crop_height = row.get("crop_h")
-    if width <= 0 or height <= 0:
-        return None
-    if not isinstance(crop_width, (int, float)) or not isinstance(crop_height, (int, float)):
-        return None
-    if crop_width <= 0 or crop_height <= 0:
-        return None
-    aspect = max(width, height) / min(width, height)
-    area_fraction = (width * height) / (float(crop_width) * float(crop_height))
-    if aspect >= 3.2 and area_fraction <= 0.0015:
-        return "hai_chan", "geometry:very_small_elongated_body"
     return None
 
 

@@ -38,14 +38,14 @@
   "source_verified_tiles": 16,
   "box_count": 3855,
   "by_class": {
-   "hai_chan": 8,
+   "hai_chan": 0,
    "tru_dung": 0,
    "goi_nho": 0,
    "ic_hai_ben": 0,
    "ic_bon_ben": 0,
    "ic_khong_chan": 0,
    "connector": 0,
-   "unknown": 3847
+   "unknown": 3855
   },
   "policy": "Only explicit family/package labels and extremely small elongated bodies are prelabelled; ambiguous boxes remain unknown and block verification."
  },
@@ -773,14 +773,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 0,
      "y": 231,
      "w": 10,
      "h": 47,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
      "cls": "unknown",
@@ -1773,14 +1773,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 0,
      "y": 642,
      "w": 8,
      "h": 143,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
      "cls": "unknown",
@@ -2583,14 +2583,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 84,
      "y": 0,
      "w": 23,
      "h": 7,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     }
    ],
    "source_status": "verified",
@@ -5297,14 +5297,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 660,
      "y": 1012,
      "w": 100,
      "h": 12,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     }
    ],
    "source_status": "verified",
@@ -5925,14 +5925,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 805,
      "y": 1016,
      "w": 77,
      "h": 8,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     }
    ],
    "source_status": "verified",
@@ -9331,14 +9331,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 1007,
      "y": 706,
      "w": 17,
      "h": 57,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
      "cls": "unknown",
@@ -11963,14 +11963,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 0,
      "y": 71,
      "w": 10,
      "h": 45,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
      "cls": "unknown",
@@ -13871,14 +13871,14 @@
      "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
-     "cls": "hai_chan",
+     "cls": "unknown",
      "x": 369,
      "y": 0,
      "w": 21,
      "h": 6,
      "source_cls": "component",
-     "needs_review": false,
-     "prelabel_reason": "geometry:very_small_elongated_body"
+     "needs_review": true,
+     "prelabel_reason": "review:label_or_geometry_ambiguous"
     },
     {
      "cls": "unknown",
@@ -39443,5 +39443,5 @@
    "boxes": []
   }
  },
- "package_crops_semantic_sha256": "9f0c87f777aa4e6d5d5a152051b4f180593aa8327d58b71ff83ed0c0a917e752"
+ "package_crops_semantic_sha256": "484a131b7b71636e567d318700ea5e406709cb44793cc5deffd022a624c7336a"
 }

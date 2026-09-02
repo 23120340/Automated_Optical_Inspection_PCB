@@ -330,3 +330,63 @@ detector mới lên và lúc classifier mới xong.
 > phần trong 124 ca "đổi nhãn" của F có thể là classifier đang *đúng hơn*, chứ
 > không phải sai đi. Muốn biết chắc thì phải có nhãn họ linh kiện thật cho các
 > crop này, mà hiện chưa có.
+
+---
+
+## 8. Duyệt lượt hai trang gán nhãn package (2026-09-02)
+
+Lượt duyệt độc lập trên `label_packages.html`, sau lượt của một agent khác.
+Kiểm bằng cách **chạy**, không chỉ đọc code.
+
+### 8.1. Luật gán nhãn sẵn đang NGƯỢC — đã gỡ
+
+`scripts/prepare_package_labelling.py` gán `hai_chan` khi
+`aspect >= 3.2 and area_fraction <= 0.0015`, với lý lẽ "thân rất nhỏ và thuôn
+dài gần như chắc chắn là linh kiện hai chân".
+
+Lý lẽ đó ngược. Chip hai chân thật (0402/0603/0805) có tỉ lệ thân khoảng
+**1,5–2,5**; trên chính hàng đợi này **trung vị tỉ lệ là 1,38** (§6). Còn box
+**tỉ lệ >3 phần lớn là connector / pin header** — đã kiểm bằng ảnh ở §4c. Ngưỡng
+`>= 3.2` vì thế chọn đúng nhóm *ít khả năng là hai chân nhất*.
+
+Soi ảnh cả 8 box mà luật bắn trúng, tỉ lệ cạnh
+**4,7 · 17,9 · 3,3 · 8,3 · 9,6 · 3,4 · 4,5 · 3,5**:
+
+| Box | Nhìn thấy gì |
+|---|---|
+| 8×143 (ar 17,9) | dải đen dọc theo **hàng ~15 pad** — thân connector ❌ |
+| 100×12 (ar 8,3) | dải mỏng dọc **mép trên một IC lớn** (`PI … 8E10`), trên là hàng chân ❌ |
+| 77×8 (ar 9,6) | dải mỏng ngay dưới **hàng 8 chân** ❌ |
+| 5 cái còn lại | mơ hồ, không cái nào rõ là chip hai chân |
+
+Luật chỉ bắn **8/3.855 box (0,2%)** nên không tiết kiệm được công đáng kể, trong
+khi mỗi lần bắn sai lại tạo ra một box *trông như đã xong* — thứ người duyệt dễ
+bấm qua theo phản xạ. **Đã gỡ hẳn**; 3.855/3.855 box về `unknown`.
+
+Kiểm sau khi gỡ: **0 box lệch hình học, đúng 8 box đổi nhãn**, `source_geometry_sha256`
+không đổi. Muốn điền sẵn lại thì đo trước — gán tay vài trăm box, tính tỉ lệ đúng
+của quy tắc ứng viên, rồi mới bật.
+
+### 8.2. Những chỗ nghi ngờ nhưng kiểm ra là ổn
+
+**Một lần tôi nghi sai, ghi lại cho minh bạch.** Dòng xuất JSON
+`cls: CLASSES[b.cls].name` không có guard tại chỗ, nên tôi tưởng nó nổ khi gặp
+box `unknown`. Thực tế có **hai chốt chặn ngay trên vòng lặp**, và chạy thử cho
+ra đúng thông báo *"Không xuất: 1 ảnh đã duyệt vẫn còn box unknown"*. Không im
+lặng, không mất dữ liệu.
+
+| Kiểm | Kết quả |
+|---|---|
+| Năm chốt chống `verified` + `unknown` (`mark`, import, `load_seed`, migration, export ×2) | tất cả kín |
+| Migration mang việc đã duyệt sang trang package | **50 tile / 5.281 box sang đủ**; 6.574 box tổng, tất cả `unknown`, **0** tile bị đánh dấu duyệt nhầm |
+| Phím `8`/`9` trên trang chỉ có 7 lớp | `setClass` chặn chỉ số ngoài dải — no-op |
+| Smoke test `package_label_app_smoke.mjs` trên trang thật | pass |
+
+### 8.3. Hai điều người duyệt phải biết trước
+
+- **Phải mở trang package trong CÙNG trình duyệt** nơi đã duyệt trang thân.
+  Migration đọc `localStorage` của trang thân; mở ở máy hoặc trình duyệt khác thì
+  chỉ có 3.855 box từ seed, **mất 5.281 box** vừa duyệt.
+- **Mọi box sẽ ở trạng thái `unknown`, kể cả trên tile đã duyệt thân.** Đó là chủ
+  ý (`preserve_geometry_reset_box_classes_to_unknown`): hình học giữ nguyên, nhãn
+  lớp chọn lại từ đầu. Thấy "0 tile đã duyệt" là đúng, không phải mất việc.
