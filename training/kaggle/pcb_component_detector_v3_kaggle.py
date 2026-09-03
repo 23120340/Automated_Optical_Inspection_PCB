@@ -15,7 +15,8 @@
 #    cùng một linh kiện, và chia ngẫu nhiên theo ảnh là rò rỉ train/val.
 #
 # Dữ liệu: gói bằng `scripts/pack_component_detection_dataset.py`, đã dọn bằng
-# `scripts/apply_box_exclusions.py`. Add Input gói đó rồi sửa `dataset_root`.
+# `scripts/apply_box_exclusions.py`. Chỉ cần Add Input gói đó —
+# `resolve_dataset_root` tự tìm, không phải sửa `dataset_root` bằng tay.
 
 # %%
 import json
@@ -128,7 +129,46 @@ CONFIG = {
 }
 
 random.seed(CONFIG["seed"])
-DATASET = Path(CONFIG["dataset_root"])
+
+
+def resolve_dataset_root(configured: str) -> Path:
+    """Tự tìm gói dataset thay vì bắt sửa `dataset_root` bằng tay mỗi lần.
+
+    Kaggle đặt Input ở chỗ khác nhau tuỳ cách bạn add. Lần train đầu CONFIG ghi
+    `/kaggle/input/pcb-component-detect-v1/...` nhưng chỗ thật là
+    `/kaggle/input/datasets/<user>/<slug>/...`, nên phải sửa tay giữa phiên.
+    """
+    wanted = Path(configured)
+    if (wanted / "data.yaml").is_file():
+        return wanted
+
+    # Tìm theo ĐÚNG tên thư mục trong CONFIG, không quét bừa: nếu có nhiều gói
+    # cùng attach thì bắt chọn tay chứ không đoán.
+    name = wanted.name
+    found = []
+    for base in (Path("/kaggle/input"), Path.cwd()):
+        if not base.is_dir():
+            continue
+        for depth in ("", "*/", "*/*/", "*/*/*/"):
+            found += [p.parent for p in base.glob(f"{depth}{name}/data.yaml")]
+    found = sorted({p.resolve() for p in found})
+
+    if len(found) == 1:
+        print(f"dataset_root trong CONFIG không tồn tại; tự tìm thấy: {found[0]}")
+        return found[0]
+    if not found:
+        raise SystemExit(
+            f"không thấy thư mục '{name}' có data.yaml ở /kaggle/input.\n"
+            "Add Input gói dataset, rồi sửa CONFIG['dataset_root'] cho khớp."
+        )
+    raise SystemExit(
+        f"thấy {len(found)} gói tên '{name}' — không đoán:\n  "
+        + "\n  ".join(str(p) for p in found)
+        + "\nSửa CONFIG['dataset_root'] trỏ đúng một cái."
+    )
+
+
+DATASET = resolve_dataset_root(CONFIG["dataset_root"])
 WORK = Path(CONFIG["work_dir"])
 ARTIFACTS = Path(CONFIG["artifact_dir"])
 print("dataset:", DATASET)
@@ -168,7 +208,7 @@ if "P100" in gpu:
 # %%
 data_yaml = DATASET / "data.yaml"
 if not data_yaml.is_file():
-    raise SystemExit(f"không thấy {data_yaml} — Add Input gói dataset rồi sửa dataset_root")
+    raise SystemExit(f"không thấy {data_yaml} — gói dataset thiếu data.yaml")
 
 yaml_text = data_yaml.read_text(encoding="utf-8")
 print(yaml_text)
