@@ -390,3 +390,91 @@ lặng, không mất dữ liệu.
 - **Mọi box sẽ ở trạng thái `unknown`, kể cả trên tile đã duyệt thân.** Đó là chủ
   ý (`preserve_geometry_reset_box_classes_to_unknown`): hình học giữ nguyên, nhãn
   lớp chọn lại từ đầu. Thấy "0 tile đã duyệt" là đúng, không phải mất việc.
+
+---
+
+## 9. Soát toàn bộ trước khi train (2026-09-03)
+
+Gán nhãn thân linh kiện **đã xong**: `joint_boxes (11).json` — 95 tile duyệt,
+25 unusable, **9.493 box**. Lượt soát này chạy trên toàn bộ, **không dùng
+detector có sẵn**: nó bỏ sót 46% box tay trên chính các tile này, nên không đủ
+tư cách phán ai đúng ai sai.
+
+### 9.1. Cách lọc: máy khoanh vùng nghi vấn, người quyết
+
+Sáu nhóm nghi vấn được tính bằng hình học thuần tuý — **1.108/9.493 box
+(11,7%)** — rồi soi bằng ảnh phóng to. Kết quả: **chỉ 7 box thật sự sai**.
+
+| Nhóm | Số box | Phán quyết sau khi NHÌN |
+|---|---:|---|
+| Tí hon `<6px` | 257 | **GIỮ** — soi ra là chip 2 chân thật (thân đen giữa hai pad bạc) |
+| Rất nhỏ `6–8px` | 573 | **GIỮ** — cùng lý do |
+| Phủ gần hết tile | 9 | **GIỮ 6 / LOẠI 3** — 6 cái là socket RAM/DIMM và connector rìa board, dài 960–1030px là kích thước thật |
+| Thuôn dài `ar>6` | 90 | **GIỮ** — khe ISA/PCI, pin header, cuộn cảm dài |
+| Diện tích `>25%` tile | 5 | **GIỮ** — Socket 7, vỏ nhựa che, hộp chắn có tem serial |
+| Lồng trong box khác | 205 | **GIỮ** — socket CPU có tụ lắp *bên trong* khoang; cả hai đều là linh kiện thật |
+| Trùng nhau `IoU>0.5` | 8 | **LOẠI 4** — 4 cặp khoanh hai lần cùng một linh kiện |
+
+Bảy box bị loại, kèm lý do từng cái, nằm ở
+`datasets/labelling/component_bodies_round2_20260830/box_exclusions.json`.
+Áp dụng bằng `scripts/apply_box_exclusions.py`, script này **từ chối chạy** nếu
+checkpoint không phải bản đã soi — box được chỉ theo chỉ số, mà chỉ số chỉ đúng
+với đúng file đó.
+
+Ba box mép board là dạng nguy hiểm nhất trong cả bộ: chúng ôm **vát cạnh tối
+trơn** và **nền đen ngoài board**, tức dạy model gọi nền là linh kiện.
+
+### 9.2. Hai chỗ tôi định làm và đã dừng lại
+
+**Không xoá 830 box nhỏ.** Nhìn ảnh thì chúng là linh kiện thật, không phải
+nhiễu. Xoá là dạy model rằng linh kiện nhỏ là nền — một sai lầm tệ hơn nhiều so
+với việc train trên vài trăm box khó. Cách xử lý đúng là **tăng `imgsz`**.
+
+**Không xoá box lồng nhau.** Cái bao nhiều nhất bao 55 box khác, và đó thật sự
+là supervision mâu thuẫn. Nhưng soi ảnh thì là socket CPU có tụ lắp trong
+khoang — cả socket lẫn tụ đều tồn tại. Xoá là xoá linh kiện thật dựa trên phán
+đoán của tôi. Ghi lại thành **ứng viên số một cần xem lại** nếu train ra kết quả
+kém ở vùng socket.
+
+### 9.3. Dataset đã xuất
+
+`datasets/train/component_detect_v1`, gói bằng
+`pack_component_detection_dataset.py` từ checkpoint đã dọn:
+
+| | ảnh | box |
+|---|---:|---:|
+| train | 318 | 51.314 |
+| valid | 10 | 1.300 |
+| test | 11 | 640 |
+
+**28 bo vật lý** (cổng cần 10), split khoá theo bo, 0 ảnh trùng giữa các split,
+0 lỗi định dạng nhãn, một lớp `component`. Đối chiếu IC chính thức của PCB-DSLR:
+446/448 khớp.
+
+### 9.4. Một con số làm tôi phải sửa lại notebook
+
+Viết notebook xong tôi mới đo cỡ box trên **chính gói đã xuất**, và nó bác bỏ lý
+lẽ tôi vừa viết:
+
+| imgsz | p05 | trung vị | **box < 8px** |
+|---|---:|---:|---:|
+| 1024 | 3,3 | 9,2 | **42,8%** |
+| 1280 | 4,1 | 11,5 | 29,7% |
+| **1536** | 4,9 | 13,8 | **20,9%** |
+| 1792 | 5,7 | 16,1 | 14,3% |
+
+Tôi đã viết "p05 là 7px trên tile 1024, nâng lên 1536 là thành 10,5px". Con số
+đó đúng cho **tile của dự án**, nhưng gói này có **94% là ảnh công khai** cỡ lớn
+(RF100 rộng 504–5985px) bị letterbox về 1536 — linh kiện nhỏ của chúng co lại
+rất nhiều. Ở 1536 vẫn còn **21% box dưới 8px**, tức dưới một ô lưới P3.
+
+Đã sửa notebook cho khớp số đo, và ghi rõ đòn bẩy đúng: **cắt tile ảnh công
+khai**, không phải nâng tiếp imgsz (1792 chỉ bớt 6 điểm phần trăm mà tốn thêm
+36% compute).
+
+### 9.5. Notebook train
+
+`training/kaggle/pcb_component_detector_v3_kaggle.py` (+ `.ipynb`, 16 cell).
+Khác v2 ở ba chỗ: một lớp, split đã khoá (notebook **cấm** chia lại), và cổng
+phán quyết so với detector đang chạy — `recall test > 0,54`, vì đó là recall của
+model hiện tại trên chính các box này.

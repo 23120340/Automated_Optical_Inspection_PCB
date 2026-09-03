@@ -1,0 +1,89 @@
+{
+  "schema": "aoi-box-exclusions/1.0",
+  "dataset": "component_bodies_round2_20260830",
+  "source_checkpoint": "joint_boxes (11).json",
+  "source_exported_at": "2026-09-03T02:47:23.699Z",
+  "reviewed_at": "2026-09-03",
+  "reviewer": "claude-opus-5 (lượt soát trước khi train)",
+  "method": "Soi bằng mắt trên ảnh phóng to. KHÔNG dùng detector có sẵn: model hiện tại bỏ sót 46% box tay trên chính các tile này, nên nó không đủ tư cách phán ai đúng ai sai.",
+  "note": "Chỉ loại những box đã NHÌN THẤY là sai. Mọi nhóm nghi vấn khác (box tí hon, box lồng nhau, box thuôn dài) đã soi và kết luận là linh kiện THẬT — xem lý do ở 'kept_after_review'.",
+
+  "excluded": [
+    {
+      "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+      "index": 35,
+      "size": "130x1022",
+      "reason": "mép board / vát cạnh tối trơn, không có linh kiện nào bên trong"
+    },
+    {
+      "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+      "index": 78,
+      "size": "144x1024",
+      "reason": "mép board / vát cạnh tối trơn, cùng dạng với box 35 của bo này"
+    },
+    {
+      "tile": "pcb_dslr_013__rec1__1024__3072___1536.png",
+      "index": 32,
+      "size": "182x1030",
+      "reason": "mép board + giá kim loại cháy sáng + nền đen NGOÀI board; dạy model gọi nền là linh kiện"
+    },
+
+    {
+      "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+      "index": 36,
+      "size": "39x73",
+      "reason": "trùng box 25 (40x74, IoU>0.5) — cùng một linh kiện khoanh hai lần; giữ bản lớn hơn"
+    },
+    {
+      "tile": "pcb_dslr_012__rec1__1024__1536___768.png",
+      "index": 3,
+      "size": "46x85",
+      "reason": "trùng box 60 (47x86, IoU>0.5); giữ bản lớn hơn"
+    },
+    {
+      "tile": "pcb_dslr_012__rec1__1024__1536___768.png",
+      "index": 53,
+      "size": "48x82",
+      "reason": "trùng box 40 (48x82, IoU>0.5); giữ bản có chỉ số nhỏ hơn vì hai bản bằng nhau"
+    },
+    {
+      "tile": "pcb_dslr_013__rec1__1024__1536___768.png",
+      "index": 44,
+      "size": "155x149",
+      "reason": "trùng box 43 (158x155, IoU>0.5); giữ bản lớn hơn"
+    }
+  ],
+
+  "kept_after_review": [
+    {
+      "group": "box tí hon (cạnh ngắn <6px, 257 box)",
+      "verdict": "GIỮ",
+      "why": "Soi ảnh: đây là chip 2 chân THẬT (thân đen nhỏ nằm giữa hai pad bạc), không phải nhiễu. Xoá là dạy model rằng linh kiện nhỏ là nền. Cách xử lý đúng là TĂNG imgsz lúc train, không phải xoá dữ liệu."
+    },
+    {
+      "group": "box rất nhỏ (6-8px, 573 box)",
+      "verdict": "GIỮ",
+      "why": "Cùng lý do."
+    },
+    {
+      "group": "box phủ gần hết tile (9 box)",
+      "verdict": "GIỮ 6 / LOẠI 3",
+      "why": "6 cái là socket RAM/DIMM và connector rìa board — dài 960-1030px là kích thước THẬT của chúng. 3 cái còn lại là mép board, đã loại ở trên."
+    },
+    {
+      "group": "box thuôn dài ar>6 (90 box)",
+      "verdict": "GIỮ",
+      "why": "Soi mẫu: khe cắm ISA/PCI, pin header, cuộn cảm dài. Chúng dài thật."
+    },
+    {
+      "group": "box diện tích >25% tile (5 box)",
+      "verdict": "GIỮ",
+      "why": "Socket CPU (Socket 7), vỏ nhựa che, hộp chắn kim loại có tem serial. Đều là vật được đặt lên board."
+    },
+    {
+      "group": "box lồng trong box khác (205 box, 40 box bao ngoài)",
+      "verdict": "GIỮ",
+      "why": "Soi 4 ca nặng nhất: là socket CPU có tụ lắp BÊN TRONG khoang socket. Cả socket lẫn tụ đều là linh kiện thật, nên lồng nhau phản ánh đúng thực tế. Cái bao nhiều nhất bao 55 box — nếu train ra kết quả kém ở vùng socket thì xem lại nhóm này TRƯỚC, đây là ứng viên số một."
+    }
+  ]
+}
