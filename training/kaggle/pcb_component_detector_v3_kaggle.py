@@ -38,21 +38,39 @@ CONFIG = {
     "resume_from": None,     # "/kaggle/input/.../last.pt" để chạy tiếp một lần train đứt
     "export_from": None,     # "/kaggle/input/.../best.pt" để bỏ qua train, chỉ export
 
-    # 1280, và con số này chỉ hợp lệ vì dataset ĐÃ ĐƯỢC CẮT TILE. Trên gói
-    # chưa cắt, 1536 vẫn để lại 21% box dưới 8 px; sau khi cắt, 1280 chỉ còn
-    # 2,7% — vừa tốt hơn vừa rẻ hơn ~30% compute. Đo trên bộ đã cắt:
+    # ĐO TRÊN LẦN TRAIN THẬT: AutoBatch đã profile chính model này trên T4.
     #
-    #   imgsz   trung vị   <8px
-    #    1024     16.9     7.8%
-    #    1280     21.2     2.7%     <-- đang dùng
-    #    1536     25.4     1.0%
+    #   batch @1280   VRAM       kết quả
+    #      1          3,87 G
+    #      2          8,78 G     <-- AutoBatch chọn, 9,04/14,56 G (62%)
+    #      4         16,97 G     OOM (card chỉ có 14,56 G)
     #
-    # Tile gốc là 1024 px nên 1280 chỉ phóng nhẹ 1,25 lần; 1536 phóng 1,5 lần mà
-    # không thêm thông tin gì, chỉ thêm compute.
-    "imgsz": 1280,
+    # Tức imgsz=1280 CHẶN CỨNG batch ở 2 trên T4. Đó là một chế độ train thật
+    # sự xấu: YOLO dùng BatchNorm khắp nơi, mà thống kê chuẩn hoá lấy từ 2 ảnh
+    # thì rất nhiễu. Gradient đã được `nbs=64` cộng dồn bù lại, còn BN thì
+    # không có gì bù.
+    #
+    # Đổi lại, 1024 là kích thước GỐC của tile — mọi ảnh train/valid/test đều
+    # 1024x1024 hoặc nhỏ hơn — nên 1280 chỉ là phóng to 1,25 lần: không thêm
+    # thông tin, chỉ đẩy box nhỏ vượt ngưỡng ô lưới P3 (stride 8):
+    #
+    #   imgsz   trung vị   <8px   batch tối đa trên T4
+    #    1024     16,2     8,0%     4
+    #    1280     20,2     2,8%     2   <-- lần train đầu
+    #    1536     24,2     1,0%     1
+    #
+    # Chọn 1024 + batch 4: đổi 5 điểm phần trăm box dưới ngưỡng để lấy BN gấp
+    # đôi số mẫu và epoch nhanh gần gấp đôi (2:50 -> ~1:50). 8,0% vẫn dưới
+    # ngưỡng cảnh báo 10% mà chính notebook này đặt ở cell kiểm tra dataset.
+    # Muốn quay lại: đặt imgsz 1280 và batch 2.
+    #
+    # ĐỪNG để `batch: -1`. AutoBatch nhắm mục 60% VRAM nên ở 1024 nó vẫn sẽ
+    # chọn 2-3. batch 4 @1024 ăn ~10,9 G (75%) — vừa đủ; nếu OOM thì hạ batch
+    # xuống 3, đừng hạ imgsz.
+    "imgsz": 1024,
     "epochs": 150,
     "patience": 40,
-    "batch": -1,             # auto theo VRAM; hạ imgsz xuống 1024 nếu OOM
+    "batch": 4,
     "close_mosaic": 25,
     # Mặc định Ultralytics là 300, và lần train thật đầu tiên đã cảnh báo
     # đúng chỗ này: "Dataset images contain up to 358 objects (train=358,
@@ -396,6 +414,99 @@ if gap > 0.15:
     )
 
 # %% [markdown]
+# ## 4b. Con số vừa in chính xác đến đâu?
+#
+# `valid` có **3 bo vật lý**, `test` có **3 bo**. Đó mới là cỡ mẫu thật: 1.300
+# và 640 box nghe thì nhiều, nhưng box trong cùng một bo không độc lập với nhau
+# — cùng ánh sáng, cùng loại linh kiện, cùng nhà sản xuất. Và một bo duy nhất
+# chi phối gần một nửa thước đo (board017 = 49,5% box của valid, board009 =
+# 42,2% của test).
+#
+# Đo trên chính log lần train đầu: mAP50 của valid dao động 0,127–0,292 qua 18
+# epoch; sau khi trừ xu hướng học, nhiễu còn **sd = 0,038**, tức khoảng ±0,077
+# ở mức 95%. Toàn bộ tiến bộ sau 18 epoch chỉ là +0,071 — **dải nhiễu rộng hơn
+# cả tín hiệu**. Hệ quả trực tiếp: chọn `best.pt` = lấy max qua 150 lần rút
+# thăm nhiễu, nên con số val của `best.pt` bị thổi lên khoảng **+0,10 mAP50**
+# so với chất lượng thật. Đừng bao giờ báo cáo số val của `best.pt`.
+#
+# Cell này vì thế báo recall **theo từng bo**, kèm khoảng tin cậy bootstrap lấy
+# mẫu lại ở mức **bo** chứ không phải mức box. Recall cộng gộp được chính xác
+# (= tổng TP / tổng GT) nên bootstrap này đúng về mặt số học; mAP thì không
+# cộng gộp tuyến tính nên chỉ báo biên độ giữa các bo.
+
+# %%
+import re as _re
+from collections import defaultdict as _dd
+
+
+def _canon_board(stem: str):
+    """pcb15 và pcb_dslr_015 là CÙNG một bo vật lý dưới hai tên."""
+    m = _re.match(r"local_component_bodies__pcb(?:_dslr)?_?(\d+)__", stem)
+    return f"board{int(m.group(1)):03d}" if m else None
+
+
+per_board = {}
+for split, folder in (("val", "valid"), ("test", "test")):
+    groups = _dd(list)
+    for p in sorted((DATASET / folder / "images").glob("*")):
+        board = _canon_board(p.stem)
+        if board:
+            groups[board].append(p)
+
+    rows = []
+    for board, paths in sorted(groups.items()):
+        listing = WORK / f"_board_{split}_{board}.txt"
+        listing.write_text("\n".join(str(q.resolve()) for q in paths) + "\n",
+                           encoding="utf-8")
+        board_yaml = WORK / f"_board_{split}_{board}.yaml"
+        board_yaml.write_text(
+            f"train: {listing}\nval: {listing}\nnc: 1\nnames: ['component']\n",
+            encoding="utf-8")
+        r = model.val(data=str(board_yaml), split="val", imgsz=CONFIG["imgsz"],
+                      max_det=CONFIG["max_det"], verbose=False, plots=False)
+        gt = sum(
+            len([l for l in (DATASET / folder / "labels" / f"{q.stem}.txt")
+                 .read_text(encoding="utf-8").splitlines() if l.strip()])
+            for q in paths
+        )
+        rows.append({
+            "board": board, "tiles": len(paths), "gt": gt,
+            "recall": float(np.nan_to_num(r.box.mr)),
+            "map50": float(np.nan_to_num(r.box.map50)),
+        })
+    per_board[split] = rows
+
+    print(f"--- {split}: {len(rows)} bo vật lý ---")
+    for row in rows:
+        print(f"  {row['board']}  {row['tiles']:2d} tile  {row['gt']:5d} box "
+              f"({100*row['gt']/sum(x['gt'] for x in rows):4.1f}% thước đo)  "
+              f"recall={row['recall']:.3f}  mAP50={row['map50']:.3f}")
+
+# %%
+_rng = np.random.default_rng(CONFIG["seed"])
+board_ci = {}
+for split, rows in per_board.items():
+    tp = np.array([row["recall"] * row["gt"] for row in rows])
+    gt = np.array([float(row["gt"]) for row in rows])
+    draw = _rng.integers(0, len(rows), size=(20000, len(rows)))
+    pooled = tp[draw].sum(axis=1) / np.maximum(gt[draw].sum(axis=1), 1.0)
+    lo, hi = (float(v) for v in np.percentile(pooled, [2.5, 97.5]))
+    board_ci[split] = (lo, hi)
+    maps = [row["map50"] for row in rows]
+    print(f"{split:5s} recall = {metrics[split]['recall']:.3f}   "
+          f"khoảng tin cậy 95% khi lấy mẫu lại theo BO: {lo:.3f} – {hi:.3f} "
+          f"(rộng {hi - lo:.3f})")
+    print(f"      mAP50 từng bo trải từ {min(maps):.3f} đến {max(maps):.3f}")
+
+if board_ci["test"][1] - board_ci["test"][0] > 0.10:
+    print(
+        "\nKHOẢNG TIN CẬY RỘNG HƠN 0,10. Đây KHÔNG phải lỗi của model — đây là\n"
+        "giới hạn của thước đo: 3 bo thì không đo chính xác hơn được. Mọi so\n"
+        "sánh A/B có chênh lệch nhỏ hơn khoảng này đều KHÔNG kết luận được.\n"
+        "Muốn kết luận thì phải k-fold theo bo trên cả 28 bo, không phải chỉ 3."
+    )
+
+# %% [markdown]
 # ## 5. Cổng phán quyết
 #
 # Lệ của repo: model mới phải **hơn thứ nó thay thế**, đo được, trước khi
@@ -404,14 +515,27 @@ if gap > 0.15:
 
 # %%
 test = metrics["test"]
+test_lo, test_hi = board_ci["test"]
 checks = {
     f"recall test >= {CONFIG['gate_recall']}": test["recall"] >= CONFIG["gate_recall"],
     f"mAP50 test >= {CONFIG['gate_map50']}": test["map50"] >= CONFIG["gate_map50"],
-    f"recall > detector đang chạy ({CONFIG['incumbent_recall_on_hand_boxes']})":
-        test["recall"] > CONFIG["incumbent_recall_on_hand_boxes"],
+    # Phán trên CẬN DƯỚI, không phán trên con số điểm. Với 3 bo, recall đo được
+    # 0,70 có thể là recall thật 0,56 hoặc 0,84 — xác suất một model recall thật
+    # 0,65 lọt qua cổng 0,70 là 24%. Đòi cận dưới vượt incumbent nghĩa là: kể cả
+    # khi 3 bo này là 3 bo may nhất, model vẫn hơn thứ nó thay thế.
+    f"CẬN DƯỚI recall ({test_lo:.3f}) > detector đang chạy "
+    f"({CONFIG['incumbent_recall_on_hand_boxes']})":
+        test_lo > CONFIG["incumbent_recall_on_hand_boxes"],
 }
 for name, ok in checks.items():
     print(f"  {'ĐẠT ' if ok else 'KHÔNG'}  {name}")
+
+print(f"\nrecall test = {test['recall']:.3f}, khoảng tin cậy theo bo "
+      f"{test_lo:.3f} – {test_hi:.3f}")
+if test["recall"] > CONFIG["incumbent_recall_on_hand_boxes"] >= test_lo:
+    print("  Con số điểm hơn incumbent nhưng CẬN DƯỚI thì không — chưa đủ bằng\n"
+          "  chứng để kết luận model mới tốt hơn. Đây là giới hạn của 3 bo, và\n"
+          "  cách duy nhất để gỡ là k-fold theo bo trên cả 28 bo.")
 
 verdict = all(checks.values())
 print(f"\nPHÁN QUYẾT: {'ĐẠT — đáng promote' if verdict else 'CHƯA ĐẠT'}")
@@ -420,8 +544,9 @@ if not verdict:
         "Không đạt thì ĐỪNG promote. Ba chỗ nên xem trước khi đổ lỗi cho model:\n"
         "  1. nhóm box lồng nhau (40 box bao box khác, cái tệ nhất bao 55) — xem\n"
         "     box_exclusions.json mục kept_after_review;\n"
-        "  2. imgsz — thử 1792 nếu recall thấp ở box nhỏ;\n"
-        "  3. số bo: 28 bo là ít, và test chỉ 11 ảnh nên khoảng tin cậy rất rộng."
+        "  2. imgsz — thử 1280 (batch phải hạ về 2) nếu recall thấp ở box nhỏ;\n"
+        "  3. số bo: 28 bo là ít, và test chỉ 3 bo nên khoảng tin cậy rất rộng —\n"
+        "     xem mục 4b để biết chênh lệch bao nhiêu mới là chênh lệch thật."
     )
 
 # %% [markdown]

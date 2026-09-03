@@ -2,6 +2,7 @@
 
 - [danh_gia_model_6_2.md](danh_gia_model_6_2.md)
 - [danh_gia_khoanh_box_than_linh_kien.md](danh_gia_khoanh_box_than_linh_kien.md)
+- [do_tin_cay_thuoc_do_detector.md](do_tin_cay_thuoc_do_detector.md)
 - [loi_detector_va_model_chan_han.md](loi_detector_va_model_chan_han.md)
 - [ra_soat_loi_pipeline.md](ra_soat_loi_pipeline.md)
 - [xep_hang_model.md](xep_hang_model.md)
