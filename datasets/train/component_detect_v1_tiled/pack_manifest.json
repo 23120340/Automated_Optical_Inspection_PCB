@@ -1,0 +1,1283 @@
+{
+  "schema_version": "aoi-component-detection-pack/1.0",
+  "class_names": [
+    "component"
+  ],
+  "box_convention": "visible component body only; exclude leads, pads and test points",
+  "local": {
+    "crop_set": "datasets/labelling/component_bodies_round2_20260830",
+    "candidate_groups": {
+      "pcb_dslr:001": {
+        "tiles": 6,
+        "verified_tiles": 2
+      },
+      "pcb_dslr:002": {
+        "tiles": 2,
+        "verified_tiles": 2
+      },
+      "pcb_dslr:003": {
+        "tiles": 6,
+        "verified_tiles": 6
+      },
+      "pcb_dslr:006": {
+        "tiles": 1,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:007": {
+        "tiles": 6,
+        "verified_tiles": 6
+      },
+      "pcb_dslr:008": {
+        "tiles": 5,
+        "verified_tiles": 5
+      },
+      "pcb_dslr:009": {
+        "tiles": 6,
+        "verified_tiles": 5
+      },
+      "pcb_dslr:010": {
+        "tiles": 3,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:011": {
+        "tiles": 6,
+        "verified_tiles": 6
+      },
+      "pcb_dslr:012": {
+        "tiles": 6,
+        "verified_tiles": 6
+      },
+      "pcb_dslr:013": {
+        "tiles": 6,
+        "verified_tiles": 6
+      },
+      "pcb_dslr:014": {
+        "tiles": 4,
+        "verified_tiles": 4
+      },
+      "pcb_dslr:015": {
+        "tiles": 5,
+        "verified_tiles": 5
+      },
+      "pcb_dslr:017": {
+        "tiles": 5,
+        "verified_tiles": 5
+      },
+      "pcb_dslr:019": {
+        "tiles": 1,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:020": {
+        "tiles": 1,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:022": {
+        "tiles": 2,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:023": {
+        "tiles": 2,
+        "verified_tiles": 0
+      },
+      "pcb_dslr:024": {
+        "tiles": 1,
+        "verified_tiles": 0
+      },
+      "pcb_dslr:025": {
+        "tiles": 1,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:026": {
+        "tiles": 4,
+        "verified_tiles": 2
+      },
+      "pcb_dslr:027": {
+        "tiles": 3,
+        "verified_tiles": 2
+      },
+      "pcb_dslr:028": {
+        "tiles": 6,
+        "verified_tiles": 4
+      },
+      "pcb_dslr:029": {
+        "tiles": 4,
+        "verified_tiles": 3
+      },
+      "pcb_dslr:030": {
+        "tiles": 6,
+        "verified_tiles": 3
+      },
+      "pcb_dslr:031": {
+        "tiles": 6,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:032": {
+        "tiles": 5,
+        "verified_tiles": 5
+      },
+      "pcb_dslr:033": {
+        "tiles": 6,
+        "verified_tiles": 6
+      },
+      "pcb_dslr:037": {
+        "tiles": 1,
+        "verified_tiles": 1
+      },
+      "pcb_dslr:038": {
+        "tiles": 4,
+        "verified_tiles": 4
+      }
+    },
+    "manifest_sha256": "9af5a98c67465a7898df173f9dd6e4dcb8709891567ba375f0be32909a1b9dae",
+    "boxes_file": "joint_boxes_cleaned.json",
+    "boxes_sha256": "f4719695a490a8766ae175c90941b11fdb8b0593007623355383c929e65520a0",
+    "dataset_id": "65af1c1a6b21e37d",
+    "reviewer_id": "",
+    "exported_at": "2026-09-03T02:47:23.699Z",
+    "manifest_tiles": 120,
+    "exported_records": 120,
+    "unreviewed_not_in_export": 0,
+    "status_counts": {
+      "unusable": 25,
+      "verified": 95
+    },
+    "verified_before_exact_dedup": 95,
+    "verified_after_exact_dedup": 95,
+    "verified_boxes": 9486,
+    "dropped_degenerate_boxes": 0,
+    "duplicate_verified_dropped": [],
+    "duplicate_pixel_groups_in_export": []
+  },
+  "pcb_dslr_ic_completeness": {
+    "mode": "read_only_completeness_audit; upstream boxes are never imported",
+    "reference_root": "datasets/reference_sets/pcb_dslr_30_diverse",
+    "reference_manifest_sha256": "a90f218ce554320912a6255f1efd40df122d77f068e258c8e4285755c868ffaa",
+    "tile_manifest": "datasets/test_images/tiles_1024/tiles_manifest.json",
+    "tile_manifest_sha256": "3823f0b7ecfbab014652dea50849bcd47a5cf119d444c322e429c4d1f9a397b4",
+    "source_annotation_scope": "IC only",
+    "match_policy": {
+      "metric": "intersection_over_smaller",
+      "minimum": 0.75,
+      "maximum_area_ratio": 4.0,
+      "one_to_one": true,
+      "fully_contained_upstream_boxes_only": true
+    },
+    "reviewed_tiles": 95,
+    "audited_tiles": 78,
+    "unassessed_tiles": 17,
+    "unassessed": [
+      {
+        "crop": "pcb31__rec1__1024__1536___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__1536___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__2304___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__2304___768.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__3072___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__3072___768.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__1536___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__1536___768.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__2304___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__2304___768.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__3072___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__3072___768.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb37__rec1__1024__2304___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__1536___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__2304___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__2304___768.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__3072___1536.png",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      }
+    ],
+    "audited_ic_instances": 448,
+    "unique_physical_ic_instances": 387,
+    "matched": 446,
+    "missing": 2,
+    "available_coverage_pass": false,
+    "match_ios": {
+      "minimum": 0.8043478260869565,
+      "median": 0.9967098484915626,
+      "maximum": 1.0
+    },
+    "large_ic_instances": {
+      "short_side_gt_150": {
+        "audited": 72,
+        "matched": 72,
+        "missing": 0
+      },
+      "short_side_gt_250": {
+        "audited": 10,
+        "matched": 10,
+        "missing": 0
+      },
+      "short_side_gt_350": {
+        "audited": 0,
+        "matched": 0,
+        "missing": 0
+      }
+    },
+    "missing_instances": [
+      {
+        "crop": "pcb_dslr_003__rec1__1024__3072___768.png",
+        "board_group": "pcb_dslr:003",
+        "annotation_index": 42,
+        "bbox_xyxy": [
+          425.332,
+          590.488,
+          522.668,
+          667.512
+        ],
+        "short_side_px": 77.024
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__3072___768.png",
+        "board_group": "pcb_dslr:012",
+        "annotation_index": 22,
+        "bbox_xyxy": [
+          217.876,
+          751.008,
+          304.124,
+          806.992
+        ],
+        "short_side_px": 55.985
+      }
+    ],
+    "per_tile": [
+      {
+        "crop": "pcb_dslr_001__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 5,
+        "matched": 5,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_001__rec1__1024__3072___0.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_002__rec1__1024__2304___0.png",
+        "status": "pass",
+        "audited_ic_instances": 10,
+        "matched": 10,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_002__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 5,
+        "matched": 5,
+        "missing": 0
+      },
+      {
+        "crop": "pcb3__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 23,
+        "matched": 23,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_003__rec1__1024__1536___0.png",
+        "status": "pass",
+        "audited_ic_instances": 6,
+        "matched": 6,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_003__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 7,
+        "matched": 7,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_003__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 11,
+        "matched": 11,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_003__rec1__1024__3072___0.png",
+        "status": "pass",
+        "audited_ic_instances": 6,
+        "matched": 6,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_003__rec1__1024__3072___768.png",
+        "status": "missing",
+        "audited_ic_instances": 15,
+        "matched": 14,
+        "missing": 1
+      },
+      {
+        "crop": "pcb_dslr_006__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb7__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 19,
+        "matched": 19,
+        "missing": 0
+      },
+      {
+        "crop": "pcb7__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 27,
+        "matched": 27,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_007__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 22,
+        "matched": 22,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_007__rec1__1024__3072___0.png",
+        "status": "pass",
+        "audited_ic_instances": 6,
+        "matched": 6,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_007__rec1__1024__3840___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 5,
+        "matched": 5,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_007__rec1__1024__3840___768.png",
+        "status": "pass",
+        "audited_ic_instances": 8,
+        "matched": 8,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_008__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_008__rec1__1024__2304___0.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_008__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_008__rec1__1024__3072___0.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_008__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_009__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 7,
+        "matched": 7,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_009__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 4,
+        "matched": 4,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_009__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_009__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 0,
+        "matched": 0,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_009__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_010__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb11__rec1__1024__1536___0.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb11__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 14,
+        "matched": 14,
+        "missing": 0
+      },
+      {
+        "crop": "pcb11__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 16,
+        "matched": 16,
+        "missing": 0
+      },
+      {
+        "crop": "pcb11__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 8,
+        "matched": 8,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_011__rec1__1024__768___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 6,
+        "matched": 6,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_011__rec1__1024__768___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 4,
+        "matched": 4,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 12,
+        "matched": 12,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 4,
+        "matched": 4,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 11,
+        "matched": 11,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_012__rec1__1024__3072___768.png",
+        "status": "missing",
+        "audited_ic_instances": 9,
+        "matched": 8,
+        "missing": 1
+      },
+      {
+        "crop": "pcb13__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 7,
+        "matched": 7,
+        "missing": 0
+      },
+      {
+        "crop": "pcb13__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 9,
+        "matched": 9,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_013__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 5,
+        "matched": 5,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_013__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 5,
+        "matched": 5,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_013__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 6,
+        "matched": 6,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_013__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb14__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb14__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 6,
+        "matched": 6,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_014__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 0,
+        "matched": 0,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_014__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb15__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 0,
+        "matched": 0,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_015__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_015__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 12,
+        "matched": 12,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_015__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 16,
+        "matched": 16,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_015__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 9,
+        "matched": 9,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_017__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_017__rec1__1024__2304___0.png",
+        "status": "pass",
+        "audited_ic_instances": 7,
+        "matched": 7,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_017__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 4,
+        "matched": 4,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_017__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 10,
+        "matched": 10,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_017__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_019__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 0,
+        "matched": 0,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_020__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_022__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 8,
+        "matched": 8,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_025__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_026__rec1__1024__2304___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_026__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_027__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_027__rec1__1024__1536___768.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_028__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_028__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 4,
+        "matched": 4,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_028__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_028__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_029__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_029__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_029__rec1__1024__3072___768.png",
+        "status": "pass",
+        "audited_ic_instances": 3,
+        "matched": 3,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_030__rec1__1024__1536___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 1,
+        "matched": 1,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_030__rec1__1024__2304___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb_dslr_030__rec1__1024__3072___1536.png",
+        "status": "pass",
+        "audited_ic_instances": 2,
+        "matched": 2,
+        "missing": 0
+      },
+      {
+        "crop": "pcb31__rec1__1024__1536___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__1536___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__2304___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__2304___768.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__3072___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb32__rec1__1024__3072___768.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__1536___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__1536___768.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__2304___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__2304___768.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__3072___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb33__rec1__1024__3072___768.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb37__rec1__1024__2304___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__1536___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__2304___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__2304___768.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      },
+      {
+        "crop": "pcb38__rec1__1024__3072___1536.png",
+        "status": "unassessed",
+        "reason": "no PCB-DSLR reference coverage for this board"
+      }
+    ]
+  },
+  "public_sources": [
+    {
+      "tag": "rf100_printed_circuit_board_v4",
+      "archive": "datasets/public/fpic_boards_rf100/export_yolov8_v4.zip",
+      "archive_sha256": "2e2e9edab2f489f6a47f176d95b618f1209e2c7e6d1dfdaa7d3aa10cb8e6cfc8",
+      "workspace": "roboflow-100",
+      "project": "printed-circuit-board",
+      "version": 4,
+      "declared_license": "CC BY 4.0",
+      "url": "https://universe.roboflow.com/roboflow-100/printed-circuit-board/dataset/4",
+      "provenance_caveat": "Some numbered boards overlap TU Wien PCB-DSLR, whose official terms limit use to noncommercial research; downstream CC BY metadata does not by itself clear commercial reuse.",
+      "class_contract": [
+        "Button",
+        "Capacitor Jumper",
+        "Capacitor",
+        "Clock",
+        "Connector",
+        "Diode",
+        "EM",
+        "Electrolytic Capacitor",
+        "Ferrite Bead",
+        "IC",
+        "Inductor",
+        "Jumper",
+        "Led",
+        "Pads",
+        "Pins",
+        "Resistor Jumper",
+        "Resistor Network",
+        "Resistor",
+        "Switch",
+        "Test Point",
+        "Transistor",
+        "Unknown Unlabeled",
+        "iC"
+      ],
+      "image_variants": 672,
+      "source_scenes": 199,
+      "selected_scenes_before_exact_dedup": 177,
+      "variants_discarded_or_quarantined": 495,
+      "missing_label_files": 0,
+      "quarantined_scenes": 22,
+      "quarantined_by_ambiguous_class": {
+        "EM": 11,
+        "Unknown Unlabeled": 12
+      },
+      "quarantined_scene_ids": [
+        "ACM-109_Bottom_jpg",
+        "ACM-109_Top_jpg",
+        "ATTIOT_Bottom_jpg",
+        "ATTIOT_Top_JPG_jpg",
+        "EDA-008_Top_jpg",
+        "HackRF_JPG_jpg",
+        "ML365_Top_jpg",
+        "ML450_Top1_jpg",
+        "ML450_Top2_jpg",
+        "RPI3B_Bottom_jpg",
+        "RPI3B_Top_jpg",
+        "STK644_jpg",
+        "Spartan6Redux_Bottom_jpg",
+        "Spartan6Redux_Top_jpg",
+        "Spartan6_Bottom_jpg",
+        "Spartan6_Top_jpg",
+        "SystemAce_Top_jpg",
+        "UTL-016_jpg",
+        "UTL-103_jpg",
+        "XCM-307A_Bottom_jpg",
+        "XCM-307A_Top_jpg",
+        "XLVDSproSupply_Top1_jpg"
+      ],
+      "raw_variant_boxes_by_class": {
+        "Resistor Network": 37329,
+        "Capacitor": 32564,
+        "Capacitor Jumper": 19034,
+        "Resistor Jumper": 16034,
+        "IC": 7481,
+        "Resistor": 4627,
+        "Connector": 4558,
+        "Transistor": 4273,
+        "Test Point": 1289,
+        "Pins": 1212,
+        "Pads": 1176,
+        "Unknown Unlabeled": 982,
+        "Electrolytic Capacitor": 856,
+        "Led": 784,
+        "Jumper": 324,
+        "Diode": 284,
+        "Button": 277,
+        "Inductor": 235,
+        "Switch": 189,
+        "EM": 162,
+        "Clock": 146,
+        "iC": 123,
+        "Ferrite Bead": 108
+      },
+      "selected_boxes_by_original_class": {
+        "Resistor Jumper": 15360,
+        "Capacitor Jumper": 13250,
+        "Capacitor": 2109,
+        "IC": 2078,
+        "Resistor Network": 1908,
+        "Transistor": 1335,
+        "Connector": 1166,
+        "Pins": 340,
+        "Pads": 167,
+        "Led": 137,
+        "Test Point": 134,
+        "Electrolytic Capacitor": 126,
+        "Jumper": 62,
+        "Diode": 58,
+        "Button": 54,
+        "Switch": 41,
+        "iC": 34,
+        "Inductor": 32,
+        "Ferrite Bead": 23,
+        "Clock": 21,
+        "Resistor": 15
+      },
+      "dropped_non_body_boxes": {
+        "Pads": 167,
+        "Pins": 340,
+        "Test Point": 134
+      },
+      "dropped_degenerate_boxes": 0,
+      "component_boxes_after_mapping": 37809,
+      "dedupe_policy": "group by pre-.rf. source stem; quarantine ambiguous scenes; choose most component-body boxes, then greatest pixel area, then member name"
+    },
+    {
+      "tag": "winnies_pcb_components_v3",
+      "archive": "datasets/public/pcb_packages_winnies/export_yolov8_v3.zip",
+      "archive_sha256": "d0e3a8fafc89a2314affb5c43d3d28321849380b4fe6b5698ed59943459bd2fd",
+      "workspace": "winnies-workspace-0yaec",
+      "project": "pcb-components-wc8ms",
+      "version": 3,
+      "declared_license": "CC BY 4.0",
+      "url": "https://universe.roboflow.com/winnies-workspace-0yaec/pcb-components-wc8ms/dataset/3",
+      "provenance_caveat": "Community-origin dataset; retain attribution and keep locked target validation/test independent.",
+      "class_contract": [
+        "CHIP",
+        "LED",
+        "MOSFET",
+        "MOSFET-2",
+        "Polyfuse_GR",
+        "Polyfuse_Z",
+        "Resistor rond",
+        "SOD123",
+        "SOD128",
+        "SOD323",
+        "SOIC-12",
+        "SOIC-14",
+        "SOIC-16",
+        "SOT143",
+        "SOT223",
+        "SOT23",
+        "SOT457",
+        "SOT753",
+        "SOT96",
+        "TSSOP-14",
+        "TSSOP-16",
+        "capacitor",
+        "feriet kraal",
+        "resistor"
+      ],
+      "image_variants": 173,
+      "source_scenes": 73,
+      "selected_scenes_before_exact_dedup": 73,
+      "variants_discarded_or_quarantined": 100,
+      "missing_label_files": 0,
+      "quarantined_scenes": 0,
+      "quarantined_by_ambiguous_class": {},
+      "quarantined_scene_ids": [],
+      "raw_variant_boxes_by_class": {
+        "resistor": 5989,
+        "capacitor": 5406,
+        "LED": 916,
+        "SOT23": 671,
+        "SOD323": 636,
+        "feriet kraal": 490,
+        "SOT96": 405,
+        "SOT753": 334,
+        "Resistor rond": 305,
+        "SOT457": 227,
+        "SOD123": 220,
+        "Polyfuse_Z": 205,
+        "Polyfuse_GR": 179,
+        "SOIC-16": 115,
+        "MOSFET-2": 108,
+        "SOT143": 101,
+        "SOT223": 100,
+        "MOSFET": 88,
+        "TSSOP-16": 65,
+        "SOD128": 33,
+        "TSSOP-14": 21,
+        "SOIC-14": 8,
+        "CHIP": 6,
+        "SOIC-12": 4
+      },
+      "selected_boxes_by_original_class": {
+        "resistor": 2539,
+        "capacitor": 2316,
+        "LED": 351,
+        "SOT23": 286,
+        "SOD323": 246,
+        "feriet kraal": 217,
+        "SOT96": 169,
+        "Resistor rond": 167,
+        "SOT753": 138,
+        "SOD123": 102,
+        "SOT457": 98,
+        "Polyfuse_Z": 90,
+        "Polyfuse_GR": 72,
+        "MOSFET-2": 60,
+        "SOT143": 47,
+        "SOIC-16": 43,
+        "MOSFET": 42,
+        "SOT223": 37,
+        "TSSOP-16": 29,
+        "SOD128": 25,
+        "TSSOP-14": 11,
+        "SOIC-14": 6,
+        "CHIP": 2,
+        "SOIC-12": 2
+      },
+      "dropped_non_body_boxes": {},
+      "dropped_degenerate_boxes": 0,
+      "component_boxes_after_mapping": 7095,
+      "dedupe_policy": "group by pre-.rf. source stem; quarantine ambiguous scenes; choose most component-body boxes, then greatest pixel area, then member name"
+    }
+  ],
+  "validation_fixture_leaks": [],
+  "public_exact_duplicate_groups": [],
+  "split_policy": {
+    "unit": "canonical physical board",
+    "assignment": "sha256(seed:canonical_group) stable threshold buckets",
+    "stable_when_new_groups_are_added": true,
+    "target_domain": "whole reviewed board groups split into train/valid/test",
+    "public_domain": "train only",
+    "public_overlap_with_target_holdout": "excluded from the pack",
+    "seed": 17,
+    "val_ratio": 0.15,
+    "test_ratio": 0.15,
+    "minimum_target_groups": 10
+  },
+  "readiness": {
+    "ready_to_pack": true,
+    "verified_target_groups": 28,
+    "minimum_target_groups": 10,
+    "missing_target_splits": [],
+    "boards_that_would_fill": {}
+  },
+  "target_group_split": {
+    "train": [
+      "pcb_dslr:001",
+      "pcb_dslr:003",
+      "pcb_dslr:006",
+      "pcb_dslr:007",
+      "pcb_dslr:008",
+      "pcb_dslr:011",
+      "pcb_dslr:012",
+      "pcb_dslr:013",
+      "pcb_dslr:014",
+      "pcb_dslr:019",
+      "pcb_dslr:020",
+      "pcb_dslr:022",
+      "pcb_dslr:025",
+      "pcb_dslr:026",
+      "pcb_dslr:027",
+      "pcb_dslr:028",
+      "pcb_dslr:029",
+      "pcb_dslr:031",
+      "pcb_dslr:032",
+      "pcb_dslr:033",
+      "pcb_dslr:037",
+      "pcb_dslr:038"
+    ],
+    "valid": [
+      "pcb_dslr:002",
+      "pcb_dslr:017",
+      "pcb_dslr:030"
+    ],
+    "test": [
+      "pcb_dslr:009",
+      "pcb_dslr:010",
+      "pcb_dslr:015"
+    ]
+  },
+  "public_overlap_excluded": {
+    "test": 3,
+    "valid": 3
+  },
+  "images_per_split": {
+    "train": 318,
+    "valid": 10,
+    "test": 11
+  },
+  "boxes_per_split": {
+    "train": 51314,
+    "valid": 1300,
+    "test": 640
+  },
+  "source_images_included": {
+    "local_component_bodies": 95,
+    "rf100_printed_circuit_board_v4": 171,
+    "winnies_pcb_components_v3": 73
+  },
+  "leakage_audit": {
+    "group_intersections": {
+      "train_valid": [],
+      "train_test": [],
+      "valid_test": []
+    },
+    "pixel_sha256_intersections": {
+      "train_valid": [],
+      "train_test": [],
+      "valid_test": []
+    }
+  },
+  "tiling": {
+    "source_pack": "component_detect_v1",
+    "tile": 1024,
+    "stride": 768,
+    "min_side": 1400,
+    "min_box_px": 4.0,
+    "box_assignment": "theo TÂM — một linh kiện thuộc đúng một tile",
+    "splits_touched": [
+      "train"
+    ],
+    "why_not_valid_test": "valid/test là thước đo và đã khoá theo bo vật lý",
+    "stats": {
+      "train": {
+        "images_in": 318,
+        "images_out": 1922,
+        "boxes_in": 51314,
+        "boxes_out": 94905,
+        "tiled": 235,
+        "empty_tiles_dropped": 199,
+        "fragments_dropped": 308
+      },
+      "valid": {
+        "images_in": 10,
+        "images_out": 10,
+        "boxes_in": 1300,
+        "boxes_out": 1300,
+        "tiled": 0,
+        "empty_tiles_dropped": 0,
+        "fragments_dropped": 0
+      },
+      "test": {
+        "images_in": 11,
+        "images_out": 11,
+        "boxes_in": 640,
+        "boxes_out": 640,
+        "tiled": 0,
+        "empty_tiles_dropped": 0,
+        "fragments_dropped": 0
+      }
+    }
+  }
+}

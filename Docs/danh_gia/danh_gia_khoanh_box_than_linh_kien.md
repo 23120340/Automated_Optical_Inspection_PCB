@@ -478,3 +478,83 @@ khai**, không phải nâng tiếp imgsz (1792 chỉ bớt 6 điểm phần tră
 Khác v2 ở ba chỗ: một lớp, split đã khoá (notebook **cấm** chia lại), và cổng
 phán quyết so với detector đang chạy — `recall test > 0,54`, vì đó là recall của
 model hiện tại trên chính các box này.
+
+---
+
+## 10. Box nhỏ có làm nhiễu không, và augmentation (2026-09-03)
+
+Hai câu hỏi, và cả hai đều làm tôi phải sửa lại việc mình vừa làm.
+
+### 10.1. Có — nhưng KHÔNG phải box của bạn
+
+Tách tỉ lệ box dưới 8 px (một ô lưới P3 của YOLO) theo **nguồn**, ở imgsz 1536:
+
+| Nguồn | box | `<8px` | trung vị |
+|---|---:|---:|---:|
+| **RF100** | 36.673 | **29,7%** | 10,8 px |
+| **Nhãn của bạn** | 9.486 | **2,7%** | **21,0 px** |
+| Winnies | 7.095 | 0,0% | 26,2 px |
+
+Nhãn người trong dự án vẽ **hoàn toàn khoẻ**. Chỗ hỏng là RF100: ảnh gốc rộng
+504–5985 px bị letterbox về 1536, có ảnh co tới **3,9 lần**, nên một linh kiện
+30 px thành 7,7 px.
+
+Đây cũng là lý do §9 kết luận "giữ box nhỏ" là đúng: box nhỏ của *bạn* không
+phải vấn đề.
+
+### 10.2. Cách sửa: cắt tile, không phải nâng imgsz
+
+`scripts/tile_packed_dataset.py` cắt ảnh train quá lớn thành tile 1024 (chồng
+256 px), giữ nguyên độ phân giải gốc. **Chỉ đụng `train`** — `valid`/`test` là
+thước đo, đã khoá theo bo.
+
+| | ảnh train | box | trung vị @1536 | `<8px` |
+|---|---:|---:|---:|---:|
+| chưa cắt | 318 | 51.314 | 13,6 px | **21,2%** |
+| **đã cắt** | 1.922 | 94.905 | **25,4 px** | **1,0%** |
+
+Số box tăng ~1,85 lần vì tile chồng nhau — cùng một linh kiện xuất hiện ở hai
+tile. Đó là hành vi đúng của tiling chồng lấn (linh kiện bị xén ở tile này thì
+nguyên vẹn ở tile kia), và tôi đã **sửa lại chú thích ban đầu viết sai** là
+"mỗi linh kiện thuộc đúng một tile".
+
+Cắt tile còn cho phép **hạ imgsz 1536 → 1280**: rẻ hơn ~30% compute mà vẫn chỉ
+2,7% box dưới ngưỡng. Tile gốc là 1024 px nên 1280 chỉ phóng 1,25 lần.
+
+### 10.3. Augmentation: có, ở đúng chỗ — nhưng tham số đang sai
+
+Augmentation chạy **lúc train** qua Ultralytics, **không** nướng sẵn vào dataset
+trên đĩa. Đó là chủ ý: nướng sẵn chính là cách Roboflow sinh ra bản augment
+thành file riêng, và dự án này đã một lần bị rò rỉ train/val vì thế
+(accuracy 6.2 phồng từ 89,9% lên 97,65%).
+
+Nhưng tham số thì sai. Đo bằng **chính pipeline của Ultralytics** trên bộ đã
+cắt tile, imgsz 1280:
+
+| Cấu hình | trung vị | `<8px` | `<4px` |
+|---|---:|---:|---:|
+| không augment hình học | 21,5 | 2,3% | 0,2% |
+| scale=0.5, không mosaic | 20,5 | 6,8% | 0,0% |
+| **mosaic=1.0 + scale=0.5** (mặc định) | 17,2 | **12,6%** | 0,5% |
+| mosaic=1.0 + scale=0.25 | 21,6 | 3,1% | 0,4% |
+| **mosaic=0.5 + scale=0.25** (đang dùng) | 21,7 | **2,1%** | 0,3% |
+
+**`scale` mới là thủ phạm, không phải mosaic.** Tôi ban đầu tính rằng mosaic co
+vật thể còn một nửa và ra bảng cho thấy 57,8% box dưới 8 px. **Sai.** Đọc
+`Mosaic.get_params` của Ultralytics: canvas là 2s×2s và mỗi ảnh dán ở **kích
+thước gốc**, rồi crop về s×s — mosaic đổi *vùng nhìn*, không co vật thể. Chạy
+thật qua pipeline cho ra 23,3% chứ không phải 57,8%.
+
+Ghi lại vì đây đúng là kiểu sai dễ lọt: một suy luận nghe hợp lý về code, không
+kiểm bằng cách chạy.
+
+### 10.4. Tổng kết đường đi
+
+| | `<8px` khi train |
+|---|---:|
+| Bộ ban đầu + augmentation mặc định @1536 | **23,3%** |
+| Bộ đã cắt tile + scale 0.25 + mosaic 0.5 @1280 | **2,1%** |
+
+Gấp 11 lần tốt hơn, ở imgsz thấp hơn. Notebook nay còn **tự chặn**: nếu hơn 10%
+box dưới 8 px ở imgsz đang đặt, nó dừng và bảo chạy `tile_packed_dataset.py`
+trước, thay vì tiêu giờ GPU cho box mà model không có chỗ hồi quy.

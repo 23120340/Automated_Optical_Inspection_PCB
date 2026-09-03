@@ -30,7 +30,7 @@ from pathlib import Path
 CONFIG = {
     "seed": 42,
     # Thư mục chứa data.yaml của gói đã pack. Add Input rồi sửa cho khớp.
-    "dataset_root": "/kaggle/input/pcb-component-detect-v1/component_detect_v1",
+    "dataset_root": "/kaggle/input/pcb-component-detect-v1/component_detect_v1_tiled",
     "work_dir": "/kaggle/working/pcb_component_detector_v3",
     "artifact_dir": "/kaggle/working/pcb_component_detector_v3_artifacts",
 
@@ -38,15 +38,18 @@ CONFIG = {
     "resume_from": None,     # "/kaggle/input/.../last.pt" để chạy tiếp một lần train đứt
     "export_from": None,     # "/kaggle/input/.../best.pt" để bỏ qua train, chỉ export
 
-    # 1536 chứ không phải 1024. Đo trên chính gói này (53.254 box, xem cell 2):
-    # ở imgsz 1024 có 42,8% box nhỏ hơn 8 px; 1536 hạ xuống 20,9%; 1792 còn
-    # 14,3%. Stride nhỏ nhất của YOLO là 8, nên dưới ngưỡng đó box chiếm chưa
-    # tới một ô lưới P3.
-    # 1536 là điểm dừng, KHÔNG phải điểm tối ưu — nó chỉ là chỗ đánh đổi giữa
-    # VRAM và tỉ lệ box quá nhỏ. Nếu recall ở nhóm box nhỏ kém, đòn bẩy đúng
-    # KHÔNG phải nâng tiếp imgsz (1792 chỉ bớt được 6 điểm phần trăm và tốn hơn
-    # 36% compute) mà là CẮT TILE ảnh công khai, xem ghi chú ở cell 2.
-    "imgsz": 1536,
+    # 1280, và con số này chỉ hợp lệ vì dataset ĐÃ ĐƯỢC CẮT TILE. Trên gói
+    # chưa cắt, 1536 vẫn để lại 21% box dưới 8 px; sau khi cắt, 1280 chỉ còn
+    # 2,7% — vừa tốt hơn vừa rẻ hơn ~30% compute. Đo trên bộ đã cắt:
+    #
+    #   imgsz   trung vị   <8px
+    #    1024     16.9     7.8%
+    #    1280     21.2     2.7%     <-- đang dùng
+    #    1536     25.4     1.0%
+    #
+    # Tile gốc là 1024 px nên 1280 chỉ phóng nhẹ 1,25 lần; 1536 phóng 1,5 lần mà
+    # không thêm thông tin gì, chỉ thêm compute.
+    "imgsz": 1280,
     "epochs": 150,
     "patience": 40,
     "batch": -1,             # auto theo VRAM; hạ imgsz xuống 1280 nếu OOM
@@ -57,8 +60,24 @@ CONFIG = {
     "fliplr": 0.5,
     "flipud": 0.5,
     "degrees": 10.0,
-    "scale": 0.5,
-    "mosaic": 1.0,
+    # scale 0.25 chứ KHÔNG phải 0.5 mặc định, và mosaic 0.5 chứ không phải 1.0.
+    # Đo bằng CHÍNH pipeline augmentation của Ultralytics, trên bộ đã cắt tile,
+    # ở imgsz 1280 — tức đúng cấu hình notebook này chạy:
+    #
+    #   cấu hình                     trung vị   <8px    <4px
+    #   không augment hình học         21.5     2.3%   0.2%
+    #   scale=0.5, không mosaic        20.5     6.8%   0.0%
+    #   mosaic=1.0 + scale=0.5         17.2    12.6%   0.5%   <- mặc định
+    #   mosaic=1.0 + scale=0.25        21.6     3.1%   0.4%
+    #   mosaic=0.5 + scale=0.25        21.7     2.1%   0.3%   <- đang dùng
+    #
+    # `scale` là thủ phạm chính chứ không phải mosaic. Mosaic dán 4 ảnh vào
+    # canvas 2s×2s ở kích thước GỐC rồi crop về s, nên nó đổi VÙNG NHÌN chứ
+    # không co vật thể — đọc code `Mosaic.get_params` để khỏi đoán sai.
+    # Đánh đổi: bớt đa dạng augmentation. Chấp nhận được vì dữ liệu đã đa dạng
+    # sẵn (3 nguồn, 28 bo, và tiling vừa nhân số ảnh train lên 6 lần).
+    "scale": 0.25,
+    "mosaic": 0.5,
     "copy_paste": 0.0,       # một lớp, dán chéo không thêm thông tin gì
 
     # Cổng phán quyết. Detector đang chạy bỏ sót 46% box tay trên chính các tile
@@ -148,29 +167,41 @@ if pack_manifest:
           f"ready={readiness.get('ready_to_pack')}")
 
 # %% [markdown]
-# ## 2. Cỡ box — vì sao `imgsz=1536`, và giới hạn của lựa chọn đó
+# ## 2. Cỡ box — vì sao bộ này đã được CẮT TILE
 #
-# Cell này **đo** thay vì giả định. Nhãn YOLO là toạ độ đã chuẩn hoá, nên nhân
-# với `imgsz` là ra kích thước box model thực sự nhìn thấy.
+# Cell này **đo** thay vì giả định. Nhãn YOLO là toạ độ chuẩn hoá, nhân với
+# `imgsz` là ra kích thước box model thực sự nhìn thấy. Ngưỡng đọc: **stride nhỏ
+# nhất của YOLO là 8** — dưới đó box chiếm chưa tới một ô lưới P3.
 #
-# Ngưỡng đọc kết quả: **stride nhỏ nhất của YOLO là 8**. Box dưới 8 px ở đầu vào
-# chiếm chưa tới một ô lưới P3 — model gần như không có chỗ để hồi quy nó.
+# **Gói chưa cắt tile có vấn đề thật, và nó nằm ở một nguồn duy nhất.** Đo theo
+# nguồn ở `imgsz=1536`:
 #
-# **Đọc con số cho đúng, vì nó không đẹp.** Ở 1536 vẫn còn khoảng **21% box dưới
-# 8 px**. Lý do không phải nhãn xấu: 94% ảnh trong gói là ảnh công khai (RF100
-# rộng 504–5985 px, Winnies 1536×2048) bị letterbox về 1536, nên linh kiện nhỏ
-# của chúng co lại rất nhiều. Tile 1024 của dự án thì ngược lại — chúng được
-# phóng LÊN 1,5 lần.
+# | nguồn | box | `<8px` | trung vị |
+# |---|---:|---:|---:|
+# | rf100 | 36.673 | **29,7%** | 10,8 px |
+# | nhãn của dự án | 9.486 | **2,7%** | 21,0 px |
+# | winnies | 7.095 | 0,0% | 26,2 px |
 #
-# Nên đừng đọc "21%" là "một phần năm nhãn vô dụng". Nó là "một phần năm nhãn
-# đến từ ảnh board rộng, và ở độ phân giải đó chúng vốn đã nhỏ". YOLO26 có
-# **STAL**, cơ chế ép ít nhất 4 anchor cho vật thể dưới 8 px, và đó chính là lý
-# do dự án giữ YOLO26 thay vì đổi kiến trúc.
+# Nhãn người trong dự án vẽ hoàn toàn khoẻ. RF100 mới là chỗ hỏng: ảnh gốc rộng
+# 504–5985 px bị letterbox về 1536, có ảnh co tới 3,9 lần, nên linh kiện 30 px
+# thành 7,7 px.
 #
-# **Nếu recall ở nhóm box nhỏ kém, đòn bẩy đúng là cắt tile ảnh công khai** (như
-# `scripts/tile_test_images.py` đã làm cho ảnh của dự án) chứ không phải nâng
-# tiếp imgsz. Packer hiện xuất nguyên cảnh công khai; cắt chúng thành tile 1024
-# sẽ đưa phân bố cỡ box của phần công khai về gần phần local.
+# **Cách sửa là cắt tile, không phải nâng imgsz.** `scripts/tile_packed_dataset.py`
+# cắt ảnh train quá lớn thành tile 1024 (chồng 256 px), giữ nguyên độ phân giải
+# gốc. Kết quả đo được:
+#
+# | | ảnh train | box | trung vị @1536 | `<8px` |
+# |---|---:|---:|---:|---:|
+# | chưa cắt | 318 | 51.314 | 13,6 px | **21,2%** |
+# | **đã cắt** | 1.922 | 94.905 | **25,4 px** | **1,0%** |
+#
+# Số box tăng ~1,85 lần vì tile chồng nhau: một linh kiện nằm trong vùng chồng
+# lấn xuất hiện ở cả hai tile. Đó là hành vi đúng của tiling chồng lấn — linh
+# kiện bị đường cắt xén ở tile này thì còn nguyên ở tile kia — và tất cả đều
+# nằm trong `train` nên không đụng tới thước đo.
+#
+# `valid`/`test` **không bị cắt**: chúng là tile 1024 của dự án, đã khoá theo bo,
+# và là thứ dùng để chấm điểm.
 
 # %%
 import numpy as np
@@ -190,12 +221,18 @@ for size in (1024, 1280, 1536, 1792):
     print(f"{size:6d} {np.percentile(px,5):7.1f} {np.percentile(px,25):7.1f} "
           f"{np.median(px):9.1f} {100*(px<8).mean():7.1f}%")
 print(
-    "\nĐọc bảng: cột '<8px' là tỉ lệ box rơi xuống dưới một ô lưới P3."
-    "\nĐo trên gói hiện tại, 1536 vẫn để lại ~21% box dưới ngưỡng, và phần lớn"
-    "\nsố đó đến từ ẢNH CÔNG KHAI cỡ lớn bị letterbox — không phải từ tile của"
-    "\ndự án. Nâng imgsz lên 1792 chỉ bớt được ~6 điểm phần trăm mà tốn thêm"
-    "\n36% compute; cắt tile ảnh công khai mới là cách sửa gốc."
+    "\nĐọc bảng: cột '<8px' là tỉ lệ box dưới một ô lưới P3."
+    "\nTrên bộ ĐÃ CẮT TILE, imgsz 1280 để lại ~2,7% — so với 21% của bộ chưa"
+    "\ncắt ở imgsz 1536. Nếu con số bạn thấy ở đây gần 20%, bạn đang trỏ vào"
+    "\ngói CHƯA cắt: chạy scripts/tile_packed_dataset.py trước."
 )
+if (np.array(shorts) * CONFIG["imgsz"] < 8).mean() > 0.10:
+    raise SystemExit(
+        "Hơn 10% box dưới 8px ở imgsz đang đặt. Gói này nhiều khả năng CHƯA được "
+        "cắt tile — chạy scripts/tile_packed_dataset.py rồi trỏ dataset_root vào "
+        "bản đã cắt. Train tiếp ở trạng thái này là tiêu giờ GPU cho box mà model "
+        "không có chỗ để hồi quy."
+    )
 
 # %% [markdown]
 # ## 3. Train
@@ -380,9 +417,10 @@ manifest = {
         "Chỉ 28 bo vật lý, test 11 ảnh — khoảng tin cậy của mọi con số ở trên rất rộng.",
         "Ảnh train là CVL PCB-DSLR + RF100 + Winnies, KHÔNG phải camera dây chuyền. "
         "Phải fine-tune trên ảnh thật trước khi tin số đo ở production.",
-        "Đo trên gói: ở imgsz 1536 vẫn còn ~21% box dưới 8px (dưới một ô lưới P3), "
-        "phần lớn đến từ ảnh công khai cỡ lớn bị letterbox. Recall ở nhóm box nhỏ "
-        "phải xem riêng, đừng đọc mAP tổng.",
+        "Bộ đã cắt tile: ~2,7% box dưới 8px ở imgsz 1280 (trước khi cắt là 21% ở "
+        "1536). Recall ở nhóm box nhỏ vẫn nên xem riêng, đừng đọc mAP tổng.",
+        "Tile chồng lấn nhân số box train lên ~1,85 lần; đó là cùng linh kiện nhìn "
+        "từ hai khung, không phải dữ liệu mới.",
     ],
 }
 (ARTIFACTS / "model_manifest.json").write_text(
