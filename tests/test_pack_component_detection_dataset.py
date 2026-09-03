@@ -853,18 +853,28 @@ def test_an_empty_split_names_the_unreviewed_boards_that_would_fill_it(
         assert all(board["verified_tiles"] == 0 for board in boards)
 
 
+#: Manifest 22 lớp của bộ consolidated. Nó từng là detector đang chạy; từ khi
+#: detector thân linh kiện một lớp lên thay, nó nằm ở archive. Hợp đồng mà test
+#: dưới đây canh là THỨ TỰ LỚP CỦA BỘ DỮ LIỆU, không phải "model nào đang chạy",
+#: nên nó phải neo vào artifact còn mang thứ tự đó chứ không vào ô active.
+CONSOLIDATED_MANIFEST = (
+    Path(__file__).resolve().parents[1]
+    / "models" / "archive" / "detector-yolo26s-consolidated22-ver1"
+    / "model_manifest.json"
+)
+
+
 def test_consolidated_class_contract_matches_the_shipped_detector() -> None:
-    """Consolidated **chính là** bộ đã train ra detector đang chạy, nên danh sách
+    """Consolidated **chính là** bộ đã train ra detector 22 lớp, nên danh sách
     lớp phải khớp `class_map` trong manifest của nó. Lệch thứ tự là mọi nhãn bị
     hoán vị mà không có gì báo -- và ở đây hậu quả nhẹ hơn bình thường (gộp về
     một lớp `component`) nhưng cái bị loại (`pads`/`pins`) thì lại lệch theo."""
 
-    manifest = json.loads(
-        (
-            Path(__file__).resolve().parents[1]
-            / "models" / "active" / "detector" / "model_manifest.json"
-        ).read_text(encoding="utf-8")
+    assert CONSOLIDATED_MANIFEST.is_file(), (
+        f"không thấy {CONSOLIDATED_MANIFEST}. Nếu artifact 22 lớp bị xoá thì "
+        "hợp đồng thứ tự lớp của bộ consolidated không còn gì kiểm chứng."
     )
+    manifest = json.loads(CONSOLIDATED_MANIFEST.read_text(encoding="utf-8"))
     shipped = [manifest["class_map"][str(i)] for i in range(len(manifest["class_map"]))]
     assert list(CONSOLIDATED_CLASSES) == shipped
 

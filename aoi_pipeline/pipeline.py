@@ -20,7 +20,7 @@ from .classification.package import (
     PackageClassifier,
     create_package_classifier,
 )
-from .config import ModelDetectorConfig, PipelineConfig
+from .config import GENERIC_DETECTOR_LABELS, ModelDetectorConfig, PipelineConfig
 from .detection.cropping import ComponentCropper
 from .detection.detectors import (
     ComponentDetector,
@@ -113,6 +113,9 @@ class AOIPipeline:
         #: Vì sao bộ luật 5.2 không sinh kết quả lần chạy vừa rồi. Rỗng khi
         #: nó tắt hoặc đã chạy bình thường.
         self.last_package_rule_skip: str | None = None
+        #: Số thân mang nhãn chung chung mà 6.1 KHÔNG giải được. Mỗi cái
+        #: là một linh kiện đi nhánh ``multi_pin`` chỉ vì thiếu nhãn.
+        self.last_unresolved_generic_labels: int = 0
         self.last_package_topology_checks: list[PackageTopologyCheck] = []
         self.last_package_detections: list[Detection] = []
         # Pass 2 stays absent until someone names a model for it -- injected
@@ -492,6 +495,7 @@ class AOIPipeline:
         # ``detection.label``; nó không đọc metadata package, mà
         # ``apply_package_classifications`` cũng chỉ ghi vào metadata chứ không
         # đụng ``label``. Kết quả pass 2 vì thế không đổi.
+        bodies = self.apply_family_labels(bodies, family_classifications)
         pass2 = detect_leads_in_components(
             image, bodies or detections, self.lead_detector, self.config.lead_detection
         )
@@ -619,6 +623,68 @@ class AOIPipeline:
         if self.classifier is None:
             return []
         return self.classifier.classify(crops)
+
+    def apply_family_labels(
+        self,
+        detections: Sequence[Detection],
+        families: Sequence[ComponentClassification] | None,
+    ) -> list[Detection]:
+        """Cho họ của 6.1 thay nhãn detector khi nhãn đó không nói được gì.
+
+        Detector thân linh kiện chỉ có MỘT lớp ``component``, mà 5.5 đọc hình
+        học chân từ ``terminal_geometry(detection.label)`` — và ``component``
+        rơi vào nhánh mặc định ``multi_pin``. Đo trên fixture 28 pad đếm tay,
+        giữ nguyên 39 box và chỉ đổi nhãn: độ phủ tụt **28/28 -> 21/28** trong
+        khi số ROI tăng **47%**, vì nó dựng dải quanh cả 4 cạnh của linh kiện
+        2 chân.
+
+        CHỈ thay khi nhãn detector nằm trong ``GENERIC_DETECTOR_LABELS``.
+        Detector 22 lớp đang chạy giữ nguyên nhãn của nó: nó được train cho
+        đúng việc đó, và đảo ưu tiên sang 6.1 là đổi hành vi của đường đang
+        chạy mà không ai yêu cầu.
+
+        Và chỉ thay khi 6.1 ``accept``. Họ không chắc thì giữ ``multi_pin``:
+        đó là mặc định AN TOÀN — dựng thừa ROI thì xem lại được, thiếu thì
+        không.
+        """
+
+        generic = [
+            item for item in detections
+            if str(item.label).strip().lower() in GENERIC_DETECTOR_LABELS
+        ]
+        if not families:
+            self.last_unresolved_generic_labels = len(generic)
+            return list(detections)
+        usable = {
+            item.detection_id: item.family
+            for item in families
+            if item.decision == "accept" and item.family != "false_crop_background"
+        }
+        relabelled: list[Detection] = []
+        for detection in detections:
+            family = usable.get(detection.detection_id)
+            if family is None or str(detection.label).strip().lower() not in (
+                GENERIC_DETECTOR_LABELS
+            ):
+                relabelled.append(detection)
+                continue
+            relabelled.append(
+                replace(
+                    detection,
+                    label=family,
+                    metadata={
+                        **detection.metadata,
+                        "detector_label": detection.label,
+                        "label_source": "family_classifier",
+                    },
+                )
+            )
+        resolved = sum(
+            1 for item in relabelled
+            if item.metadata.get("label_source") == "family_classifier"
+        )
+        self.last_unresolved_generic_labels = len(generic) - resolved
+        return relabelled
 
     def _append_package_rules(
         self,
@@ -803,6 +869,17 @@ class AOIPipeline:
         if self.classifier is None:
             warnings.append(
                 "Step 6.1 was not run because best.onnx and model_manifest.json were not configured."
+            )
+        if self.last_unresolved_generic_labels:
+            # Detector chỉ khoanh THÂN thì nhãn của nó không mang thông tin
+            # topology, và 5.5 lùi về ``multi_pin`` cho tất cả. Đo trên 28
+            # pad đếm tay: độ phủ 28/28 -> 21/28. Nói thẳng con số thay vì
+            # để người dùng tự phát hiện ROI xấu.
+            warnings.append(
+                f"Step 5.5: {self.last_unresolved_generic_labels} thân linh kiện "
+                "chỉ có nhãn chung chung và 6.1 không giải được, nên chúng đi "
+                "nhánh multi_pin (dựng dải quanh cả 4 cạnh). Nạp model 6.1 để "
+                "5.5 biết linh kiện nào chỉ có 2 chân."
             )
         warnings.extend(self.cad_warnings)
         warnings.extend(fusion.warnings)

@@ -31,6 +31,15 @@ TWO_TERMINAL_CLASSES: frozenset[str] = frozenset(
     {"capacitor", "resistor", "diode", "led", "inductor", "fuse"}
 )
 PAD_ONLY_CLASSES: frozenset[str] = frozenset({"pads"})
+#: Nhãn của một detector chỉ khoanh THÂN linh kiện, không phân loại. Bước 5.5
+#: lấy hình học chân từ ``terminal_geometry(detection.label)``, và những nhãn
+#: này rơi vào nhánh mặc định ``multi_pin`` — tức dựng dải quanh cả 4 cạnh của
+#: cả linh kiện 2 chân. Đo trên fixture 28 pad đếm tay (giữ nguyên box, chỉ đổi
+#: nhãn): độ phủ pad tụt 28/28 -> 21/28 trong khi số ROI tăng 47%.
+#: Gặp nhãn trong tập này thì họ do 6.1 trả về được dùng thay.
+GENERIC_DETECTOR_LABELS: frozenset[str] = frozenset(
+    {"component", "components", "object", "part", "smd"}
+)
 # Seven operator-facing package classes approved for step 5.2.  They are kept
 # as Vietnamese slugs because the same stable values are written by the
 # labelling app, the model manifest and runtime exports.
