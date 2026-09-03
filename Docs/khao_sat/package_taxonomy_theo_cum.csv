@@ -1,0 +1,142 @@
+source,label,cluster,n,long_med,aspect_med,circ_med,defects_med
+fpic,Button,cluster_1,91,128.0000,1.5556,0.0733,4.0000
+fpic,Button,cluster_2,2,85.0000,3.8571,0.0875,1.5000
+fpic,Button,cluster_3,60,119.0000,1.2105,0.7073,0.5000
+fpic,Button,cluster_4,124,114.0000,1.3790,0.2838,3.0000
+fpic,Capacitor,cluster_1,3477,33.0000,2.0833,0.5886,1.0000
+fpic,Capacitor,cluster_2,5688,26.0000,1.6429,0.2510,2.0000
+fpic,Capacitor,cluster_3,8615,25.0000,1.5294,0.6128,1.0000
+fpic,Capacitor,cluster_4,3241,72.0000,1.1512,0.2321,3.0000
+fpic,Capacitor Jumper,cluster_1,5076,30.0000,1.8125,0.6578,0.0000
+fpic,Capacitor Jumper,cluster_2,2538,30.0000,1.6923,0.1678,2.0000
+fpic,Capacitor Jumper,cluster_3,1807,77.0000,1.1585,0.2920,3.0000
+fpic,Capacitor Jumper,cluster_4,3532,29.0000,1.8571,0.4300,2.0000
+fpic,Clock,cluster_1,74,131.5000,1.6548,0.1477,2.0000
+fpic,Clock,cluster_2,72,76.0000,1.2373,0.6125,0.0000
+fpic,Connector,cluster_1,1264,125.0000,1.8000,0.6220,0.0000
+fpic,Connector,cluster_2,1482,148.0000,1.6703,0.1376,2.0000
+fpic,Connector,cluster_3,322,871.0000,12.0952,0.0507,0.0000
+fpic,Connector,cluster_4,1483,488.0000,3.3946,0.1819,1.0000
+fpic,Diode,cluster_1,80,65.5000,1.8280,0.5888,1.0000
+fpic,Diode,cluster_2,69,91.0000,1.2292,0.5271,2.0000
+fpic,Diode,cluster_3,80,97.0000,1.8922,0.1309,2.0000
+fpic,Diode,cluster_4,54,31.5000,1.1216,0.2259,3.0000
+fpic,EM,cluster_1,55,42.0000,1.8095,0.5194,2.0000
+fpic,EM,cluster_2,107,41.0000,1.7222,0.1666,3.0000
+fpic,Electrolytic Capacitor,cluster_1,216,81.0000,1.4286,0.3611,2.0000
+fpic,Electrolytic Capacitor,cluster_2,150,90.5000,2.2955,0.2975,2.0000
+fpic,Electrolytic Capacitor,cluster_3,141,101.0000,1.9829,0.1426,2.0000
+fpic,Electrolytic Capacitor,cluster_4,349,100.0000,1.5778,0.6934,0.0000
+fpic,Ferrite Bead,cluster_1,70,51.0000,1.9129,0.5993,2.0000
+fpic,Ferrite Bead,cluster_2,33,42.0000,1.8696,0.1388,2.0000
+fpic,IC,cluster_1,940,118.0000,1.1791,0.0736,3.0000
+fpic,IC,cluster_2,2659,71.0000,1.2432,0.2264,3.0000
+fpic,IC,cluster_3,1729,180.0000,1.2394,0.2574,2.0000
+fpic,IC,cluster_4,2124,68.0000,1.1926,0.5586,1.0000
+fpic,Inductor,cluster_1,71,121.0000,1.1028,0.4093,1.0000
+fpic,Inductor,cluster_2,99,46.0000,1.4828,0.2428,2.0000
+fpic,Inductor,cluster_3,65,41.0000,1.5417,0.5912,1.0000
+fpic,Jumper,cluster_1,73,110.0000,1.5909,0.1254,2.0000
+fpic,Jumper,cluster_2,113,53.0000,1.7097,0.4609,1.0000
+fpic,Jumper,cluster_3,90,59.0000,1.7704,0.1673,2.0000
+fpic,Jumper,cluster_4,45,144.0000,1.9483,0.4098,1.0000
+fpic,Led,cluster_1,134,38.5000,1.8297,0.1535,1.0000
+fpic,Led,cluster_2,194,76.5000,1.2798,0.1880,3.0000
+fpic,Led,cluster_3,91,95.0000,2.3125,0.2710,2.0000
+fpic,Led,cluster_4,338,42.0000,1.8397,0.5773,1.0000
+fpic,Pads,cluster_1,500,35.0000,1.8500,0.7235,1.0000
+fpic,Pads,cluster_2,202,74.5000,1.4526,0.6533,1.0000
+fpic,Pads,cluster_3,287,36.0000,1.6176,0.1897,2.0000
+fpic,Pads,cluster_4,13,346.0000,3.7500,0.4510,1.0000
+fpic,Pins,cluster_1,152,355.0000,4.2268,0.2359,1.0000
+fpic,Pins,cluster_2,330,168.5000,2.1261,0.7694,0.0000
+fpic,Pins,cluster_3,409,103.0000,1.5068,0.2122,3.0000
+fpic,Pins,cluster_4,320,69.0000,1.5789,0.5777,2.0000
+fpic,Resistor,cluster_1,1186,30.0000,1.7143,0.2541,2.0000
+fpic,Resistor,cluster_2,1015,33.0000,1.5882,0.6584,1.0000
+fpic,Resistor,cluster_3,680,33.0000,2.1429,0.6051,2.0000
+fpic,Resistor,cluster_4,265,68.0000,1.9697,0.3571,2.0000
+fpic,Resistor Jumper,cluster_1,1744,29.0000,1.8000,0.1819,2.0000
+fpic,Resistor Jumper,cluster_2,341,109.0000,2.7288,0.2733,2.0000
+fpic,Resistor Jumper,cluster_3,2599,28.0000,1.9231,0.4140,2.0000
+fpic,Resistor Jumper,cluster_4,4062,28.0000,1.8667,0.6538,0.0000
+fpic,Resistor Network,cluster_1,1461,75.0000,2.0435,0.3282,2.0000
+fpic,Resistor Network,cluster_2,9611,25.0000,1.6111,0.6394,0.0000
+fpic,Resistor Network,cluster_3,6131,25.0000,1.6429,0.4242,2.0000
+fpic,Resistor Network,cluster_4,3312,27.0000,1.6031,0.1870,2.0000
+fpic,Switch,cluster_1,5,114.0000,3.8000,0.0587,2.0000
+fpic,Switch,cluster_2,50,192.0000,1.8482,0.5133,1.0000
+fpic,Switch,cluster_3,133,156.0000,1.6061,0.1119,3.0000
+fpic,Test Point,cluster_1,775,32.0000,1.0500,0.8308,0.0000
+fpic,Test Point,cluster_2,397,28.0000,1.0588,0.4849,2.0000
+fpic,Test Point,cluster_3,6,53.5000,2.2866,0.4613,1.0000
+fpic,Test Point,cluster_4,95,49.0000,1.1778,0.1037,1.0000
+fpic,Transistor,cluster_1,636,36.0000,1.1538,0.1862,3.0000
+fpic,Transistor,cluster_2,1356,32.0000,1.1481,0.3834,3.0000
+fpic,Transistor,cluster_3,1540,33.0000,1.1786,0.6252,1.0000
+fpic,Transistor,cluster_4,632,99.0000,1.4040,0.3056,3.0000
+fpic,Unknown Unlabeled,cluster_1,50,107.5000,1.9909,0.2312,2.0000
+fpic,Unknown Unlabeled,cluster_2,243,28.0000,1.7143,0.4115,2.0000
+fpic,Unknown Unlabeled,cluster_3,285,32.0000,1.6000,0.1438,2.0000
+fpic,Unknown Unlabeled,cluster_4,225,37.0000,1.6000,0.6709,1.0000
+fpic,iC,cluster_1,71,58.0000,1.2818,0.4111,3.0000
+fpic,iC,cluster_2,45,99.0000,1.4599,0.1679,3.0000
+winnies,LED,cluster_1,347,35.0000,1.8065,0.3257,3.0000
+winnies,LED,cluster_2,198,72.0000,2.1298,0.2404,3.0000
+winnies,LED,cluster_3,164,55.0000,1.8095,0.1307,2.0000
+winnies,LED,cluster_4,204,44.0000,2.0667,0.6349,1.0000
+winnies,MOSFET,cluster_1,50,126.0000,1.2602,0.4065,2.0000
+winnies,MOSFET,cluster_2,38,232.5000,1.2637,0.0708,1.0000
+winnies,MOSFET-2,cluster_1,61,139.0000,1.3667,0.4743,1.0000
+winnies,MOSFET-2,cluster_2,47,113.0000,1.1078,0.1673,2.0000
+winnies,Polyfuse_GR,cluster_1,91,60.0000,2.0000,0.2263,2.0000
+winnies,Polyfuse_GR,cluster_2,87,69.0000,1.8925,0.4996,2.0000
+winnies,Polyfuse_Z,cluster_1,45,91.0000,2.2807,0.3442,2.0000
+winnies,Polyfuse_Z,cluster_2,60,92.0000,2.0169,0.1454,2.0000
+winnies,Polyfuse_Z,cluster_3,100,112.0000,2.0057,0.4774,1.0000
+winnies,Resistor rond,cluster_1,58,52.5000,2.0513,0.1159,2.0000
+winnies,Resistor rond,cluster_2,49,129.0000,2.5870,0.1709,2.0000
+winnies,Resistor rond,cluster_3,61,73.0000,2.1429,0.1798,3.0000
+winnies,Resistor rond,cluster_4,137,51.0000,2.1277,0.4553,2.0000
+winnies,SOD123,cluster_1,57,61.0000,1.8182,0.5049,1.0000
+winnies,SOD123,cluster_2,83,121.0000,1.8421,0.3020,2.0000
+winnies,SOD123,cluster_3,80,66.0000,1.9412,0.1517,2.0000
+winnies,SOD323,cluster_1,190,37.0000,1.7918,0.3476,3.0000
+winnies,SOD323,cluster_2,177,83.0000,1.9310,0.3072,2.0000
+winnies,SOD323,cluster_3,160,43.0000,2.0667,0.5752,2.0000
+winnies,SOD323,cluster_4,109,66.0000,1.7059,0.1014,2.0000
+winnies,SOIC-16,cluster_1,64,112.0000,1.2476,0.1838,3.0000
+winnies,SOIC-16,cluster_2,51,99.0000,1.3043,0.0642,1.0000
+winnies,SOT143,cluster_1,55,60.0000,1.1429,0.4995,2.0000
+winnies,SOT143,cluster_2,46,73.0000,1.1266,0.2298,4.0000
+winnies,SOT223,cluster_1,75,105.0000,1.1628,0.3137,2.0000
+winnies,SOT223,cluster_2,25,135.0000,1.1138,0.1280,2.0000
+winnies,SOT23,cluster_1,150,36.0000,1.2407,0.3738,4.0000
+winnies,SOT23,cluster_2,116,85.0000,1.1515,0.2280,3.0000
+winnies,SOT23,cluster_3,199,68.0000,1.1912,0.2133,1.0000
+winnies,SOT23,cluster_4,206,46.5000,1.1455,0.5289,2.0000
+winnies,SOT457,cluster_1,82,40.0000,1.2667,0.1583,3.0000
+winnies,SOT457,cluster_2,19,48.0000,1.2286,0.6752,0.0000
+winnies,SOT457,cluster_3,126,53.0000,1.1765,0.2482,3.0000
+winnies,SOT753,cluster_1,125,103.0000,1.1667,0.2652,3.0000
+winnies,SOT753,cluster_2,52,110.0000,1.2536,0.0822,1.0000
+winnies,SOT753,cluster_3,54,104.0000,1.2609,0.7036,0.5000
+winnies,SOT753,cluster_4,103,46.0000,1.1795,0.2409,3.0000
+winnies,SOT96,cluster_1,115,198.0000,1.4766,0.2039,3.0000
+winnies,SOT96,cluster_2,157,76.0000,1.3800,0.1941,5.0000
+winnies,SOT96,cluster_3,106,84.0000,1.3393,0.4093,2.0000
+winnies,SOT96,cluster_4,27,87.0000,1.3279,0.0944,3.0000
+winnies,TSSOP-16,cluster_1,27,265.0000,1.2847,0.1862,2.0000
+winnies,TSSOP-16,cluster_2,38,130.0000,1.2903,0.3392,2.0000
+winnies,capacitor,cluster_1,1477,51.0000,1.8095,0.5647,1.0000
+winnies,capacitor,cluster_2,1455,36.0000,1.8276,0.3440,2.0000
+winnies,capacitor,cluster_3,1281,83.0000,1.8605,0.2631,3.0000
+winnies,capacitor,cluster_4,1191,51.0000,1.9412,0.1346,2.0000
+winnies,feriet kraal,cluster_1,110,55.5000,1.8947,0.2354,3.0000
+winnies,feriet kraal,cluster_2,126,37.0000,1.5556,0.5253,2.0000
+winnies,feriet kraal,cluster_3,122,85.0000,1.9166,0.1383,2.0000
+winnies,feriet kraal,cluster_4,130,57.0000,2.1111,0.5975,2.0000
+winnies,resistor,cluster_1,1532,78.0000,2.0455,0.1166,2.0000
+winnies,resistor,cluster_2,1578,36.0000,1.9091,0.1539,3.0000
+winnies,resistor,cluster_3,1677,58.0000,2.0250,0.5160,2.0000
+winnies,resistor,cluster_4,1192,46.0000,2.2800,0.2566,2.0000

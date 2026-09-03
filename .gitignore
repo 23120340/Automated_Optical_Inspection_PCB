@@ -104,3 +104,8 @@ datasets/train/*.zip
 # phi thương mại nên không được đẩy lên repo. README và manifest thì giữ.
 datasets/test_images/*/
 datasets/test_images/*.json
+
+# Khảo sát taxonomy package: 336 MB ảnh crop, contact sheet và một CSV 26 MB
+# dòng-một-box. scripts/survey_package_taxonomy.py dựng lại được toàn bộ từ hai
+# zip công khai, và bảng tổng đã rút gọn nằm ở Docs/khao_sat/.
+datasets/survey/
