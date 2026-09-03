@@ -52,8 +52,17 @@ CONFIG = {
     "imgsz": 1280,
     "epochs": 150,
     "patience": 40,
-    "batch": -1,             # auto theo VRAM; hạ imgsz xuống 1280 nếu OOM
+    "batch": -1,             # auto theo VRAM; hạ imgsz xuống 1024 nếu OOM
     "close_mosaic": 25,
+    # Mặc định Ultralytics là 300, và lần train thật đầu tiên đã cảnh báo
+    # đúng chỗ này: "Dataset images contain up to 358 objects (train=358,
+    # val=210), but max_det=300. This mismatch can cap recall and produce
+    # invalid validation results."
+    # Tile PCB dày đặc linh kiện — trần 300 là trần CỦA PHÉP ĐO, không phải
+    # của model: mọi detection thứ 301 trở đi bị vứt trước khi tính recall,
+    # nên recall thấp giả mà không có gì báo. 600 phủ mức dày nhất (358) với
+    # biên rộng; NMS đắt thêm không đáng kể ở batch này.
+    "max_det": 600,
 
     # Một lớp thì không có class hiếm để cân bằng. Augmentation giữ ở mức của
     # dây chuyền thật: board có thể xoay 180°, không bao giờ lộn gương.
@@ -83,6 +92,18 @@ CONFIG = {
     # Cổng phán quyết. Detector đang chạy bỏ sót 46% box tay trên chính các tile
     # này, tức recall ~0,54. Model mới không vượt được con số đó thì không có lý
     # do gì để thay.
+    # Thành phần train ĐO ĐƯỢC: 1.412 tile RF100 + 436 Winnies + **74 local**
+    # = 1.922 ảnh. Tức miền đích chỉ chiếm **3,9%** dữ liệu học, trong khi
+    # valid/test là **100%** local. Model đang tối ưu cho miền mà nó không
+    # bao giờ bị chấm điểm.
+    # Nhân bản tile local trong DANH SÁCH train (không nhân file trên đĩa):
+    # 6 lần đưa local lên ~19% train. Đánh đổi thật: chỉ có 74 ảnh local
+    # DUY NHẤT, nhân lên không tạo thông tin mới và có thể học thuộc chúng.
+    # Đặt 1 để tắt. Nếu bật, so recall trên valid với chính 74 ảnh đó —
+    # chênh lớn nghĩa là đang học thuộc chứ không phải học hình dạng.
+    "local_oversample": 6,
+    "local_prefix": "local_component_bodies__",
+
     "gate_recall": 0.70,
     "gate_map50": 0.60,
     "incumbent_recall_on_hand_boxes": 0.54,
@@ -235,6 +256,53 @@ if (np.array(shorts) * CONFIG["imgsz"] < 8).mean() > 0.10:
     )
 
 # %% [markdown]
+# ## 2b. Cân lại thành phần train
+#
+# `valid`/`test` là **100% tile của dự án**, còn `train` chỉ có **3,9%**. Đó là
+# hệ quả trực tiếp của một quy tắc đúng — dữ liệu công khai chỉ được vào train,
+# vì nó có bản augment trùng lặp và chồng nguồn với PCB-DSLR nên chấm điểm trên
+# nó cho số đẹp giả. Nhưng hệ quả là model tối ưu cho miền nó không bị chấm.
+#
+# Cách chữa rẻ nhất: **nhân bản dòng trong danh sách train**, không nhân file.
+# Ultralytics chấp nhận `train:` trỏ tới một file `.txt` liệt kê đường dẫn ảnh,
+# nên việc này không cần ghi vào thư mục input (vốn chỉ đọc trên Kaggle).
+
+# %%
+if CONFIG["local_oversample"] > 1:
+    train_images = sorted((DATASET / "train" / "images").glob("*"))
+    lines, local_count = [], 0
+    for path in train_images:
+        repeats = 1
+        if path.name.startswith(CONFIG["local_prefix"]):
+            repeats = CONFIG["local_oversample"]
+            local_count += 1
+        lines.extend([str(path.resolve())] * repeats)
+
+    listing = WORK / "train_oversampled.txt"
+    listing.parent.mkdir(parents=True, exist_ok=True)
+    listing.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # data.yaml riêng trong /kaggle/working, dùng đường dẫn TUYỆT ĐỐI để khỏi
+    # phụ thuộc vào chỗ Ultralytics giải đường dẫn tương đối.
+    data_yaml = WORK / "data_oversampled.yaml"
+    data_yaml.write_text(
+        f"train: {listing}\n"
+        f"val: {(DATASET / 'valid' / 'images').resolve()}\n"
+        f"test: {(DATASET / 'test' / 'images').resolve()}\n"
+        "nc: 1\n"
+        "names: ['component']\n",
+        encoding="utf-8",
+    )
+    share = CONFIG["local_oversample"] * local_count / len(lines)
+    print(f"{local_count} tile local x{CONFIG['local_oversample']} "
+          f"+ {len(train_images) - local_count} ảnh công khai")
+    print(f"danh sách train: {len(lines)} dòng, local chiếm {100*share:.1f}% "
+          f"(trước khi nhân: {100*local_count/len(train_images):.1f}%)")
+    print("data.yaml dùng để train:", data_yaml)
+else:
+    print("không nhân bản; train giữ nguyên thành phần gốc")
+
+# %% [markdown]
 # ## 3. Train
 #
 # Khi `resume_from` được đặt, Ultralytics **đọc lại cấu hình từ chính
@@ -264,6 +332,7 @@ else:
         batch=CONFIG["batch"],
         patience=CONFIG["patience"],
         close_mosaic=CONFIG["close_mosaic"],
+        max_det=CONFIG["max_det"],
         seed=CONFIG["seed"],
         project=str(WORK),
         name="train",
@@ -306,7 +375,8 @@ else:
 # %%
 metrics = {}
 for split in ("val", "test"):
-    res = model.val(data=str(data_yaml), split=split, imgsz=CONFIG["imgsz"], verbose=False)
+    res = model.val(data=str(data_yaml), split=split, imgsz=CONFIG["imgsz"],
+                    max_det=CONFIG["max_det"], verbose=False)
     metrics[split] = {
         "map50": float(res.box.map50),
         "map50_95": float(res.box.map),
@@ -412,6 +482,7 @@ manifest = {
     },
     "train_config": {k: CONFIG[k] for k in
                      ("seed", "imgsz", "epochs", "patience", "batch", "close_mosaic",
+                      "max_det", "local_oversample",
                       "fliplr", "flipud", "degrees", "scale", "mosaic", "copy_paste")},
     "known_limits": [
         "Chỉ 28 bo vật lý, test 11 ảnh — khoảng tin cậy của mọi con số ở trên rất rộng.",
