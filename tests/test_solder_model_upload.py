@@ -26,17 +26,15 @@ import pytest
 import app.streamlit_app as ui
 from app.pipeline_bridge import PipelineBridge
 
-SOLDER_MODEL = (
-    ui.PROJECT_ROOT / "models" / "active" / "solder" / "classifier" / "best.onnx"
-)
-SOLDER_MANIFEST = (
-    ui.PROJECT_ROOT
-    / "models"
-    / "active"
-    / "solder"
-    / "classifier"
-    / "model_manifest.json"
-)
+#: Lấy từ ``STAGE_FOLDERS`` chứ KHÔNG gõ cứng. Đổi tên thư mục model từng
+#: làm năm test ở file này im lặng bị bỏ qua -- ``skipif`` thấy thiếu file
+#: và skip, không có gì đỏ lên. Suy ra từ registry thì rename không thể làm
+#: câm chúng nữa.
+from aoi_pipeline.modelops.model_registry import ACTIVE_ROOT, STAGE_FOLDERS
+
+_SOLDER_SLOT = ACTIVE_ROOT / STAGE_FOLDERS["solder_classifier"]
+SOLDER_MODEL = _SOLDER_SLOT / "best.onnx"
+SOLDER_MANIFEST = _SOLDER_SLOT / "model_manifest.json"
 
 needs_artifacts = pytest.mark.skipif(
     not (SOLDER_MODEL.is_file() and SOLDER_MANIFEST.is_file()),

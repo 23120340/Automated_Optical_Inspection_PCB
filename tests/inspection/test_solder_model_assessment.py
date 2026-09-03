@@ -35,8 +35,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 #: là `defect/` sau `1447ed5`) nhưng không dời đường dẫn này theo. Manifest ở chỗ
 #: cũ biến mất, `skipif` thấy thiếu file và **bỏ qua** hai test ghim điểm làm
 #: việc — chúng im lặng ngừng canh từ 24/08 mà không có gì đỏ lên.
+from aoi_pipeline.modelops.model_registry import ACTIVE_ROOT, STAGE_FOLDERS
+
 MANIFEST_PATH = (
-    PROJECT_ROOT / "models" / "active" / "solder" / "classifier" / "model_manifest.json"
+    ACTIVE_ROOT / STAGE_FOLDERS["solder_classifier"] / "model_manifest.json"
 )
 
 #: Đo trên board thật, xem docstring. Một model thay thế phải khá hơn con số này.

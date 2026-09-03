@@ -127,7 +127,7 @@ kiến trúc, chỉ thay nguồn.
 - `scripts/survey_package_taxonomy.py` — khảo sát ở §6.
 - Hạ tầng cũ vẫn dùng được: parser footprint BOM/PnP/CAD, bảy topology ở 5.5,
   đường ONNX 5.2 (no-op tuyệt đối khi thiếu artifact), ô model
-  `models/active/package/` với `_NO_AUTO_ADOPT`.
+  `models/active/package_classifier/` với `_NO_AUTO_ADOPT`.
 
 **Classifier 6.1 KHÔNG train lại.** Nó đo được 22,3% ca đổi nhãn khi đổi khung
 cắt, nhưng ở độ mịn package phần lớn sai số đó biến mất: `capacitor → led` (91

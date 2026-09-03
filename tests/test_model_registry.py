@@ -251,7 +251,7 @@ def test_legacy_solder_alias_resolves_only_to_the_classifier() -> None:
     assert legacy == classifier
     assert legacy is not None
     assert legacy.kind == "solder_classifier"
-    assert legacy.name == "solder/classifier/best.onnx"
+    assert legacy.name == "solder_classifier/best.onnx"
     assert discover_models("solder") == discover_models("solder_classifier")
 
 
@@ -331,7 +331,7 @@ def test_a_fresh_session_already_has_the_active_models_loaded() -> None:
     for key, folder in (
         ("component_model_name", "detector"),
         ("classifier_model_name", "classifier"),
-        ("solder_model_name", "solder/classifier"),
+        ("solder_model_name", "solder_classifier"),
     ):
         assert app.session_state[key], f"{key} vẫn trống sau khi khởi tạo"
         assert folder in app.session_state[key]

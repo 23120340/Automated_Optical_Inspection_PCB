@@ -13,18 +13,24 @@ python scripts/list_models.py --json          # cho script khác dùng
 ```
 
 ```
-bước       nguồn      thư mục                          kiến trúc        ngày        điểm            MB
-classifier đang dùng  classifier                       efficientnet_b0  2026-08-18  acc 0.958       16
-classifier của bạn    classifier-convnext_base-...     convnext_base    2026-08-22  acc 0.954      351
-detector   đang dùng  detector                         yolo26s          2026-08-20  mAP50 0.505     39
-detector   bản cũ     detector-yolo26s-20260817        yolo26s          2026-08-17  mAP50 0.579     39
+bước               nguồn      thư mục                                 kiến trúc           ngày        điểm
+classifier         đang dùng  classifier                              efficientnet_b0     2026-08-18  acc 0.958
+classifier         của bạn    classifier-convnext_base-ver1           convnext_base       2026-08-22  acc 0.954
+detector           đang dùng  detector                                yolo26s             2026-09-03  mAP50 0.711
+detector           bản cũ     detector-yolo26s-consolidated22-ver1    yolo26s             2026-08-17  mAP50 0.579
+lead_detector      đang dùng  lead_detector                           yolo11s             2026-08-28  mAP50 0.991
+solder_classifier  đang dùng  solder_classifier                       mobilenet_v3_small  2026-08-20  —
+solder_segmenter   bản cũ     solder-segmenter-yolov8m-ver1           yolov8m-seg         2026-08-24  mask mAP50 0.557
 ```
+
+`solder_segmenter` chỉ có dòng "bản cũ" và không bao giờ có "đang dùng": nó
+không còn ô nào trong `active/`.
 
 **Trong app**, bộ chọn ở sidebar hiện đúng những cột đó:
 
 ```
-detector — yolo26s · 2026-08-20 · mAP50 0.505  (đang dùng)
-detector-yolo26s-20260817 — yolo26s · 2026-08-17 · mAP50 0.579  (bản cũ)
+detector — yolo26s · 2026-09-03 · mAP50 0.711  (đang dùng)
+detector-yolo26s-consolidated22-ver1 — yolo26s · 2026-08-17 · mAP50 0.579  (bản cũ)
 ```
 
 Muốn đặt lại tên cho dễ nhớ, chọn model rồi **nhấp đúp vào tên thư mục** ngay
@@ -53,48 +59,51 @@ tin nhất: tên thư mục do người đặt và có thể lệch, manifest do
 | `library/` | Của bạn. Thả vào là hiện trong bộ chọn | **bỏ qua** |
 
 `active/` dùng **tên bước/vai trò** chứ không phải tên phiên bản — vì câu hỏi ở
-đó là "cái gì đang chạy". Riêng solder có hai contract không tương thích nên
-được tách thêm một cấp:
+đó là "cái gì đang chạy". Một thư mục **phẳng** cho mỗi ô, và **tên thư mục
+trùng tên vai trò**:
 
 ```
 active/
-├── detector/                  # detector linh kiện/chân, bước 4
-├── classifier/                # classifier họ linh kiện, bước 6.1
-├── package/                   # package topology 5.2; KHÔNG tự bật, kể cả khi có artifact
-└── solder/
-    ├── classifier/            # classifier ROI, output raw logits
-    │   ├── best.onnx
-    │   └── model_manifest.json
-    └── detector/              # YOLO segment lỗi mối hàn trên toàn board
-        ├── best.onnx
-        └── model_manifest.json
+├── detector/            # bước 4 — khoanh thân linh kiện
+├── classifier/          # bước 6.1 — phân họ linh kiện
+├── package_classifier/  # bước 5.2 — hiện TRỐNG, 5.2 quyết bằng luật
+├── solder_classifier/   # bước 6.2 — chấm từng ROI mối hàn, output raw logits
+└── lead_detector/       # lượt 2 của 5.5 — tìm mối hàn trong crop linh kiện
 ```
 
-Vì vậy `solder/classifier/model_manifest.json` chỉ mô tả classifier ROI, còn
-`solder/detector/model_manifest.json` chỉ mô tả detector segmentation. Không
-được đổi chéo hai manifest: class logits và boxes + masks là hai kiểu output
-khác nhau. Đổi tên các thư mục `active/` này sẽ làm app không tìm thấy model mặc
-định nữa. Tên API cũ `solder` vẫn được hiểu là `solder_classifier` để tương
-thích với cấu hình cũ; model mới nên luôn dùng tên vai trò đầy đủ.
+Mỗi thư mục chứa `best.onnx` + `model_manifest.json`. Thiếu manifest thì ô đó
+từ chối nạp: class order đoán sai có thể đổi hình học ROI hoặc map mọi lỗi
+thành pass, nên chào file trần chỉ để nó hỏng một click sau đó.
 
-Bundle nguồn của detector hiện tại (gồm `.pt`, `config.json`, ONNX và manifest)
-được giữ cục bộ, không commit, tại
-`models/pcb_solder_defect_artifacts/solder-detector-yolov8m_seg-20260824/`.
-Runtime chỉ dùng cặp ONNX + manifest trong `active/solder/detector/`.
+**Không có ô nào cho model dò lỗi trên TOÀN BOARD.** Dự án đi hướng lượt 2
+(định vị mối hàn) + 6.2 (chấm từng ROI); lớp chẩn đoán toàn board là đường thứ
+ba, `diagnostic_only`, train trên camera khác. Hai artifact của hướng đó nằm ở
+`archive/solder-segmenter-yolov8m-ver1/` và
+`archive/solder-defect-detector-wholeboard-ver1/` — `pipeline.py` và `app/`
+không gọi chúng, nên để trong `active/` là nói dối về nghĩa của `active`.
+
+Tên API cũ `solder` vẫn được hiểu là `solder_classifier`, và `solder_detector`
+là `solder_segmenter`, để cấu hình cũ không gãy. Model mới nên luôn dùng tên
+vai trò đầy đủ.
+
+Đổi tên các thư mục `active/` này sẽ làm app không tìm thấy model mặc định nữa
+— chúng là đường dẫn cố định trong `STAGE_FOLDERS`.
 
 Việc nạp diễn ra **một lần cho mỗi phiên**, không phải mỗi lần chạy lại. Nhờ
 thế nút "Gỡ model" vẫn gỡ được: nạp lại ở mọi rerun thì bấm gỡ xong model quay
 về ngay, và nút trông như hỏng. Muốn nạp lại sau khi gỡ thì chọn nó trong ô
 "Chọn từ thư mục models/".
 
-`archive/` và `library/` dùng **`<bước>-<kiến trúc>-<ngày>`**:
+`archive/` và `library/` dùng **`<vai-trò>-<kiến-trúc>[-<nguồn>]-ver<N>`**:
 
 ```
-detector-yolo26s-20260817
-detector-yolov8-huggingface-20260704
-classifier-convnext_base-20260822
-solder-classifier-mobilenet_v3_small-20260820
-solder-detector-yolov8m_seg-20260824
+detector-yolo26s-consolidated22-ver1
+detector-yolo26s-kaggle-ver2
+detector-yolov8-huggingface-ver1
+classifier-convnext_base-ver1
+solder-mobilenet_v3_small-ver2
+solder-segmenter-yolov8m-ver1
+solder-defect-detector-wholeboard-ver1
 ```
 
 Đây chỉ là tiện lợi khi mở File Explorer. Bộ chọn và `list_models.py` không đọc

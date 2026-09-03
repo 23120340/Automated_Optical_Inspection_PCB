@@ -170,8 +170,8 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     config = PipelineConfig.from_mapping(
         {
             "solder_defect_detection": {
-                "model": "models/active/solder/defect/best.onnx",
-                "manifest": "models/active/solder/defect/model_manifest.json",
+                "model": "models/archive/solder-defect-detector-wholeboard-ver1/best.onnx",
+                "manifest": "models/archive/solder-defect-detector-wholeboard-ver1/model_manifest.json",
                 "conf": 0.31,
                 "iou": 0.66,
                 "imgsz": 640,
@@ -183,8 +183,17 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     )
 
     segment = config.solder_defect_detection
-    assert segment.model_path.endswith("defect/best.onnx")
-    assert segment.manifest_path.endswith("defect/model_manifest.json")
+    # Ý của test là hai ĐƯỜNG tách nhau, không phải tên thư mục cụ thể: ô
+    # classifier 6.2 và model dò lỗi toàn board có contract output khác hẳn
+    # (raw logits so với boxes + masks), nên trộn hai đường là hỏng ở chỗ chẳng
+    # liên quan gì tới nguyên nhân.
+    assert segment.model_path.endswith(
+        "solder-defect-detector-wholeboard-ver1/best.onnx"
+    )
+    assert segment.manifest_path.endswith(
+        "solder-defect-detector-wholeboard-ver1/model_manifest.json"
+    )
+    assert "solder_classifier" not in segment.model_path
     assert segment.confidence == pytest.approx(0.31)
     assert segment.iou == pytest.approx(0.66)
     assert segment.image_size == 640
@@ -195,12 +204,16 @@ def test_config_mapping_keeps_segment_detector_separate_from_roi_classifier() ->
     assert config.solder_grading.manifest_path is None
 
 def test_shipped_active_segmenter_manifest_matches_runtime_contract() -> None:
+    """Model dò lỗi toàn board đã chuyển sang ``archive/`` (2026-09-03): không
+    ô nào nạp nó nữa. Vẫn canh hợp đồng vì ``defect_detection.py`` còn trên
+    đĩa — ai bật lại tầng đó phải thấy manifest còn khớp, chứ không phát hiện
+    lệch lúc đang chạy."""
+
     manifest_path = (
         Path(__file__).parents[1]
         / "models"
-        / "active"
-        / "solder"
-        / "defect"
+        / "archive"
+        / "solder-defect-detector-wholeboard-ver1"
         / "model_manifest.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

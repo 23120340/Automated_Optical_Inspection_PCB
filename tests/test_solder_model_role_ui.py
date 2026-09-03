@@ -19,13 +19,18 @@ from pathlib import Path
 import app.streamlit_app as ui
 
 
-#: Manifest của model detect lỗi toàn board. Tầng đó đã gỡ khỏi app, nhưng file
-#: vẫn trên đĩa và vẫn là mẫu "manifest không phải của ô classifier" tốt nhất.
+#: Manifest của model detect lỗi toàn board. Tầng đó đã gỡ khỏi app, và từ
+#: 2026-09-03 model cũng chuyển sang ``archive/`` — nhưng nó vẫn là mẫu
+#: "manifest không phải của ô classifier" tốt nhất repo có.
 FOREIGN_MANIFEST = (
-    ui.PROJECT_ROOT / "models" / "active" / "solder" / "defect" / "model_manifest.json"
+    ui.PROJECT_ROOT / "models" / "archive"
+    / "solder-defect-detector-wholeboard-ver1" / "model_manifest.json"
 )
+from aoi_pipeline.modelops.model_registry import ACTIVE_ROOT, STAGE_FOLDERS
+
+#: Suy từ registry, không gõ cứng — xem lý do ở tests/test_solder_model_upload.py.
 CLASSIFIER_MODEL = (
-    ui.PROJECT_ROOT / "models" / "active" / "solder" / "classifier" / "best.onnx"
+    ACTIVE_ROOT / STAGE_FOLDERS["solder_classifier"] / "best.onnx"
 )
 CLASSIFIER_MANIFEST = CLASSIFIER_MODEL.with_name("model_manifest.json")
 

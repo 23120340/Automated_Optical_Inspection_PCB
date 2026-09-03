@@ -371,8 +371,8 @@ Nạp cả hai ở sidebar **Classifier ROI mối hàn · raw logits**, hoặc t
 config:
 
 ```python
-config.solder_grading.model_path = "models/active/solder/classifier/best.onnx"
-config.solder_grading.manifest_path = "models/active/solder/classifier/model_manifest.json"
+config.solder_grading.model_path = "models/active/solder_classifier/best.onnx"
+config.solder_grading.manifest_path = "models/active/solder_classifier/model_manifest.json"
 ```
 
 Không cần đổi gì khác. Thiếu một trong hai thì bước 6.2 vẫn chạy bằng luật và

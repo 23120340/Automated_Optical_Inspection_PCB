@@ -56,16 +56,17 @@ STAGE_FOLDERS = {
     "classifier": "classifier",
     # Step 5.2 package topology.  It remains opt-in in the UI even when an
     # artifact is installed here; see ``app.streamlit_app._NO_AUTO_ADOPT``.
-    "package_classifier": "package",
-    "solder_classifier": "solder/classifier",
+    "package_classifier": "package_classifier",
+    "solder_classifier": "solder_classifier",
     # ``solder_segmenter`` (detect lỗi trên toàn board) đã được GỠ khỏi app và
     # pipeline: dự án đi theo hướng lượt 2 (định vị mối hàn) + 6.2 (chấm từng
     # ROI), và lớp chẩn đoán toàn board chỉ là một đường thứ ba, ``diagnostic_only``
     # và train trên camera khác.
     #
-    # Module ``aoi_pipeline/solder/defect_detection.py`` và model trong
-    # ``models/active/solder/defect/`` vẫn còn trên đĩa; thiếu ở đây nghĩa là
-    # không có ô nào tự nạp chúng nữa.
+    # Module ``aoi_pipeline/solder/defect_detection.py`` vẫn còn trên đĩa,
+    # nhưng ``pipeline.py`` và ``app/`` không gọi nó. Model đã chuyển sang
+    # ``models/archive/solder-defect-detector-wholeboard-ver1/``: để nó
+    # trong ``active/`` là nói dối, vì ``active`` nghĩa là app tự nạp.
     # Lượt 2 của bước 5.5: tìm mối hàn BÊN TRONG crop linh kiện. Khác cả ba ô
     # trên. Không phải ``detector`` (ô đó nhìn cả board và học thân linh kiện),
     # không phải ``solder_segmenter`` (ô đó khoanh LỖI và không có lớp nào cho

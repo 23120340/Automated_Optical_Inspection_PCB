@@ -55,7 +55,7 @@ models/library/*
 # (list_models.py xếp nó là "bản cũ, KHÔNG tự nạp"). Nó ở lại trên ổ đĩa để đối
 # chiếu và train lại được từ notebook Kaggle của chính nó; manifest bên cạnh vẫn
 # theo dõi trong git nên số đo và sha256 của nó không mất.
-models/archive/solder_segmenter_yolov8m_20260824/best.onnx
+models/archive/solder-segmenter-yolov8m-ver1/best.onnx
 
 # Ultralytics tải trọng số gốc về thư mục đang đứng khi gọi YOLO("yolo11n.pt").
 # Chúng là bản tải lại được, không phải artifact của dự án, và một lần chạy

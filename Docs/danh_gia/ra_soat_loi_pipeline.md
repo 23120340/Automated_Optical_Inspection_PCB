@@ -80,6 +80,13 @@ với Lỗi 1.
 
 ## Lỗi 3 — Thư mục `solder/segmenter` chứa model DETECT
 
+> **Kết cục (2026-09-03).** Sửa nửa vời một lần: thư mục đổi tên
+> `segmenter` → `defect`, nhưng model vẫn nằm trong `active/` trong khi
+> registry đã bỏ hẳn ô cho nó — tức một model không đường nào nạp lại
+> nằm trong thư mục có nghĩa là *app tự nạp*. Đã chuyển sang
+> `models/archive/solder-defect-detector-wholeboard-ver1/`, và
+> `tests/test_models_layout.py` giờ canh để không tái diễn.
+
 **File:** `models/active/solder/segmenter/`, `aoi_pipeline/modelops/model_registry.py:57`
 
 Thư mục tên `segmenter`, nhưng manifest bên trong ghi:

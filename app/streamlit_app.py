@@ -1791,7 +1791,7 @@ def _render_sidebar() -> bool:
         with st.expander("Model package 5.2 · mặc định tắt", expanded=False):
             st.warning(
                 "Chưa có model đã vượt gate board thật. Artifact đặt trong "
-                "`models/active/package/` cũng KHÔNG tự bật; chỉ thao tác chọn/nạp "
+                "`models/active/package_classifier/` cũng KHÔNG tự bật; chỉ thao tác chọn/nạp "
                 "ở đây mới cho phép nó tác động tới ROI 5.5."
             )
             if _render_model_picker("package"):
@@ -1909,7 +1909,7 @@ def _render_sidebar() -> bool:
             if solder_manifest_name:
                 st.success(f"Manifest classifier: {solder_manifest_name}")
             if solder_model_name and solder_manifest_name:
-                st.caption("Đủ cặp · active: models/active/solder/classifier/")
+                st.caption("Đủ cặp · active: models/active/solder_classifier/")
             elif solder_model_name or solder_manifest_name:
                 st.warning(
                     "Classifier mới có một nửa cặp; bước 6.2 vẫn chấm bằng luật đo "
