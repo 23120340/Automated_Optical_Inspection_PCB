@@ -405,6 +405,44 @@ an toàn, không có giá trị tự động hoá, và **không đẩy board t�
   có. Xem trường `what_is_NOT_settled` trong manifest.
   Ngoài ra `49b26fb` đo được: ROI kỳ quặc trên IC là lỗi **lượt 1**, không phải
   lượt 2 — box lớn nhất detector cho ra 251×250 px trong khi QFP thật ~350 px.
+- `[x] ĐÃ SỬA 2026-09-04` **J4.** Lỗi lượt 1 ở trên đã hết. Detector thân
+  linh kiện 1 lớp (`0477cd3`) đo trên 640 box tay của tập test, tách dải cỡ:
+
+  | dải cạnh dài | detector cũ 22 lớp | detector mới 1 lớp |
+  |---|---:|---:|
+  | <32 px | 4,2% | **93,3%** |
+  | 32–96 px | 47,0% | 84,1% |
+  | 96–250 px | 30,8% | 76,9% |
+  | **≥250 px** *(dải của QFP)* | **4,9%** | **92,7%** |
+
+  Box thừa không khớp GT nào: cũ 28/129 (21,7%), mới 160/776 (20,6%) — tỉ lệ
+  tương đương, và chỉ **1** box thừa thuộc dạng dài-mảnh 'lược chân'.
+
+- `[!] MỚI 2026-09-04` **J5. Lượt 2 không còn là tuỳ chọn.** Đo trên bo
+  `tests/data/solder_geometry` (28 pad đếm tay, khung sau bước 1, có nạp 6.1):
+
+  | | chỉ lượt 1 | lượt 1 + lượt 2 |
+  |---|---:|---:|
+  | detector cũ 22 lớp | 28/28 | 28/28 |
+  | detector mới 1 lớp | **11/28** | **27/28** |
+
+  Nguyên nhân đo được: trên bo NÀY box của detector mới lớn hơn hẳn — cạnh
+  dài trung vị 76 px so với 35 px, diện tích 2701 so với 718 px². Hình học
+  suy ra ở 5.5 đặt ROI theo *tỉ lệ* của box, nên box đổi thang thì ROI đặt
+  sai chỗ. Lượt 2 miễn nhiễm vì nó tìm mối hàn từ pixel, không từ tỉ lệ box.
+
+  ⚠️ Bo này là **ngoài miền** ("public SMD board crop", không thuộc 28 bo
+  PCB-DSLR), đúng giới hạn manifest tự khai. Trên tile trong miền, box của
+  detector mới khớp nhãn tay ở IoU 0.5 với recall trong bảng J4. Nên con số
+  11/28 đo **hành vi ngoài miền**, không phải hành vi chung.
+
+  Cách chữa, chưa làm: hiệu chuẩn lại `PadProfile` theo quy ước box mới
+  ("chỉ thân, loại chân/pad"), hoặc bật lượt 2 mặc định — nhưng lượt 2 còn
+  `bootstrap_only` nên chưa bật production được.
+
+- `[!] MỚI 2026-09-04` **J6.** Cùng lần đo: **15/62 thân** không nhận được
+  nhãn họ từ 6.1 (`review`/`unknown`/`false_crop_background`) nên rơi về
+  `multi_pin`. `run()` đã cảnh báo số này thay vì im lặng.
 
 **Hai tham số trong kế hoạch ban đầu đều sai khi đem đo.**
 
@@ -467,6 +505,9 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-22 | I1 — đánh giá model 6.2 | `Docs/danh_gia/danh_gia_model_6_2.md`: chưa dùng để quyết định được, 61% mối hàn bị gọi `bridge` |
 | 2026-08-22 | F1–F3 — nhập BOM + đối chiếu | `aoi_pipeline/placement/bom.py` + UI; linh kiện ngoài BOM = LỖI; 531 test pass |
 | 2026-08-23 | Đánh giá model trong app | `aoi_pipeline/modelops/model_feedback.py` + mục ở cuối trang bước 4/6.1/6.2; lưu toạ độ, gắn sha256 model; 605 test |
+| 2026-09-03 | Lượt 1: promote detector thân linh kiện 1 lớp | `0477cd3`; test recall 0.844, cận dưới theo bo 0.744 > incumbent 0.54 |
+| 2026-09-04 | Đo lại lượt 1 theo dải cỡ | J4: dải ≥250 px từ 4,9% lên 92,7% — lỗi QFP của `49b26fb` đã hết |
+| 2026-09-04 | Đo hai lượt chạy chung | J5: lượt 2 hết là tuỳ chọn với detector mới (11/28 → 27/28 trên bo ngoài miền) |
 | 2026-08-23 | Gộp Golden vào đường ống | Bỏ workspace riêng; Golden = bước 3.5, ngay sau khoanh vùng board; 610 test |
 | 2026-08-23 | Đo lại TOÀN BỘ model | `scripts/benchmark_models.py` + `Docs/bench/bench_20260823.json`; bảng xếp hạng dựng lại từ một lần chạy duy nhất |
 | 2026-08-24 | Feedback bằng chuột | Bấm thẳng vào box sai / chỗ bỏ sót; ghi kèm `box_size` cho lượt train sau; 615 test |
