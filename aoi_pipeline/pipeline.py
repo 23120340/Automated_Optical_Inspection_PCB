@@ -473,7 +473,22 @@ class AOIPipeline:
         # exist; everything else keeps the derived geometry. Split them out
         # first so a pad box is never also treated as a component to derive
         # terminals around.
-        bodies, leads = split_lead_detections(detections)
+        bodies, pass1_leads = split_lead_detections(detections)
+        # Pass 2 chạy TRƯỚC bước phân package, không phải sau. Bước phân package
+        # sắp quyết bằng LUẬT trên vị trí chân, mà ``pass1_leads`` chỉ có khi
+        # detector thành phần tự sinh lớp ``pads``/``pins``. Detector một lớp
+        # ``component`` không sinh chúng, nên để pass 2 ở dưới là bắt luật chạy
+        # với đầu vào rỗng rồi im lặng trả ``unknown`` cho mọi IC.
+        #
+        # Chuyển lên an toàn vì ``detect_leads_in_components`` chỉ đọc hộp và
+        # ``detection.label``; nó không đọc metadata package, mà
+        # ``apply_package_classifications`` cũng chỉ ghi vào metadata chứ không
+        # đụng ``label``. Kết quả pass 2 vì thế không đổi.
+        pass2 = detect_leads_in_components(
+            image, bodies or detections, self.lead_detector, self.config.lead_detection
+        )
+        self.last_pass2_leads = pass2
+        leads = [*pass1_leads, *pass2]
         if package_classifications is None:
             if (
                 self.package_classifier is None
@@ -494,20 +509,16 @@ class AOIPipeline:
                 )
         self.last_package_classifications = list(package_classifications)
         bodies = self.apply_package_classifications(bodies, package_classifications)
-        self.last_package_detections = [*bodies, *leads]
+        # CHỈ lead của pass 1. ``last_package_detections`` là ảnh chụp của tập
+        # detection ĐẦU VÀO sau khi gắn nhãn package, và ``run()`` dùng nó để ghi
+        # đè lại ``detections``; lead pass 2 là hộp mới sinh, không nằm trong tập
+        # đầu vào, nên thêm vào đây sẽ đổi ngữ nghĩa của thuộc tính này.
+        self.last_package_detections = [*bodies, *pass1_leads]
         # Đăng ký CAD trước khi suy hình học, không phải sau: phép đăng ký là
         # nơi duy nhất biết px/mm, mà trần độ sâu ROI cần con số đó ngay ở bước
         # suy. Gọi lại là rẻ -- kết quả được nhớ trong ``cad_registration``.
         if self.cad is not None and self.cad_registration is None:
             self.register_cad_to_image(image, bodies or detections, board_region)
-        # Pass 2: look for the leads inside each component box. Returns nothing
-        # when no detector is configured, which leaves the derived geometry
-        # below exactly as it was.
-        pass2 = detect_leads_in_components(
-            image, bodies or detections, self.lead_detector, self.config.lead_detection
-        )
-        self.last_pass2_leads = pass2
-        leads = [*leads, *pass2]
         derived = self.solder_cropper.derive(image, bodies or detections)
         lead_result = fuse_detected_leads(
             bodies or detections, leads, derived, self.config.lead_fusion
@@ -680,6 +691,13 @@ class AOIPipeline:
         board = self.detect_board(aligned.image)
         detections = self.detect_components(aligned.image, board)
         crops = self.make_crops(aligned.image, detections, crop_dir)
+        # 6.1 chạy TRƯỚC 5.2 và 5.5. Bước phân package sắp chia nhỏ gói *bên
+        # trong một họ* do 6.1 trả về (``capacitor`` -> tròn/vuông, ``ic`` ->
+        # chân 2 bên/4 bên/không chân), nên họ phải có trước. Đây là đổi thứ tự
+        # thuần tuý: ``classify_components`` là hàm thuần của ``crops``, không
+        # ghi trạng thái nào lên ``self`` và không đọc ``detections`` — vốn là
+        # thứ duy nhất bị viết lại giữa hai vị trí cũ và mới.
+        classifications = self.classify_components(crops)
         body_ids = {
             item.detection_id for item in split_lead_detections(detections)[0]
         }
@@ -706,7 +724,6 @@ class AOIPipeline:
         ]
         fusion = self.last_fusion
         package_topology_checks = self.last_package_topology_checks
-        classifications = self.classify_components(crops)
         solder_verdicts = self.grade_solder(
             solder_crops,
             aligned.image,
