@@ -32,6 +32,10 @@ from .exceptions import DetectorConfigurationError
 from .grading.inspector import SolderInspector
 from .solder.cad_fusion import FusionResult, fuse_solder_joints
 from .solder.lead_detection import detect_leads_in_components
+from .classification.package_rules import (
+    PackageRuleConfig,
+    resolve_packages_by_rule,
+)
 from .solder.leads import fuse_detected_leads, split_lead_detections
 from .reporting.exporters import export_json as write_json
 from .reporting.exporters import export_zip as write_zip
@@ -106,6 +110,9 @@ class AOIPipeline:
         self.last_fusion: FusionResult = FusionResult()
         self.last_lead_fusion = None
         self.last_package_classifications: list[PackageClassification] = []
+        #: Vì sao bộ luật 5.2 không sinh kết quả lần chạy vừa rồi. Rỗng khi
+        #: nó tắt hoặc đã chạy bình thường.
+        self.last_package_rule_skip: str | None = None
         self.last_package_topology_checks: list[PackageTopologyCheck] = []
         self.last_package_detections: list[Detection] = []
         # Pass 2 stays absent until someone names a model for it -- injected
@@ -460,6 +467,7 @@ class AOIPipeline:
         *,
         component_crops: Sequence[ComponentCrop] | None = None,
         package_classifications: Sequence[PackageClassification] | None = None,
+        family_classifications: Sequence[ComponentClassification] | None = None,
     ) -> list[SolderJointCrop]:
         """Step 5.5: derive solder-joint ROIs and cut them out.
 
@@ -507,6 +515,12 @@ class AOIPipeline:
                 package_classifications = self.classify_packages(
                     [crop for crop in package_crops if crop.detection_id in body_ids]
                 )
+        # Bộ luật 5.2 nối SAU cả hai: sau họ 6.1 (nó khoá theo họ) và sau
+        # classifier package nếu có. Chỉ điền vào những thân chưa có kết
+        # quả, nên một model đang chạy không bao giờ bị luật ghi đè.
+        package_classifications = self._append_package_rules(
+            bodies, leads, package_classifications, family_classifications
+        )
         self.last_package_classifications = list(package_classifications)
         bodies = self.apply_package_classifications(bodies, package_classifications)
         # CHỈ lead của pass 1. ``last_package_detections`` là ảnh chụp của tập
@@ -605,6 +619,52 @@ class AOIPipeline:
         if self.classifier is None:
             return []
         return self.classifier.classify(crops)
+
+    def _append_package_rules(
+        self,
+        bodies: Sequence[Detection],
+        leads: Sequence[Detection],
+        existing: Sequence[PackageClassification],
+        families: Sequence[ComponentClassification] | None,
+    ) -> list[PackageClassification]:
+        """Điền gói bằng luật cho những thân chưa có kết quả nào.
+
+        Luật khoá theo họ 6.1, nên không có họ thì không chạy được. Ghi lý
+        do vào ``last_package_rule_skip`` thay vì im lặng trả rỗng: bật
+        luật rồi mà không thấy gì xảy ra là đúng loại lỗi khó truy nhất.
+        """
+
+        results = list(existing)
+        self.last_package_rule_skip = None
+        if not self.config.package_rules.enabled:
+            return results
+        if not families:
+            self.last_package_rule_skip = (
+                "luật 5.2 đang bật nhưng không nhận được kết quả 6.1; gọi make_solder_crops với family_classifications"
+            )
+            return results
+
+        already = {item.detection_id for item in results}
+        rule_config = PackageRuleConfig(
+            **asdict(self.config.package_rules)
+        )
+        derived = resolve_packages_by_rule(
+            [item for item in bodies if item.detection_id not in already],
+            leads,
+            {item.detection_id: item.family for item in families},
+            config=rule_config,
+            lead_fusion_config=self.config.lead_fusion,
+            family_decisions={
+                item.detection_id: item.decision for item in families
+            },
+            crop_ids={item.detection_id: item.crop_id for item in families},
+        )
+        if not derived:
+            self.last_package_rule_skip = (
+                "luật 5.2 chạy nhưng không kết luận được thân nào"
+            )
+        results.extend(derived)
+        return results
 
     def classify_packages(
         self, crops: Sequence[ComponentCrop]
@@ -715,6 +775,7 @@ class AOIPipeline:
             board_region=board,
             component_crops=crops,
             package_classifications=package_classifications,
+            family_classifications=classifications,
         )
         package_detection_by_id = {
             item.detection_id: item for item in self.last_package_detections

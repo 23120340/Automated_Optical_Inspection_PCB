@@ -798,6 +798,22 @@ class PackageClassificationConfig(ClassificationConfig):
 
 
 @dataclass(slots=True)
+class PackageRulesConfig:
+    """Bước 5.2 bằng LUẬT, nối sau họ 6.1 thay cho một model package.
+
+    Chi tiết và số đo ở ``aoi_pipeline/classification/package_rules.py``.
+    Mặc định TẮT: cổng 3 của kế hoạch đòi bật tay sau khi đo lại độ phủ
+    pad trên board thật, đúng như ô ``lead_detector`` đang làm.
+    """
+
+    enabled: bool = False
+    min_leads_per_edge: int = 2
+    require_family_accept: bool = True
+    require_lead_evidence_on_board: bool = True
+    circularity_threshold: float | None = None
+
+
+@dataclass(slots=True)
 class LeadFusionConfig:
     """Step 5.5: prefer detected lead/pad boxes over derived ones.
 
@@ -933,6 +949,9 @@ class PipelineConfig:
     package_classification: PackageClassificationConfig = field(
         default_factory=PackageClassificationConfig
     )
+    package_rules: PackageRulesConfig = field(
+        default_factory=PackageRulesConfig
+    )
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
     solder_grading: SolderGradingConfig = field(default_factory=SolderGradingConfig)
     solder_defect_detection: SolderDefectDetectionConfig = field(
@@ -983,6 +1002,7 @@ class PipelineConfig:
             "package_classifier",
             "package",
         )
+        package_rule_values = _section(values, "package_rules", "package_rule")
 
         _assign_known(
             config.preprocess,
@@ -1150,6 +1170,11 @@ class PipelineConfig:
             for name in ("package_classification", "package_classifier", "package")
         ):
             _assign_known(config.package_classification, package_values)
+        if any(
+            isinstance(values.get(name), Mapping)
+            for name in ("package_rules", "package_rule")
+        ):
+            _assign_known(config.package_rules, package_rule_values)
         detector_mode = values.get("detector_mode")
         if detector_mode in {"auto", "cv"}:
             config.detector_mode = detector_mode

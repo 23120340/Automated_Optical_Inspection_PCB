@@ -29,14 +29,25 @@
 - `[ ]` **CẦN NGƯỜI GÁN NHÃN:** cả 3.855 box đều `unknown` (8 prelabel hình
   học đã bị gỡ ở `73ce2aa` vì ngưỡng ngược). Với hướng luật thì chỉ cần
   **600–800 box phân tầng** để ĐO, không phải cả bộ để train — §7.
-- `[ ]` **CẦN VIẾT LUẬT, KHÔNG TRAIN MODEL** (đổi 2026-09-03, §8): luật chạy
-  SAU 6.1 và chỉ chia nhỏ trong hai họ `capacitor`/`ic`, điền vào đúng tham
-  số `package` mà `terminal_geometry()` đã nhận sẵn. Đường ONNX ở 5.2 giữ
-  nguyên làm dự phòng — nó vốn no-op tuyệt đối khi thiếu artifact.
-- `[ ]` **PHẢI ĐỔI THỨ TỰ PIPELINE (hai chỗ, §8.5):** (a) đưa
-  `classify_components` từ `pipeline.py:709` lên trước 5.5; (b) đưa lead
-  detector từ dòng 507 lên trước bước phân package — detector mới là một lớp
-  `component`, không sinh pads/pins nên `leads` sẽ rỗng đúng chỗ luật cần.
+- `[x]` **BỘ LUẬT ĐÃ VIẾT** — `aoi_pipeline/classification/package_rules.py`,
+  nối vào `pipeline.py` qua `_append_package_rules`. Nó *nối sau* chứ không
+  thay: thân nào đã có kết quả từ model thì luật không đụng. Cấu hình
+  `PackageRulesConfig`, **mặc định TẮT** (cổng 3, §8.7). Đã cài: 5 họ ánh xạ
+  thẳng (`resistor`/`led`/`diode` → `hai_chan`, `discrete_semiconductor` →
+  `goi_nho`, `connector`) và họ `ic` chia theo cạnh có chân. 19 test, phần
+  lớn canh những ca luật phải trả về **rỗng**.
+- `[ ]` **CHƯA CHIA ĐƯỢC HỌ `capacitor`** (trụ đứng ↔ chip): cần ngưỡng độ
+  tròn `4πA/P²`, mà bộ công khai có **0** tụ hoá trụ đứng (§8.8). Luật cố ý
+  không sinh kết quả cho họ này ⇒ giữ nguyên `two_terminal` như hôm nay.
+  Mở khoá bằng `circularity_threshold` sau khi đo trên tập kiểm ở §7.
+- `[ ]` **CHƯA ÁNH XẠ** `magnetic`/`protection`/`timing`/`acoustic` và
+  `relay`/`display`/`switch_control`/`battery_power_input`: không lớp nào
+  trong bảy lớp tả đúng chúng. Để trống là cố ý — bịa một ánh xạ ở đây là
+  đúng loại sai đã tạo ra `73ce2aa`.
+- `[x]` **THỨ TỰ ĐÃ SỬA** (`99b962f`): 6.1 chạy trước 5.2/5.5, và lead
+  detector (pass 2) chạy trước bước phân package.
+  `tests/test_pipeline_stage_order.py` canh cả hai — trước đó **không test
+  nào** canh thứ tự, cả 1087 test đều xanh với thứ tự sai.
 - `[x]` **Classifier 6.1 giữ nguyên, không train lại** — lý do đo được ở §8.6.
 
 Các lựa chọn triển khai đã chốt: đúng 7 lớp, đặt ở 5.2, package ẩn chân là
