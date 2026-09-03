@@ -29,13 +29,15 @@
 - `[ ]` **CẦN NGƯỜI GÁN NHÃN:** cả 3.855 box đều `unknown` (8 prelabel hình
   học đã bị gỡ ở `73ce2aa` vì ngưỡng ngược). Với hướng luật thì chỉ cần
   **600–800 box phân tầng** để ĐO, không phải cả bộ để train — §7.
-- `[ ]` **CẦN VIẾT LUẬT, KHÔNG TRAIN MODEL** (đổi 2026-09-03, §8): bộ giải
-  package từ lead layout + độ tròn thân, điền vào đúng tham số `package` mà
-  `terminal_geometry()` đã nhận sẵn. Đường ONNX ở 5.2 giữ nguyên làm chỗ dự
-  phòng — nó vốn là no-op tuyệt đối khi thiếu artifact.
-- `[ ]` **PHẢI ĐƯA LEAD DETECTOR LÊN TRƯỚC** bước phân package. Detector mới
-  là một lớp `component`, không sinh pads/pins ⇒ `leads` rỗng ở đúng chỗ luật
-  cần. Quên chỗ này thì luật im lặng gán `unknown` cho tất cả (§8.5).
+- `[ ]` **CẦN VIẾT LUẬT, KHÔNG TRAIN MODEL** (đổi 2026-09-03, §8): luật chạy
+  SAU 6.1 và chỉ chia nhỏ trong hai họ `capacitor`/`ic`, điền vào đúng tham
+  số `package` mà `terminal_geometry()` đã nhận sẵn. Đường ONNX ở 5.2 giữ
+  nguyên làm dự phòng — nó vốn no-op tuyệt đối khi thiếu artifact.
+- `[ ]` **PHẢI ĐỔI THỨ TỰ PIPELINE (hai chỗ, §8.5):** (a) đưa
+  `classify_components` từ `pipeline.py:709` lên trước 5.5; (b) đưa lead
+  detector từ dòng 507 lên trước bước phân package — detector mới là một lớp
+  `component`, không sinh pads/pins nên `leads` sẽ rỗng đúng chỗ luật cần.
+- `[x]` **Classifier 6.1 giữ nguyên, không train lại** — lý do đo được ở §8.6.
 
 Các lựa chọn triển khai đã chốt: đúng 7 lớp, đặt ở 5.2, package ẩn chân là
 không kiểm được bằng ảnh 2D trên xuống, footprint làm trước. **Thay đổi
@@ -44,16 +46,24 @@ ro ở §8.
 
 ## 1. Kết luận nhanh
 
-- **KHÔNG train model cho package — dùng LUẬT.** (Chốt 2026-09-03.) Bảy lớp
-  ở §3 vốn chọn theo tiêu chí *phân biệt được trong một giây*, nên chúng cũng
-  quyết được bằng luật. Và ba chỗ kiểm trong code cho thấy hướng luật có
-  **nhiều** thông tin hơn CNN: lớp 4/5/6 khác nhau duy nhất ở vị trí chân, mà
-  quy ước box của dự án **loại chân ra khỏi box theo định nghĩa** — tức CNN
-  trên crop thân bị bịt mất đúng đặc trưng quyết định, trong khi `leads` đã
-  nằm sẵn trong scope ngay trên dòng gọi CNN. §8.
-- **Gán nhãn co từ 9.486 xuống 600–800 box**, và đổi mục đích: đo tỉ lệ trúng
-  của luật, không phải train. Nhưng **không bỏ được** — repo đã có đúng một
-  lần đoán luật bằng trực giác và nó sai ngược (commit `73ce2aa`). §7.
+- **Package NỐI SAU classifier, không thay classifier.** (Chốt 2026-09-03.)
+  6.1 vẫn cho họ linh kiện; luật hình học chỉ chia nhỏ tiếp **bên trong một
+  họ** — `capacitor` → tròn/vuông, `ic` → chân 2 bên/4 bên/không chân. Không
+  train model package. §8.
+- **Điều kiện hoá theo họ là bắt buộc, và đo được vì sao.** Luật hình học
+  *toàn cục* trên box thân gần như vô dụng: chip 2 chân chiếm 86,5% nên
+  "luôn đoán chip" đã đúng 86,5%, ngưỡng diện tích tốt nhất chỉ đạt 88,7%
+  (**+2,2 điểm**), còn ngưỡng tỉ lệ cạnh đạt 84,5% — **tệ hơn baseline**.
+  Biết trước họ là thứ xoá đi cái mất cân bằng đó. §8.1.
+- **Chỉ HAI họ cần chia**, không phải bảy lớp tự do: `capacitor` và `ic`. §8.2.
+- **Classifier 6.1 KHÔNG phải train lại.** Ở độ mịn package, 124/136 ca đổi
+  nhãn được nêu tên trong báo cáo box (91%) là vô hại — `capacitor`, `led`,
+  `resistor` đều dẫn về cùng một gói. Chỉ `ic ↔ thụ động` mới hại. §8.6.
+- **Nhưng phải đổi THỨ TỰ:** 6.1 đang chạy ở `pipeline.py:709`, tức **sau**
+  5.5. Luật khoá theo họ nên 6.1 phải lên trước. Đổi thứ tự thuần tuý. §8.5.
+- **Gán nhãn co từ 9.486 xuống 600–800 box**, đổi mục đích thành đo tỉ lệ
+  trúng của luật. Không bỏ được: đúng hai phép chia mà kế hoạch cần đều có
+  **0 ví dụ** trong dữ liệu công khai. §7, §8.8.
 - **Package là phương án CUỐI, không phải phương án duy nhất.** `pad_count` —
   số chân *kỳ vọng* — hiện chỉ sinh ra ở **đúng một dòng**: `cad_fusion.py:734`.
   Nhưng **BOM và pick-and-place cũng trả lời được**, và rẻ hơn nhiều: cả hai
@@ -357,10 +367,9 @@ tiền. Lấy **phân tầng**:
 
 | tầng | số box | vì sao |
 |---|---:|---|
-| thân lớn, vuông (ứng viên lớp 4/5/6) | ~250 | đây là cặp nhầm 4↔6 phải bằng 0 |
-| thân dài, nhiều lead (ứng viên lớp 7) | ~150 | connector, bước chân lớn |
-| thân nhỏ (ứng viên lớp 1/2/3) | ~250 | đo ngưỡng độ tròn ở §8.4 |
-| ngẫu nhiên nền | ~100 | bắt ca luật chưa nghĩ tới |
+| 6.1 nói `ic` | ~300 | chia chân 2 bên / 4 bên / không chân — 0 ví dụ công khai |
+| 6.1 nói `capacitor` | ~250 | đo ngưỡng độ tròn tròn/vuông — 0 ví dụ công khai |
+| 6.1 nói họ khác | ~150 | xác nhận "không cần chia" là đúng, và bắt ca `ic ↔ thụ động` |
 
 **Không phải vẽ lại box.** Vị trí đã có sẵn trong 9.486 box đã duyệt; package
 chỉ thêm một nhãn lớp. App có phím tắt `1`–`7` ⇒ bấm một phím mỗi box.
@@ -375,118 +384,162 @@ và localStorage cũ sẽ trộn vào hình học mới mà không cảnh báo.
 
 ---
 
-## 8. Kế hoạch: LUẬT, không train model
+## 8. Kế hoạch: LUẬT nối SAU classifier, không train model package
 
-**Quyết định (2026-09-03, theo yêu cầu):** bỏ classifier CNN cho package. Bảy
-lớp ở §3 vốn được chọn theo tiêu chí *"người gán nhãn phân biệt được trong một
-giây"*, nên chúng cũng phải quyết được bằng luật. Ba chỗ kiểm trong code cho
-thấy hướng luật **có nhiều thông tin hơn** CNN chứ không phải ít hơn.
+**Quyết định (2026-09-03, theo yêu cầu).** Package **không thay** classifier.
+Classifier 6.1 vẫn chạy và vẫn cho họ linh kiện; package chỉ **chia nhỏ tiếp
+bên trong một họ**, bằng luật hình học:
 
-### 8.1. Vì sao CNN trên crop thân là lựa chọn sai cho chính bảy lớp này
+```
+6.1 classifier  ──►  họ (capacitor / ic / resistor / ...)
+                        │
+                        ├─ họ = capacitor ──► luật ──► tụ tròn | tụ vuông
+                        ├─ họ = ic        ──► luật ──► chân 2 bên | 4 bên | không chân
+                        └─ họ khác        ──► gói mặc định của họ đó
+```
 
-Đọc lại §3: lớp **4/5/6** (`ic_hai_ben` / `ic_bon_ben` / `ic_khong_chan`) khác
-nhau **duy nhất ở chỗ chân nằm đâu**. Mà quy ước khoanh box của dự án, ghi
-trong `pack_manifest.json`, là:
+### 8.1. Vì sao điều kiện hoá theo họ là điều BẮT BUỘC, không phải tuỳ chọn
 
-> `visible component body only; exclude leads, pads and test points`
+Đo trên `datasets/public/pcb_packages_winnies/export_yolov8_v3.zip` — 24 kiểu
+vỏ, 16.632 box có nhãn footprint thật:
 
-Tức **thứ phân biệt ba lớp đó bị loại khỏi box theo đúng định nghĩa**. Crop chỉ
-nới thêm `0,15 × max(w,h)`, nên việc hàng chân có lọt vào khung hay không phụ
-thuộc kích thước linh kiện — lúc có lúc không. Một CNN học trên đầu vào mà đặc
-trưng quyết định *khi có khi không* thì đó chính là dạng lệch đã đo được ở
-[§7.2 của báo cáo box](../danh_gia/danh_gia_khoanh_box_than_linh_kien.md):
-**22,3% ca đổi nhãn khi đổi khung**.
+| tầng gói | box | diện tích p10 / trung vị / p90 (×10⁻⁴) | tỉ lệ cạnh trung vị |
+|---|---:|---|---:|
+| chip 2 chân | 14.379 | 1,7 / 4,8 / 15,0 | 1,90 |
+| gói nhỏ 3–5 chân | 1.433 | 3,4 / 9,7 / 33,5 | 1,29 |
+| IC | 814 | 11,6 / 38,2 / 146,3 | 1,24 |
 
-### 8.2. Thông tin cần thiết đã nằm sẵn trong pipeline, đúng chỗ
+Chip chiếm **86,5%**, nên luật "luôn đoán chip" đã đúng 86,5% mà không cần nghĩ.
+Luật ngưỡng tốt nhất tìm được trên toàn bộ:
 
-`aoi_pipeline/pipeline.py`:
+| luật toàn cục | đúng | so với baseline 86,5% |
+|---|---:|---|
+| hai ngưỡng trên **diện tích** | 88,7% | **+2,2 điểm** |
+| hai ngưỡng trên **tỉ lệ cạnh** | 84,5% | **−2,0 điểm — tệ hơn** |
 
-| dòng | việc |
+**Luật hình học toàn cục trên box thân gần như vô dụng.** Đây cũng là lời giải
+thích bằng số cho vụ luật cũ bị gỡ ở `73ce2aa`: nó dùng **tỉ lệ cạnh**, đúng cái
+đặc trưng đo được là *dưới* baseline.
+
+Nhưng cả hai con số trên đều là hệ quả của việc **trộn ba tầng vào một bài
+toán**. Cho biết trước họ là `ic`, câu hỏi còn lại không còn là "chip hay IC"
+(đã biết) mà là "IC kiểu nào" — và ba tầng mất cân bằng 86:9:5 biến thành một
+bài toán cân bằng hơn nhiều. **Đó chính là giá trị mà classifier mang lại cho
+bước này, và là lý do không được bỏ nó.**
+
+### 8.2. Chỉ HAI họ cần chia, không phải bảy lớp tự do
+
+Trong 16 họ mà 6.1 xuất ra, phần lớn ứng đúng một kiểu vỏ nên **không cần luật
+gì cả**:
+
+| họ 6.1 | cần chia? | gói |
+|---|---|---|
+| `resistor`, `led`, `diode` | ❌ | chip 2 chân |
+| `discrete_semiconductor` | ❌ | gói nhỏ 3–5 chân |
+| `connector` | ❌ | đã là lớp riêng |
+| `magnetic`, `protection`, `timing`, `acoustic` | ❌ | theo mặc định của họ |
+| `relay`, `display`, `switch_control`, `battery_power_input` | ❌ | nhiều chân, hộp lớn |
+| **`capacitor`** | ✅ | **tròn (trụ đứng) / vuông (chip)** |
+| **`ic`** | ✅ | **chân 2 bên / 4 bên / không thấy chân** |
+
+Phạm vi thật của phần luật vì thế là **hai họ**, không phải bảy lớp. Nhỏ hơn hẳn
+so với bản kế hoạch trước.
+
+### 8.3. Luật cho từng họ
+
+**Họ `capacitor` — tròn hay vuông.** Tụ hoá trụ đứng nhìn từ trên là hình
+**tròn**; tụ chip là chữ nhật. Tỉ lệ cạnh không phân biệt được (cả hai đều gần
+1–2), nên phải dùng **độ tròn của contour thân**: `4πA / P²` từ
+`cv2.findContours`, xấp xỉ 1 cho tròn, ~0,78 cho vuông. Kèm điều kiện diện tích
+(tụ hoá lớn hơn tụ chip nhiều bậc). Đây là luật trên pixel, **ngưỡng phải đo**,
+không được đoán.
+
+**Họ `ic` — chân ở đâu.** Ba gói:
+
+| gói | dấu hiệu |
 |---|---|
-| 476 | `bodies, leads = split_lead_detections(detections)` |
-| 492 | `classify_packages(...)` — CNN, **chỉ được đưa crop thân** |
-| 507 | lead detector chuyên dụng chạy |
+| chân 2 bên (SOIC/SOP/TSSOP) | dải lead trên **đúng 2 cạnh đối** |
+| chân 4 bên (QFP) | dải lead trên **cả 4 cạnh** |
+| không thấy chân (QFN/BGA) | **không lead nào** — kèm điều kiện an toàn ở §8.4 |
 
-`leads` đã có sẵn ở dòng 476, ngay trên đầu, **và CNN ở dòng 492 không được
-dùng nó**. `assign_leads_to_components()` trong `solder/leads.py` cũng đã có
-sẵn — nó gắn từng lead vào linh kiện tương ứng. Đó đúng là nguyên liệu của luật.
+Không dùng tỉ lệ cạnh: đo được SOIC-16 = 1,17 và TSSOP-16 = 1,08, tức các IC
+trong bộ dữ liệu này **gần vuông hết**, không "dài" như trực giác. Dấu hiệu thật
+là **vị trí chân**, và chân nằm ngoài box thân theo đúng quy ước
+(`visible component body only; exclude leads, pads and test points`).
 
-Và `terminal_geometry()` (`config.py:54`) nhận `package: str | None` với thứ tự
-ưu tiên **footprint → package → họ detector**. Nó không quan tâm chuỗi package
-đến từ model hay từ luật. **Không phải sửa kiến trúc, chỉ thay nguồn.**
+Nguyên liệu đã có sẵn: `split_lead_detections()` và
+`assign_leads_to_components()` trong `aoi_pipeline/solder/leads.py`.
 
-### 8.3. Luật đề xuất
+### 8.4. Rủi ro riêng của luật, và cách chặn
 
-Đầu vào: box thân + các lead đã gán cho nó + ảnh crop.
+CNN hỏng thì hỏng dần; **luật hỏng thì hỏng có hệ thống**. Ca xấu nhất: lead
+detector recall kém trên một board ⇒ **mọi IC thành "không thấy chân"** ⇒ 5.5
+không dựng ROI ⇒ mất mối hàn mà không ai biết.
 
-| lớp | luật |
-|---|---|
-| 4 `ic_hai_ben` | dải lead trên **đúng 2 cạnh dài**, 2 cạnh ngắn trống |
-| 5 `ic_bon_ben` | dải lead trên **cả 4 cạnh** |
-| 6 `ic_khong_chan` | thân lớn, vuông, **không có lead nào** — xem điều kiện an toàn ở 8.5 |
-| 7 `connector` | 1–2 hàng lead, **bước chân lớn**, hàng dài |
-| 3 `goi_nho` | ít lead (3–5), **bản rộng**, trên 2 cạnh đối |
-| 1 `hai_chan` | **đúng 2** lead ở hai cạnh ngắn |
-| 2 `tru_dung` | như lớp 1, **cộng** thân tròn (xem 8.4) |
+Chặn bằng điều kiện ngữ cảnh, không bằng ngưỡng tin cậy:
 
-Sáu trong bảy lớp quyết được **chỉ bằng đếm và vị trí**, không cần pixel.
+> Chỉ kết luận "không thấy chân" khi lead detector **đã tìm được lead ở linh
+> kiện khác trên cùng board**. Không có bằng chứng nó đang chạy được thì trả
+> `unknown`, và `terminal_geometry()` tự lùi về đường họ-detector như hôm nay.
 
-### 8.4. Chỗ luật cần pixel: lớp 1 với lớp 2
+### 8.5. Hai thay đổi bắt buộc trong pipeline
 
-`hai_chan` và `tru_dung` đều hai chân — lead layout giống hệt. Phân biệt được
-bằng **thân tròn nhìn từ trên**, tức một phép đo độ tròn trên contour
-(`cv2.findContours` + `4πA/P²`), không phải model. Vẫn là luật, nhưng là luật
-trên pixel nên **phải đo mới biết ngưỡng**, không được đoán.
+**(a) Đưa 6.1 lên TRƯỚC 5.5.** Hôm nay `classify_components(crops)` nằm ở
+`pipeline.py:709`, tức **sau** lời gọi 5.5. Luật package khoá theo họ nên phải
+có họ trước. Đây là đổi thứ tự thuần tuý — `crops` đã tồn tại từ bước 5 và đang
+được truyền vào chính lời gọi 5.5 đó (`component_crops=crops`), nên không sinh
+phụ thuộc mới.
 
-### 8.5. Rủi ro riêng của hướng luật, và cách chặn
+**(b) Đưa lead detector lên trước bước phân package.** Ở `pipeline.py:476`,
+`leads` chỉ đến từ lớp `pads`/`pins` của detector 22 lớp đang chạy. Detector mới
+đang train là **một lớp `component`** — không sinh pads/pins ⇒ `leads` rỗng đúng
+chỗ luật cần. Lead detector chuyên dụng (`models/active/lead_detector`) có sinh,
+nhưng chạy ở **dòng 507, sau**. Quên chỗ này thì luật im lặng gán `unknown` cho
+tất cả IC.
 
-CNN hỏng thì hỏng dần; **luật hỏng thì hỏng có hệ thống**. Ca xấu nhất cụ thể:
-lead detector recall kém trên một board ⇒ **mọi IC đều thành `ic_khong_chan`** ⇒
-5.5 không dựng ROI cho chúng ⇒ mất mối hàn mà không báo. Đây đúng là cặp nhầm
-**4 ↔ 6** mà §8.6 bắt phải bằng 0.
+### 8.6. Classifier 6.1 có phải train lại không? **Không.**
 
-Chặn bằng một điều kiện ngữ cảnh, không bằng ngưỡng tin cậy:
+Lo ngại hợp lý: luật khoá theo đầu ra của classifier, mà classifier đã đo được
+**22,3% ca đổi nhãn khi đổi khung cắt**
+([báo cáo box §7.2](../danh_gia/danh_gia_khoanh_box_than_linh_kien.md)). Nhãn
+sai ⇒ áp nhầm luật.
 
-> Chỉ kết luận `ic_khong_chan` khi lead detector **đã tìm được lead ở linh kiện
-> khác trên cùng board**. Không có bằng chứng nó đang hoạt động thì trả
-> `unknown`, và `terminal_geometry` tự lùi về đường họ-detector như hôm nay.
+Nhưng ở **độ mịn package**, phần lớn sai số đó **biến mất**:
 
-Đây là thứ CNN không làm được: nó không biết detector khác có đang chạy tốt hay
-không.
+| cặp đổi nhãn | số ca | cùng gói? |
+|---|---:|---|
+| `capacitor → led` | 91 | ✅ cả hai là chip 2 chân |
+| `resistor → capacitor` | 33 | ✅ cả hai là chip 2 chân |
+| `ic → resistor` | 12 | ❌ **khác gói — đây mới là ca hại** |
 
-⚠️ **Một hệ quả bắt buộc phải xử lý.** Ở dòng 476, `leads` chỉ đến từ các lớp
-`pads`/`pins` của **detector 22 lớp đang chạy**. Detector mới đang train là
-**một lớp `component`** — nó **không sinh pads/pins**, nên `leads` sẽ rỗng ở
-đúng chỗ luật cần. Lead detector chuyên dụng (`models/active/lead_detector`,
-`solder_joint_localization`) có sinh, nhưng nó chạy ở **dòng 507, sau**. Vậy
-phải **đưa lead detector lên trước bước phân package**. Việc này nhỏ nhưng
-không được quên — nếu quên, luật sẽ chạy với đầu vào rỗng và im lặng gán
-`unknown` cho tất cả.
+**124 trong 136 ca được nêu tên (91%) là vô hại** ở độ mịn này: luật chỉ cần
+biết "chip 2 chân", mà cả `capacitor`, `led`, `resistor` đều dẫn về đúng gói đó.
+Chỉ nhóm `ic ↔ thụ động` mới làm hỏng ROI.
 
-### 8.6. Cổng nghiệm thu — giữ nguyên, chỉ đổi đối tượng
+**Kết luận:** không train lại 6.1 cho kế hoạch này. Việc phải làm là **đo lại
+22,3% đó ở độ mịn package** — 56 ca còn lại chưa được phân loại trong báo cáo cũ
+— và chỉ khi tỉ lệ *qua ranh giới gói* còn cao mới tính đến train lại. Đổi lại,
+`ic ↔ thụ động` trở thành cặp phải theo dõi, thay cho cặp `4 ↔ 6` của bản cũ.
 
-Vẫn ba cổng cũ, vì chúng đo *hành vi của 5.5*, không đo model:
+### 8.7. Cổng nghiệm thu
 
-1. **Nhầm lớp 4 ↔ lớp 6 phải bằng 0** trên tập kiểm.
+1. **Nhầm `ic` ↔ thụ động phải bằng 0** trên tập kiểm (thay cổng 4↔6 cũ).
 2. **Đo lại ROI trên board thật** — `tests/data/solder_geometry`, 28 pad đếm
-   tay: bật 5.2 phải **không giảm** độ phủ pad.
+   tay: bật luật package phải **không giảm** độ phủ pad.
 3. **Mặc định TẮT** cho tới khi vượt cổng 2 trên board của chính dây chuyền.
 
-Cổng "macro recall ≥ 0,85" bỏ đi — nó là cổng của model. Thay bằng **tỉ lệ
-trúng của luật trên tập kiểm gán tay** (§7).
+Cổng "macro recall ≥ 0,85" bỏ — đó là cổng của model. Thay bằng **tỉ lệ trúng
+của luật trên tập kiểm gán tay** (§7).
 
-### 8.7. Cái giá thật của hướng luật
+### 8.8. Điều dữ liệu công khai KHÔNG kiểm được
 
-Không phải "không cần gán nhãn nữa". Repo đã có đúng một lần thử đoán luật bằng
-trực giác và nó sai: commit `73ce2aa` gỡ một luật gán `hai_chan` khi
-`aspect >= 3,2`, trong khi trung vị aspect của chip hai chân đo được là **1,38**
-— ngưỡng chọn trúng đúng nhóm **ít khả năng là chip hai chân nhất**. Nó bắn
-trúng 8/3855 box, và mỗi phát trúng sai tạo ra một box *trông như đã xong*.
+Trong 24 kiểu vỏ của bộ winnies: mọi IC đều là **chân 2 bên** (SOT96, SOIC-12/
+14/16, TSSOP-14/16) — **không có một QFP hay QFN nào**. Và không có tụ hoá trụ
+đứng nào.
 
-Kết luận ghi trong chính commit đó: *"a replacement should be measured first, by
-hand-labelling a few hundred boxes and computing the candidate rule's hit rate."*
-
-**Luật không đo được thì tệ hơn model**, vì nó tự tin và sai im lặng.
+Tức **đúng hai phép chia mà kế hoạch này cần đều có 0 ví dụ công khai.** Ngưỡng
+độ tròn và luật đếm cạnh chỉ đo được trên tập gán tay ở §7. Đây là lý do §7
+không bỏ được, dù đã co từ 9.486 xuống 600–800 box.
 
 ---
 
@@ -515,14 +568,14 @@ hand-labelling a few hundred boxes and computing the candidate rule's hit rate."
 
 1. **Chốt 7 lớp ở §3 chứ?** Cần quyết **trước khi bạn duyệt tiếp vòng 2**, vì đổi
    bộ lớp sau đó sẽ phải chuyển 16 tile đã duyệt sang bộ mới.
-2. **Tập kiểm 600–800 box phân tầng ở §7 — đồng ý cỡ đó chứ?** Nhỏ hơn thì
-   không đo nổi cặp nhầm 4↔6; lớn hơn thì phí, vì đây là tập ĐO chứ không
-   phải tập train.
+2. **Tập kiểm 600–800 box phân tầng theo ĐẦU RA 6.1 (§7) — đồng ý chứ?** Phân
+   tầng theo họ chứ không ngẫu nhiên, vì hai họ cần chia (`capacitor`, `ic`)
+   là thiểu số và mẫu ngẫu nhiên sẽ gần như toàn chip 2 chân.
 3. **Đồng ý đặt ở bước 5.2 thay vì sau 6.2 không?** Giữ ở cuối thì nó vẫn chạy
    nhưng **chỉ còn giá trị báo cáo**, không cải thiện ROI.
-4. **Đồng ý đưa lead detector chạy TRƯỚC bước phân package chứ?** Bắt buộc
-   với hướng luật: detector mới là một lớp `component`, không sinh pads/pins,
-   nên `leads` sẽ rỗng ở đúng chỗ luật cần (§8.5).
+4. **Đồng ý đổi thứ tự pipeline hai chỗ chứ (§8.5)?** Đưa `classify_components`
+   lên trước 5.5, và đưa lead detector lên trước bước phân package. Cả hai là
+   đổi thứ tự thuần tuý, không sinh phụ thuộc mới.
 5. **Lớp 6 (`ic_khong_chan`): chấp nhận kết luận "không kiểm được bằng ảnh 2D
    trên xuống" chứ?** Nếu dây chuyền có QFN/BGA mà vẫn phải kiểm, đó là bài toán
    X-quang, nằm ngoài phạm vi dự án.
