@@ -244,6 +244,20 @@ class UltralyticsDetector(ComponentDetector):
 
         return self._resolve_image_size()
 
+    @property
+    def native_image_size(self) -> int | None:
+        """Cỡ mà đồ thị BẮT BUỘC nhận, hoặc ``None`` khi nó nhận cỡ nào cũng được.
+
+        Khác ``image_size`` ở đúng một chỗ, và chỗ đó quan trọng: khi artifact
+        không khoá shape, ``image_size`` trả về giá trị *cấu hình* — một mặc
+        định chung, không phải một ràng buộc. Ai lấy nó để ghi đè một tham số
+        người dùng đặt tường minh sẽ ghi đè bằng mặc định, và đó là lỗi.
+        """
+
+        if self._fixed_image_size is None:
+            self._fixed_image_size = _onnx_fixed_image_size(self.model_path) or 0
+        return self._fixed_image_size or None
+
     def _get_model(self) -> Any:
         if self._model is not None:
             return self._model

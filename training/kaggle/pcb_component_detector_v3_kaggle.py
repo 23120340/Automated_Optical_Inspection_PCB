@@ -600,7 +600,18 @@ if not verdict:
 
 # %%
 ARTIFACTS.mkdir(parents=True, exist_ok=True)
-onnx_path = model.export(format="onnx", imgsz=CONFIG["imgsz"], dynamic=False, simplify=True)
+# ``max_det`` phải truyền vào ĐÂY nữa, không chỉ vào train/val. YOLO26 là
+# kiến trúc NMS-free: phép chọn top-k nằm TRONG graph, nên đồ thị xuất ra
+# có shape đầu ra cố định ``[1, max_det, 6]``. Mặc định 300, trong khi
+# tile dày nhất của bộ này có 358 vật thể — và truyền ``max_det`` lớn lúc
+# chạy KHÔNG lấy lại được box mà graph không hề sinh.
+onnx_path = model.export(
+    format="onnx",
+    imgsz=CONFIG["imgsz"],
+    dynamic=False,
+    simplify=True,
+    max_det=CONFIG["max_det"],
+)
 onnx_path = Path(onnx_path)
 shutil.copy2(onnx_path, ARTIFACTS / "best.onnx")
 shutil.copy2(weights, ARTIFACTS / "best.pt")
@@ -616,6 +627,15 @@ output_shape = [d.dim_value or d.dim_param for d in
                 graph.graph.output[0].type.tensor_type.shape.dim]
 print("ONNX input :", shape)
 print("ONNX output:", output_shape)
+if len(output_shape) == 3 and isinstance(output_shape[1], int):
+    if output_shape[1] < CONFIG["max_det"]:
+        raise SystemExit(
+            f"đồ thị chỉ xuất được {output_shape[1]} box mỗi ảnh, trong khi "
+            f"CONFIG['max_det'] = {CONFIG['max_det']}. Trần này nằm TRONG "
+            "graph nên không nới được lúc chạy — phải export lại."
+        )
+    print(f"trần detection trong graph: {output_shape[1]} "
+          "(tile dày nhất của bộ này có 358 vật thể)")
 
 import hashlib
 

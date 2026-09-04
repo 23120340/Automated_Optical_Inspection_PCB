@@ -245,6 +245,30 @@ rồi cho tôi biết cụm nào là cái gì.
 
 ---
 
+### 6.6. Việc mới từ phía detector: 15/62 thân không có nhãn họ
+
+Detector thân linh kiện chỉ có một lớp `component`, nên nhãn dùng cho
+`terminal_geometry()` phải đến từ 6.1 (`AOIPipeline.apply_family_labels`).
+Đo trên `tests/data/solder_geometry`: **15 trong 62 thân** không nhận được
+nhãn — 6.1 trả `review`/`unknown`, hoặc trả `false_crop_background`.
+
+Chúng rơi về `multi_pin`, tức dựng dải quanh cả 4 cạnh. Đúng vấn đề §3 mô
+tả, chỉ là nay có một nguồn mới. `run()` đã đếm và cảnh báo số này thay vì
+im lặng.
+
+**Thuộc phạm vi kế hoạch này**, chưa xử lý. Hai hướng, cần đo mới chọn được:
+
+1. **Bộ luật lấp chỗ trống.** Luật ở §8 khoá theo họ, mà đây là những ca
+   *không có họ* — nên hiện luật cũng bó tay. Muốn lấp thì phải có nhánh
+   không cần họ, và §4 đã đo được luật hình học toàn cục **tệ hơn baseline**.
+2. **Hạ ngưỡng `accept` của 6.1.** Đổi được vài ca `review` thành `accept`,
+   nhưng nhãn họ sai kéo luật sai theo. Phải đo trên tập kiểm ở §7 trước.
+
+Trước khi đo, để chúng ở `multi_pin` là **lựa chọn an toàn**: dựng thừa ROI
+thì xem lại được, thiếu thì không.
+
+---
+
 ## 7. Còn thiếu gì
 
 ### 7.1. Không nguồn công khai nào có đủ

@@ -444,6 +444,46 @@ an toàn, không có giá trị tự động hoá, và **không đẩy board t�
   nhãn họ từ 6.1 (`review`/`unknown`/`false_crop_background`) nên rơi về
   `multi_pin`. `run()` đã cảnh báo số này thay vì im lặng.
 
+- `[x] ĐÃ SỬA 2026-09-04` **J7. Cỡ tile bám theo artifact.** ONNX khoá cứng
+  shape chỉ nhận đúng một cỡ, nên tile lớn hơn bị letterbox thu nhỏ và linh
+  kiện xuất hiện nhỏ hơn lúc train. Đo trên 640 box tay, artifact native
+  1024 với tile 1280:
+
+  | dải cạnh dài | tile 1024 | tile 1280 (0,8×) |
+  |---|---:|---:|
+  | **tổng** | **89,7%** | 83,3% |
+  | <32 px | 93,3% | 87,8% |
+  | 32–96 px | 84,1% | 76,5% |
+  | 96–250 px | 76,9% | 72,3% |
+  | **≥250 px** | **92,7%** | **78,0%** |
+
+  Precision không khá hơn để bù (74,0% so với 74,6%) — mất trắng 6,4 điểm
+  recall tổng. `detect_components` giờ lấy cỡ từ `detector.image_size` chứ
+  không gán cứng, nên model 22 lớp cũ (native 1280) giữ nguyên hành vi.
+
+- `[x] ĐÃ ĐO 2026-09-04` **J8. Điểm vận hành conf/iou đã đúng sẵn.** Quét
+  trên cùng 640 box tay: F1 đạt đỉnh ở `conf=0.40`, nhưng F1 sai cho AOI —
+  bỏ sót linh kiện là mối hàn không ai kiểm, dựng thừa ROI thì xem lại được.
+  Tính bằng **F2** thì đỉnh rơi đúng vào `conf=0.25` đang chạy. **Không đổi.**
+  Kết quả âm kèm theo: `iou` **không có tác dụng gì** với artifact YOLO26 —
+  0.45 và 0.70 cho số y hệt ở cả bảy mức conf, vì kiến trúc đó NMS-free và
+  top-k nằm trong graph.
+
+- `[!] CHƯA ĐO` **J9. `include_full_image` với ONNX khoá cỡ.** Tiler chạy
+  thêm một lượt trên NGUYÊN ảnh; với bo 3072 px và artifact 1024 thì lượt đó
+  thu nhỏ 3×, gần như không còn linh kiện nào đủ lớn. Chưa đo được nó đóng
+  góp hay chỉ tốn thời gian, nên chưa đụng.
+
+- `[ ] CHỜ DỮ LIỆU` **J10. Fine-tune trên ảnh dây chuyền.** Cả hai lượt đều
+  train trên ảnh công khai. Lượt 2 tự khai `bootstrap_only: true` và
+  `safe_to_enable_in_production: false`; manifest lượt 1 khai *"phải fine-tune
+  trên ảnh thật trước khi tin số đo ở production"*. Bằng chứng đo được cho
+  thấy điều này không phải hình thức: trên bo NGOÀI MIỀN
+  (`tests/data/solder_geometry`), box của lượt 1 phình gấp đôi (cạnh dài
+  trung vị 76 px so với 35) và độ phủ pad chỉ-lượt-1 tụt còn 11/28. Trong
+  miền thì recall theo dải ở J4 hoàn toàn khoẻ. **Không sửa được bằng code**
+  — cần ảnh từ camera dây chuyền.
+
 **Hai tham số trong kế hoạch ban đầu đều sai khi đem đo.**
 
 `imgsz`: khảo sát đề nghị 128–160. Đo trên board thật (36 linh kiện, ảnh
@@ -507,6 +547,8 @@ sai số lượng thì quay về gọi từng cái, chứ không ghép theo may 
 | 2026-08-23 | Đánh giá model trong app | `aoi_pipeline/modelops/model_feedback.py` + mục ở cuối trang bước 4/6.1/6.2; lưu toạ độ, gắn sha256 model; 605 test |
 | 2026-09-03 | Lượt 1: promote detector thân linh kiện 1 lớp | `0477cd3`; test recall 0.844, cận dưới theo bo 0.744 > incumbent 0.54 |
 | 2026-09-04 | Đo lại lượt 1 theo dải cỡ | J4: dải ≥250 px từ 4,9% lên 92,7% — lỗi QFP của `49b26fb` đã hết |
+| 2026-09-04 | J7 — tile bám theo artifact | recall tổng 83,3% → 89,7%; dải ≥250px 78,0% → 92,7% |
+| 2026-09-04 | J8 — quét conf/iou | conf 0.25 đã là đỉnh F2, giữ nguyên; `iou` vô tác dụng với YOLO26 |
 | 2026-09-04 | Đo hai lượt chạy chung | J5: lượt 2 hết là tuỳ chọn với detector mới (11/28 → 27/28 trên bo ngoài miền) |
 | 2026-08-23 | Gộp Golden vào đường ống | Bỏ workspace riêng; Golden = bước 3.5, ngay sau khoanh vùng board; 610 test |
 | 2026-08-23 | Đo lại TOÀN BỘ model | `scripts/benchmark_models.py` + `Docs/bench/bench_20260823.json`; bảng xếp hạng dựng lại từ một lần chạy duy nhất |

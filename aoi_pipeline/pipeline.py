@@ -243,6 +243,30 @@ class AOIPipeline:
 
         tiling_policy = self.config.tiling
         tiling_reason: str | None = None
+        # Cắt tile ĐÚNG cỡ đầu vào thật của artifact. Một ONNX khoá cứng shape
+        # chỉ nhận đúng một cỡ, nên tile lớn hơn sẽ bị letterbox thu nhỏ lại —
+        # linh kiện xuất hiện nhỏ hơn lúc train và recall tụt.
+        #
+        # Đo trên 640 box tay của tập test, detector thân linh kiện (native
+        # 1024) với tile 1280 so với tile 1024:
+        #
+        #   dải cạnh dài    tile 1024   tile 1280 (0,8x)
+        #   tổng              89,7%        83,3%
+        #   <32 px            93,3%        87,8%
+        #   32-96 px          84,1%        76,5%
+        #   96-250 px         76,9%        72,3%
+        #   >=250 px          92,7%        78,0%   <-- mất 14,7 điểm
+        #
+        # Precision không khá hơn để bù (74,0% so với 74,6%), nên đây là mất
+        # trắng. Lấy cỡ từ artifact chứ không gán cứng: model 22 lớp cũ native
+        # 1280 nên nó giữ nguyên hành vi hôm nay.
+        # ``native_image_size`` chứ không phải ``image_size``: cái sau lùi về giá
+        # trị cấu hình khi đồ thị nhận cỡ nào cũng được, và ghi đè một tile_size
+        # người dùng đặt tường minh bằng một mặc định chung là lỗi.
+        native = getattr(self.detector, "native_image_size", None)
+        if isinstance(native, int) and native > 0 and native != tiling_policy.tile_size:
+            tiling_policy = replace(tiling_policy, tile_size=native)
+            tiling_reason = f"tile_size theo cỡ đầu vào của model ({native})"
         if isinstance(self.detector, CVComponentDetector):
             # CV proposals use area ratios tied to the complete ROI and are an
             # explicit demo, so tiling them would change their semantics.

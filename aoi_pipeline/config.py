@@ -232,7 +232,25 @@ class CVDetectorConfig:
 class ModelDetectorConfig:
     """Ultralytics inference options for a ``.pt`` or ``.onnx`` model."""
 
+    # Quét trên 640 box tay của tập test với detector thân linh kiện: F1 đạt
+    # đỉnh ở 0.40, nhưng F1 là thước đo SAI cho AOI. Bỏ sót một linh kiện là
+    # mối hàn của nó không ai kiểm; dựng thừa một ROI thì xem lại được. Tính
+    # bằng F2 (nặng recall gấp đôi precision) thì đỉnh rơi đúng vào 0.25:
+    #
+    #   conf   prec  recall     F1     F2
+    #   0.15  0.677  0.912   0.777  0.853
+    #   0.20  0.709  0.903   0.794  0.856
+    #   0.25  0.740  0.897   0.811  0.860   <-- đang dùng, và là đỉnh F2
+    #   0.30  0.763  0.880   0.817  0.854
+    #   0.40  0.814  0.855   0.834  0.846   <-- đỉnh F1, nhưng mất 4,2 điểm recall
+    #
+    # Nên giữ 0.25. Ghi lại để lần sau không ai "tối ưu" nó bằng F1.
     confidence: float = 0.25
+    # CHÚ Ý: với artifact YOLO26 hiện tại tham số này KHÔNG có tác dụng gì.
+    # Kiến trúc đó NMS-free, phép chọn top-k nằm trong chính graph ONNX, nên
+    # Ultralytics không chạy NMS ngoài. Đo: 0.45 và 0.70 cho ra số y hệt nhau
+    # ở cả bảy mức conf trong bảng trên — không lệch một box.
+    # Giữ lại vì các artifact ``.pt`` và ONNX one-to-many cũ vẫn dùng nó.
     iou: float = 0.45
     image_size: int = 1280
     device: str | None = None

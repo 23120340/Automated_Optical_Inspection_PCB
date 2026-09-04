@@ -207,3 +207,51 @@ def test_unresolved_generic_labels_are_counted_for_the_report() -> None:
     assert pipeline.last_unresolved_generic_labels == 0, (
         "detector 22 lớp không mang nhãn chung chung nên không có gì chưa giải"
     )
+
+
+def test_tiles_are_cut_at_the_size_the_artifact_really_accepts() -> None:
+    """Một ONNX khoá cứng shape chỉ nhận đúng một cỡ, nên tile lớn hơn bị
+    letterbox thu nhỏ và linh kiện xuất hiện nhỏ hơn lúc train.
+
+    Đo trên 640 box tay: tile 1280 với artifact native 1024 làm recall tổng tụt
+    89,7% -> 83,3%, và dải >=250px tụt 92,7% -> 78,0%, trong khi precision không
+    khá hơn để bù. Cỡ phải lấy từ artifact, không gán cứng — model 22 lớp cũ
+    native 1280 nên nó phải giữ nguyên hành vi.
+
+    Chạy qua ĐÚNG ``detect_components`` chứ không chép lại phép tính: một test
+    chép logic sẽ xanh cả khi bản vá bị gỡ.
+    """
+
+    import numpy as np
+
+    from aoi_pipeline.config import TilingConfig
+
+    class _FixedSizeDetector:
+        """Ghi lại cạnh của từng tile mà pipeline đưa xuống."""
+
+        def __init__(self, size: int) -> None:
+            self.native_image_size = size
+            self.image_size = size
+            self.seen: list[int] = []
+
+        def detect(self, image, *, confidence=None):
+            self.seen.append(max(image.shape[:2]))
+            return []
+
+    board = np.zeros((3072, 3072, 3), dtype=np.uint8)
+    for native in (1024, 1280):
+        pipeline = AOIPipeline(PipelineConfig(tiling=TilingConfig(tile_size=1280)))
+        pipeline.detector = _FixedSizeDetector(native)
+        pipeline.detect_components(board)
+        assert pipeline.last_detection_metrics["effective_tile_size"] == native, (
+            f"native {native} nhưng cắt tile "
+            f"{pipeline.last_detection_metrics['effective_tile_size']}"
+        )
+        # include_full_image cho chạy thêm một lượt trên NGUYÊN ảnh; đó là
+        # hành vi cố ý, không phải tile. Mọi lượt còn lại phải vừa artifact.
+        tiles = [s for s in pipeline.detector.seen if s != max(board.shape[:2])]
+        oversized = [s for s in tiles if s > native]
+        assert not oversized, (
+            f"native {native} mà vẫn có tile cạnh {sorted(set(oversized))} — "
+            "chúng sẽ bị letterbox thu nhỏ"
+        )
