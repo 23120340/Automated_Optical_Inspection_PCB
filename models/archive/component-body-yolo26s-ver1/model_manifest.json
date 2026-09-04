@@ -1,0 +1,108 @@
+{
+  "schema_version": "pcb-component-detector/1.0",
+  "task": "component_body_detection",
+  "pipeline_step": "4 (lượt 1)",
+  "model_family": "ultralytics-yolo",
+  "base_model": "yolo26s.pt",
+  "class_names": [
+    "component"
+  ],
+  "class_map": {
+    "0": "component"
+  },
+  "input": {
+    "shape": [
+      1,
+      3,
+      1024,
+      1024
+    ],
+    "imgsz": 1024,
+    "dynamic": false
+  },
+  "output": {
+    "shape": [
+      1,
+      300,
+      6
+    ]
+  },
+  "onnx": {
+    "sha256": "fcaaccbd7294795bf29702998abfc5de1433d3e94da47d6ad61b6df4a2f9cd52",
+    "bytes": 38429742
+  },
+  "metrics": {
+    "val": {
+      "map50": 0.7111517378804674,
+      "map50_95": 0.3715176719750593,
+      "precision": 0.8333809390057706,
+      "recall": 0.6715384615384615
+    },
+    "test": {
+      "map50": 0.8397406895671118,
+      "map50_95": 0.46453992119342785,
+      "precision": 0.8042658713271095,
+      "recall": 0.84375
+    }
+  },
+  "verdict": {
+    "passed": true,
+    "checks": {
+      "recall test >= 0.7": true,
+      "mAP50 test >= 0.6": true,
+      "CẬN DƯỚI recall (0.744) > detector đang chạy (0.54)": true
+    },
+    "incumbent_recall_on_hand_boxes": 0.54
+  },
+  "dataset": {
+    "name": "component_detect_v1",
+    "images": {
+      "train": 1922,
+      "valid": 10,
+      "test": 11
+    },
+    "boxes": {
+      "train": 94905,
+      "valid": 1300,
+      "test": 640
+    },
+    "split_unit": "bo vật lý (khoá trong gói, notebook KHÔNG chia lại)",
+    "pack_manifest": {
+      "ready_to_pack": true,
+      "verified_target_groups": 28,
+      "minimum_target_groups": 10,
+      "missing_target_splits": [],
+      "boards_that_would_fill": {}
+    },
+    "curation": "7 box loại bằng scripts/apply_box_exclusions.py sau khi soi tay"
+  },
+  "train_config": {
+    "seed": 42,
+    "imgsz": 1024,
+    "epochs": 150,
+    "patience": 40,
+    "batch": 4,
+    "close_mosaic": 25,
+    "max_det": 600,
+    "local_oversample": 6,
+    "fliplr": 0.5,
+    "flipud": 0.5,
+    "degrees": 10.0,
+    "scale": 0.25,
+    "mosaic": 0.5,
+    "copy_paste": 0.0
+  },
+  "known_limits": [
+    "Chỉ 28 bo vật lý, test 11 ảnh — khoảng tin cậy của mọi con số ở trên rất rộng.",
+    "Ảnh train là CVL PCB-DSLR + RF100 + Winnies, KHÔNG phải camera dây chuyền. Phải fine-tune trên ảnh thật trước khi tin số đo ở production.",
+    "Bộ đã cắt tile: ~2,7% box dưới 8px ở imgsz 1280 (trước khi cắt là 21% ở 1536). Recall ở nhóm box nhỏ vẫn nên xem riêng, đừng đọc mAP tổng.",
+    "Tile chồng lấn nhân số box train lên ~1,85 lần; đó là cùng linh kiện nhìn từ hai khung, không phải dữ liệu mới."
+  ],
+  "created_at_utc": "2026-09-03T13:10:28.530353+00:00",
+  "model": {
+    "version": "component-body-yolo26s-ver1",
+    "architecture": "yolo26s.pt",
+    "sha256": "fcaaccbd7294795bf29702998abfc5de1433d3e94da47d6ad61b6df4a2f9cd52",
+    "run_name": "pcb_component_detector_v3"
+  }
+}

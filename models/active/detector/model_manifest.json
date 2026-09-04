@@ -23,13 +23,20 @@
   "output": {
     "shape": [
       1,
-      300,
+      600,
       6
     ]
   },
   "onnx": {
-    "sha256": "fcaaccbd7294795bf29702998abfc5de1433d3e94da47d6ad61b6df4a2f9cd52",
+    "sha256": "9cdde6618c7efe41fa588fe0e4b6aec1dcffc86a53a28a2b8c14ace77d3d3956",
     "bytes": 38429742
+  },
+  "runtime": {
+    "ultralytics": "8.4.138",
+    "torch": "2.10.0+cu128",
+    "onnx": "1.22.0",
+    "onnxruntime": "1.29.0",
+    "onnxslim": "0.1.96"
   },
   "metrics": {
     "val": {
@@ -98,11 +105,12 @@
     "Bộ đã cắt tile: ~2,7% box dưới 8px ở imgsz 1280 (trước khi cắt là 21% ở 1536). Recall ở nhóm box nhỏ vẫn nên xem riêng, đừng đọc mAP tổng.",
     "Tile chồng lấn nhân số box train lên ~1,85 lần; đó là cùng linh kiện nhìn từ hai khung, không phải dữ liệu mới."
   ],
-  "created_at_utc": "2026-09-03T13:10:28.530353+00:00",
+  "created_at_utc": "2026-09-04T20:33:32.750143+00:00",
   "model": {
-    "version": "component-body-yolo26s-ver1",
+    "version": "component-body-yolo26s-ver2",
     "architecture": "yolo26s.pt",
-    "sha256": "fcaaccbd7294795bf29702998abfc5de1433d3e94da47d6ad61b6df4a2f9cd52",
-    "run_name": "pcb_component_detector_v3"
+    "sha256": "9cdde6618c7efe41fa588fe0e4b6aec1dcffc86a53a28a2b8c14ace77d3d3956",
+    "run_name": "pcb_component_detector_v3",
+    "note": "cùng best.pt với ver1; chỉ export lại với max_det=600"
   }
 }

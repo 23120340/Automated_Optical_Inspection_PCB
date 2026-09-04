@@ -21,6 +21,7 @@
 # %%
 import json
 import os
+from datetime import datetime, timezone
 import random
 import shutil
 import subprocess
@@ -126,6 +127,11 @@ CONFIG = {
     "gate_recall": 0.70,
     "gate_map50": 0.60,
     "incumbent_recall_on_hand_boxes": 0.54,
+
+    # Tên bản, đi vào manifest và hiện trong bộ chọn model của app. Đổi
+    # mỗi lần sinh ra một artifact KHÁC -- kể cả khi trọng số y hệt mà chỉ
+    # export lại, vì sha256 đổi thì đó là một file khác.
+    "model_version": "component-body-yolo26s-ver1",
 }
 
 random.seed(CONFIG["seed"])
@@ -725,6 +731,18 @@ manifest = {
     "input": {"shape": shape, "imgsz": CONFIG["imgsz"], "dynamic": False},
     "output": {"shape": output_shape},
     "onnx": {"sha256": digest, "bytes": (ARTIFACTS / "best.onnx").stat().st_size},
+    # Ba khoá dưới đây là những chỗ ``model_registry`` THẬT SỰ đọc để nhận
+    # dạng một artifact. Thiếu chúng thì bộ chọn model in "—" cho ngày và
+    # phiên bản, và sha256 -- thứ duy nhất gắn một bản đánh giá với đúng
+    # artifact sau khi model bị thay -- không được nhặt lên, vì registry tìm ở
+    # ``model.sha256``/``sha256`` chứ không ở ``onnx.sha256``.
+    "created_at_utc": datetime.now(timezone.utc).isoformat(),
+    "model": {
+        "version": CONFIG["model_version"],
+        "architecture": CONFIG["model"],
+        "sha256": digest,
+        "run_name": Path(CONFIG["work_dir"]).name,
+    },
     # Không có khối này thì artifact không nói được nó do bản nào sinh ra, mà
     # bản dùng để train đã trôi 8.4.104 -> 8.4.138 giữa các lần chạy.
     "runtime": VERSIONS,
