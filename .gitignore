@@ -109,3 +109,8 @@ datasets/test_images/*.json
 # dòng-một-box. scripts/survey_package_taxonomy.py dựng lại được toàn bộ từ hai
 # zip công khai, và bảng tổng đã rút gọn nằm ở Docs/khao_sat/.
 datasets/survey/
+# ...trừ nhãn và bảng tổng: đó là công gán tay, nhẹ, và là thứ duy nhất không
+# dựng lại được bằng script.
+!datasets/survey/*/prelabels.json
+!datasets/survey/*/labels/
+!datasets/survey/*/labels/*.json

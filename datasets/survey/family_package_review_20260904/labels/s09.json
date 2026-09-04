@@ -1,0 +1,17 @@
+{"sheet":"09_lon_vuong","labels":{
+"481":["XEM_KY","ngoai_taxonomy","module nguồn DC-DC Ericsson PKD4131 — không thuộc 16 họ"],
+"539":["XEM_KY","XEM_KY","module có nhãn mã vạch, chưa rõ loại"],
+"276":["XEM_KY","XEM_KY","vật tròn lớn có nhãn, có thể quạt"],
+"606":["connector","connector","đế cắm CPU dạng PGA, mảng lỗ chân"],
+"303":["XEM_KY","ngoai_taxonomy","khối kim loại nhám — tản nhiệt hoặc vỏ chắn"],
+"273":["XEM_KY","XEM_KY","hình chữ nhật đen phẳng, chưa rõ IC hay vỏ chắn"],
+"685":["capacitor","tru_dung","tụ hoá nhìn từ trên: thân tròn, nắp có rãnh chữ thập"],
+"508":["XEM_KY","ngoai_taxonomy","khối bạc bo góc — vỏ chắn/module"],
+"0":["XEM_KY","XEM_KY","khối đen in 71313711 2003, không thấy chân"],
+"531":["ic","ic_bon_ben","QFP: thân vuông, thấy chân mảnh ra cả bốn cạnh"],
+"600":["ic","ic_hai_ben","IC chân hai cạnh dài"],
+"525":["ic","ic_hai_ben","IC MICRONAS SDA6001, chân hai cạnh"],
+"409":["XEM_KY","XEM_KY","khối vuông đen có hoa văn tròn"],
+"356":["battery_power_input","ngoai_taxonomy","đế pin cúc áo tròn có kẹp"],
+"604":["XEM_KY","ngoai_taxonomy","khối bạc — vỏ chắn"],
+"325":["capacitor","tru_dung","tụ hoá nhìn từ trên, nắp có rãnh chữ thập"]}}

@@ -1,0 +1,185 @@
+{
+ "sheet": "25_ngau_nhien",
+ "labels": {
+  "555": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "44": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "177": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "523": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "233": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "291": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "422": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "536": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "540": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "137": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "334": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "405": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-14px nên không đọc được loại"
+  ],
+  "426": [
+   "XEM_KY",
+   "XEM_KY",
+   "chỉ 6-9px, không khẳng định được cả hình dạng"
+  ],
+  "39": [
+   "XEM_KY",
+   "XEM_KY",
+   "chỉ 6-9px, không khẳng định được cả hình dạng"
+  ],
+  "235": [
+   "XEM_KY",
+   "XEM_KY",
+   "chỉ 6-9px, không khẳng định được cả hình dạng"
+  ],
+  "347": [
+   "XEM_KY",
+   "XEM_KY",
+   "chỉ 6-9px, không khẳng định được cả hình dạng"
+  ],
+  "373": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "425": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "268": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "439": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "461": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "84": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "554": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "689": [
+   "resistor",
+   "hai_chan",
+   "điện trở cắm, thân trụ có vạch màu rõ"
+  ],
+  "518": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "527": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "647": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "213": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "12": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "304": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "493": [
+   "capacitor",
+   "hai_chan",
+   "tụ dán thân đen in C476"
+  ],
+  "510": [
+   "magnetic",
+   "XEM_KY",
+   "EPCOS B82790 C474 — cuộn chặn chế độ chung"
+  ],
+  "551": [
+   "XEM_KY",
+   "XEM_KY",
+   "vật sẫm cạnh dây xanh, chưa rõ"
+  ],
+  "534": [
+   "XEM_KY",
+   "XEM_KY",
+   "khối dán sẫm cạnh nhãn U126"
+  ],
+  "460": [
+   "XEM_KY",
+   "XEM_KY",
+   "khối dán sẫm cạnh nhãn U126"
+  ],
+  "69": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu in 1F45"
+  ]
+ }
+}

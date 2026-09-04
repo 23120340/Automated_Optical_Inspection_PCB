@@ -1,0 +1,17 @@
+{"sheet":"13_lon_vuong","labels":{
+"175":["ic","ic_bon_ben","Siemens PEB 3065, chân bốn cạnh"],
+"579":["ic","ic_hai_ben","IC họ 74HCT, chân hai cạnh"],
+"613":["ic","XEM_KY","N80C32 ©1988 — thân gần vuông, chưa chắc PLCC hay DIP"],
+"676":["ic","ic_hai_ben","IC đen trên bo vàng, chân hai cạnh"],
+"4":["capacitor","hai_chan","tụ film hộp cam đứng, hai chân"],
+"158":["capacitor","hai_chan","tụ film hộp cam"],
+"348":["ic","ic_hai_ben","IC sáng màu MX, chân hai cạnh"],
+"565":["capacitor","tru_dung","tụ trụ đứng màu xanh đen"],
+"572":["XEM_KY","XEM_KY","khung ôm vùng CHỮ IN lụa 'ASUS AS01B' — nghi box sai"],
+"438":["capacitor","tru_dung","tụ trụ màu xanh ngọc"],
+"544":["capacitor","hai_chan","tụ film hộp cam"],
+"6":["capacitor","tru_dung","tụ hoá xanh nhìn từ trên"],
+"320":["connector","connector","header đen nhiều chân"],
+"578":["capacitor","tru_dung","tụ trụ màu kem"],
+"249":["capacitor","tru_dung","tụ hoá đen nhìn từ trên, in 2.6"],
+"743":["capacitor","tru_dung","tụ hoá đen nhìn từ trên, in 220"]}}

@@ -1,0 +1,17 @@
+{"sheet":"06_dai_nhieu_chan","labels":{
+"151":["connector","connector","dải chân tối"],
+"256":["resistor","hai_chan","điện trở cắm, thân trụ có vạch màu"],
+"611":["XEM_KY","XEM_KY","thân trụ trắng in F-001 — điện trở hay cầu chì?"],
+"171":["connector","connector","dải chân tối"],
+"145":["connector","connector","connector FPC trắng"],
+"153":["ic","ic_hai_ben","IC đen 8A7657F, chân hai cạnh dài"],
+"699":["connector","connector","connector trắng nhiều chân"],
+"537":["connector","connector","dải connector tối"],
+"616":["XEM_KY","XEM_KY","dải trắng dọc mép bo"],
+"24":["connector","connector","header đen"],
+"497":["XEM_KY","XEM_KY","dải vàng/tối dọc"],
+"26":["XEM_KY","XEM_KY","dải trắng dọc mép bo"],
+"371":["resistor","hai_chan","điện trở trụ đứng in 18K J"],
+"244":["resistor","hai_chan","điện trở thân trắng cạnh nhóm vạch màu"],
+"471":["connector","connector","dải chân tối"],
+"681":["XEM_KY","XEM_KY","mảng pad vàng cạnh chữ USB"]}}

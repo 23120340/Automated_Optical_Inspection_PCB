@@ -1,0 +1,17 @@
+{"sheet":"14_lon_vuong","labels":{
+"51":["XEM_KY","XEM_KY","ô trắng trơn viền đen — cửa sổ hiển thị hay pad trống?"],
+"13":["switch_control","ic_hai_ben","công tắc DIP đánh số 1-8, hai hàng chân như vỏ DIP"],
+"475":["connector","connector","vỏ connector trắng 3 chân"],
+"730":["capacitor","tru_dung","tụ hoá trụ đứng"],
+"683":["capacitor","tru_dung","tụ trụ đứng màu đen"],
+"72":["XEM_KY","XEM_KY","khối trắng/vàng dài, chưa rõ"],
+"468":["ic","ic_bon_ben","NSP-6241B, thân vuông chân bốn cạnh"],
+"538":["ic","ic_hai_ben","IC chân hai cạnh"],
+"105":["ic","ic_bon_ben","TI TSB43AB22A, chân bốn cạnh"],
+"243":["ic","ic_bon_ben","Analog Devices AD7498, thấy rõ chân bốn cạnh"],
+"501":["ic","ic_bon_ben","Analog Devices AD7498"],
+"690":["ic","ic_bon_ben","Siemens PEB 2060 SICOFI, chân bốn cạnh"],
+"80":["XEM_KY","XEM_KY","ô tối nhỏ, chưa rõ"],
+"149":["ic","ic_bon_ben","Siemens PEB 2060 SICOFI"],
+"336":["ic","ic_bon_ben","Siemens PEB 2060 SICOFI"],
+"193":["capacitor","tru_dung","tụ hoá nhìn từ trên, nắp có rãnh chữ thập"]}}

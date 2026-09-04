@@ -1,0 +1,185 @@
+{
+ "sheet": "31_nho",
+ "labels": {
+  "219": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "386": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "398": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "415": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "420": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "459": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "487": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "546": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "574": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "609": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "627": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "663": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "724": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "726": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "36": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "60": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "285": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "400": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "419": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "462": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "470": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "485": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "498": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "503": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "521": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "589": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "618": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "687": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "737": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "67": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "231": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "240": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "258": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "310": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "311": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ],
+  "370": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  ]
+ }
+}

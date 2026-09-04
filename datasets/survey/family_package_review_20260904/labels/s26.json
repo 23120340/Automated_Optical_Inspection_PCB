@@ -1,0 +1,185 @@
+{
+ "sheet": "26_nho",
+ "labels": {
+  "156": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "209": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "463": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "580": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "447": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "346": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "91": [
+   "capacitor",
+   "tru_dung",
+   "tụ hoá nhìn từ trên, thân tròn"
+  ],
+  "31": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "483": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "123": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "238": [
+   "ic",
+   "ic_hai_ben",
+   "IC đen, chân hai cạnh dài"
+  ],
+  "553": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "393": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "645": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "20": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "504": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "535": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "549": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "298": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "716": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "87": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "700": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "349": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "607": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "23": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "261": [
+   "XEM_KY",
+   "hai_chan",
+   "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  ],
+  "338": [
+   "XEM_KY",
+   "hai_chan",
+   "thân trụ có vạch màu — điện trở hay diode thuỷ tinh?"
+  ],
+  "62": [
+   "XEM_KY",
+   "hai_chan",
+   "thân trụ có vạch màu — điện trở hay diode thuỷ tinh?"
+  ],
+  "92": [
+   "XEM_KY",
+   "hai_chan",
+   "thân trụ có vạch màu — điện trở hay diode thuỷ tinh?"
+  ],
+  "698": [
+   "diode",
+   "hai_chan",
+   "chip hai đầu, lụa ghi D6"
+  ],
+  "601": [
+   "XEM_KY",
+   "XEM_KY",
+   "khối dán nhiều pad, có thể nhiều hơn 2 chân"
+  ],
+  "661": [
+   "XEM_KY",
+   "XEM_KY",
+   "vật tròn màu kem, chưa rõ"
+  ],
+  "588": [
+   "XEM_KY",
+   "XEM_KY",
+   "dải xanh dọc trong khung tối"
+  ],
+  "517": [
+   "XEM_KY",
+   "XEM_KY",
+   "vật đen có vạch trắng, chưa rõ"
+  ],
+  "440": [
+   "XEM_KY",
+   "XEM_KY",
+   "khối vuông vàng, chưa rõ"
+  ],
+  "218": [
+   "XEM_KY",
+   "XEM_KY",
+   "khối chữ nhật trắng kem, chưa rõ"
+  ]
+ }
+}

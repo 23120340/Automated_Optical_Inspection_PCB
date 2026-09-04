@@ -1,0 +1,17 @@
+{"sheet":"11_lon_vuong","labels":{
+"429":["connector","connector","jack RJ45/USB mặt sau"],
+"385":["relay","ngoai_taxonomy","relay Siemens V23042"],
+"667":["relay","ngoai_taxonomy","relay Siemens V23042"],
+"274":["capacitor","tru_dung","tụ hoá nhìn từ trên, nắp có rãnh chữ thập"],
+"104":["magnetic","ngoai_taxonomy","biến áp/cuộn cảm hình xuyến quấn dây"],
+"550":["relay","ngoai_taxonomy","relay Siemens V23042"],
+"296":["relay","ngoai_taxonomy","relay Siemens V23042"],
+"644":["ic","XEM_KY","khối đen GTS FC-515LS, chưa thấy rõ chân"],
+"691":["ic","XEM_KY","IC đen NEC, chưa thấy rõ chân ở cạnh nào"],
+"134":["ic","ic_bon_ben","Winbond, thân vuông, chân mảnh ra cả bốn cạnh"],
+"608":["ic","ic_bon_ben","Silicon Image SI9910CU, chân bốn cạnh"],
+"180":["ic","ic_bon_ben","Winbond, chân bốn cạnh"],
+"477":["ic","ic_bon_ben","MoSys MCACHE MC801 vỏ PLCC vuông"],
+"132":["capacitor","tru_dung","cụm tụ hoá xanh nhìn từ trên"],
+"576":["ic","ic_bon_ben","Winbond W3369HF, chân bốn cạnh"],
+"713":["ic","ic_hai_ben","KM6225BLG-10, chân hai cạnh dài"]}}
