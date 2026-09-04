@@ -255,3 +255,56 @@ def test_tiles_are_cut_at_the_size_the_artifact_really_accepts() -> None:
             f"native {native} mà vẫn có tile cạnh {sorted(set(oversized))} — "
             "chúng sẽ bị letterbox thu nhỏ"
         )
+
+
+# ------------------------------------------- cảnh báo lệch miền cho 6.1
+
+def test_the_run_warns_when_the_classifier_accepts_far_less_than_it_should() -> None:
+    """Hiệu chuẩn nhiệt độ và ngưỡng accept của 6.1 đo trên tập validation CỦA
+    NÓ. Đổi sang ảnh khác miền thì hiệu chuẩn hết đúng, và dấu hiệu đầu tiên là
+    tỉ lệ accept tụt chứ không phải nhãn sai.
+
+    Đo được: 94,9% trên bo fixture so với 70,3% trên tile PCB-DSLR **với cùng
+    một detector** — tức lệch miền ảnh, không phải lệch khung cắt.
+    """
+
+    from aoi_pipeline.pipeline import _manifest_accepted_coverage
+
+    class _WithManifest:
+        manifest = {"metrics": {"accepted_coverage": 0.9486}}
+
+    assert _manifest_accepted_coverage(_WithManifest()) == 0.9486
+    # Manifest lạ thiếu trường thì chỉ nghĩa là không so được, không phải lỗi.
+    assert _manifest_accepted_coverage(type("X", (), {"manifest": {}})()) is None
+    assert _manifest_accepted_coverage(None) is None
+    for bad in (0.0, -1, 1.5, True, "0.9"):
+        assert _manifest_accepted_coverage(
+            type("X", (), {"manifest": {"metrics": {"accepted_coverage": bad}}})()
+        ) is None, bad
+
+
+def test_the_accept_rate_is_recorded_for_every_run() -> None:
+    pipeline = _pipeline()
+    assert pipeline.last_family_accept_rate is None
+
+    class _Classifier:
+        manifest = {"metrics": {"accepted_coverage": 0.95}}
+
+        def classify(self, crops):
+            return [
+                _family("resistor", decision="accept"),
+                _family("resistor", decision="review", detection_id="det_2"),
+            ]
+
+    pipeline.classifier = _Classifier()
+    pipeline.classify_components([object()])
+    assert pipeline.last_family_accept_rate == 0.5
+
+    # Không có crop nào thì không có tỉ lệ nào -- 0/0 không phải 0%.
+    class _Empty(_Classifier):
+        def classify(self, crops):
+            return []
+
+    pipeline.classifier = _Empty()
+    pipeline.classify_components([])
+    assert pipeline.last_family_accept_rate is None

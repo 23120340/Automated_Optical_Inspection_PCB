@@ -291,6 +291,13 @@ ngẫu nhiên — lớp 1 chiếm 86,5% nên mẫu đều sẽ toàn lớp 1:
 | thân nhỏ (ứng viên lớp 1/2/3) | ~250 | đo ngưỡng kích thước ở §6.3 |
 | ngẫu nhiên nền | ~100 | bắt ca luật chưa nghĩ tới |
 
+**Gán thêm nhãn HỌ cho cùng những box đó.** Cùng một lượt công việc trả lời
+thêm được một câu hiện chưa ai biết: **độ chính xác thật của 6.1 trên miền ảnh
+của dự án**. Đo được là accept của nó tụt 94,9% → 70,3% khi đổi sang ảnh
+PCB-DSLR *với cùng một detector*, nhưng đó là độ TIN, không phải độ ĐÚNG — và
+không có nhãn họ thì không đo được độ đúng. Xem
+[danh_gia_classifier_6_1.md](../danh_gia/danh_gia_classifier_6_1.md).
+
 Không phải vẽ lại box — vị trí đã có trong 9.486 box đã duyệt, package chỉ thêm
 một nhãn lớp, app có phím tắt `1`–`7`.
 

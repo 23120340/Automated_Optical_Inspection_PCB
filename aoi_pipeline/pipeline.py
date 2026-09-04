@@ -63,6 +63,26 @@ from .placement.footprints import profile_for_package_class
 from .detection.tiling import detect_with_adaptive_tiling
 
 
+def _manifest_accepted_coverage(classifier: object) -> float | None:
+    """``accepted_coverage`` trong manifest 6.1, nếu có.
+
+    Đọc mềm: manifest của model tải từ ngoài về có thể không có trường này, và
+    thiếu nó chỉ nghĩa là không so được — không phải lỗi.
+    """
+
+    manifest = getattr(classifier, "manifest", None)
+    if not isinstance(manifest, Mapping):
+        return None
+    metrics = manifest.get("metrics")
+    if not isinstance(metrics, Mapping):
+        return None
+    value = metrics.get("accepted_coverage")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if 0.0 < float(value) <= 1.0:
+            return float(value)
+    return None
+
+
 class AOIPipeline:
     """Reusable local pipeline for the diagram's steps 0-6.1.
 
@@ -116,6 +136,10 @@ class AOIPipeline:
         #: Số thân mang nhãn chung chung mà 6.1 KHÔNG giải được. Mỗi cái
         #: là một linh kiện đi nhánh ``multi_pin`` chỉ vì thiếu nhãn.
         self.last_unresolved_generic_labels: int = 0
+        #: Tỉ lệ ``accept`` của 6.1 ở lần chạy vừa rồi, hoặc ``None`` khi
+        #: không có kết quả nào. So với ``accepted_coverage`` trong manifest
+        #: để phát hiện lệch miền ảnh.
+        self.last_family_accept_rate: float | None = None
         self.last_package_topology_checks: list[PackageTopologyCheck] = []
         self.last_package_detections: list[Detection] = []
         # Pass 2 stays absent until someone names a model for it -- injected
@@ -645,8 +669,14 @@ class AOIPipeline:
         """Step 6.1: classify component families or return no fabricated result."""
 
         if self.classifier is None:
+            self.last_family_accept_rate = None
             return []
-        return self.classifier.classify(crops)
+        results = self.classifier.classify(crops)
+        self.last_family_accept_rate = (
+            sum(1 for item in results if item.decision == "accept") / len(results)
+            if results else None
+        )
+        return results
 
     def apply_family_labels(
         self,
@@ -893,6 +923,25 @@ class AOIPipeline:
         if self.classifier is None:
             warnings.append(
                 "Step 6.1 was not run because best.onnx and model_manifest.json were not configured."
+            )
+        expected = _manifest_accepted_coverage(self.classifier)
+        observed = self.last_family_accept_rate
+        if expected is not None and observed is not None and observed < expected - 0.15:
+            # Hiệu chuẩn nhiệt độ và ngưỡng accept của 6.1 được đo trên tập
+            # validation CỦA NÓ. Đổi sang ảnh khác thì hiệu chuẩn đó không còn
+            # đúng, và dấu hiệu đầu tiên là tỉ lệ accept tụt — chứ không phải
+            # nhãn sai. Đo được: 94,9% trên bo fixture so với 70,3% trên tile
+            # PCB-DSLR VỚI CÙNG detector, tức lệch miền ảnh chứ không phải lệch
+            # khung cắt.
+            #
+            # Đây là CẢNH BÁO, không phải lỗi: rơi vào ``review`` là hành vi
+            # đúng của một model không chắc. Nhưng nó đổi khối lượng người phải
+            # xem, nên người vận hành cần biết ngay chứ không phải tự phát hiện.
+            warnings.append(
+                f"Bước 6.1 chỉ chấp nhận {100 * observed:.0f}% linh kiện, trong "
+                f"khi manifest của nó đo được {100 * expected:.0f}% trên tập "
+                "validation. Chênh lệch cỡ này thường là ảnh khác miền train, "
+                "không phải model hỏng — phần còn lại rơi vào hàng chờ người xem."
             )
         if self.last_unresolved_generic_labels:
             # Detector chỉ khoanh THÂN thì nhãn của nó không mang thông tin
