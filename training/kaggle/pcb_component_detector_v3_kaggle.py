@@ -174,7 +174,68 @@ ARTIFACTS = Path(CONFIG["artifact_dir"])
 print("dataset:", DATASET)
 
 # %% [markdown]
-# ## 0. Cổng phần cứng
+# ## 0. Ghim phiên bản
+#
+# Kaggle có sẵn Ultralytics nên notebook chạy được mà không cần cell này — và
+# đó chính là vấn đề: **phiên bản trôi mà không ai thấy**. Lần train đầu là
+# `8.4.104`, những lần sau là `8.4.138`, trong khi `requirements-model.txt`
+# của repo ghim `8.4.104`. Ba con số khác nhau cho cùng một dự án.
+#
+# `PIN_ULTRALYTICS` dưới đây là bản **thật sự train ra model đang chạy**, đọc
+# từ log Kaggle. Đổi nó là đổi hành vi train/export, nên đổi thì phải cố ý.
+#
+# Cài luôn `onnx`/`onnxruntime`/`onnxscript` ở đây thay vì để Ultralytics tự
+# cài lúc export. Lần chạy trước nó tự cài giữa chừng rồi in:
+# *"WARNING: Restart runtime or rerun command for updates to take effect"* —
+# tức module đã nạp có thể là bản cũ, và đó là lúc tệ nhất để phát hiện, sau
+# khi đã tiêu hết giờ GPU.
+
+# %%
+PIN_ULTRALYTICS = "8.4.138"
+
+
+def ensure(package: str, version: str | None = None) -> None:
+    import importlib.metadata as md
+
+    want = f"{package}=={version}" if version else package
+    try:
+        have = md.version(package)
+        if version is None or have == version:
+            print(f"  {package:14s} {have} (có sẵn)")
+            return
+        print(f"  {package:14s} {have} -> {version}")
+    except md.PackageNotFoundError:
+        print(f"  {package:14s} chưa có -> cài {version or 'bản mới nhất'}")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", want])
+
+
+for _package, _version in (
+    ("ultralytics", PIN_ULTRALYTICS),
+    ("onnx", None),
+    ("onnxruntime", None),
+    ("onnxscript", None),
+    ("onnxslim", None),
+):
+    ensure(_package, _version)
+
+import importlib.metadata as _md
+
+VERSIONS = {}
+for _name in ("ultralytics", "torch", "onnx", "onnxruntime", "onnxslim"):
+    try:
+        VERSIONS[_name] = _md.version(_name)
+    except _md.PackageNotFoundError:
+        VERSIONS[_name] = None
+print()
+print("phiên bản dùng cho lần chạy này:", VERSIONS)
+if VERSIONS["ultralytics"] != PIN_ULTRALYTICS:
+    raise SystemExit(
+        f"ultralytics {VERSIONS['ultralytics']} != {PIN_ULTRALYTICS} đã ghim. "
+        "Kaggle có thể cần Restart Session sau khi cài; chạy lại cell này."
+    )
+
+# %% [markdown]
+# ## 0b. Cổng phần cứng
 #
 # Kaggle đôi khi gán P100 thay vì T4/L4. Ở `imgsz=1536` khác biệt đó là vài giờ,
 # và phát hiện ra sau khi train xong thì đã muộn. Chặn ngay.
@@ -664,6 +725,9 @@ manifest = {
     "input": {"shape": shape, "imgsz": CONFIG["imgsz"], "dynamic": False},
     "output": {"shape": output_shape},
     "onnx": {"sha256": digest, "bytes": (ARTIFACTS / "best.onnx").stat().st_size},
+    # Không có khối này thì artifact không nói được nó do bản nào sinh ra, mà
+    # bản dùng để train đã trôi 8.4.104 -> 8.4.138 giữa các lần chạy.
+    "runtime": VERSIONS,
     "metrics": metrics,
     "verdict": {
         "passed": verdict,
