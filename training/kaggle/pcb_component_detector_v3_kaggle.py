@@ -375,7 +375,20 @@ run_dir = None
 
 if CONFIG["export_from"]:
     print(f"BỎ QUA TRAIN — export thẳng từ {CONFIG['export_from']}")
-    model = YOLO(CONFIG["export_from"])
+    # Ultralytics ghi file ONNX NGAY CẠNH file .pt nguồn, không ghi vào thư mục
+    # làm việc. Trỏ thẳng vào /kaggle/input thì export chết ở phút cuối:
+    #   ERROR ONNX: export failure ... [Errno 30] Read-only file system:
+    #   '/kaggle/input/.../best.onnx'
+    # -- sau khi đã tải model và chạy hết đồ thị. Chép sang chỗ ghi được trước.
+    source_weights = Path(CONFIG["export_from"])
+    if not source_weights.is_file():
+        raise SystemExit(f"không thấy {source_weights}")
+    WORK.mkdir(parents=True, exist_ok=True)
+    writable_weights = WORK / source_weights.name
+    if source_weights.resolve() != writable_weights.resolve():
+        shutil.copy2(source_weights, writable_weights)
+        print(f"chép sang chỗ ghi được: {writable_weights}")
+    model = YOLO(str(writable_weights))
 elif CONFIG["resume_from"]:
     print(f"CHẠY TIẾP từ {CONFIG['resume_from']}")
     model = YOLO(CONFIG["resume_from"])
@@ -422,7 +435,7 @@ if run_dir is not None:
     print("trọng số:", weights)
     model = YOLO(str(weights))
 else:
-    weights = Path(CONFIG["export_from"])
+    weights = writable_weights
 
 # %% [markdown]
 # ## 4. Đo trên valid và test

@@ -897,6 +897,12 @@ class AOIPipeline:
             package_classifications=package_classifications,
             family_classifications=classifications,
         )
+        # Lấy lại danh sách SAU khi 5.5 chạy. Bộ luật 5.2 nối thêm kết quả bên
+        # trong ``make_solder_crops`` và trả về một list MỚI, nên biến cục bộ ở
+        # đây vẫn là danh sách của classifier ONNX -- rỗng khi chỉ có luật. Bỏ
+        # dòng này thì báo cáo nói "0 kết quả 5.2" trong khi ROI đã bị đổi, và
+        # đó là loại sai không nhìn ra được từ ảnh kết quả.
+        package_classifications = list(self.last_package_classifications)
         package_detection_by_id = {
             item.detection_id: item for item in self.last_package_detections
         }

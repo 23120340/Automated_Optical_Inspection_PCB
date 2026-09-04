@@ -108,3 +108,70 @@ lượt công việc trả lời được cả ba câu:
 Chỉ sau khi có (2) mới nói được 6.1 cần train lại hay chỉ cần hiệu chuẩn lại.
 Hiệu chuẩn lại rẻ hơn train lại rất nhiều, và với accuracy 0,958 trên miền gốc
 thì khả năng cao đó mới là thứ cần.
+
+---
+
+## 7. Đo được rồi — 2026-09-04
+
+§6 nói độ chính xác thật "hiện chưa ai biết". Giờ biết: **364 box** trong tập
+kiểm phân tầng đã được gán nhãn họ **bằng mắt**, không dùng 6.1 (dùng nó thì
+phép đo tự xác nhận chính nó).
+
+> ⚠️ Đây là nhãn **tiền gán, người dùng CHƯA duyệt**. Con số dưới đây sẽ đổi
+> sau lượt duyệt. Nhưng thứ tự giữa các tầng thì khó đảo.
+
+### 7.1. Độ tin có thông tin thật
+
+| tầng | n | đúng **họ** | đúng **hình học chân** |
+|---|---:|---:|---:|
+| `accept` | 263 | **88,2%** | **95,1%** |
+| `review` | 64 | 54,7% | 68,8% |
+| `unknown` | 37 | 40,5% | 83,8% |
+| tổng | 364 | 77,5% | 89,3% |
+
+Ở mức **họ**, thứ tự sạch và đơn điệu: 88,2 > 54,7 > 40,5. Nên câu "confidence
+không để làm gì" không đúng — nó xếp hạng được.
+
+Nhưng ở mức **hình học chân** — thứ bước 5.5 thật sự tiêu thụ — thứ tự **vỡ**:
+`unknown` (83,8%) tốt hơn `review` (68,8%). Lý do: phần lớn nhầm lẫn của 6.1 là
+giữa các họ **cùng dẫn về một hình học** (`capacitor`↔`led`↔`resistor` đều là
+`two_terminal`). Ngưỡng đang hiệu chuẩn cho *độ mịn họ*, trong khi thứ dùng nó
+cần *độ mịn topology*.
+
+### 7.2. Vậy có nên bỏ cổng `accept` không? **Không.**
+
+101 box bị cổng từ chối hiện lùi về `multi_pin`. So hai chính sách trên đúng
+364 box đó:
+
+| chính sách | **bỏ ROI** (lọt lưới) | thừa ROI | đúng hình học |
+|---|---:|---:|---:|
+| **hiện tại** — chỉ dùng nhãn khi `accept` | **6** | 53 | 83,8% |
+| bỏ cổng — dùng nhãn ở mọi tầng | **19** | 20 | **89,3%** |
+
+Bỏ cổng **làm tổng độ chính xác tăng** 83,8% → 89,3%, và trên bo 28 pad thì
+độ phủ cũng nhích 11/28 → 13/28. Nhìn hai con số đó thì bỏ cổng có vẻ đúng.
+
+Nhưng cột đầu mới là cột phải đọc: nó **gấp ba số ca bỏ ROI, từ 6 lên 19**. Bỏ
+ROI nghĩa là mối hàn đó không ai kiểm — bo lỗi đi ra khỏi chuyền. Thừa ROI chỉ
+tốn một cái liếc mắt. Đổi 13 ca lọt lưới lấy 33 ca đỡ phải xem là sai chiều với
+bài toán kiểm tra.
+
+Đã thử tìm chính sách theo tầng ăn được cả hai (nhận `unknown` nhưng chặn
+`review`, hoặc chỉ nhận nhãn khi model nói `multi_pin`): **không có** — mọi
+biến thể đều ra đúng 6 bỏ / 53 thừa của chính sách hiện tại, hoặc tệ hơn.
+
+**Một điều tôi ghi lại vì nó bác chính lý lẽ tôi từng viết trong code:**
+`multi_pin` KHÔNG phải mặc định an toàn miễn phí. Trong 101 box bị từ chối,
+**46 box thật sự là `two_terminal`** — đẩy chúng sang `multi_pin` là dựng dải
+quanh cả 4 cạnh của linh kiện 2 chân, đúng cái bệnh mà kế hoạch package đang
+chữa. Nó an toàn theo nghĩa *không bỏ sót*, không an toàn theo nghĩa *đặt ROI
+đúng chỗ*.
+
+### 7.3. Việc đáng làm, theo thứ tự
+
+1. **Người dùng duyệt 750 nhãn tiền gán.** Mọi con số ở §7 phụ thuộc vào chúng.
+2. **Hiệu chuẩn lại nhiệt độ + ngưỡng trên miền này**, không phải train lại.
+   `accept` đã đúng 95,1% ở mức hình học; vấn đề là nó chỉ phủ 72% số box. Một
+   lần hiệu chuẩn lại có thể kéo coverage lên mà không đụng vào 6 ca bỏ ROI.
+3. **Chỉ tính train lại nếu (2) không đủ.** Accuracy 0,958 trên miền gốc và
+   95,1% hình học ở tầng `accept` cho thấy model không hỏng — nó bị lệch miền.

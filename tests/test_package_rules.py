@@ -17,13 +17,18 @@ from aoi_pipeline.classification.package_rules import (
 from aoi_pipeline.config import LeadFusionConfig
 from aoi_pipeline.models import BoundingBox, Detection
 
+#: Thân VUÔNG. Đo trên 117 IC gán tay của dự án: ``ic_bon_ben`` có aspect
+#: trung vị 1,03, ``ic_hai_ben`` có 1,95 — nên thân vuông là hình dạng của QFP.
 BODY = BoundingBox(100.0, 100.0, 200.0, 200.0)
+#: Thân THUÔN DÀI, aspect 2,0 — hình dạng của SOIC/TSOP thật.
+BODY_LONG = BoundingBox(100.0, 100.0, 300.0, 200.0)
 LEADS = LeadFusionConfig()
 
 
-def _body(label: str = "ic", detection_id: str = "body1") -> Detection:
+def _body(label: str = "ic", detection_id: str = "body1", *,
+          bbox: BoundingBox | None = None) -> Detection:
     return Detection(
-        label=label, confidence=0.9, bbox=BODY, detection_id=detection_id
+        label=label, confidence=0.9, bbox=bbox or BODY, detection_id=detection_id
     )
 
 
@@ -36,21 +41,28 @@ def _lead(x1: float, y1: float, x2: float, y2: float, index: int = 0) -> Detecti
     )
 
 
-def _edge_leads(edge: str, count: int = 2, start: int = 0) -> list[Detection]:
-    """Chân nằm NGOÀI thân, sát một cạnh — đúng như trên board thật."""
+def _edge_leads(edge: str, count: int = 2, start: int = 0,
+                body: BoundingBox | None = None) -> list[Detection]:
+    """Chân nằm NGOÀI thân, sát một cạnh — đúng như trên board thật.
 
+    Toạ độ bám theo hộp thân chứ không gắn cứng: thân dài và thân vuông có
+    mép khác nhau, và một chân đặt nhầm vào TRONG thân thì ``_edge_of`` trả
+    ``None`` và test đo nhầm thứ khác.
+    """
+
+    box_ = body or BODY
     out = []
     for i in range(count):
-        offset = 120.0 + i * 25.0
+        along = 20.0 + i * 25.0
         if edge == "left":
-            box = (85.0, offset, 98.0, offset + 12.0)
+            b = (box_.x1 - 15.0, box_.y1 + along, box_.x1 - 2.0, box_.y1 + along + 12.0)
         elif edge == "right":
-            box = (202.0, offset, 215.0, offset + 12.0)
+            b = (box_.x2 + 2.0, box_.y1 + along, box_.x2 + 15.0, box_.y1 + along + 12.0)
         elif edge == "top":
-            box = (offset, 85.0, offset + 12.0, 98.0)
+            b = (box_.x1 + along, box_.y1 - 15.0, box_.x1 + along + 12.0, box_.y1 - 2.0)
         else:
-            box = (offset, 202.0, offset + 12.0, 215.0)
-        out.append(_lead(*box, index=start + i))
+            b = (box_.x1 + along, box_.y2 + 2.0, box_.x1 + along + 12.0, box_.y2 + 15.0)
+        out.append(_lead(*b, index=start + i))
     return out
 
 
@@ -129,13 +141,34 @@ def test_capacitor_is_deliberately_not_split_yet() -> None:
 # ------------------------------------------------------------ họ ``ic``
 
 def test_leads_on_two_opposite_edges_read_as_a_two_sided_ic() -> None:
+    """Thân THUÔN DÀI + chân hai cạnh đối = SOIC thật."""
+
     results = _resolve(
-        [_body()],
-        _edge_leads("left") + _edge_leads("right", start=2),
+        [_body(bbox=BODY_LONG)],
+        _edge_leads("left", body=BODY_LONG)
+        + _edge_leads("right", start=2, body=BODY_LONG),
         {"body1": "ic"},
     )
     assert [item.package_class for item in results] == ["ic_hai_ben"]
     assert results[0].metadata["lead_edges"] == ["left", "right"]
+
+
+def test_a_square_body_with_leads_on_only_two_edges_is_not_guessed_at() -> None:
+    """Đây là ca hỏng im lặng thứ hai của hướng luật.
+
+    Một QFP mới bị nhìn thấy chân ở hai cạnh trông y hệt một SOIC. Nhận
+    ``ic_hai_ben`` thì 5.5 **không dựng dải trên hai cạnh còn lại**, mà hai
+    cạnh đó có chân thật. Đo trên 117 IC gán tay: 64% ``ic_bon_ben`` có aspect
+    dưới 1,3, trong khi chỉ 13% ``ic_hai_ben`` như vậy — nên thân vuông là
+    bằng chứng nghiêng về QFP, không nghiêng về SOIC.
+    """
+
+    results = _resolve(
+        [_body()],  # aspect 1.0
+        _edge_leads("left") + _edge_leads("right", start=2),
+        {"body1": "ic"},
+    )
+    assert results == []
 
 
 def test_leads_on_all_four_edges_read_as_a_four_sided_ic() -> None:
@@ -173,50 +206,63 @@ def test_one_stray_lead_does_not_decide_an_edge() -> None:
 
 # -------------------------------------- ca nguy hiểm: IC không thấy chân
 
-def test_an_ic_without_leads_stays_undecided_when_the_detector_proved_nothing(
-) -> None:
-    """Đây là ca hỏng-có-hệ-thống của hướng luật.
+def test_hidden_terminals_are_never_inferred_from_absence_by_default() -> None:
+    """Không suy "gói ẩn chân" từ việc KHÔNG THẤY chân.
 
-    Lead detector im lặng trên cả board thì không phân biệt được "IC thật sự
-    không có chân" với "detector không chạy". Kết luận ``ic_khong_chan`` ở đây
-    làm 5.5 bỏ ROI của một gói CÓ chân — mất mối hàn mà không báo.
+    ``ic_khong_chan`` có ``PadProfile(0, 0)`` nên kết luận sai làm 5.5 bỏ SẠCH
+    ROI của linh kiện đó. Bằng chứng "board có chân ở chỗ khác" chỉ chứng minh
+    detector không chết hẳn, không chứng minh nó không bỏ sót đúng con này.
+    Gói ẩn chân phải đến từ footprint/CAD hoặc nhãn tay.
     """
 
-    results = _resolve([_body()], [], {"body1": "ic"})
-    assert results == []
+    assert PackageRuleConfig().allow_hidden_from_absence is False
+    neighbour, neighbour_leads = _neighbour_with_leads()
+    results = _resolve(
+        [_body(), neighbour], neighbour_leads, {"body1": "ic", "body2": "ic"}
+    )
+    got = {item.detection_id: item.package_class for item in results}
+    assert "body1" not in got, "thân không thấy chân phải để trống, không gán ẩn chân"
 
 
-def test_the_same_ic_is_decided_once_the_detector_works_elsewhere() -> None:
-    """Có chân ở linh kiện khác ⇒ detector đã chứng minh nó đang chạy."""
+def _neighbour_with_leads():
+
+    """Một IC THUÔN DÀI ở xa, có chân hai cạnh — dùng làm bằng chứng board."""
 
     neighbour = Detection(
         label="ic",
         confidence=0.9,
-        bbox=BoundingBox(400.0, 400.0, 500.0, 500.0),
+        bbox=BoundingBox(400.0, 400.0, 600.0, 500.0),   # aspect 2.0
         detection_id="body2",
     )
-    neighbour_leads = [
+    leads = [
         _lead(385.0, 420.0, 398.0, 432.0, index=10),
         _lead(385.0, 445.0, 398.0, 457.0, index=11),
-        _lead(502.0, 420.0, 515.0, 432.0, index=12),
-        _lead(502.0, 445.0, 515.0, 457.0, index=13),
+        _lead(602.0, 420.0, 615.0, 432.0, index=12),
+        _lead(602.0, 445.0, 615.0, 457.0, index=13),
     ]
+    return neighbour, leads
+
+
+def test_hidden_terminals_can_be_turned_on_deliberately() -> None:
+    """Bật được, nhưng phải là quyết định tường minh của người vận hành."""
+
+    neighbour, neighbour_leads = _neighbour_with_leads()
     results = _resolve(
-        [_body(), neighbour],
-        neighbour_leads,
-        {"body1": "ic", "body2": "ic"},
+        [_body(), neighbour], neighbour_leads, {"body1": "ic", "body2": "ic"},
+        config=PackageRuleConfig(enabled=True, allow_hidden_from_absence=True),
     )
     got = {item.detection_id: item.package_class for item in results}
     assert got == {"body1": "ic_khong_chan", "body2": "ic_hai_ben"}
 
 
-def test_the_safety_condition_can_be_turned_off_deliberately() -> None:
+def test_the_board_evidence_condition_can_be_turned_off_deliberately() -> None:
     results = _resolve(
         [_body()],
         [],
         {"body1": "ic"},
         config=PackageRuleConfig(
-            enabled=True, require_lead_evidence_on_board=False
+            enabled=True, allow_hidden_from_absence=True,
+            require_lead_evidence_on_board=False,
         ),
     )
     assert [item.package_class for item in results] == ["ic_khong_chan"]

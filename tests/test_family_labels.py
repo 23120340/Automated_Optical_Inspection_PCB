@@ -308,3 +308,63 @@ def test_the_accept_rate_is_recorded_for_every_run() -> None:
     pipeline.classifier = _Empty()
     pipeline.classify_components([])
     assert pipeline.last_family_accept_rate is None
+
+
+def test_the_run_reports_the_package_results_the_rule_actually_produced(
+    pcb_image,
+) -> None:
+    """Bộ luật 5.2 chạy BÊN TRONG ``make_solder_crops`` và trả một list MỚI.
+
+    Biến cục bộ trong ``run()`` vẫn là danh sách của classifier ONNX — rỗng khi
+    chỉ có luật. Không lấy lại thì báo cáo nói "0 kết quả 5.2" trong khi ROI đã
+    bị đổi, và đó là loại sai không nhìn ra được từ ảnh kết quả.
+    """
+
+    from aoi_pipeline.config import (
+        BoardConfig, PackageRulesConfig, PreprocessConfig,
+    )
+    from aoi_pipeline.detection.detectors import MockComponentDetector
+    from aoi_pipeline.models import BoundingBox as _BB
+
+    class _Classifier:
+        manifest = {"metrics": {"accepted_coverage": 0.95}}
+
+        def classify(self, crops):
+            return [
+                ComponentClassification(
+                    crop_id=f"crop_{i:04d}",
+                    detection_id=crop.detection_id,
+                    family="resistor",
+                    probability=0.95,
+                    top_k=[ClassProbability("resistor", 0.95)],
+                    unknown_score=0.05,
+                    decision="accept",
+                    model_version="test",
+                )
+                for i, crop in enumerate(crops)
+            ]
+
+    config = PipelineConfig(
+        preprocess=PreprocessConfig(
+            max_side=None, denoise=False, white_balance=False,
+            clahe=False, normalize=False, sharpen=False,
+        ),
+        board=BoardConfig(min_area_ratio=0.999, max_area_ratio=0.9999),
+        package_rules=PackageRulesConfig(enabled=True),
+    )
+    detector = MockComponentDetector(
+        [Detection("component", 0.93, _BB(60, 60, 110, 92))]
+    )
+    pipeline = AOIPipeline(
+        config=config, detector=detector, classifier=_Classifier()
+    )
+    run = pipeline.run(pcb_image, source_name="synthetic.png")
+
+    assert pipeline.last_package_classifications, (
+        "luật lẽ ra phải quyết được: họ resistor ánh xạ thẳng sang hai_chan"
+    )
+    assert run.package_classifications, (
+        "ROI đã bị luật đổi nhưng báo cáo trả về danh sách rỗng"
+    )
+    assert {item.source for item in run.package_classifications} == {"package_rules"}
+    assert [item.package_class for item in run.package_classifications] == ["hai_chan"]

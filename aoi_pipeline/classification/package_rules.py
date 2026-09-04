@@ -73,6 +73,23 @@ class PackageRuleConfig:
     #: §8.4: chỉ kết luận "không thấy chân" khi lead detector chứng minh được
     #: nó đang chạy trên chính board này.
     require_lead_evidence_on_board: bool = True
+    #: Suy "gói không có chân" từ việc KHÔNG THẤY chân. Mặc định **tắt**.
+    #:
+    #: Chốt ``require_lead_evidence_on_board`` chỉ chứng minh detector không
+    #: chết hẳn; nó không chứng minh detector không bỏ sót đúng con IC này.
+    #: Mà ``ic_khong_chan`` có ``PadProfile(0, 0)`` nên kết luận sai làm 5.5 bỏ
+    #: SẠCH ROI của linh kiện đó — mất mối hàn, im lặng. Chi phí hai chiều
+    #: lệch hẳn: đoán nhầm sang ``multi_pin`` chỉ tốn công xem lại.
+    #: Gói ẩn chân nên đến từ footprint/CAD hoặc nhãn tay, tức bằng chứng
+    #: DƯƠNG, chứ không từ một phép suy trên sự vắng mặt.
+    allow_hidden_from_absence: bool = False
+    #: Chân chỉ thấy ở 2 cạnh đối mà thân lại GẦN VUÔNG thì nhiều khả năng là
+    #: một QFP mới bị nhìn thấy một nửa, chứ không phải SOIC thật. Đo trên 117
+    #: IC gán tay của dự án: ``ic_bon_ben`` có aspect trung vị 1,03 và 64% dưới
+    #: 1,3; ``ic_hai_ben`` có trung vị 1,95 và chỉ 13% dưới 1,3.
+    #: Dưới ngưỡng này thì trả ``None`` thay vì đoán -- đoán sai ở đây làm 5.5
+    #: bỏ hai cạnh chân CÓ THẬT.
+    two_sided_min_aspect: float = 1.3
     #: Chưa đo được, nên chưa bật. Bộ dữ liệu công khai có **0** tụ hoá trụ
     #: đứng (§8.8), nên ngưỡng độ tròn ``4piA/P^2`` không có gì để hiệu chuẩn.
     #: Đoán một con số ở đây là lặp lại đúng lỗi ``73ce2aa``. Khi có tập kiểm
@@ -99,20 +116,27 @@ def _ic_package(
     edges: frozenset[str],
     has_leads: bool,
     board_has_leads: bool,
+    aspect: float,
     config: PackageRuleConfig,
 ) -> tuple[str, str] | None:
     """Trả (gói, lý do) cho họ ``ic``, hoặc ``None`` khi không kết luận được."""
 
     if not has_leads:
-        # Ca xấu nhất của hướng luật: lead detector recall kém trên một board
-        # => mọi IC thành "không thấy chân" => 5.5 không dựng ROI => mất mối
-        # hàn mà không ai biết. Chặn bằng bằng chứng ngữ cảnh chứ không bằng
-        # ngưỡng tin cậy: nếu detector không tìm được chân ở BẤT KỲ linh kiện
-        # nào khác trên board, nó chưa chứng minh được là đang chạy.
+        # KHÔNG suy gói ẩn chân từ sự vắng mặt của chân. Xem
+        # ``allow_hidden_from_absence``: chốt "board có chân ở chỗ khác" chỉ
+        # chứng minh detector không chết hẳn, không chứng minh nó không bỏ sót
+        # đúng con này -- mà kết luận sai thì 5.5 bỏ SẠCH ROI của nó.
+        if not config.allow_hidden_from_absence:
+            return None
         if config.require_lead_evidence_on_board and not board_has_leads:
             return None
         return "ic_khong_chan", "không có chân nào quanh thân"
     if edges in _OPPOSITE_PAIRS:
+        if aspect < config.two_sided_min_aspect:
+            # Thân gần vuông + chỉ thấy chân hai cạnh = nhiều khả năng QFP mới
+            # nhìn thấy một nửa. Nhận ``ic_hai_ben`` ở đây làm 5.5 bỏ hai cạnh
+            # chân có thật.
+            return None
         return "ic_hai_ben", f"dải chân trên đúng 2 cạnh đối: {sorted(edges)}"
     if len(edges) == 4:
         return "ic_bon_ben", "dải chân trên cả 4 cạnh"
@@ -165,7 +189,11 @@ def resolve_packages_by_rule(
         )
 
         if family == "ic":
-            decided = _ic_package(edges, bool(own), board_has_leads, config)
+            side_long = max(body.bbox.width, body.bbox.height)
+            side_short = max(1.0, min(body.bbox.width, body.bbox.height))
+            decided = _ic_package(
+                edges, bool(own), board_has_leads, side_long / side_short, config
+            )
         elif family == "capacitor":
             # Cần độ tròn contour để tách tụ trụ đứng khỏi tụ chip, mà ngưỡng
             # chưa đo được (§8.8: 0 ví dụ công khai). Không sinh kết quả =>
