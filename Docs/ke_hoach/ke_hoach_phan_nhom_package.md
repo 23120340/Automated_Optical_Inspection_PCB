@@ -7,8 +7,13 @@ nhau nên không đọc được.
 
 ## 1. Một trang tóm tắt
 
-**Mục tiêu.** Cho bước 5.5 biết linh kiện có mấy chân và chân nằm ở cạnh nào,
-để nó thôi phải đoán bằng pixel.
+**Mục tiêu.** Cho bước 5.5 biết **chân nằm ở cạnh nào** và **có nhìn thấy chân
+hay không**, để nó thôi phải đoán bằng pixel.
+
+> Bản trước viết "biết linh kiện có **mấy chân**". Đó là nói quá, và Codex chỉ
+> đúng: bảy lớp chỉ cho biết topology tương đối — `ic_hai_ben` phủ 6–256 chân,
+> `ic_bon_ben` phủ 8–512, `connector` phủ 1–512. **Số chân thật vẫn phải lấy từ
+> footprint/CAD hoặc đếm bằng pixel.**
 
 **Hướng đã chốt.** Dùng **luật hình học**, không train model package. Luật
 **nối sau** classifier 6.1: 6.1 cho *họ*, luật chỉ chia nhỏ *bên trong* một họ.
@@ -21,11 +26,13 @@ nhau nên không đọc được.
 |---|---|
 | Thứ tự pipeline (6.1 và lead detector chạy trước 5.2) | ✅ xong, có test canh |
 | Bộ luật cho họ `ic` + 5 họ ánh xạ thẳng | ✅ xong, mặc định TẮT |
-| Chia họ `capacitor` (trụ đứng ↔ chip) | ❌ **đặc trưng đề xuất đã đo và KHÔNG chạy** — §6.3 |
-| Tập kiểm gán tay để đo tỉ lệ trúng | ❌ chưa có |
-| Taxonomy đầy đủ family → package | ⏳ **chờ bạn duyệt** — §6 |
+| Chốt an toàn cho `ic_khong_chan` và QFP nửa vời | ✅ xong 2026-09-04 — §8 |
+| Chia họ `capacitor` (trụ đứng ↔ chip) | ✅ **đã có luật đo được 97,0%** — §6.3b |
+| Tập kiểm gán tay | ⏳ **750 box đã tiền gán, chờ bạn duyệt** — §6.7 |
+| Ánh xạ họ → gói cho các họ còn lại | ⏳ đang quá rộng — §6.5 |
 
-**Việc kế tiếp cần bạn:** duyệt taxonomy ở §6.5 dựa trên contact sheet đã sinh.
+**Việc kế tiếp cần bạn:** duyệt 750 nhãn tiền gán ở §6.7. Mọi con số mới trong
+tài liệu này rút từ chúng, nên lượt duyệt của bạn là thứ chốt lại tất cả.
 
 ---
 
@@ -117,14 +124,21 @@ kiến trúc, chỉ thay nguồn.
   - 5 họ ánh xạ thẳng: `resistor`/`led`/`diode` → `hai_chan`,
     `discrete_semiconductor` → `goi_nho`, `connector` → `connector`.
   - Họ `ic` chia theo cạnh có dải chân, dùng `assign_leads_to_components()`.
-  - Chốt an toàn: chỉ kết luận `ic_khong_chan` khi lead detector đã tìm được
-    chân ở linh kiện **khác** trên cùng board. Gói này có `PadProfile(0, 0)`
-    nên kết luận sai làm 5.5 bỏ hẳn ROI — mất mối hàn mà không báo.
-  - 19 test, phần lớn canh những ca luật phải trả về **rỗng**.
+  - **Hai chốt an toàn (§8):** không suy `ic_khong_chan` từ sự vắng mặt của
+    chân, và không nhận `ic_hai_ben` khi thân gần vuông. Cả hai chặn ca *hỏng
+    im lặng* — ROI vẫn dựng, chỉ là dựng thiếu.
+  - 15 test, phần lớn canh những ca luật phải trả về **rỗng**.
 - Thứ tự pipeline (`99b962f`): 6.1 chạy trước 5.2/5.5, lead detector chạy trước
   5.2. `tests/test_pipeline_stage_order.py` canh cả hai — trước đó không test
   nào canh thứ tự và cả 1087 test đều xanh với thứ tự sai.
-- `scripts/survey_package_taxonomy.py` — khảo sát ở §6.
+- `scripts/survey_package_taxonomy.py` — khảo sát dữ liệu công khai (§6.1–6.5).
+- `scripts/build_family_package_review_set.py` — dựng tập kiểm 750 box (§6.7).
+- **Sửa một lỗi báo cáo:** `run()` từng giữ danh sách `package_classifications`
+  cũ trong biến cục bộ trong khi luật ghi kết quả vào
+  `self.last_package_classifications` bên trong `make_solder_crops`. Chỉ chạy
+  luật thì báo cáo nói "0 kết quả 5.2" **trong khi ROI đã bị đổi**. Codex phát
+  hiện; giờ có test canh — gỡ bản vá ra thì test đỏ, còn trước đó cả 1128 test
+  đều xanh với lỗi này.
 - Hạ tầng cũ vẫn dùng được: parser footprint BOM/PnP/CAD, bảy topology ở 5.5,
   đường ONNX 5.2 (no-op tuyệt đối khi thiếu artifact), ô model
   `models/active/package_classifier/` với `_NO_AUTO_ADOPT`.
@@ -181,32 +195,51 @@ Trung vị theo lớp, nguồn fpic (mức họ):
 Cạnh dài trải từ 29 tới 223 px và xếp đúng thứ tự trực giác. Tỉ lệ cạnh thì
 gần như dẫm chân nhau (1,2–2,4 cho tất cả), và độ tròn còn tệ hơn.
 
-### 6.3. Đặc trưng kế hoạch đề xuất cho họ `capacitor` KHÔNG chạy
+### 6.3. Phép đo `capacitor` của bản trước ĐO SAI BÀI TOÁN
 
-Kế hoạch trước đề xuất tách tụ trụ đứng khỏi tụ chip bằng **độ tròn contour**
-`4πA/P²`. Giờ có dữ liệu để đo, và kết quả là âm:
+> **Sửa 2026-09-04.** Bảng dưới đây trong bản trước dùng lớp
+> `Electrolytic Capacitor` của FPIC làm đại diện cho "tụ trụ đứng". Mở
+> `contact_sheets/fpic__Electrolytic_Capacitor.png` ra xem thì lớp đó **gần
+> như toàn tantalum dán hình chữ nhật màu cam**, chỉ lác đác lon tròn. Mà
+> tantalum dán là `hai_chan` theo đúng định nghĩa ở §2.
+>
+> Nên con số 85,8% ấy tách **nhãn FPIC này với nhãn FPIC kia**, không tách
+> `tru_dung` với `hai_chan`. Codex chỉ ra chỗ này và kiểm lại thì đúng.
 
-| đặc trưng | ngưỡng tốt nhất | độ chính xác **cân bằng** | recall tụ hoá | recall tụ chip |
+Bảng cũ, giữ lại để không ai đo lại lần nữa:
+
+| đặc trưng | ngưỡng | cân bằng | ghi chú |
+|---|---:|---:|---|
+| `long_side` | ≥ 43 px | 85,8% | **không dùng được — sai target** |
+| `circularity` | ≥ 0,683 | 53,9% | gần như đoán bừa |
+
+### 6.3b. Đo lại trên nhãn tay, đúng miền dự án
+
+Bộ nhãn tay ở §6.7 có **82 `tru_dung` và 312 `hai_chan`** thật, trên chính tile
+của dự án. Đó mới là dữ liệu đúng cho câu hỏi này.
+
+| đặc trưng | ngưỡng | cân bằng | recall trụ | recall chip |
 |---|---:|---:|---:|---:|
-| `long_side` | ≥ 43 px | **85,8%** | 98,1% | 73,5% |
-| `area_px` | ≥ 1.044 | 84,7% | 96,7% | 72,7% |
-| `area_frac` | ≥ 0,0004 | 79,6% | 95,0% | 64,3% |
-| `aspect` | ≥ 2,08 | 62,8% | 37,1% | 88,5% |
-| **`circularity`** | ≥ 0,683 | **53,9%** | 22,4% | 85,3% |
+| **`aspect` < 1,69 VÀ `area` ≥ 1200 px²** | — | **97,0%** | 97,6% | 96,5% |
+| `area` | ≥ 1501 px² | 94,2% | 100,0% | 88,5% |
+| `long_side` | ≥ 40 px | 90,6% | 98,8% | 82,4% |
+| `aspect` | < 1,20 | 89,6% | 85,4% | 93,9% |
+| `circularity` | < 0,333 | 66,5% | 56,1% | 76,9% |
+| `solidity` | < 0,769 | 58,6% | 47,6% | 69,6% |
 
-*(cân bằng = trung bình recall hai lớp; đoán bừa = 50%)*
+**Kết luận cũ về độ tròn SỐNG SÓT** — đo trên dữ liệu đúng vẫn chỉ 66,5%. Lý
+do thì khác với phỏng đoán cũ: không phải Otsu hỏng, mà **tụ hoá nhìn từ trên
+không tròn như lý thuyết** — nắp có rãnh chữ thập, mép lon phản sáng, và
+contour bắt vào những thứ đó.
 
-Trung vị độ tròn: tụ hoá **0,420**, tụ chip **0,477** — tụ hoá còn **kém tròn
-hơn**, ngược hẳn với lý thuyết. Nguyên nhân nhiều khả năng là Otsu trên crop
-nhỏ, tương phản thấp không bắt được đường bao thân mà bắt vào chữ in và vệt
-sáng trên nắp.
+**Thứ thật sự tách được là hình dạng + kích thước vật lý.** Tụ hoá nhìn từ trên
+gần **tròn** (aspect ~1) và **to**; chip thì thuôn và nhỏ. Hai điều kiện cùng
+lúc cho 97,0%.
 
-**Kết luận: bỏ ngưỡng độ tròn, dùng kích thước.** Nhưng có một điều kiện —
-`long_side` là **pixel**, tức phụ thuộc độ phóng đại. Muốn dùng được trên dây
-chuyền thì phải quy về **mm**, và px/mm chỉ có khi đăng ký CAD chạy. Không có
-px/mm thì `area_frac` (79,6%) là phương án lùi, kém 6 điểm.
-
-Đây là câu hỏi 3 ở §9.
+`aspect` **không phụ thuộc độ phóng đại**, còn `area` thì có. Ở ~46 µm/px của
+bộ ảnh này, 1200 px² ≈ **2,5 mm²** — quy về mm được, nên luật vẫn chuyển được
+sang camera khác **miễn là biết px/mm**. Không biết px/mm thì dùng riêng
+`aspect < 1,20` (89,6%), kém 7 điểm nhưng không cần thang đo.
 
 ### 6.4. Ba điều đáng ngờ trong dữ liệu công khai
 
@@ -224,26 +257,36 @@ px/mm thì `area_frac` (79,6%) là phương án lùi, kém 6 điểm.
    4 cụm với cạnh dài 125 / 148 / 488 / **871** px và tỉ lệ cạnh tới **12,1** —
    đó là header dài thật, khác gói thật.
 
-### 6.5. Taxonomy đề xuất — CHỜ BẠN DUYỆT
-
-Cụm chỉ được đánh số, cố ý không đặt tên công nghiệp: đặt tên là việc phải
-nhìn ảnh mới làm được, và máy đoán tên chỉ tạo ra cái nhãn trông như đã xong.
+### 6.5. Taxonomy — đã có bằng chứng, không còn phải đoán
 
 | họ 6.1 | cần chia? | gói | căn cứ |
 |---|---|---|---|
-| `resistor`, `led`, `diode` | ❌ | `hai_chan` | đã cài |
-| `discrete_semiconductor` | ❌ | `goi_nho` | đã cài |
-| `connector` | ❌ | `connector` | đã cài — nhưng xem §6.4 mục 3, có thể đáng chia tiếp |
+| `resistor`, `led`, `diode` | ⚠️ | `hai_chan` | đã cài, **nhưng ánh xạ đang quá rộng** — xem dưới |
+| `discrete_semiconductor` | ⚠️ | `goi_nho` | đã cài, cùng vấn đề |
+| `connector` | ❌ | `connector` | đã cài |
 | `magnetic`, `protection`, `timing`, `acoustic` | ⏳ | **chưa ánh xạ** | không lớp nào trong bảy lớp tả đúng |
 | `relay`, `display`, `switch_control`, `battery_power_input` | ⏳ | **chưa ánh xạ** | hộp lớn nhiều chân, chưa có lớp |
-| `capacitor` | ✅ | `tru_dung` / `hai_chan` | dùng **kích thước**, không phải độ tròn (§6.3) |
-| `ic` | ✅ | 2 bên / 4 bên / không chân | vị trí chân — đã cài |
+| `capacitor` | ✅ | `tru_dung` / `hai_chan` | **aspect + diện tích**, §6.3b |
+| `ic` | ✅ | 2 bên / 4 bên / không chân | vị trí chân, §8 |
 
-Bốn cụm của `fpic/IC` có cạnh dài 68 / 71 / 118 / 180 px — nhiều khả năng ứng
-với SOT/SOIC nhỏ, SOIC lớn, và QFP. Xem `cluster_sheets/fpic__IC__cluster_*.png`
-rồi cho tôi biết cụm nào là cái gì.
+**Ánh xạ họ đang quá rộng** *(Codex chỉ ra, và nhãn tay xác nhận)*. Không phải
+mọi thành viên của một họ đều cùng một gói:
 
----
+- `resistor` → còn có mạng điện trở nhiều chân, và điện trở cắm đứng;
+- `led` → còn có LED RGB nhiều chân;
+- `diode` → còn có cầu diode 4 chân;
+- `discrete_semiconductor` → SOT, SO-8, DPAK, TO đều khác nhau;
+- `connector` → nhãn tay tìm thấy khe PCI, jack RCA, cổng SCART, FPC, header
+  hai hàng, đế cắm CPU — **code đang dựng một kiểu ROI duy nhất cho tất cả**.
+
+Chưa sửa. Sửa đúng cách là thêm điều kiện hình học **bên trong** mỗi họ, giống
+họ `capacitor` ở §6.3b, và mỗi điều kiện phải đo trước khi bật.
+
+**KHÔNG còn hỏi bạn đặt tên 4 cụm IC nữa.** Bản trước nhờ bạn đối chiếu
+`cluster_sheets/fpic__IC__cluster_*.png`. Codex xem cả bốn tờ và kết luận mỗi
+cụm vẫn trộn SOT, SOIC, QFP/BGA lẫn crop nhiễu, cùng một loại còn nằm ở nhiều
+cụm. KMeans ở đó là **thăm dò, không phải bằng chứng taxonomy** — nên đừng
+dùng nó để quyết gói, và đừng tốn công đặt tên cho nó.
 
 ### 6.6. Việc mới từ phía detector: 15/62 thân không có nhãn họ
 
@@ -256,16 +299,77 @@ Chúng rơi về `multi_pin`, tức dựng dải quanh cả 4 cạnh. Đúng v�
 tả, chỉ là nay có một nguồn mới. `run()` đã đếm và cảnh báo số này thay vì
 im lặng.
 
-**Thuộc phạm vi kế hoạch này**, chưa xử lý. Hai hướng, cần đo mới chọn được:
+**Đã đo 2026-09-04, và kết quả bác một lý lẽ của chính tài liệu này.**
 
-1. **Bộ luật lấp chỗ trống.** Luật ở §8 khoá theo họ, mà đây là những ca
-   *không có họ* — nên hiện luật cũng bó tay. Muốn lấp thì phải có nhánh
-   không cần họ, và §4 đã đo được luật hình học toàn cục **tệ hơn baseline**.
-2. **Hạ ngưỡng `accept` của 6.1.** Đổi được vài ca `review` thành `accept`,
-   nhưng nhãn họ sai kéo luật sai theo. Phải đo trên tập kiểm ở §7 trước.
+Đối chiếu 364 box có nhãn họ gán tay với dự đoán của 6.1, tách theo tầng:
 
-Trước khi đo, để chúng ở `multi_pin` là **lựa chọn an toàn**: dựng thừa ROI
-thì xem lại được, thiếu thì không.
+| tầng | n | đúng **họ** | đúng **hình học chân** |
+|---|---:|---:|---:|
+| `accept` | 263 | 88,2% | **95,1%** |
+| `review` | 64 | 54,7% | 68,8% |
+| `unknown` | 37 | 40,5% | 83,8% |
+
+Độ tin **có** xếp hạng được ở mức họ (88,2 > 54,7 > 40,5). Nhưng ở mức hình học
+chân — thứ 5.5 thật sự dùng — thứ tự **vỡ**: `unknown` hơn `review`. Ngưỡng
+đang hiệu chuẩn cho *độ mịn họ*, còn thứ dùng nó cần *độ mịn topology*.
+
+Hai chính sách cho 101 box bị cổng từ chối:
+
+| | **bỏ ROI** (lọt lưới) | thừa ROI | đúng hình học |
+|---|---:|---:|---:|
+| **hiện tại** — lùi về `multi_pin` | **6** | 53 | 83,8% |
+| dùng nhãn ở mọi tầng | **19** | 20 | 89,3% |
+
+Bỏ cổng **làm tổng độ chính xác tăng**, nhưng gấp ba số ca bỏ ROI. Với AOI thì
+đó là sai chiều — **giữ cổng**. Việc đáng làm là **hiệu chuẩn lại ngưỡng cho
+miền mới**, không phải bỏ cổng hay train lại 6.1.
+
+> Một lý lẽ trong `package_rules.py` bị chính số liệu này bác: `multi_pin`
+> **không** phải mặc định an toàn miễn phí. Trong 101 box đó, **46 box thật sự
+> là `two_terminal`** — đẩy chúng sang `multi_pin` là dựng dải quanh cả 4 cạnh
+> của linh kiện 2 chân, đúng cái bệnh §3 mô tả. Nó an toàn theo nghĩa *không bỏ
+> sót*, không an toàn theo nghĩa *đặt ROI đúng chỗ*.
+
+Chi tiết ở [đánh giá 6.1 §7](../danh_gia/danh_gia_classifier_6_1.md).
+
+### 6.7. Tập nhãn tay 750 box — 2026-09-04
+
+`python scripts/build_family_package_review_set.py --out datasets/survey/family_package_review_20260904`
+
+750 box phân tầng trên **34 bo**, cắt kèm lề rộng để nhìn thấy chân, xếp thành
+33 tờ lưới. Nhãn **gán bằng mắt, không dùng 6.1** — dùng model để điền nhãn cho
+tập dùng để đo chính model đó thì phép đo tự xác nhận chính nó, và người duyệt
+bị neo theo nhãn có sẵn.
+
+> ⚠️ **Bạn CHƯA duyệt.** Mọi con số rút từ tập này là tạm.
+
+| gói | n | | họ | n |
+|---|---:|---|---|---:|
+| `hai_chan` | 312 | | `ic` | 131 |
+| `connector` | 86 | | `capacitor` | 104 |
+| `ic_hai_ben` | 84 | | `connector` | 86 |
+| **`tru_dung`** | **82** | | `resistor` | 18 |
+| **`ic_bon_ben`** | **33** | | `timing`/`relay` | 14 |
+| `ngoai_taxonomy` | 19 | | còn lại | 11 |
+| `goi_nho` | 1 | | **chưa chắc** | **386** |
+| **chưa chắc** | **133** | | | |
+
+**Điều này lấp đúng hai lỗ mà §7.1 nói là không nguồn công khai nào có**: 82 ví
+dụ `tru_dung` (tụ hoá nhìn từ trên, nắp có rãnh chữ thập) và 33 ví dụ
+`ic_bon_ben` (QFP thật — nhiều con đọc được mã `TMS320LC31**PQ**40`, PQ chính
+là plastic quad flat pack).
+
+Hai phép đo đã rút ra từ đây, cả hai đều lật một khẳng định cũ:
+
+1. **§6.3b** — luật tách `tru_dung` đạt 97,0%, và phép đo FPIC cũ là sai target.
+2. **`ic_bon_ben` gần vuông, `ic_hai_ben` thuôn dài** — aspect trung vị **1,03**
+   so với **1,95**. Bản trước viết "các IC trong bộ dữ liệu này gần vuông hết,
+   không dài như trực giác"; điều đó đúng với bộ winnies và **sai trên bo dự
+   án**. Con số này giờ là chốt an toàn trong `package_rules.py`.
+
+`ngoai_taxonomy` (19 ca) là relay, module nguồn, pin cúc áo, tản nhiệt, chiết
+áp xoay — **không lớp nào trong bảy lớp tả đúng chúng**. Đây là bằng chứng thật
+cho câu hỏi 2 ở §9.
 
 ---
 
@@ -274,10 +378,15 @@ thì xem lại được, thiếu thì không.
 ### 7.1. Không nguồn công khai nào có đủ
 
 Trong 24 kiểu vỏ của winnies: **mọi IC đều là chân 2 bên** — không một QFP hay
-QFN nào. Tức lớp 5 (`ic_bon_ben`) và lớp 6 (`ic_khong_chan`) có **0 ví dụ**.
-fpic có `IC` nhưng ở mức họ, không nói chân nằm đâu.
+QFN nào. fpic có `IC` nhưng ở mức họ, không nói chân nằm đâu.
 
-Đúng hai phép chia mà kế hoạch cần đều thiếu ví dụ công khai.
+> **Đã lấp một phần bằng nhãn tay (§6.7):** 33 ví dụ `ic_bon_ben` và 82 ví dụ
+> `tru_dung`, trên chính bo của dự án. Hai phép đo quan trọng nhất của tài liệu
+> này (§6.3b và ngưỡng aspect ở §8.2) đều rút từ đó, chứ không còn từ dữ liệu
+> công khai.
+
+**Còn thiếu hẳn: `ic_khong_chan`.** Không nguồn nào — công khai lẫn nhãn tay —
+có một ví dụ QFN/BGA nào. Đó là lý do §8.1 **cấm suy lớp này từ ảnh**.
 
 ### 7.2. Tập kiểm gán tay: 600–800 box
 
@@ -324,12 +433,59 @@ bạn có cột `footprint` thì làm nó trước (câu hỏi 5 ở §9).
 
 ---
 
-## 8. Cổng nghiệm thu và rủi ro
+## 8. Hai chốt an toàn của bộ luật — thêm 2026-09-04
+
+Cả hai đến từ review của Codex, và cả hai đều là ca **hỏng im lặng**: ROI vẫn
+được dựng, chỉ là dựng thiếu, nên không nhìn ra từ ảnh kết quả.
+
+### 8.1. Không suy "gói ẩn chân" từ sự VẮNG MẶT của chân
+
+`allow_hidden_from_absence` giờ mặc định **False**.
+
+Chốt cũ ("lead detector có tìm được chân ở linh kiện khác trên board") chỉ
+chứng minh detector không chết hẳn — nó **không** chứng minh detector không bỏ
+sót đúng con IC đang xét. Mà `ic_khong_chan` có `PadProfile(0, 0)`, nên kết
+luận sai làm 5.5 bỏ **sạch** ROI của linh kiện đó.
+
+Gói ẩn chân phải đến từ **bằng chứng dương** — footprint/CAD hoặc nhãn tay —
+chứ không từ một phép suy trên sự vắng mặt. Và §7.1 vừa nói: không có lấy một
+ví dụ QFN/BGA nào để hiệu chuẩn.
+
+### 8.2. QFP nhìn thấy một nửa trông y hệt SOIC
+
+Nếu chỉ phát hiện được chân ở 2 trong 4 cạnh của một QFP, luật cũ kết luận
+`ic_hai_ben` — và 5.5 **không dựng dải trên hai cạnh còn lại**, hai cạnh có
+chân thật.
+
+Chốt mới: chân ở 2 cạnh đối **cộng thân gần vuông** thì trả `None`. Ngưỡng đo
+trên 117 IC gán tay (§6.7):
+
+| | aspect trung vị | tỉ lệ dưới 1,3 |
+|---|---:|---:|
+| `ic_bon_ben` (QFP) | **1,03** | 64% |
+| `ic_hai_ben` (SOIC/TSOP) | **1,95** | 13% |
+
+Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
+
+---
+
+## 9. Cổng nghiệm thu và rủi ro
+
 
 **Ba cổng, theo thứ tự:**
 
 1. **Nhầm `ic` ↔ thụ động phải bằng 0** trên tập kiểm §7.2. Đây là cặp duy nhất
    làm ROI *tệ đi thật*.
+
+   ⚠️ **Cổng trong code đang kiểm cặp KHÁC.**
+   `scripts/evaluate_package_roi_gate.py:86` kiểm `ic_hai_ben ↔ ic_khong_chan`,
+   không kiểm `ic ↔ thụ động`. Hai cặp đều nguy hiểm và **cổng phải kiểm cả
+   hai**; hiện chỉ có một. Codex chỉ ra, chưa sửa vì script đó viết cho đường
+   ONNX mà kế hoạch này đang bỏ.
+
+   Và cổng phải đo **recall từng pad**, không chỉ tổng số pad còn được phủ:
+   0 lỗi trên 250 mẫu vẫn để lại cận trên ~1,2% ở mức tin cậy 95% (rule of
+   three). Với AOI thì 1,2% ca bỏ ROI là nhiều.
 2. **Đo lại ROI trên board thật** — `tests/data/solder_geometry`, 28 pad đếm
    tay: bật luật phải **không giảm** độ phủ pad. Đây là cổng thật; cổng 1 chỉ
    là điều kiện cần.
@@ -353,22 +509,29 @@ bạn có cột `footprint` thì làm nó trước (câu hỏi 5 ở §9).
 
 ---
 
-## 9. Câu hỏi cần bạn quyết
+## 10. Câu hỏi cần bạn quyết
 
-1. **Duyệt taxonomy ở §6.5 chứ?** Cụ thể: 4 cụm của `fpic/IC` ứng với những
-   package nào, và có chia tiếp `connector` không (§6.4 mục 3).
+1. **Duyệt 750 nhãn tiền gán ở §6.7 chứ?** Đây là việc chặn mọi thứ khác: bốn
+   phép đo mới trong tài liệu này đều rút từ chúng, và tôi gán bằng mắt nên
+   chắc chắn có chỗ sai. 133 gói và 386 họ tôi đã đánh **chưa chắc** thay vì
+   đoán bừa — những ô đó cần bạn nhất.
 2. **Bốn họ chưa ánh xạ** (`magnetic`/`protection`/`timing`/`acoustic` và
    `relay`/`display`/`switch_control`/`battery_power_input`) — thêm lớp thứ 8
-   cho "hộp lớn nhiều chân", hay để chúng lùi về đường `multi_pin` như hôm nay?
-3. **Ngưỡng kích thước cho `capacitor` quy về mm hay dùng `area_frac`?** (§6.3)
-   Quy về mm chính xác hơn 6 điểm nhưng cần px/mm từ đăng ký CAD.
-4. **Tập kiểm 600–800 box phân tầng ở §7.2 — đồng ý cỡ đó chứ?** Nhỏ hơn thì
-   không đo nổi cặp nhầm `ic ↔ thụ động`.
+   cho "hộp lớn nhiều chân", hay để chúng lùi về `multi_pin` như hôm nay?
+   Nhãn tay tìm được **19 ca thật** thuộc nhóm này (§6.7), nên câu hỏi không
+   còn là giả định.
+3. **Ánh xạ họ đang quá rộng (§6.5) — sửa ngay hay để sau?** `resistor` còn có
+   mạng điện trở, `led` còn có RGB, `connector` gộp cả khe PCI lẫn jack RCA
+   lẫn FPC mà code dựng một kiểu ROI duy nhất. Sửa đúng cách là thêm điều kiện
+   hình học trong mỗi họ, và mỗi điều kiện phải đo trước khi bật.
+4. **Luật `capacitor` ở §6.3b — dùng bản cần px/mm (97,0%) hay bản không cần
+   (89,6%)?** Bản đầu chính xác hơn 7 điểm nhưng phải biết thang đo.
 5. **BOM/pick-and-place của bạn có cột `footprint` không?** Câu rẻ nhất trong
    danh sách: **có** thì làm bộ đọc footprint trước và hạ luật package xuống ưu
    tiên thấp; **không** thì luật lên đầu.
 6. **Có xin được file IPC-D-356 từ bên gia công không?** Repo đọc được sẵn, và
-   nó cho *từng pad một* — gần bằng có CAD.
+   nó cho *từng pad một* — gần bằng có CAD. Đây cũng là **nguồn duy nhất** cho
+   `ic_khong_chan`, vì §8.1 đã cấm suy lớp đó từ ảnh.
 7. **Lớp 6 (`ic_khong_chan`): chấp nhận kết luận "không kiểm được bằng ảnh 2D
    trên xuống" chứ?** QFN/BGA mà vẫn phải kiểm là bài toán X-quang.
 
