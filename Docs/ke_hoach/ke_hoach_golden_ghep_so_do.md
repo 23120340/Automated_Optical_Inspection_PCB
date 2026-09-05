@@ -222,7 +222,117 @@ chỉ khởi động lại nếu (1b) cho thấy ở góc board lệch vượt 7
 
 ---
 
-## 8. Câu hỏi cần quyết
+## 8. Bo của dây chuyền — chụp thế nào để ghép được
+
+> Mục này viết cho **bo thật của bạn**, không phải fixture. Điền kích thước bo
+> vào §8.1 trước khi dùng bảng số ở §8.3.
+
+### 8.1. Thông số bo — CẦN BẠN ĐIỀN
+
+| | giá trị | ghi chú |
+|---|---|---|
+| Kích thước bo | ⬜ … × … mm | quyết định số khung ở §8.3 |
+| Linh kiện cao nhất | ⬜ … mm | tụ hoá đứng thường 5–10 mm |
+| Bước chân nhỏ nhất | ⬜ … mm | quyết định µm/px cần |
+| Có fiducial không | ⬜ có / không | nếu không, xem §8.4 |
+
+### 8.2. "Nhiều GÓC" không dùng được — phải là "nhiều VÙNG"
+
+Đây là chỗ dễ hiểu ngược nhất, và làm sai thì cả bộ ảnh vứt đi.
+
+| | nghiêng máy sang góc khác | giữ vuông góc, **dịch bo** |
+|---|---|---|
+| Phối cảnh | **tệ hơn** mỗi ảnh | không đổi |
+| Thân che pad | **nhiều hơn** | ít nhất có thể |
+| Ghép ra mặt nhìn thẳng? | ❌ không | ✅ có |
+| Đo được toạ độ? | ❌ mỗi ảnh một phép chiếu khác | ✅ |
+
+Lý do: mục tiêu là **mặt nhìn thẳng từ trên xuống**. Ảnh chính diện đã là thứ
+gần nhất với nó; nghiêng đi là đi xa khỏi mục tiêu. Chụp nhiều góc chỉ có ích
+khi muốn dựng hình **3D** (thấy mặt bên của mối hàn) — đó là bài toán khác, và
+không phải bài toán đang giải ở đây.
+
+**Cách đúng:** máy **vuông góc với mặt bo**, **khoảng cách không đổi**, dịch bo
+(hoặc máy) theo lưới để mỗi khung phủ một vùng khác nhau, có chồng biên.
+
+### 8.3. Bao nhiêu khung
+
+Bảng đã có ở mục 3.2 của `Docs/thiet_ke/yeu_cau_phan_cung_camera.md`, đã trừ 15% chồng
+biên, cho bo 200 × 150 mm:
+
+| µm/px | Cảm biến | Trường nhìn | Số khung |
+|---|---|---|---|
+| 46 *(mức hiện tại)* | 12 MP | 185 × 140 mm | **4** |
+| **25** *(khuyến nghị)* | **20 MP** | 137 × 91 mm | **4** |
+| 15 | 20 MP | 82 × 55 mm | **12** |
+
+Bo của bạn khác 200 × 150 thì số khung đổi theo diện tích. Điền §8.1 rồi tính
+lại.
+
+### 8.4. Sáu điều kiện để bộ ảnh ghép được
+
+Thiếu bất kỳ điều nào thì ghép ra sơ đồ sai mà **không có gì báo**.
+
+1. **Vuông góc và cùng khoảng cách.** Lệch khoảng cách làm tỉ lệ mm/px khác
+   nhau giữa các khung, và sơ đồ ghép ra sẽ co giãn theo vùng.
+2. **Chồng biên ≥ 15%.** Vùng chồng vừa để nối, vừa là **thước đo sai số** —
+   §6 dùng bất đồng ở vùng chồng làm cổng. Không chồng thì không kiểm được.
+3. **Khoá phơi sáng, cân bằng trắng, tiêu cự.** Máy tự động đổi giữa các khung
+   là đổi ngưỡng ảnh, mà 6.2 chấm mối hàn bằng ngưỡng — hai khung khác sáng
+   cho hai phán quyết khác nhau trên cùng một mối hàn.
+4. **Ánh sáng không đổi.** Cùng lý do, và mạnh hơn: đổi hướng sáng là đổi hình
+   dạng vệt bóng trên thiếc.
+5. **Mỗi khung phải có ≥ 3 điểm nhận dạng chung với khung kề.** Fiducial là
+   tốt nhất; không có thì lỗ ốc, góc bo, hoặc chữ in đặc trưng cũng được. Hai
+   điểm chỉ đủ cho tịnh tiến + xoay; ba điểm mới bắt được sai tỉ lệ.
+6. **Ít nhất một khung có vật chuẩn dài đã biết** — thước, hoặc một linh kiện
+   đã đo bằng thước cặp. Đây là thứ cho **px/mm**, mà hiện **cả dự án chưa có
+   con số đó đo trực tiếp** (46 µm/px ở tài liệu phần cứng là suy từ bước chân
+   linh kiện, không phải đo bằng vật chuẩn).
+
+### 8.5. Chụp bằng điện thoại cầm tay thì sao
+
+Làm được, nhưng phải biết mất gì:
+
+| | rig cố định | điện thoại cầm tay |
+|---|---|---|
+| Khoảng cách không đổi | ✅ | ❌ đổi mỗi lần bấm |
+| Vuông góc | ✅ | ⚠️ lệch vài độ là thường |
+| Khoá phơi sáng/WB | ✅ | ⚠️ phải khoá bằng tay (AE/AF lock) |
+| Ghép ra **sơ đồ để xem** | ✅ | ✅ |
+| Ghép ra **toạ độ để kiểm tra** | ✅ | ❌ **không** |
+
+Nói thẳng: ảnh điện thoại cầm tay đủ để **dựng sơ đồ sơ bộ và nhìn** — biết bo
+có những gì, nằm đại khái ở đâu. **Không** đủ để làm chuẩn kiểm tra, vì sai số
+khoảng cách và góc nghiêng trộn thẳng vào toạ độ mà không tách ra được.
+
+Nếu mục tiêu là (a) xem thử ghép có ra gì không, hoặc (b) có sơ đồ nháp để gán
+nhãn — thì cứ chụp, dùng được. Nếu là (c) làm chuẩn cho dây chuyền — thì cần
+rig, dù rig ở đây chỉ là **một giá đỡ điện thoại cố định và bo trượt trên giấy
+kẻ ô**.
+
+### 8.6. Việc tôi làm được với bộ ảnh đó
+
+Theo đúng thứ tự, và mỗi bước có thể dừng nếu bước trước hỏng:
+
+1. Kiểm sáu điều kiện §8.4 trên chính bộ ảnh, **báo cái nào hỏng** trước khi
+   ghép — ghép ảnh không đạt điều kiện chỉ tạo ra một sơ đồ trông như đúng.
+2. Nắn các khung về một hệ toạ độ chung bằng điểm chung.
+3. Chạy detect + 6.1 trên từng khung.
+4. Ghép thành `InspectionMap`, mỗi linh kiện ghi rõ đến từ khung nào (§5.1).
+5. **Đo bất đồng ở vùng chồng** (§6) — đây là con số nói sơ đồ đáng tin tới đâu,
+   và nó đo được **mà không cần CAD**.
+6. Xuất sơ đồ + báo cáo, kèm danh sách vùng không khung nào phủ.
+
+---
+
+## 9. Câu hỏi cần quyết
+1. **Kích thước bo, chiều cao linh kiện cao nhất, bước chân nhỏ nhất** — điền
+   vào §8.1. Không có ba số đó thì không tính được số khung.
+2. **Mục tiêu của bộ ảnh sắp chụp là gì?** (a) xem thử, (b) sơ đồ nháp để gán
+   nhãn, hay (c) chuẩn kiểm tra cho dây chuyền. (a) và (b) thì điện thoại cầm
+   tay đủ; (c) thì phải có giá đỡ cố định — xem §8.5.
+
 
 1. **Camera/bàn máy có dịch được board theo toạ độ đặt trước không?** §4.1 cần
    chụp cùng một board ở vài vị trí khác nhau. Dịch tay cũng được nhưng phải
