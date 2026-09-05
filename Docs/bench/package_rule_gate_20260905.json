@@ -1,0 +1,30 @@
+{
+  "families_mode": "truth",
+  "boards": [
+    {
+      "board": "board_smd_00001",
+      "pads_total": 28,
+      "covered_before": 28,
+      "covered_after": 28,
+      "lost": [],
+      "gained": [],
+      "roi_before": 90,
+      "roi_after": 90,
+      "roi_area_before": 120813.6,
+      "roi_area_after": 120813.6,
+      "decided": 24,
+      "abstained": 15,
+      "leads_found": 60,
+      "abstain_reasons": {
+        "ic - 0 canh co dai chan": 3,
+        "capacitor - 1 canh co dai chan": 1,
+        "capacitor - 0 canh co dai chan": 11
+      },
+      "leads_inside_body": 18,
+      "by_package": {
+        "hai_chan": 24
+      }
+    }
+  ],
+  "passed": true
+}

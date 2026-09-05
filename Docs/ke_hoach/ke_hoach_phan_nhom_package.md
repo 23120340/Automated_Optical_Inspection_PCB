@@ -642,6 +642,31 @@ tin cậy 95%.
 Đây là thứ nên làm trước, vì không có nó thì mọi thay đổi ở 10.1/10.2 đều không
 chứng minh được là tốt lên.
 
+> **✅ ĐÃ LÀM 2026-09-05** — `scripts/evaluate_package_rule_gate.py`.
+> So ROI **trước và sau** khi bật luật, trên cùng một board. Mất một pad
+> baseline là **fail ngay**, không cân nhắc đánh đổi.
+>
+> Chạy lần đầu trên fixture đang có, và nó lập tức phát hiện **hai chỗ mù mà
+> tôi không biết trước**:
+>
+> 1. **Nhánh `ic` chưa từng được kiểm.** 60 chân được lead detector tìm ra,
+>    nhưng **18 chân có tâm nằm TRONG box thân**, nên `_edge_of` trả `None` và
+>    không cạnh nào đủ dải chân. Nguyên nhân: fixture dùng box của **detector
+>    22 lớp cũ**, vốn khoanh *bao cả chân*; luật thì đọc chân **ngoài** thân
+>    theo quy ước mới. Cổng giờ in cảnh báo này thay vì im lặng báo PASS —
+>    **PASS ở đây không có nghĩa là luật đã được kiểm.**
+> 2. **Luật hiện không đổi gì trên board này.** ROI 90 → 90, pad 28 → 28. Vì
+>    24 quyết định đều là `hai_chan`, mà `terminal_geometry("resistor")` vốn
+>    đã trả `two_terminal` cùng `PadProfile`. Giá trị của luật chỉ hiện ra ở
+>    nhánh `ic` và `capacitor` — đúng hai nhánh chưa chạy được.
+>
+> Cổng cũng tự khai giới hạn của chính nó: **1 board, 28 pad**, cận trên rule
+> of three là **10,71%**. Nó nói thẳng *"không mất pad nào ở đây KHÔNG chứng
+> minh được luật an toàn"*.
+>
+> ⇒ **Việc tiếp theo không phải sửa luật, mà là có thêm fixture có pad đếm
+> tay, khoanh theo quy ước box MỚI.**
+
 ### 10.4. Thứ tự tôi đề xuất
 
 | | việc | phụ thuộc | đáng làm khi |
@@ -680,13 +705,18 @@ phải đo lại — chưa có cơ sở để loại bỏ *hay* giữ lại nó.
 5. **BOM/pick-and-place của bạn có cột `footprint` không?** Câu rẻ nhất trong
    danh sách: **có** thì làm bộ đọc footprint trước và hạ luật package xuống ưu
    tiên thấp; **không** thì luật lên đầu.
-6. **Dây chuyền có kiểm CỐ ĐỊNH vài mẫu PCB, hay mỗi lô một mẫu khác?** Câu
-   này quyết định §10.2 có đáng làm không. Kiểm cố định thì chốt topology một
-   lần lúc tạo golden recipe là rẻ nhất và chắc nhất — người duyệt một lần, sau
-   đó không luật nào phải đoán. Mỗi lô một mẫu khác thì enroll không trả đủ công.
-7. **Đồng ý thứ tự ở §10.4 chứ?** Tôi đề xuất viết **cổng riêng cho luật
-   trước** mọi thứ khác, vì không có nó thì không chứng minh được thay đổi nào
-   là tốt lên.
+6. ~~Dây chuyền có kiểm cố định vài mẫu PCB không?~~ **ĐÃ TRẢ LỜI 2026-09-05:
+   kiểm cố định vài mẫu, và thêm mẫu mới vào được.** ⇒ §10.2 đáng làm.
+
+   Kèm theo một tiền đề chưa ai làm: ảnh Golden hiện chỉ chính diện **một
+   vùng**, các vùng khác bị nhìn nghiêng, nên cần ghép nhiều ảnh trước khi
+   dựng sơ đồ. Ghi ở
+   [ghi_chu_golden_ghep_nhieu_anh.md](ghi_chu_golden_ghep_nhieu_anh.md) —
+   và nó **xung đột với một ràng buộc cố ý** trong `golden/enrollment.py`
+   ("never blends... must remain traceable to a real acquisition"), nên phải
+   giải xung đột đó trước khi §10.2 có nghĩa.
+7. ~~Đồng ý thứ tự ở §10.4 chứ?~~ **ĐÃ ĐỒNG Ý 2026-09-05.** Bắt đầu từ cổng
+   riêng cho đường luật (§10.3).
 8. **Có xin được file IPC-D-356 từ bên gia công không?** Repo đọc được sẵn, và
    nó cho *từng pad một* — gần bằng có CAD. Đây cũng là **nguồn duy nhất** cho
    `ic_khong_chan`, vì §8.1 đã cấm suy lớp đó từ ảnh.
