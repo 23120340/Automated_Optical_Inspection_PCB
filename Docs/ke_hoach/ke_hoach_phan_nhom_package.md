@@ -553,7 +553,111 @@ Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
 
 ---
 
-## 10. Câu hỏi cần bạn quyết
+## 10. Ba đề xuất kiến trúc từ review lượt 2 — cần bạn quyết
+
+Codex đề xuất ba thay đổi kiến trúc. Chúng **không phải sửa lỗi** mà là đổi
+thiết kế, nên chưa làm. Dưới đây là bản đã đối chiếu với code thật — vì hai
+trong ba thứ Codex mô tả **đã tồn tại một phần**, và biết phần nào đã có thì
+khối lượng việc khác hẳn.
+
+### 10.1. Đổi hợp đồng nội bộ thành `terminal_topology`
+
+**Đề xuất.** Thay vì một chuỗi trong bảy slug, bước 5.2 trả về một cấu trúc:
+`lead_edges`, `pin_count`/`range`, `visibility`, `mount_type`, `orientation`,
+`source`, `decision`. Bảy slug cũ giữ làm alias v1.
+
+**Đã có gì.** `aoi_pipeline/placement/footprints.py::FootprintProfile` **đã nói
+gần đúng hợp đồng này** cho nguồn footprint:
+
+| Codex đề xuất | `FootprintProfile` đã có |
+|---|---|
+| `pin_count` / `range` | ✅ `expected_pin_count`, `expected_pin_count_range` — loại trừ nhau |
+| `visibility` | ✅ mã hoá trong `lead_sides = 0` (gói ẩn chân, **không** sinh ROI) |
+| `source` | ✅ `reason` |
+| `decision`/độ tin | ✅ `confidence` — docstring nói rõ đây là độ tin **phân tích tên**, không phải độ tin model |
+| `lead_edges` | ⚠️ mới có `lead_sides` (đếm số cạnh), chưa nói **cạnh nào** |
+| `orientation` | ❌ chưa có |
+| `mount_type` | ❌ chưa có |
+
+**Nên việc thật không phải "thiết kế hợp đồng mới"** mà là **cho bộ luật nói
+đúng cái hợp đồng mà parser footprint đã nói**. Hiện luật trả một chuỗi trần,
+nên `terminal_geometry()` không phân biệt được "biết chắc 16 chân hai cạnh" với
+"đoán từ ảnh, hai cạnh".
+
+Bảy slug **phải** giữ: §2 ghi rõ chúng là giá trị ổn định, được app gán nhãn,
+manifest model và export runtime cùng ghi ra.
+
+**Khối lượng:** vừa. Thêm hai trường vào `FootprintProfile`, cho `package_rules`
+trả `FootprintProfile` thay vì `str`, và cho `terminal_geometry()` nhận nó.
+
+### 10.2. Thứ tự nguồn, và chốt topology một lần lúc tạo golden recipe
+
+**Đề xuất.** Thứ tự bằng chứng:
+
+```
+IPC/CAD pads → footprint/PnP → golden recipe đã duyệt
+             → bằng chứng lead DƯƠNG → heuristic ảnh → unknown/multi_pin
+```
+
+Và: với dây chuyền kiểm cùng một mẫu PCB, chốt topology + ROI **một lần** lúc
+tạo golden recipe; luật ảnh chỉ *gợi ý* lúc enroll, **không xoá** ROI production.
+
+**Đã có gì.** `aoi_pipeline/golden/recipe.py::SlotRecipe` lưu cho từng slot:
+`expected_angle_deg`, `rotation_period_deg` — **tức hướng**, đúng thứ §6.3c
+đang thiếu cho `tru_dung` — cùng `fixed_roi_xyxy`, `source`, `source_confidence`.
+Nên khái niệm "chốt một lần rồi dùng lại" đã là thiết kế sẵn có.
+
+**Còn thiếu gì, và đây là phần đắt:**
+
+1. `SlotRecipe` **không có trường topology nào**. Nó biết ROI ở đâu nhưng không
+   biết ROI đó thuộc gói gì, nên không kiểm chéo được với luật.
+2. `aoi_pipeline/pipeline.py` **không hề đọc recipe** — golden chạy qua
+   `app/pipeline_bridge.py` (frame_id `golden_enrollment`). Đường ROI mối hàn
+   trong `pipeline.py` và đường golden hiện là **hai nhánh song song không nói
+   chuyện với nhau**.
+
+**Đây là điểm mạnh nhất của đề xuất, và cũng là lý do nó đắt.** Nếu dây chuyền
+chỉ kiểm vài mẫu PCB thì chốt topology lúc enroll là đúng: người duyệt một lần,
+sau đó không luật nào phải đoán nữa. Nhưng nó đòi nối hai nhánh đang rời nhau.
+
+**Khối lượng:** lớn. Cần bạn xác nhận **dây chuyền có kiểm cố định vài mẫu PCB
+không** — nếu mỗi lô một mẫu khác thì enroll không trả đủ công.
+
+### 10.3. Cổng riêng cho đường luật
+
+**Đề xuất.** Cổng đo theo từng pad/từng linh kiện, số và diện tích ROI thừa,
+tỉ lệ abstain, tách theo từng topology, trên nhiều board. **Mất bất kỳ pad
+baseline nào là fail.**
+
+**Vì sao bắt buộc.** `scripts/evaluate_package_roi_gate.py` nhận **ma trận nhầm
+lẫn của một model** — đường luật không sinh ra thứ đó, nên cổng hiện tại
+**không chạy được cho luật**. Và thước đo duy nhất đang có là **28 pad trên
+MỘT board**, mà board đó lại **ngoài miền** của detector mới (§ báo cáo hai
+lượt J5). Không đủ để tuyên bố bất cứ điều gì bằng 0.
+
+Rule of three: quan sát 0 lỗi trên 250 mẫu vẫn để lại cận trên **~1,2%** ở mức
+tin cậy 95%.
+
+**Khối lượng:** vừa, và **không phụ thuộc hai đề xuất kia** — viết được ngay.
+Đây là thứ nên làm trước, vì không có nó thì mọi thay đổi ở 10.1/10.2 đều không
+chứng minh được là tốt lên.
+
+### 10.4. Thứ tự tôi đề xuất
+
+| | việc | phụ thuộc | đáng làm khi |
+|---|---|---|---|
+| 1 | **cổng riêng cho luật** (10.3) | không | ngay — mọi thứ khác cần nó để đo |
+| 2 | duyệt 103 mẫu họ `capacitor` (§6.3b) | bạn | ngay |
+| 3 | hợp đồng `terminal_topology` (10.1) | (1) | sau khi có cổng |
+| 4 | nối golden recipe (10.2) | (1), và bạn xác nhận dây chuyền | chỉ khi kiểm cố định vài mẫu PCB |
+
+**Điều tôi không đồng ý với Codex:** đề xuất bỏ hẳn `aspect-only 89,6%` cho
+`capacitor`. Con số đó cũng đo sai phạm vi như 97,0% (§6.3b) nên đằng nào cũng
+phải đo lại — chưa có cơ sở để loại bỏ *hay* giữ lại nó.
+
+---
+
+## 11. Câu hỏi cần bạn quyết
 
 1. **Duyệt 750 nhãn tiền gán ở §6.7 chứ?** Đây là việc chặn mọi thứ khác: bốn
    phép đo mới trong tài liệu này đều rút từ chúng, và tôi gán bằng mắt nên
@@ -576,10 +680,17 @@ Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
 5. **BOM/pick-and-place của bạn có cột `footprint` không?** Câu rẻ nhất trong
    danh sách: **có** thì làm bộ đọc footprint trước và hạ luật package xuống ưu
    tiên thấp; **không** thì luật lên đầu.
-6. **Có xin được file IPC-D-356 từ bên gia công không?** Repo đọc được sẵn, và
+6. **Dây chuyền có kiểm CỐ ĐỊNH vài mẫu PCB, hay mỗi lô một mẫu khác?** Câu
+   này quyết định §10.2 có đáng làm không. Kiểm cố định thì chốt topology một
+   lần lúc tạo golden recipe là rẻ nhất và chắc nhất — người duyệt một lần, sau
+   đó không luật nào phải đoán. Mỗi lô một mẫu khác thì enroll không trả đủ công.
+7. **Đồng ý thứ tự ở §10.4 chứ?** Tôi đề xuất viết **cổng riêng cho luật
+   trước** mọi thứ khác, vì không có nó thì không chứng minh được thay đổi nào
+   là tốt lên.
+8. **Có xin được file IPC-D-356 từ bên gia công không?** Repo đọc được sẵn, và
    nó cho *từng pad một* — gần bằng có CAD. Đây cũng là **nguồn duy nhất** cho
    `ic_khong_chan`, vì §8.1 đã cấm suy lớp đó từ ảnh.
-7. **Lớp 6 (`ic_khong_chan`): chấp nhận kết luận "không kiểm được bằng ảnh 2D
+9. **Lớp 6 (`ic_khong_chan`): chấp nhận kết luận "không kiểm được bằng ảnh 2D
    trên xuống" chứ?** QFN/BGA mà vẫn phải kiểm là bài toán X-quang.
 
 ---
