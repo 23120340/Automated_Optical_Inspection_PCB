@@ -78,12 +78,13 @@ def test_the_gate_says_WHY_it_abstained_not_just_how_many() -> None:
     assert sum(result.abstain_reasons.values()) == result.abstained
 
 
-def test_the_gate_flags_boxes_that_use_the_old_lead_including_convention() -> None:
-    """Fixture dùng box của detector 22 lớp cũ, vốn bao cả chân.
+def test_the_gate_flags_leads_that_land_inside_the_body() -> None:
+    """Chân có tâm trong box thân thì không đóng góp cạnh nào.
 
-    Khi đó chân rơi vào TRONG box thân, ``_edge_of`` trả ``None``, và nhánh
-    ``ic`` của luật không bao giờ chạy. Cổng phải nói ra chứ không im lặng
-    báo PASS — PASS ở đây không có nghĩa là luật đã được kiểm.
+    Cổng phải nói ra chứ không im lặng báo PASS — PASS khi nhánh ``ic`` chưa
+    chạy lần nào thì không có nghĩa là luật đã được kiểm. Cổng KHÔNG kết luận
+    nguyên nhân: có thể do quy ước box cũ, cũng có thể do lượt 2 vốn tìm mối
+    hàn trong một cửa sổ quanh linh kiện.
     """
 
     result = evaluate_board(

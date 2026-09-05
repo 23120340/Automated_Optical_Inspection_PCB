@@ -64,9 +64,8 @@ class BoardResult:
     decided: int = 0
     abstained: int = 0
     leads_found: int = 0
-    #: Chan duoc gan cho mot than nhung TAM nam TRONG box than. Dau hieu
-    #: box theo quy uoc CU (bao ca chan) chu khong phai quy uoc moi
-    #: ("chi than"), va khi do nhanh ``ic`` cua luat khong the chay.
+    #: Chan duoc gan cho mot than nhung TAM nam TRONG box than. Nhung chan
+    #: do khong dong gop duoc canh nao, nen nhanh ``ic`` cua luat khong chay.
     leads_inside_body: int = 0
     #: Vi sao luat bo qua. "Bo qua 15" khong dung duoc; "bo qua 3 con
     #: ic vi chi thay chan o 1 canh" thi dung.
@@ -251,11 +250,16 @@ def main(argv: list[str] | None = None) -> int:
     inside = sum(r.leads_inside_body for r in results)
     if inside:
         print()
-        print(f"⚠️  {inside} chân được gán cho một thân nhưng TÂM nằm TRONG box thân.")
-        print("    Đó là dấu hiệu box theo quy ước CŨ (bao cả chân). Luật `ic` đọc")
-        print("    chân NGOÀI thân theo quy ước mới (\"chỉ thân, loại chân/pad\"),")
-        print("    nên trên fixture này nhánh `ic` KHÔNG chạy được — cổng chưa kiểm")
-        print("    được đúng phần đáng kiểm nhất.")
+        print(f"⚠️  {inside} chân được gán cho một thân nhưng TÂM nằm TRONG box")
+        print("    thân, nên chúng không đóng góp cạnh nào và nhánh `ic` của luật")
+        print("    không chạy tới. Hai nguyên nhân đều có thể, cổng KHÔNG phân")
+        print("    biệt được:")
+        print("      (a) box theo quy ước CŨ, bao cả chân — khi đó chân thật sự")
+        print("          nằm trong box;")
+        print("      (b) lượt 2 cắt một cửa sổ QUANH linh kiện rồi tìm mối hàn")
+        print("          bên trong đó, nên nó vẫn trả về mối hàn nằm trên/dưới")
+        print("          thân — đúng thiết kế, không phải lỗi.")
+        print("    Dù nguyên nhân nào, nhánh `ic` vẫn chưa được kiểm ở đây.")
 
     boards = len(results)
     pads = sum(r.pads_total for r in results)

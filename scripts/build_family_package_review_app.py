@@ -13,6 +13,7 @@ nên phải mở trang **tại chỗ** trong thư mục tập kiểm.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -70,11 +71,52 @@ TEMPLATE = """<!doctype html>
     <input type="checkbox" id="only"> chỉ hiện ô cần xem kỹ
   </label>
   <button id="save">Tải JSON đã sửa</button>
+  <span class="pill" id="autosave">—</span>
   <span class="pill">Nhãn điền sẵn do NHÌN ẢNH, không do model 6.1</span>
 </header>
 <main id="grid"></main>
 <script>
 const ITEMS = __DATA__;
+// Tự lưu vào trình duyệt sau MỖI thay đổi. Đây là việc 750 ô; không có cái này
+// thì đóng nhầm tab, trình duyệt sập, hay máy khởi động lại là mất sạch, và
+// người duyệt không có cách nào biết trước điều đó.
+// Khoá gắn với DATASET_ID nên hai bộ khác nhau không đè lên nhau.
+const KEY = 'aoi-family-package-review/' + __DATASET_ID__;
+const badge = () => document.getElementById('autosave');
+
+function restore() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (!saved || !Array.isArray(saved.items)) return 0;
+  // Ghép theo ID, không theo thứ tự: bộ ảnh có thể được dựng lại và đổi thứ tự.
+  const byId = new Map(saved.items.map(i => [i.id, i]));
+  let restored = 0;
+  for (const item of ITEMS) {
+    const old = byId.get(item.id);
+    if (!old) continue;
+    if (old.family !== item.family || old.package !== item.package) restored++;
+    item.family = old.family;
+    item.package = old.package;
+  }
+  return restored;
+}
+
+function autosave() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({
+      saved_at: new Date().toISOString(),
+      items: ITEMS.map(i => ({id: i.id, family: i.family, package: i.package})),
+    }));
+    const time = new Date().toLocaleTimeString();
+    badge().textContent = 'đã tự lưu ' + time;
+    badge().className = 'pill';
+  } catch (e) {
+    // Hết dung lượng hoặc trình duyệt chặn. Phải nói ra: người duyệt đang tin
+    // là công việc được giữ, mà thực ra không.
+    badge().textContent = 'TỰ LƯU HỎNG — bấm "Tải JSON đã sửa" thường xuyên';
+    badge().className = 'pill warn';
+  }
+}
 const FAMILIES = __FAMILIES__;
 const PACKAGES = __PACKAGES__;
 const grid = document.getElementById('grid');
@@ -123,6 +165,7 @@ grid.addEventListener('change', e => {
   card.className = 'card ' + (unsure ? 'xk' : 'done');
   const left = ITEMS.filter(i => i.family==='XEM_KY' || i.package==='XEM_KY').length;
   document.getElementById('xk').textContent = `${left} ô còn XEM_KY`;
+  autosave();
 });
 
 document.getElementById('only').addEventListener('change', render);
@@ -138,7 +181,13 @@ document.getElementById('save').addEventListener('click', () => {
   a.click();
 });
 
+const restored = restore();
 render();
+if (restored) {
+  badge().textContent = 'khôi phục ' + restored + ' ô đã sửa lần trước';
+} else {
+  badge().textContent = 'tự lưu: bật';
+}
 </script>
 """
 
@@ -163,12 +212,21 @@ def main(argv: list[str] | None = None) -> int:
         }
         for item in sorted(payload["items"], key=lambda i: i["id"])
     ]
+    # Danh tính bộ ảnh: số mục + id đầu + id cuối. Dựng lại cùng một bộ thì ra
+    # cùng khoá, nên tiến độ duyệt sống sót qua một lần dựng lại.
+    dataset_id = hashlib.sha256(
+        f"{root.name}|{len(items)}|{items[0]['id']}|{items[-1]['id']}".encode()
+    ).hexdigest()[:16]
+
     html = (
         TEMPLATE
         .replace("__DATA__", json.dumps(items, ensure_ascii=False))
         .replace("__FAMILIES__", json.dumps(FAMILIES))
         .replace("__PACKAGES__", json.dumps(PACKAGES))
         .replace("__N__", str(len(items)))
+        # Khoá tự lưu phải gắn với BỘ ẢNH, không phải với tên file: dựng lại bộ
+        # khác mà dùng chung khoá thì tiến độ của bộ này đè lên bộ kia.
+        .replace("__DATASET_ID__", json.dumps(dataset_id))
     )
     target = root / "review_family_package.html"
     target.write_text(html, encoding="utf-8")
