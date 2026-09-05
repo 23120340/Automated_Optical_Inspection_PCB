@@ -326,6 +326,82 @@ Theo đúng thứ tự, và mỗi bước có thể dừng nếu bước trướ
 
 ---
 
+### 8.7. Quy trình tại chỗ — làm theo đúng thứ tự này
+
+Bo đang ở công ty, nên mục này viết để **cầm theo và làm một mạch**, không cần
+hỏi lại.
+
+**Chuẩn bị mang theo**
+
+- Thước kẻ hoặc thước cặp (**bắt buộc** — xem điều 6 ở §8.4).
+- Giấy kẻ ô hoặc băng dính giấy để đánh dấu vị trí dịch bo.
+- Vật kê để giữ máy cố định: chồng sách, kẹp điện thoại, chân máy — bất cứ thứ
+  gì giữ được **khoảng cách và góc không đổi** giữa các lần bấm.
+
+**Bước 1 — đo bo, ghi vào §8.1** *(2 phút, nhưng không có thì mọi tính toán
+sau đều treo)*
+
+| đo gì | bằng gì |
+|---|---|
+| dài × rộng bo | thước |
+| chiều cao linh kiện cao nhất | thước cặp, hoặc ước lượng theo tụ hoá cao nhất |
+| bước chân nhỏ nhất | nhìn con IC chân dày nhất; SOIC là 1,27 mm, TSSOP 0,65 mm, QFP mịn 0,5 mm |
+| có fiducial không | ba chấm tròn mạ đồng ở góc bo |
+
+**Bước 2 — dựng chỗ chụp**
+
+1. Đặt máy **vuông góc** với mặt bo. Cách kiểm rẻ nhất: nhìn bóng phản chiếu
+   của ống kính trên một mặt phẳng bóng của bo — bóng nằm giữa khung là vuông.
+2. Đặt bo trên giấy kẻ ô, đánh dấu vị trí ban đầu.
+3. **Khoá AE/AF/WB.** Trên điện thoại: chạm giữ vào bo cho tới khi hiện
+   "AE/AF Lock". Trên máy ảnh: chuyển sang M, ghi lại khẩu/tốc/ISO.
+4. Chụp thử một tấm, **phóng to hết cỡ vào chỗ chân IC mịn nhất**. Không đọc
+   được ranh giới từng chân thì hạ máy xuống gần hơn và tăng số khung — đây
+   chính là vấn đề "chụp không nét" bạn nêu, và nó phải giải ở bước này chứ
+   không giải được lúc ghép.
+
+**Bước 3 — chụp**
+
+- Dịch bo theo lưới, **chồng biên ~30%** (dư so với mức tối thiểu 15%; chồng
+  thừa không hại gì, chồng thiếu thì phải quay lại).
+- **Không đổi khoảng cách, không đổi zoom, không xoay bo** giữa các khung.
+- Ít nhất **một khung có thước nằm trong ảnh**, đặt sát mặt bo cho cùng mặt
+  phẳng tiêu.
+- Đặt tên file theo thứ tự dịch: `r0c0.jpg`, `r0c1.jpg`, `r1c0.jpg`…
+
+**Bước 4 — KIỂM NGAY, trước khi rời khỏi bo**
+
+```bash
+python scripts/check_capture_set.py <thư mục ảnh>
+```
+
+Nó so **trên vùng chồng của từng cặp khung**, nên nó phân biệt được "hai khung
+khác nhau vì máy đổi thiết lập" với "hai khung khác nhau vì chụp chỗ khác":
+
+| báo gì | sửa thế nào, ngay tại chỗ |
+|---|---|
+| lệch mức sáng | AE chưa khoá — khoá rồi chụp lại cả bộ |
+| lệch màu | WB chưa khoá |
+| chênh độ nét | một khung mất nét — chụp lại riêng khung đó |
+| chồng biên thiếu | dịch bo ít hơn ở chỗ đó |
+| khung không chồng với ai | thiếu khung bắc cầu, hoặc vùng đó trơn quá không có điểm nhận dạng |
+| ảnh không cùng kích thước | zoom bị đổi giữa chừng |
+
+Ra `ĐẠT` mới ra về. Ra `CHỤP LẠI` thì sửa đúng dòng nó chỉ rồi chạy lại — mỗi
+vòng mất vài phút, còn phát hiện ở nhà thì mất cả buổi đi lại.
+
+**Hai điều script KHÔNG kiểm được**, phải tự nhớ: (a) có thước trong ít nhất
+một khung không, (b) máy có vuông góc không.
+
+**Bước 5 — gửi tôi**
+
+- Cả thư mục ảnh, **nguyên gốc, không crop, không chỉnh**.
+- Bốn số ở §8.1.
+- Chiều dài thật của vật chuẩn trong ảnh (ví dụ "vạch thước từ 0 đến 100 mm").
+- Kết quả `check_capture_set.py` (copy màn hình cũng được).
+
+---
+
 ## 9. Câu hỏi cần quyết
 1. **Kích thước bo, chiều cao linh kiện cao nhất, bước chân nhỏ nhất** — điền
    vào §8.1. Không có ba số đó thì không tính được số khung.
