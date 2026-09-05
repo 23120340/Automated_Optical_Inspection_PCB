@@ -64,7 +64,7 @@ def test_losing_a_baseline_pad_fails_the_gate(monkeypatch) -> None:
 
     from scripts import evaluate_package_rule_gate as gate
 
-    def _fake(path, families_mode, lead_model):
+    def _fake(path, families_mode, lead_model, leads_mode="model"):
         result = BoardResult(board=path.stem, pads_total=2)
         result.covered_before = 2
         result.covered_after = 1
@@ -80,7 +80,7 @@ def test_losing_a_baseline_pad_fails_the_gate(monkeypatch) -> None:
 def test_a_clean_board_passes(monkeypatch) -> None:
     from scripts import evaluate_package_rule_gate as gate
 
-    def _fake(path, families_mode, lead_model):
+    def _fake(path, families_mode, lead_model, leads_mode="model"):
         result = BoardResult(board=path.stem, pads_total=2)
         result.covered_before = result.covered_after = 2
         return result
@@ -235,3 +235,72 @@ def test_the_gate_reports_a_geometry_change_end_to_end(tmp_path) -> None:
         "luật đổi connector từ multi_pin sang connector_rows mà cổng thấy y "
         "nguyên thì nó không đo được gì"
     )
+
+
+def test_hand_pads_as_lead_source_finally_reach_the_ic_branch() -> None:
+    """``--leads truth``: nguồn chân thứ hai, và là thứ mở được nhánh ``ic``.
+
+    Đo được, trên chính fixture này:
+
+    ==========================  ==========  ==========
+    nguồn chân                  ngoài thân  trong thân
+    ==========================  ==========  ==========
+    pass 2 (lead detector)      42          **18**
+    pad đếm tay của fixture     24          **4**
+    ==========================  ==========  ==========
+
+    ``_edge_of`` đòi TÂM chân nằm ngoài hộp thân, nên chân của pass 2 gần như
+    không đóng góp cạnh nào và nhánh ``ic`` **chưa từng chạy tới** — suốt thời
+    gian đó ai cũng tưởng nguyên nhân là quy ước box cũ của fixture. Không
+    phải: pad đếm tay trên **cùng những hộp thân đó** lại nằm ngoài 24/28.
+    Nguyên nhân là bước 2 cắt một cửa sổ QUANH linh kiện rồi tìm mối hàn bên
+    trong, nên mối hàn nó trả về nằm đè lên thân.
+
+    Chế độ này vì thế đo **LOGIC của luật với bằng chứng chân hoàn hảo**, đúng
+    kiểu ``--families truth`` đo luật tách khỏi lỗi 6.1. Nó **không** thay được
+    ``--leads model`` cho quyết định bật luật.
+    """
+
+    truth = evaluate_board(FIXTURES / "board_smd_00001.json", "truth", None,
+                           "truth")
+    assert truth.leads_found == 28, "phải dùng đúng 28 pad đếm tay làm chân"
+    assert truth.leads_inside_body < 10, (
+        f"pad đếm tay nằm trong thân {truth.leads_inside_body}/28 — cao thế "
+        "này thì nhánh `ic` vẫn không chạy được, và fixture cần khoanh lại"
+    )
+    assert any("§8.2" in reason for reason in truth.abstain_reasons), (
+        "phải có ít nhất một con ic đi tới được nhánh hai-cạnh-đối rồi bị chốt "
+        f"§8.2 chặn; hiện có: {dict(truth.abstain_reasons)}"
+    )
+
+
+def test_the_gate_survives_a_console_that_cannot_encode_vietnamese() -> None:
+    """Script phải tự cấu hình stdout, không dựa vào tác dụng phụ của ONNX.
+
+    Console Windows mặc định cp1252. Trước đây script vẫn chạy — nhưng chỉ vì
+    nạp ONNX Runtime cấu hình lại stdout hộ. Nên ngay khi thêm ``--leads truth``
+    (không nạp model nào) thì nó đổ ở **dòng in đầu tiên**, trước cả khi đo gì.
+
+    Bản đầu của test này là GIẢ: nó assert ``sys.stdout.encoding`` của chính
+    tiến trình pytest, mà pytest đã bắt sẵn stdout thành UTF-8 — nên nó xanh dù
+    script có reconfigure hay không. Bản này chạy script trong tiến trình RIÊNG
+    với ``PYTHONIOENCODING=cp1252``, tức dựng lại đúng cái console đã làm nó đổ.
+    """
+
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    done = subprocess.run(
+        [sys.executable, "scripts/evaluate_package_rule_gate.py",
+         str(FIXTURES), "--leads", "truth"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env, capture_output=True, text=True, encoding="utf-8",
+        errors="replace",
+    )
+    assert "UnicodeEncodeError" not in done.stderr, (
+        "console cp1252 làm script đổ; nó phải tự reconfigure stdout sang UTF-8 "
+        f"thay vì dựa vào việc nạp ONNX. stderr: {done.stderr[-800:]}"
+    )
+    assert done.returncode == 0, done.stderr[-800:]

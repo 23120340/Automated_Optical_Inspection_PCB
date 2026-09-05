@@ -31,6 +31,7 @@ hay không**, để nó thôi phải đoán bằng pixel.
 | Chốt an toàn cho `ic_khong_chan` và QFP nửa vời | ✅ xong 2026-09-04 — §8.1, §8.2 |
 | Cổng nghiệm thu cho đường luật | ✅ **đã sửa 2026-09-05** — dùng chung đường runtime, §9.0b |
 | Cạnh chân đo được → 5.5 | ⚠️ **vẫn bị vứt đi**, nhưng đã chặn không cho đặt ROI sai cạnh — §8.3 |
+| Nhánh `ic` của luật | ⚠️ **chạy được với pad đếm tay**, chưa chạy được với chân pass-2 — §9.0c |
 | Chia họ `capacitor` (trụ đứng ↔ chip) | ❌ **CHƯA có luật** — phép đo cũ sai phạm vi, §6.3b |
 | Tập kiểm gán tay | ⏳ **750 box đã tiền gán, chờ bạn duyệt** — §6.7 |
 | Ánh xạ họ → gói cho các họ còn lại | ⏳ đang quá rộng — §6.5 |
@@ -49,8 +50,9 @@ hay không**, để nó thôi phải đoán bằng pixel.
 **Việc kế tiếp cần bạn:** duyệt 750 nhãn tiền gán ở §6.7 — và **ưu tiên 103
 mẫu họ `capacitor`**, vì đó là chỗ phép đo đang mỏng nhất (§6.3b).
 
-**Việc kế tiếp của tôi:** bước 5 ở §10.4 — fixture đúng quy ước box mới, vì
-nhánh `ic` của luật vẫn chưa chạy được lần nào. Bước 1–3 đã xong.
+**Việc kế tiếp của tôi:** chờ bạn quyết bước 6 ở §10.4 — pass 2 trả mối hàn
+**đè lên thân**, và đó mới là thứ chặn nhánh `ic` trên dây chuyền. Fixture mới
+không sửa được (§9.0c). Bước 1–3 và 5 đã xong.
 
 
 ---
@@ -723,6 +725,73 @@ nhưng refine co chúng về mảng kim loại và 9 pad rơi xuống dưới ng
 không chặn cổng (refine tác động như nhau lên cả hai vế), nhưng **9/28 pad đếm
 tay tuột khỏi ROI sau refine là việc phải đi đo riêng.**
 
+#### 9.0c. Nhánh `ic` bị đói vì NGUỒN CHÂN, không vì quy ước box
+
+**Đây là lý do bước 5 của §10.4 (dựng fixture mới) sẽ KHÔNG mở được nhánh `ic`.**
+Đo trước khi làm, và phép đo lật lại giả định đã ghi hai lần trong tài liệu này.
+
+Giả định cũ: chân rơi vào trong box thân là vì fixture dùng **quy ước box cũ**
+(detector 22 lớp khoanh bao cả chân). Đo bằng detector **mới** (một lớp, chỉ
+thân) trên bốn nguồn ảnh:
+
+| ảnh | thân | chân NGOÀI | chân TRONG | ứng viên `ic_hai_ben` |
+|---|---:|---:|---:|---:|
+| `real_pcb/phone/whole_pcb.jpg` (bo dự án, cả bo) | 266 | 43 | **469** (92%) | 1 |
+| MPI gas-pump 4096×2816 (cả bo) | 166 | 271 | **1170** (81%) | 2 |
+| 12 tile 1024 cắt từ ảnh MPI đó | 200 | 206 | **967** (82%) | 3 |
+| tile PCB-DSLR 1024 (`pcb11`) | 204 | **189** | 65 (26%) | 5 |
+
+Quy ước box mới **không** sửa được chuyện đó. Bằng chứng quyết định nằm ở chính
+fixture đang có — cùng một bộ hộp thân, hai nguồn chân khác nhau:
+
+| nguồn chân | ngoài thân | trong thân |
+|---|---:|---:|
+| pass 2 (lead detector) | 42 | **18** |
+| pad **đếm tay** của fixture | 24 | **4** |
+
+Cùng hộp thân, nhưng pad đếm tay nằm ngoài 24/28 còn chân pass 2 thì không.
+Nguyên nhân là **nguyên nhân (b)** mà cổng vẫn nói là không phân biệt được:
+`detect_leads_in_components` cắt một **cửa sổ quanh** linh kiện rồi tìm mối hàn
+bên trong, nên mối hàn nó trả về đè lên thân. `_edge_of` đòi **tâm** chân nằm
+ngoài hộp, nên chúng không đóng góp cạnh nào.
+
+**✅ Đã thêm `--leads truth|model|none`**, đối xứng với `--families`, và vì cùng
+một lý do. Với `--leads truth` bộ luật nhận pad đếm tay, và nhánh `ic` **chạy
+lần đầu tiên**:
+
+```
+chân trong thân: 18 -> 4
+luật BỎ QUA:
+   12  capacitor - 0 canh co dai chan
+    2  ic - 1 canh co dai chan
+    1  ic - 2 canh doi nhung than gan vuong (aspect 1.13 < 1.3), §8.2
+```
+
+Con `ic` duy nhất đi tới được nhánh hai-cạnh-đối bị **§8.2 chặn đúng thiết kế**
+— thân gần vuông, nghi là QFP mới nhìn thấy một nửa. Không phải lỗi.
+
+> ⚠️ `--leads truth` đo **LOGIC của luật với bằng chứng chân hoàn hảo**, đúng
+> kiểu `--families truth` đo luật tách khỏi lỗi 6.1. Nó **không** thay được
+> `--leads model` cho quyết định bật luật.
+
+Cổng cũng đã tách ba ca "2 cạnh" vốn in ra giống hệt nhau nhưng sửa ở ba chỗ
+khác nhau: cạnh **kề** (ngoài taxonomy), cạnh **đối + thân vuông** (§8.2), cạnh
+**đối + lệch trục dài** (§8.3).
+
+**Việc thật lộ ra từ đây, thay cho "dựng thêm fixture":**
+
+1. **Lead detector / pass 2 trả mối hàn đè lên thân.** Đây mới là thứ chặn nhánh
+   `ic` trên dây chuyền, và không có fixture nào sửa được nó. Cần quyết: nới
+   `_edge_of` (ví dụ so theo mép chứ không theo tâm), hay sửa cửa sổ cắt của
+   pass 2, hay chấp nhận rằng đường ảnh không nuôi nổi nhánh `ic` và topology
+   phải đến từ recipe (§10.2).
+2. **Fixture mới vẫn cần**, nhưng cho việc khác: đo **độ phủ pad** trên hộp thân
+   quy ước mới. Không còn là đường để mở nhánh `ic`.
+3. **Giấy phép ảnh fixture.** `datasets/test_images/` bị `.gitignore` chặn và
+   CVL PCB-DSLR là **phi thương mại**, tile phái sinh mang theo ràng buộc đó —
+   không commit được. **MPI-PCB gas pump là CC BY 4.0**, commit được kèm
+   attribution; đó là nguồn đúng cho fixture tiếp theo.
+
 ### 9.1. Ba cổng, theo thứ tự
 
 1. **Nhầm `ic` ↔ thụ động phải bằng 0** trên tập kiểm §7.2. Đây là cặp duy nhất
@@ -933,11 +1002,13 @@ mù (§9.0), nên bảng dưới thay hẳn bảng cũ. Codex đề xuất thứ
 | 2 | ✅ **chốt trục dài trong `_ic_package`** (§8.3a) | không | 3 dòng, đóng lỗ hổng đang mở, an toàn tuyệt đối |
 | 3 | ✅ chạy lại cổng, cả `truth` **và** `model` (§7.2b) | (1),(2) | lần đầu tiên có số thật về luật — §9.0b |
 | 4 | duyệt 103 mẫu họ `capacitor` (§6.3b) | bạn | chạy song song được với 1–3 |
-| 5 | fixture đúng quy ước box mới + chia hiệu chỉnh/nghiệm thu theo bo (§7.2b) | (1) | cân đúng rồi mới đáng cân thêm mẫu |
-| 6 | hợp đồng `terminal_topology` (§10.1, §8.3b) | (1),(5) | dùng được cạnh chân đã đo, thay vì chỉ bỏ qua |
-| 7 | nối golden recipe (§10.2) | (6), dây chuyền kiểm cố định — **đã xác nhận** | chốt topology một lần, người duyệt |
+| 5 | ✅ **`--leads truth`** — nguồn chân thứ hai (§9.0c) | (1) | mở được nhánh `ic` lần đầu; fixture mới KHÔNG mở được |
+| 6 | ⭐ **quyết: pass 2 trả mối hàn đè lên thân thì xử lý sao** (§9.0c) | (5) | đây mới là thứ chặn nhánh `ic` trên dây chuyền |
+| 7 | fixture đúng quy ước box mới, ảnh **MPI CC BY 4.0** + chia hiệu chỉnh/nghiệm thu theo bo (§7.2b) | (1) | để đo ĐỘ PHỦ PAD, không còn để mở nhánh `ic` |
+| 8 | hợp đồng `terminal_topology` (§10.1, §8.3b) | (1),(7) | dùng được cạnh chân đã đo, thay vì chỉ bỏ qua |
+| 9 | nối golden recipe (§10.2) | (8), dây chuyền kiểm cố định — **đã xác nhận** | chốt topology một lần, người duyệt |
 
-**Luật giữ mặc định TẮT suốt 1–7.** Điều kiện bật: vượt cổng ở bước 3 trên tập
+**Luật giữ mặc định TẮT suốt 1–9.** Điều kiện bật: vượt cổng ở bước 3 trên tập
 nghiệm thu khoá của bước 5, với ngưỡng đóng băng trước khi đo.
 
 **Điều tôi không đồng ý với Codex:** đề xuất bỏ hẳn `aspect-only 89,6%` cho

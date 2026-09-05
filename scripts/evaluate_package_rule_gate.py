@@ -28,6 +28,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Console Windows mac dinh cp1252, khong ma hoa noi tieng Viet. Truoc day script
+# van chay duoc -- nhung chi vi mot TAC DUNG PHU: nap ONNX Runtime cau hinh lai
+# stdout. Nen ngay khi them ``--leads truth`` (khong nap model nao) thi no do
+# ngay o dong in dau tien. Dat thang o day, dung dua vao thu tu import.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 from aoi_pipeline import (  # noqa: E402
     BoundingBox, Detection, SolderJointConfig,
 )
@@ -36,7 +44,9 @@ from aoi_pipeline.config import (  # noqa: E402
 )
 from aoi_pipeline.imaging.preprocessing import ImagePreprocessor  # noqa: E402
 from aoi_pipeline.classification.family import ONNXComponentClassifier  # noqa: E402
-from aoi_pipeline.classification.package_rules import _edge_of  # noqa: E402
+from aoi_pipeline.classification.package_rules import (  # noqa: E402
+    PackageRuleConfig, _edge_of, _long_edge_pair,
+)
 from aoi_pipeline.models import ClassProbability, ComponentClassification  # noqa: E402
 from aoi_pipeline.pipeline import AOIPipeline  # noqa: E402
 from aoi_pipeline.solder.geometry import SolderJointCropper  # noqa: E402
@@ -48,6 +58,12 @@ from aoi_pipeline.solder.lead_detection import (  # noqa: E402
 #: Cùng ngưỡng với ``tests/inspection/test_solder_geometry_real_board.py``: một
 #: nửa diện tích pad phải nằm trong một ROI thì mới coi là phủ.
 MIN_PAD_COVERAGE = 0.50
+
+#: Ngưỡng aspect của §8.2. Đọc từ ``PackageRuleConfig`` chứ không chép lại:
+#: nó CỐ TÌNH không có trong ``PackageRulesConfig`` của ``PipelineConfig`` --
+#: chốt an toàn thì không nên tắt được từ file cấu hình. Chép một con số 1.3
+#: vào đây là để nó trôi khỏi luật lúc nào không biết.
+RULE_ASPECT = PackageRuleConfig().two_sided_min_aspect
 
 
 @dataclass(slots=True)
@@ -163,8 +179,30 @@ def _families(detections, raw_rows, mode: str, pipeline: AOIPipeline, image):
     ]
 
 
+def _truth_leads(truth) -> list[Detection]:
+    """Pad DEM TAY cua fixture, dung lam nguon chan cho luat.
+
+    Doi xung voi ``--families truth``, va vi cung mot ly do. Do tren fixture
+    dang co: pad dem tay nam NGOAI box than **24/28**, trong khi chan pass-2
+    nam TRONG than **18/60**. Nen nuoi luat bang pass-2 la nhanh ``ic`` khong
+    bao gio chay toi -- khong phai vi luat sai, ma vi dau vao khong den noi.
+
+    Che do nay tra loi "LOGIC cua luat co dung khong khi duoc cho bang chung
+    chan hoan hao", KHONG tra loi "no chay duoc tren day chuyen chua". Con so
+    de quyet dinh bat luat van la ``--leads model``.
+    """
+
+    return [
+        Detection("pad", 1.0, BoundingBox(*pad), detection_id=f"pad_{index:04d}")
+        for index, pad in enumerate(
+            pad for entry in truth["components"].values() for pad in entry["pads"]
+        )
+    ]
+
+
 def evaluate_board(truth_path: Path, families_mode: str,
-                   lead_model: Path | None) -> BoardResult:
+                   lead_model: Path | None,
+                   leads_mode: str = "model") -> BoardResult:
     truth = json.loads(truth_path.read_text(encoding="utf-8"))
     raw = cv2.imread(str(truth_path.parent / truth["image"]))
     if raw is None:
@@ -194,12 +232,14 @@ def evaluate_board(truth_path: Path, families_mode: str,
 
     # Chan PHAI co that. Khong co chan thi nhanh ``ic`` cua luat -- phan dang
     # kiem nhat -- khong bao gio chay, va cong chi do may anh xa ho tam thuong.
-    leads = (
-        detect_leads_in_components(
+    if leads_mode == "truth":
+        leads = _truth_leads(truth)
+    elif lead_model is not None:
+        leads = detect_leads_in_components(
             image, detections, pipeline.lead_detector, config.lead_detection
         )
-        if lead_model is not None else []
-    )
+    else:
+        leads = []
     result.leads_found = len(leads)
     packages = pipeline._append_package_rules(detections, leads, [], families)
     result.rule_skip = pipeline.last_package_rule_skip
@@ -220,16 +260,39 @@ def evaluate_board(truth_path: Path, families_mode: str,
         counts = Counter(
             edge for edge in (_edge_of(lead, detection) for lead in own) if edge
         )
-        edges = sum(
-            1 for e in ("left", "right", "top", "bottom")
+        strong = frozenset(
+            e for e in ("left", "right", "top", "bottom")
             if counts[e] >= config.package_rules.min_leads_per_edge
         )
+        edges = len(strong)
         inside = sum(1 for lead in own if _edge_of(lead, detection) is None)
         result.leads_inside_body += inside
         family = family_of.get(detection.detection_id, "?")
         decision = decision_of.get(detection.detection_id, "?")
         if decision != "accept" and config.package_rules.require_family_accept:
             reason = f"{family} - 6.1 tra ve '{decision}', luat khong duoc phep chay"
+        elif family == "ic" and edges == 2:
+            # "2 canh" gom ba ca hoan toan khac nhau, sua o ba cho khac nhau:
+            # canh KE (khong gop nao ta duoc), canh DOI + than vuong (§8.2,
+            # nghi la QFP nua voi), canh DOI + lech truc dai (§8.3, ROI se
+            # roi sang hai canh khong co chan). Gop lam mot dong thi doc xong
+            # van khong biet di dau.
+            aspect = (
+                max(detection.bbox.width, detection.bbox.height)
+                / max(1.0, min(detection.bbox.width, detection.bbox.height))
+            )
+            long_edges = _long_edge_pair(detection)
+            if strong not in (frozenset({"left", "right"}),
+                              frozenset({"top", "bottom"})):
+                reason = f"ic - 2 canh KE nhau {sorted(strong)}, ngoai taxonomy"
+            elif aspect < RULE_ASPECT:
+                reason = (f"ic - 2 canh doi nhung than gan vuong "
+                          f"(aspect {aspect:.2f} < {RULE_ASPECT}), §8.2")
+            elif strong != long_edges:
+                reason = (f"ic - 2 canh doi {sorted(strong)} KHONG phai cap "
+                          f"truc dai {sorted(long_edges)}, §8.3")
+            else:
+                reason = "ic - 2 canh doi hop le nhung van bi bo qua (?)"
         else:
             reason = f"{family} - {edges} canh co dai chan"
         result.abstain_reasons[reason] += 1
@@ -268,7 +331,13 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("models/active/lead_detector/best.onnx"),
         help="de trong thi nhanh `ic` cua luat KHONG chay duoc",
     )
-    parser.add_argument("--no-leads", action="store_true")
+    parser.add_argument(
+        "--leads", choices=("model", "truth", "none"), default="model",
+        help="model = lead detector that; truth = pad dem tay cua fixture "
+             "(do LOGIC cua luat, khong do day chuyen); none = khong chan",
+    )
+    parser.add_argument("--no-leads", action="store_true",
+                        help="bi danh, tuong duong --leads none")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
 
@@ -276,12 +345,22 @@ def main(argv: list[str] | None = None) -> int:
     if not fixtures:
         raise SystemExit(f"không thấy fixture nào trong {args.root}")
 
-    lead_model = None if args.no_leads else (PROJECT_ROOT / args.lead_model)
+    leads_mode = "none" if args.no_leads else args.leads
+    lead_model = (
+        PROJECT_ROOT / args.lead_model if leads_mode == "model" else None
+    )
     if lead_model is not None and not lead_model.is_file():
-        raise SystemExit(f"khong thay lead detector {lead_model}; dung --no-leads")
-    results = [evaluate_board(path, args.families, lead_model)
+        raise SystemExit(
+            f"khong thay lead detector {lead_model}; dung --leads truth hoac none"
+        )
+    results = [evaluate_board(path, args.families, lead_model, leads_mode)
                for path in fixtures]
-    print(f"nguồn nhãn họ: {args.families}\n")
+    print(f"nguồn nhãn họ: {args.families}   nguồn chân: {leads_mode}")
+    if leads_mode == "truth":
+        print("  ⓘ chân là pad ĐẾM TAY, không phải lead detector. Con số dưới")
+        print("    đây đo LOGIC của luật với bằng chứng hoàn hảo — KHÔNG đo")
+        print("    dây chuyền. Quyết định bật luật vẫn dùng --leads model.")
+    print()
     header = (f"{'board':24s} {'pad':>10s} {'mất':>5s} {'thêm':>5s} "
               f"{'ROI':>13s} {'bỏ qua':>8s} {'chân':>5s}")
     print(header)
