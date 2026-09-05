@@ -1,3 +1,7 @@
+> **Đã thay bằng [ke_hoach_golden_ghep_so_do.md](ke_hoach_golden_ghep_so_do.md)**
+> — hướng "ghép sơ đồ" đã được chọn, và phép đo chặn ở §4.2 đã chạy.
+> Giữ file này làm bản ghi ba hướng từng cân nhắc.
+
 # Ghi chú: Golden ghép từ nhiều ảnh — chưa có kế hoạch
 
 > **Đây chưa phải kế hoạch.** Chỉ là ghi lại vấn đề, những gì đã tồn tại trong

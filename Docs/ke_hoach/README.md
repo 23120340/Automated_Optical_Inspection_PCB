@@ -7,6 +7,7 @@
 - [ke_hoach_phan_nhom_package.md](ke_hoach_phan_nhom_package.md)
 - [ke_hoach_pretrain_6_1_classification.md](ke_hoach_pretrain_6_1_classification.md)
 - [ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md](ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md) — serial, ảnh/tọa độ lỗi, database, lịch sử kiểm tra và sửa chữa.
+- [ke_hoach_golden_ghep_so_do.md](ke_hoach_golden_ghep_so_do.md)
 - [ghi_chu_golden_ghep_nhieu_anh.md](ghi_chu_golden_ghep_nhieu_anh.md)
 - [ke_hoach_so_hoa_mach_pcb_aoi.md](ke_hoach_so_hoa_mach_pcb_aoi.md)
 - [ke_hoach_ung_dung_rnn_lstm_aoi_pcb.md](ke_hoach_ung_dung_rnn_lstm_aoi_pcb.md)
