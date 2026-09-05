@@ -27,12 +27,13 @@ hay không**, để nó thôi phải đoán bằng pixel.
 | Thứ tự pipeline (6.1 và lead detector chạy trước 5.2) | ✅ xong, có test canh |
 | Bộ luật cho họ `ic` + 5 họ ánh xạ thẳng | ✅ xong, mặc định TẮT |
 | Chốt an toàn cho `ic_khong_chan` và QFP nửa vời | ✅ xong 2026-09-04 — §8 |
-| Chia họ `capacitor` (trụ đứng ↔ chip) | ✅ **đã có luật đo được 97,0%** — §6.3b |
+| Chia họ `capacitor` (trụ đứng ↔ chip) | ❌ **CHƯA có luật** — phép đo cũ sai phạm vi, §6.3b |
 | Tập kiểm gán tay | ⏳ **750 box đã tiền gán, chờ bạn duyệt** — §6.7 |
 | Ánh xạ họ → gói cho các họ còn lại | ⏳ đang quá rộng — §6.5 |
 
-**Việc kế tiếp cần bạn:** duyệt 750 nhãn tiền gán ở §6.7. Mọi con số mới trong
-tài liệu này rút từ chúng, nên lượt duyệt của bạn là thứ chốt lại tất cả.
+**Việc kế tiếp cần bạn:** duyệt 750 nhãn tiền gán ở §6.7 — và **ưu tiên 103
+mẫu họ `capacitor`**, vì đó là chỗ phép đo đang mỏng nhất (§6.3b).
+
 
 ---
 
@@ -213,33 +214,44 @@ Bảng cũ, giữ lại để không ai đo lại lần nữa:
 | `long_side` | ≥ 43 px | 85,8% | **không dùng được — sai target** |
 | `circularity` | ≥ 0,683 | 53,9% | gần như đoán bừa |
 
-### 6.3b. Đo lại trên nhãn tay, đúng miền dự án
+### 6.3b. Đo lại trên nhãn tay — và một lỗi phạm vi của chính bản trước
 
-Bộ nhãn tay ở §6.7 có **82 `tru_dung` và 312 `hai_chan`** thật, trên chính tile
-của dự án. Đó mới là dữ liệu đúng cho câu hỏi này.
+> **Sửa 2026-09-05.** Bản trước ghi **97,0%** ở đây và đặt dấu ✅ vào §1. Con số
+> đó **sai phạm vi**, Codex chỉ ra ở lượt review thứ hai và kiểm lại thì đúng.
 
-| đặc trưng | ngưỡng | cân bằng | recall trụ | recall chip |
+Luật chỉ chạy khi **họ = `capacitor`**. Nhưng phép đo cũ so 82 `tru_dung` với
+**toàn bộ 312** box `hai_chan` — mà trong 312 đó chỉ **21 box thuộc họ
+`capacitor`**; phần còn lại là `XEM_KY` (265), resistor (18), timing (7),
+diode (1). Tức nó đo một bài toán dễ hơn nhiều so với bài toán luật phải giải.
+
+Cùng ngưỡng `aspect < 1,69 và area ≥ 1200 px²`, đo trên hai phạm vi:
+
+| phạm vi | n | recall trụ | recall chip | cân bằng |
 |---|---:|---:|---:|---:|
-| **`aspect` < 1,69 VÀ `area` ≥ 1200 px²** | — | **97,0%** | 97,6% | 96,5% |
-| `area` | ≥ 1501 px² | 94,2% | 100,0% | 88,5% |
-| `long_side` | ≥ 40 px | 90,6% | 98,8% | 82,4% |
-| `aspect` | < 1,20 | 89,6% | 85,4% | 93,9% |
-| `circularity` | < 0,333 | 66,5% | 56,1% | 76,9% |
-| `solidity` | < 0,769 | 58,6% | 47,6% | 69,6% |
+| mọi `hai_chan` *(bản trước — sai)* | 82/312 | 97,6% | 96,5% | **97,0%** |
+| **chỉ họ `capacitor`** *(phạm vi thật)* | 82/**21** | 97,6% | **61,9%** | **79,7%** |
 
-**Kết luận cũ về độ tròn SỐNG SÓT** — đo trên dữ liệu đúng vẫn chỉ 66,5%. Lý
-do thì khác với phỏng đoán cũ: không phải Otsu hỏng, mà **tụ hoá nhìn từ trên
-không tròn như lý thuyết** — nắp có rãnh chữ thập, mép lon phản sáng, và
-contour bắt vào những thứ đó.
+Hiệu chuẩn lại ngưỡng trên đúng phạm vi thì tốt nhất chỉ đạt **89,1%**
+(`aspect < 1,24`, bỏ hẳn điều kiện diện tích) — và con số đó khớp trên **21
+mẫu chip**, quá ít để tin.
 
-**Thứ thật sự tách được là hình dạng + kích thước vật lý.** Tụ hoá nhìn từ trên
-gần **tròn** (aspect ~1) và **to**; chip thì thuôn và nhỏ. Hai điều kiện cùng
-lúc cho 97,0%.
+**Kết luận: chưa cài luật `capacitor`.** Cần bạn duyệt ít nhất **103 mẫu họ
+`capacitor`** (82 trụ + 21 chip) trước, và nên có thêm mẫu chip.
 
-`aspect` **không phụ thuộc độ phóng đại**, còn `area` thì có. Ở ~46 µm/px của
-bộ ảnh này, 1200 px² ≈ **2,5 mm²** — quy về mm được, nên luật vẫn chuyển được
-sang camera khác **miễn là biết px/mm**. Không biết px/mm thì dùng riêng
-`aspect < 1,20` (89,6%), kém 7 điểm nhưng không cần thang đo.
+**Kết luận cũ về độ tròn vẫn SỐNG SÓT** — 66,5%, gần như đoán bừa. Lý do khác
+phỏng đoán ban đầu: không phải Otsu hỏng, mà tụ hoá nhìn từ trên vốn không tròn
+— nắp có rãnh chữ thập, mép lon phản sáng, contour bắt vào những thứ đó.
+
+### 6.3c. Nhận ra tụ tròn vẫn CHƯA biết đặt ROI ở đâu
+
+Ngay cả khi tách đúng `tru_dung`, thân **tròn thì không có trục dài** — mà 5.5
+đặt hai ROI ở hai đầu trục. Runtime đã biết điều này và tự đánh dấu:
+`aoi_pipeline/solder/geometry.py:221` gắn cờ **`package_axis_assumed`** đúng
+cho trường hợp gói thẳng đứng + thân gọn + chưa biết trục.
+
+Nên `tru_dung` chỉ nên phát ra khi **biết được hướng**: footprint/PnP, golden
+recipe đã duyệt, hoặc lead detection thấy hai pad thật. Không biết hướng thì
+đừng dựng hai ROI theo một trục đoán — giữ đường bảo toàn recall hiện tại.
 
 ### 6.4. Ba điều đáng ngờ trong dữ liệu công khai
 
@@ -266,8 +278,23 @@ sang camera khác **miễn là biết px/mm**. Không biết px/mm thì dùng ri
 | `connector` | ❌ | `connector` | đã cài |
 | `magnetic`, `protection`, `timing`, `acoustic` | ⏳ | **chưa ánh xạ** | không lớp nào trong bảy lớp tả đúng |
 | `relay`, `display`, `switch_control`, `battery_power_input` | ⏳ | **chưa ánh xạ** | hộp lớn nhiều chân, chưa có lớp |
-| `capacitor` | ✅ | `tru_dung` / `hai_chan` | **aspect + diện tích**, §6.3b |
+| `capacitor` | ❌ chưa | `tru_dung` / `hai_chan` | phép đo cũ sai phạm vi, §6.3b |
 | `ic` | ✅ | 2 bên / 4 bên / không chân | vị trí chân, §8 |
+
+**Bằng chứng cho các ánh xạ thẳng mỏng hơn nhiều so với vẻ ngoài.** Đếm trên
+750 box tiền gán:
+
+| ánh xạ đang cài | số mẫu ủng hộ | số mẫu phản bác |
+|---|---:|---:|
+| `connector` → `connector` | **86** | 0 |
+| `resistor` → `hai_chan` | 18 | 0 |
+| `diode` → `hai_chan` | **1** | 0 |
+| `discrete_semiconductor` → `goi_nho` | **1** | 0 |
+| `led` → `hai_chan` | **0** | 0 |
+
+Chỉ `connector` có đủ mẫu để nói gì đó. `led` **không có lấy một mẫu nào** —
+ánh xạ đó hiện chỉ dựa vào trực giác, đúng loại căn cứ đã tạo ra luật bị gỡ ở
+`73ce2aa`.
 
 **Ánh xạ họ đang quá rộng** *(Codex chỉ ra, và nhãn tay xác nhận)*. Không phải
 mọi thành viên của một họ đều cùng một gói:
@@ -361,7 +388,9 @@ là plastic quad flat pack).
 
 Hai phép đo đã rút ra từ đây, cả hai đều lật một khẳng định cũ:
 
-1. **§6.3b** — luật tách `tru_dung` đạt 97,0%, và phép đo FPIC cũ là sai target.
+1. **§6.3b** — phép đo FPIC cũ sai target, và bản thay thế đầu tiên của tôi
+   cũng sai phạm vi (97,0% -> **79,7%** khi lọc đúng họ `capacitor`). Chưa
+   có luật nào cài được cho họ này.
 2. **`ic_bon_ben` gần vuông, `ic_hai_ben` thuôn dài** — aspect trung vị **1,03**
    so với **1,95**. Bản trước viết "các IC trong bộ dữ liệu này gần vuông hết,
    không dài như trực giác"; điều đó đúng với bộ winnies và **sai trên bo dự
@@ -467,6 +496,16 @@ trên 117 IC gán tay (§6.7):
 
 Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
 
+> **Chốt này GIẢM rủi ro chứ chưa an toàn.** Nó chỉ bắt được 64% số QFP:
+> **12/33 QFP trong tập tiền gán có aspect ≥ 1,3**, và nếu detector chỉ thấy
+> hai cạnh thì chúng vẫn bị gọi thành `ic_hai_ben` rồi mất ROI ở hai cạnh còn
+> lại.
+>
+> Nguyên tắc đúng, theo đề xuất của Codex: **không bao giờ thu từ bốn cạnh
+> xuống hai cạnh chỉ vì detector không nhìn thấy hai cạnh kia.** Chỉ thu hẹp
+> khi có footprint/nhãn tay/golden recipe. Luật ảnh nên *ưu tiên* ROI chứ
+> không *xoá* ROI baseline.
+
 ---
 
 ## 9. Cổng nghiệm thu và rủi ro
@@ -482,6 +521,11 @@ Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
    không kiểm `ic ↔ thụ động`. Hai cặp đều nguy hiểm và **cổng phải kiểm cả
    hai**; hiện chỉ có một. Codex chỉ ra, chưa sửa vì script đó viết cho đường
    ONNX mà kế hoạch này đang bỏ.
+
+   Nặng hơn: **cổng đó nhận ma trận nhầm lẫn của một MODEL, nên nó không chạy
+   được đường luật.** Đường luật cần một cổng riêng, đo trên nhiều board và
+   theo từng pad — chứ 28 pad trên **một** board thì không đủ để tuyên bố bất
+   cứ điều gì bằng 0.
 
    Và cổng phải đo **recall từng pad**, không chỉ tổng số pad còn được phủ:
    0 lỗi trên 250 mẫu vẫn để lại cận trên ~1,2% ở mức tin cậy 95% (rule of
@@ -524,8 +568,11 @@ Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
    mạng điện trở, `led` còn có RGB, `connector` gộp cả khe PCI lẫn jack RCA
    lẫn FPC mà code dựng một kiểu ROI duy nhất. Sửa đúng cách là thêm điều kiện
    hình học trong mỗi họ, và mỗi điều kiện phải đo trước khi bật.
-4. **Luật `capacitor` ở §6.3b — dùng bản cần px/mm (97,0%) hay bản không cần
-   (89,6%)?** Bản đầu chính xác hơn 7 điểm nhưng phải biết thang đo.
+4. **Duyệt sớm 103 mẫu họ `capacitor` được không?** (82 `tru_dung` + 21 chip.)
+   Đây là chỗ mỏng nhất: cả hai phép đo trước đều sai phạm vi, và bản hiệu
+   chuẩn lại chỉ dựa trên **21 mẫu chip**. Có thêm mẫu chip thì càng tốt.
+   Và kể cả khi tách đúng, vẫn còn câu **hướng đặt ROI** ở §6.3c — thân tròn
+   không có trục dài để đặt hai đầu.
 5. **BOM/pick-and-place của bạn có cột `footprint` không?** Câu rẻ nhất trong
    danh sách: **có** thì làm bộ đọc footprint trước và hạ luật package xuống ưu
    tiên thấp; **không** thì luật lên đầu.
