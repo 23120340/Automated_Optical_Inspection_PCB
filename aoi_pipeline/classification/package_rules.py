@@ -90,6 +90,19 @@ class PackageRuleConfig:
     #: Dưới ngưỡng này thì trả ``None`` thay vì đoán -- đoán sai ở đây làm 5.5
     #: bỏ hai cạnh chân CÓ THẬT.
     two_sided_min_aspect: float = 1.3
+    #: Chỉ nhận ``ic_hai_ben`` khi cặp cạnh có chân TRÙNG cặp cạnh dài của thân.
+    #:
+    #: Bước 5.5 **không đọc** ``lead_edges``: với ``dual_sided`` nó giữ
+    #: ``lead_top``/``lead_bottom`` trong hệ toạ độ *linh kiện*, tức luôn là hai
+    #: cạnh **dài** của thân. Nên nếu luật nhận một con IC có chân trên hai cạnh
+    #: **ngắn**, ROI rơi trọn vào hai cạnh không có chân gì -- đo trên mẫu tổng
+    #: hợp: độ phủ pad 4/4 -> **0/4**.
+    #:
+    #: Đây là chốt tạm, không phải lời giải. Lời giải là truyền cạnh chân xuống
+    #: 5.5 (kế hoạch §10.1); chốt này chỉ biến ROI sai cạnh **im lặng** thành
+    #: một lần bỏ qua, tức lùi về đúng hành vi hôm nay. Tắt nó khi và chỉ khi
+    #: 5.5 đã biết đọc cạnh thật.
+    require_leads_on_long_axis: bool = True
     #: Chưa đo được, nên chưa bật. Bộ dữ liệu công khai có **0** tụ hoá trụ
     #: đứng (§8.8), nên ngưỡng độ tròn ``4piA/P^2`` không có gì để hiệu chuẩn.
     #: Đoán một con số ở đây là lặp lại đúng lỗi ``73ce2aa``. Khi có tập kiểm
@@ -112,11 +125,25 @@ def _edge_of(lead: Detection, body: Detection) -> str | None:
     return edge if gap > 0 else None
 
 
+def _long_edge_pair(body: Detection) -> frozenset[str]:
+    """Cặp cạnh DÀI của thân, trong toạ độ ảnh.
+
+    Hộp rộng hơn cao thì hai cạnh dài là trên/dưới; cao hơn rộng thì là
+    trái/phải. Đây chính là cặp mà 5.5 dựng ROI cho ``dual_sided``, vì trục +x
+    của hệ toạ độ linh kiện chạy dọc cạnh dài.
+    """
+
+    if body.bbox.width >= body.bbox.height:
+        return frozenset({"top", "bottom"})
+    return frozenset({"left", "right"})
+
+
 def _ic_package(
     edges: frozenset[str],
     has_leads: bool,
     board_has_leads: bool,
     aspect: float,
+    long_edges: frozenset[str],
     config: PackageRuleConfig,
 ) -> tuple[str, str] | None:
     """Trả (gói, lý do) cho họ ``ic``, hoặc ``None`` khi không kết luận được."""
@@ -136,6 +163,12 @@ def _ic_package(
             # Thân gần vuông + chỉ thấy chân hai cạnh = nhiều khả năng QFP mới
             # nhìn thấy một nửa. Nhận ``ic_hai_ben`` ở đây làm 5.5 bỏ hai cạnh
             # chân có thật.
+            return None
+        if config.require_leads_on_long_axis and edges != long_edges:
+            # Chân nằm trên hai cạnh NGẮN. 5.5 vẫn sẽ dựng ROI trên hai cạnh
+            # DÀI vì nó không đọc ``lead_edges``, nên nhận ở đây là đặt cả hai
+            # ROI vào chỗ không có chân. Bỏ qua để lùi về ``multi_pin``, đường
+            # đó còn tự dò cặp cạnh bằng pixel (``_dominant_edge_pair``).
             return None
         return "ic_hai_ben", f"dải chân trên đúng 2 cạnh đối: {sorted(edges)}"
     if len(edges) == 4:
@@ -192,7 +225,8 @@ def resolve_packages_by_rule(
             side_long = max(body.bbox.width, body.bbox.height)
             side_short = max(1.0, min(body.bbox.width, body.bbox.height))
             decided = _ic_package(
-                edges, bool(own), board_has_leads, side_long / side_short, config
+                edges, bool(own), board_has_leads, side_long / side_short,
+                _long_edge_pair(body), config,
             )
         elif family == "capacitor":
             # Cần độ tròn contour để tách tụ trụ đứng khỏi tụ chip, mà ngưỡng

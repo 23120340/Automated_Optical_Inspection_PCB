@@ -49,16 +49,26 @@ def _body() -> Detection:
 
 
 def _pads() -> list[Detection]:
-    """Chân sát hai cạnh NGẮN của thân, nằm ngoài hộp."""
+    """Chân sát hai cạnh DÀI của thân, nằm ngoài hộp.
+
+    ``BODY_BOX`` rộng 100 cao 50 nên hai cạnh dài là trên/dưới — đúng chỗ chân
+    SOIC mọc ra, và đúng chỗ 5.5 dựng ROI cho ``dual_sided``.
+
+    > **Sửa 2026-09-05.** Bản trước đặt chân ở hai cạnh NGẮN (trái/phải) và vẫn
+    > mong luật trả ``ic_hai_ben``. Đó là ca 5.5 dựng ROI sang đúng hai cạnh
+    > không có chân; luật giờ bỏ qua nó (`require_leads_on_long_axis`), nên
+    > test nối dây phải dùng hình dạng thật. Xem
+    > ``test_leads_on_the_short_edges_are_not_accepted_as_two_sided``.
+    """
 
     out = []
-    for index, (x1, x2) in enumerate(((44.0, 57.0), (163.0, 176.0))):
-        for row, y in enumerate((55.0, 75.0)):
+    for index, (y1, y2) in enumerate(((29.0, 42.0), (98.0, 111.0))):
+        for row, x in enumerate((75.0, 120.0)):
             out.append(
                 Detection(
                     label="pads",
                     confidence=0.9,
-                    bbox=BoundingBox(x1, y, x2, y + 12.0),
+                    bbox=BoundingBox(x, y1, x + 12.0, y2),
                     detection_id=f"pad_{index}_{row}",
                 )
             )

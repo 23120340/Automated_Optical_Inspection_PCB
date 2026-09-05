@@ -141,16 +141,72 @@ def test_capacitor_is_deliberately_not_split_yet() -> None:
 # ------------------------------------------------------------ họ ``ic``
 
 def test_leads_on_two_opposite_edges_read_as_a_two_sided_ic() -> None:
-    """Thân THUÔN DÀI + chân hai cạnh đối = SOIC thật."""
+    """Thân THUÔN DÀI + chân trên hai cạnh DÀI = SOIC thật.
+
+    ``BODY_LONG`` rộng 200 cao 100, nên hai cạnh dài của nó là **trên/dưới**.
+    Chân SOIC mọc ra từ hai cạnh dài — SOIC-8 có 4 chân mỗi bên dọc theo chiều
+    dài thân — nên đây mới là hình dạng thật.
+
+    > **Sửa 2026-09-05.** Bản trước đặt chân ở ``left``/``right``, tức hai cạnh
+    > **ngắn**, và vẫn assert ``ic_hai_ben``. Nó mã hoá đúng ca hỏng ở
+    > ``test_leads_on_the_short_edges_are_not_accepted_as_two_sided`` bên dưới
+    > thành hành vi đúng. Cả ba test happy-path của nhánh này đều mắc cùng lỗi,
+    > vì chúng viết ra từ cùng một mô hình sai.
+    """
+
+    results = _resolve(
+        [_body(bbox=BODY_LONG)],
+        _edge_leads("top", body=BODY_LONG)
+        + _edge_leads("bottom", start=2, body=BODY_LONG),
+        {"body1": "ic"},
+    )
+    assert [item.package_class for item in results] == ["ic_hai_ben"]
+    assert results[0].metadata["lead_edges"] == ["bottom", "top"]
+
+
+def test_leads_on_the_short_edges_are_not_accepted_as_two_sided() -> None:
+    """Ca hỏng im lặng thứ ba, và là ca duy nhất tái hiện được bằng số đo.
+
+    Bước 5.5 **không đọc** ``lead_edges``. Với ``dual_sided`` nó giữ
+    ``lead_top``/``lead_bottom`` trong hệ toạ độ *linh kiện*, mà trục +x của hệ
+    đó chạy dọc cạnh dài — nên ROI luôn rơi vào hai cạnh **dài** của thân.
+
+    Nhận ``ic_hai_ben`` cho một thân có chân ở hai cạnh **ngắn** vì thế đặt cả
+    hai ROI vào đúng hai cạnh không có chân. Đo trên mẫu tổng hợp (thân 100x200,
+    chân ở hai cạnh ngắn): độ phủ pad **4/4 -> 0/4**.
+
+    Nặng hơn: nhận ở đây còn *lấy đi* một cơ chế đang chạy. Đường ``multi_pin``
+    mà thân này lẽ ra lùi về có ``_dominant_edge_pair`` tự dò cặp cạnh mang chân
+    bằng pixel — tức bật luật có thể **tệ hơn** không bật.
+
+    Chốt này là bản vá tạm, không phải lời giải; lời giải là truyền cạnh chân
+    xuống 5.5 (kế hoạch §10.1). Xem §8.3.
+    """
+
+    results = _resolve(
+        [_body(bbox=BODY_LONG)],   # rộng 200 cao 100 -> cạnh dài là trên/dưới
+        _edge_leads("left", body=BODY_LONG)
+        + _edge_leads("right", start=2, body=BODY_LONG),
+        {"body1": "ic"},
+    )
+    assert results == [], "chân ở hai cạnh ngắn phải bỏ qua, không nhận ic_hai_ben"
+
+
+def test_the_long_axis_check_can_be_turned_off_deliberately() -> None:
+    """Tắt được — dành cho lúc 5.5 đã biết đọc cạnh thật (§10.1).
+
+    Có test này để bản vá tạm không hoá thành vĩnh viễn: khi cờ tắt, hành vi
+    quay lại đúng như trước 2026-09-05.
+    """
 
     results = _resolve(
         [_body(bbox=BODY_LONG)],
         _edge_leads("left", body=BODY_LONG)
         + _edge_leads("right", start=2, body=BODY_LONG),
         {"body1": "ic"},
+        config=PackageRuleConfig(enabled=True, require_leads_on_long_axis=False),
     )
     assert [item.package_class for item in results] == ["ic_hai_ben"]
-    assert results[0].metadata["lead_edges"] == ["left", "right"]
 
 
 def test_a_square_body_with_leads_on_only_two_edges_is_not_guessed_at() -> None:
@@ -226,7 +282,12 @@ def test_hidden_terminals_are_never_inferred_from_absence_by_default() -> None:
 
 def _neighbour_with_leads():
 
-    """Một IC THUÔN DÀI ở xa, có chân hai cạnh — dùng làm bằng chứng board."""
+    """Một IC THUÔN DÀI ở xa, có chân hai cạnh DÀI — dùng làm bằng chứng board.
+
+    Thân rộng 200 cao 100 nên hai cạnh dài là trên/dưới; chân phải nằm ở đó.
+    Bản trước đặt chân ở trái/phải (hai cạnh ngắn) — xem ghi chú sửa
+    2026-09-05 ở ``test_leads_on_two_opposite_edges_read_as_a_two_sided_ic``.
+    """
 
     neighbour = Detection(
         label="ic",
@@ -235,10 +296,10 @@ def _neighbour_with_leads():
         detection_id="body2",
     )
     leads = [
-        _lead(385.0, 420.0, 398.0, 432.0, index=10),
-        _lead(385.0, 445.0, 398.0, 457.0, index=11),
-        _lead(602.0, 420.0, 615.0, 432.0, index=12),
-        _lead(602.0, 445.0, 615.0, 457.0, index=13),
+        _lead(430.0, 385.0, 442.0, 398.0, index=10),
+        _lead(480.0, 385.0, 492.0, 398.0, index=11),
+        _lead(430.0, 502.0, 442.0, 515.0, index=12),
+        _lead(480.0, 502.0, 492.0, 515.0, index=13),
     ]
     return neighbour, leads
 

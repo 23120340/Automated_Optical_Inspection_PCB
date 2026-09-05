@@ -2,6 +2,13 @@
 
 Một cổng luôn PASS thì vô dụng, nên phần lớn test dưới đây dựng ra tình huống
 mất pad rồi kiểm cổng có bắt được không.
+
+Nhóm cuối file canh một hợp đồng nữa, thêm 2026-09-05 sau khi nó đã hỏng thật:
+**cổng phải dựng ROI bằng đúng hàm runtime của 5.5, không được dựng lại.** Bản
+đầu tự lặp lại ``derive_solder_joints`` và quên ``geometry=``, nên nó không
+nhìn thấy gói mà luật vừa gán — ``before`` và ``after`` bằng nhau theo cấu
+trúc, và cổng báo PASS suốt. Mọi bản sao của đường runtime đều sẽ trôi, và
+trôi về phía im lặng báo PASS.
 """
 
 from __future__ import annotations
@@ -21,10 +28,29 @@ def _board() -> BoardResult:
 
 
 def test_the_gate_runs_and_counts_every_hand_measured_pad() -> None:
+    """Baseline là **19/28**, không phải 28/28 — và con số đó là phát hiện thật.
+
+    Trước 2026-09-05 cổng tự dựng lại ROI bằng ``derive_solder_joints`` trần,
+    nên nó bỏ luôn ``refine_to_metal`` (mặc định **True** trong runtime). Bật
+    lại cho đúng đường runtime thì độ phủ tụt 28 -> 19: cùng **90 ROI**, nhưng
+    refine co chúng về mảng kim loại và 9 pad rơi xuống dưới ngưỡng phủ 50%.
+
+    Đo tách bạch trên chính fixture này::
+
+        runtime refine=True  :  90 ROI, phủ 19/28 pad
+        runtime refine=False :  90 ROI, phủ 28/28 pad
+
+    **Đây là số liệu về bước 5.5, không phải về bộ luật**, nên nó không chặn
+    cổng — cổng so trước/sau, và refine tác động như nhau lên cả hai vế. Nhưng
+    nó đáng để riêng một dòng: 9/28 pad đếm tay tuột khỏi ROI sau khi refine là
+    việc phải đi đo, không phải hằng số để sửa cho test xanh.
+    """
+
     result = _board()
     assert result.pads_total == 28
-    assert result.covered_before == 28, (
-        "đường baseline lẽ ra phủ đủ 28 pad; lệch nghĩa là fixture hoặc 5.5 đã đổi"
+    assert result.covered_before == 19, (
+        "baseline trên đường runtime (có refine_to_metal) là 19/28; lệch nghĩa "
+        "là fixture, 5.5, hoặc đường đo của cổng đã đổi"
     )
 
 
@@ -95,4 +121,117 @@ def test_the_gate_flags_leads_that_land_inside_the_body() -> None:
         pytest.skip("không có lead detector trong môi trường này")
     assert result.leads_inside_body > 0, (
         "fixture này dùng quy ước box cũ nên phải có chân nằm trong thân"
+    )
+
+
+# ------------------------------------------------- cổng phải NHÌN THẤY thay đổi
+
+
+def test_the_gate_measures_on_the_same_path_as_the_runtime() -> None:
+    """Hợp đồng đã hỏng một lần: cổng phải dựng ROI bằng ĐÚNG hàm của 5.5.
+
+    Bản đầu tự lặp lại ``derive_solder_joints`` và quên truyền ``geometry=``,
+    nên nó lấy ``terminal_geometry(detection.label)`` và bỏ qua sạch
+    ``terminal_geometry_override`` mà luật vừa ghi. Hậu quả: ``before`` và
+    ``after`` bằng nhau **theo cấu trúc**, cổng luôn báo PASS, và bản báo cáo
+    "0 mất pad" ngày 2026-09-05 hoá ra không đo gì cả.
+
+    Ở đây dùng ``ic_khong_chan`` vì nó là ca cực đoan nhất — ``PadProfile(0, 0)``
+    nghĩa là **không ROI nào**. Cổng nào không thấy nổi thay đổi này thì không
+    thấy nổi thay đổi nào.
+    """
+
+    import numpy as np
+    from dataclasses import replace as _replace
+
+    from aoi_pipeline import BoundingBox, Detection, SolderJointConfig
+    from scripts.evaluate_package_rule_gate import _rois
+
+    rng = np.random.default_rng(0)
+    image = (rng.random((300, 300, 3)) * 60 + 40).astype("uint8")
+    body = Detection("ic", 0.9, BoundingBox(100, 100, 200, 200), detection_id="B0")
+    config = SolderJointConfig()
+
+    before = _rois(image, [body], config)
+    assert before, "thân này phải sinh ra ROI khi chưa có gói nào"
+
+    hidden = _replace(
+        body, metadata={"terminal_geometry_override": "hidden_terminals"}
+    )
+    assert _rois(image, [hidden], config) == [], (
+        "gói ẩn chân KHÔNG sinh ROI. Cổng vẫn thấy ROI ở đây nghĩa là nó đang "
+        "đọc nhãn detector chứ không đọc gói — nó mù với chính thứ nó phải đo"
+    )
+
+
+def test_the_gate_reports_a_geometry_change_end_to_end(tmp_path) -> None:
+    """Cùng hợp đồng, nhưng đi qua trọn ``evaluate_board()``.
+
+    Dùng họ ``connector``: luật ánh xạ thẳng ``connector -> connector`` mà
+    **không cần chân nào**, và ``connector_rows`` khác hẳn ``multi_pin`` mà
+    nhãn detector sẽ trả. Nên đây là đường ngắn nhất để bắt cổng phải thấy một
+    thay đổi hình học thật, không cần lead detector.
+    """
+
+    import cv2
+    import numpy as np
+
+    from aoi_pipeline import BoundingBox, Detection, SolderJointConfig
+    from aoi_pipeline.imaging.preprocessing import ImagePreprocessor
+    from aoi_pipeline.config import PreprocessConfig
+    from aoi_pipeline.placement.footprints import profile_for_package_class
+    from aoi_pipeline.solder.geometry import SolderJointCropper
+    from dataclasses import replace as _replace
+
+    rng = np.random.default_rng(1)
+    raw = (rng.random((300, 400, 3)) * 60 + 40).astype("uint8")
+    cv2.imwrite(str(tmp_path / "board.png"), raw)
+    box = [120.0, 100.0, 280.0, 190.0]
+    (tmp_path / "board.json").write_text(json.dumps({
+        "image": "board.png",
+        "detections": [{"label": "connector", "confidence": 0.9, "box": box}],
+        "components": {"J1": {"pads": [[124, 104, 140, 120]]}},
+    }), encoding="utf-8")
+
+    result = evaluate_board(tmp_path / "board.json", "truth", None)
+    assert result.by_package == {"connector": 1}, (
+        "luật phải quyết được thân này; không thì test đo nhầm thứ khác"
+    )
+
+    # Con số đối chiếu lấy từ chính API runtime, không lặp lại phép tính của cổng.
+    image = ImagePreprocessor(PreprocessConfig()).process(raw).image
+    detection = Detection("connector", 0.9, BoundingBox(*box), detection_id="d0")
+    annotated = _replace(detection, metadata={
+        "terminal_geometry_override":
+            profile_for_package_class("connector", source="package_rules")
+            .terminal_geometry,
+    })
+
+    def _runtime(dets):
+        return [
+            j.bbox.as_xyxy()
+            for j in SolderJointCropper(SolderJointConfig()).derive(image, dets)
+            if j.kind == "joint"
+        ]
+
+    plain, overridden = _runtime([detection]), _runtime([annotated])
+    assert plain != overridden, (
+        "mẫu này không tạo ra thay đổi hình học nào, nên nó không kiểm được gì "
+        "— sửa mẫu, đừng nới khẳng định"
+    )
+
+    # Đối chiếu bằng DIỆN TÍCH chứ không bằng SỐ ROI: ``connector_rows`` và
+    # ``multi_pin`` ở đây cùng cho 2 ROI, nên đếm số thì hai đường sai khác nhau
+    # vẫn trông giống hệt. Đúng loại tín hiệu quá yếu đã để lọt lỗi lần đầu.
+    def _area(boxes):
+        return sum((x2 - x1) * (y2 - y1) for x1, y1, x2, y2 in boxes)
+
+    assert result.roi_area_after == pytest.approx(_area(overridden)), (
+        f"cổng báo diện tích {result.roi_area_after:.1f}, runtime dựng "
+        f"{_area(overridden):.1f} — cổng đang chạy một đường khác 5.5"
+    )
+    assert result.roi_area_before == pytest.approx(_area(plain))
+    assert result.roi_area_after != pytest.approx(result.roi_area_before), (
+        "luật đổi connector từ multi_pin sang connector_rows mà cổng thấy y "
+        "nguyên thì nó không đo được gì"
     )

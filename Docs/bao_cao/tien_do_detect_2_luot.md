@@ -8,6 +8,15 @@
 
 ## Quy ước trạng thái
 
+### Phân package — phối hợp 2026-09-05
+
+- `[x] XONG` **PK1–PK2 / Claude:** cổng gọi thẳng `SolderJointCropper.derive`; chốt `require_leads_on_long_axis` trong `_ic_package`. 1148 test xanh. Chi tiết ở kế hoạch package §9.0b và §8.3.
+  - Sửa cổng làm lộ thêm **hai lỗ hổng cùng họ**, đã sửa luôn: `--families model` chưa từng chạy được (6.1 không tự nạp từ `models/active/classifier/`, cổng không truyền vào), và "luật không chạy được" in ra giống hệt "luật chạy rồi bỏ qua".
+  - Cổng chạy lại: **0 mất pad** ở cả `truth` và `model`. **Nhưng nhánh `ic` vẫn chưa chạy lần nào** (18/60 chân có tâm trong box thân), 1 board, chưa có tập nghiệm thu khoá ⇒ **chưa đủ để bật luật**, mặc định vẫn TẮT.
+  - ⚠️ **Cho PK3–PK5:** cài chốt trục dài làm **3 test happy-path cũ của `ic_hai_ben` đỏ**, vì cả ba đặt chân ở hai cạnh **ngắn** rồi assert `ic_hai_ben` — chúng viết ra từ cùng mô hình sai với code. Đã sửa sang hình dạng thật. Nếu kiểm chứng lại cổng thì đây là chỗ đáng soi trước.
+- `[~] ĐANG LÀM` **PK3–PK5 / Codex:** rà soát lại kế hoạch; chuẩn bị manifest dữ liệu phát triển/nghiệm thu và kiểm tra tính độc lập, giữ nhãn tiền gán ở trạng thái chưa duyệt; kiểm chứng lại cổng sau khi PK1–PK2 có trên đĩa. Không sửa file code/test Claude đang nhận ở PK1–PK2.
+- `[ ] CHƯA LÀM` **PK6–PK7:** hợp đồng topology đầy đủ và nối recipe; cần contract rõ cạnh/hệ tọa độ/quyền thu hẹp ROI, fixture đã duyệt và kết quả kiểm chứng trước khi bật runtime mới.
+
 | Ký hiệu | Nghĩa |
 |---|---|
 | `[ ] CHƯA LÀM` | Đã lên kế hoạch, chưa ai đụng vào |

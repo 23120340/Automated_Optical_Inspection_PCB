@@ -29,16 +29,17 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from aoi_pipeline import (  # noqa: E402
-    BoundingBox, Detection, SolderJointConfig, derive_solder_joints,
+    BoundingBox, Detection, SolderJointConfig,
 )
 from aoi_pipeline.config import (  # noqa: E402
-    PackageRulesConfig, PipelineConfig, PreprocessConfig, terminal_geometry,
+    PackageRulesConfig, PipelineConfig, PreprocessConfig,
 )
 from aoi_pipeline.imaging.preprocessing import ImagePreprocessor  # noqa: E402
+from aoi_pipeline.classification.family import ONNXComponentClassifier  # noqa: E402
 from aoi_pipeline.classification.package_rules import _edge_of  # noqa: E402
 from aoi_pipeline.models import ClassProbability, ComponentClassification  # noqa: E402
 from aoi_pipeline.pipeline import AOIPipeline  # noqa: E402
-from aoi_pipeline.solder.geometry import deconflict_joint_rois  # noqa: E402
+from aoi_pipeline.solder.geometry import SolderJointCropper  # noqa: E402
 from aoi_pipeline.solder.leads import assign_leads_to_components  # noqa: E402
 from aoi_pipeline.solder.lead_detection import (  # noqa: E402
     detect_leads_in_components,
@@ -71,6 +72,9 @@ class BoardResult:
     #: ic vi chi thay chan o 1 canh" thi dung.
     abstain_reasons: Counter = field(default_factory=Counter)
     by_package: Counter = field(default_factory=Counter)
+    #: Luat KHONG CHAY duoc (khac han voi "chay roi bo qua"). Khong co truong
+    #: nay thi hai truong hop do trong bao cao y het nhau: 39 dong "bo qua".
+    rule_skip: str | None = None
 
 
 def _coverage(roi: BoundingBox, pad: list[int]) -> float:
@@ -82,14 +86,49 @@ def _coverage(roi: BoundingBox, pad: list[int]) -> float:
 
 
 def _rois(image, detections, config: SolderJointConfig) -> list[BoundingBox]:
-    height, width = image.shape[:2]
-    joints: list = []
-    for detection in detections:
-        joints.extend(
-            derive_solder_joints(detection, width, height, config=config, image=image)
+    """ROI đúng như bước 5.5 dựng — gọi thẳng hàm runtime, KHÔNG dựng lại.
+
+    Bản đầu tự lặp lại vòng ``derive_solder_joints`` và quên truyền
+    ``geometry=``. Không có nó, ``derive_solder_joints`` lấy
+    ``terminal_geometry(detection.label)``, tức nhãn detector, và bỏ qua sạch
+    ``terminal_geometry_override`` mà ``apply_package_classifications()`` vừa
+    ghi. Cổng vì thế so hai kết quả **giống nhau theo cấu trúc** và luôn báo
+    PASS: đo trên mẫu tổng hợp ở ``tests/test_package_rule_gate.py``, cổng thấy
+    4/4 -> 4/4 trong khi runtime thật là 4/4 -> 0/4.
+
+    Bản sao còn bỏ luôn ``axis_known`` và ``refine_to_metal``, nên chỉ thêm
+    ``geometry=`` vẫn chưa đủ. Nguyên tắc: **cổng nghiệm thu không được dựng
+    lại đường mà nó đo** — mọi bản sao sẽ trôi, và trôi về phía im lặng báo
+    PASS. Xem kế hoạch package §9.0.
+    """
+
+    return [
+        joint.bbox
+        for joint in SolderJointCropper(config).derive(image, detections)
+        if joint.kind == "joint"
+    ]
+
+
+#: 6.1 KHÔNG tự nạp từ ``models/active``: ``AOIPipeline`` chỉ dựng classifier
+#: khi được truyền vào. Trước 2026-09-05 cổng không truyền, nên
+#: ``--families model`` im lặng nhận danh sách họ RỖNG, luật không chạy được
+#: lần nào, và bảng in ra 39 dòng "bỏ qua" trông y như luật đã chạy rồi từ chối.
+#: Chế độ đó chính là con số quyết định bật luật (kế hoạch §7.2b), nên nó không
+#: được phép hỏng im lặng.
+FAMILY_MODEL_DIR = PROJECT_ROOT / "models/active/classifier"
+
+
+def _family_classifier():
+    model = FAMILY_MODEL_DIR / "best.onnx"
+    if not model.is_file():
+        raise SystemExit(
+            f"--families model cần 6.1 tại {model}, không thấy. Dùng "
+            "--families truth để đo riêng phần luật."
         )
-    return [j.bbox for j in deconflict_joint_rois(joints, detections, config)
-            if j.kind == "joint"]
+    manifest = FAMILY_MODEL_DIR / "model_manifest.json"
+    return ONNXComponentClassifier(
+        model, manifest if manifest.is_file() else None
+    )
 
 
 def _families(detections, raw_rows, mode: str, pipeline: AOIPipeline, image):
@@ -102,7 +141,13 @@ def _families(detections, raw_rows, mode: str, pipeline: AOIPipeline, image):
 
     if mode == "model":
         crops = pipeline.make_crops(image, detections)
-        return pipeline.classify_components(crops)
+        families = pipeline.classify_components(crops)
+        if not families:
+            raise SystemExit(
+                "6.1 trả về rỗng dù đã nạp model — không đo được đường "
+                "đầu-cuối. Kiểm tra artifact ở " f"{FAMILY_MODEL_DIR}."
+            )
+        return families
     return [
         ComponentClassification(
             crop_id=f"crop_{index:04d}",
@@ -141,7 +186,10 @@ def evaluate_board(truth_path: Path, families_mode: str,
         config.lead_detection = replace(
             config.lead_detection, enabled=True, model_path=str(lead_model)
         )
-    pipeline = AOIPipeline(config)
+    pipeline = AOIPipeline(
+        config,
+        classifier=_family_classifier() if families_mode == "model" else None,
+    )
     families = _families(detections, rows, families_mode, pipeline, image)
 
     # Chan PHAI co that. Khong co chan thi nhanh ``ic`` cua luat -- phan dang
@@ -154,12 +202,17 @@ def evaluate_board(truth_path: Path, families_mode: str,
     )
     result.leads_found = len(leads)
     packages = pipeline._append_package_rules(detections, leads, [], families)
+    result.rule_skip = pipeline.last_package_rule_skip
 
     # Vi sao tung than bi bo qua. Dung chinh cac ham cua bo luat de con so nay
     # khong troi khoi hanh vi that.
     decided_ids = {p.detection_id for p in packages}
     assigned = assign_leads_to_components(detections, leads, config.lead_fusion)
     family_of = {f.detection_id: f.family for f in families}
+    # 6.1 tu choi (``review``/``unknown``) va LUAT tu choi la hai chuyen
+    # khac han: cai dau sua bang classifier, cai sau sua bang luat. Gop
+    # chung mot dong "bo qua" thi khong biet phai di sua o dau.
+    decision_of = {f.detection_id: f.decision for f in families}
     for detection in detections:
         if detection.detection_id in decided_ids:
             continue
@@ -174,7 +227,12 @@ def evaluate_board(truth_path: Path, families_mode: str,
         inside = sum(1 for lead in own if _edge_of(lead, detection) is None)
         result.leads_inside_body += inside
         family = family_of.get(detection.detection_id, "?")
-        result.abstain_reasons[f"{family} - {edges} canh co dai chan"] += 1
+        decision = decision_of.get(detection.detection_id, "?")
+        if decision != "accept" and config.package_rules.require_family_accept:
+            reason = f"{family} - 6.1 tra ve '{decision}', luat khong duoc phep chay"
+        else:
+            reason = f"{family} - {edges} canh co dai chan"
+        result.abstain_reasons[reason] += 1
     by_id = {p.detection_id: p for p in packages}
     result.decided = len(by_id)
     result.abstained = len(detections) - len(by_id)
@@ -239,6 +297,15 @@ def main(argv: list[str] | None = None) -> int:
     for r in results:
         packages.update(r.by_package)
     print()
+    skips = {r.board: r.rule_skip for r in results if r.rule_skip}
+    if skips:
+        # "Luat khong chay" va "luat chay roi bo qua het" cho cung mot bang so
+        # 0 -- nhung mot cai la thieu dau vao, cai kia la luat tu quyet. Khong
+        # noi ra thi nguoi doc tuong da kiem duoc luat.
+        print("⛔ LUẬT KHÔNG CHẠY ĐƯỢC — mọi con số dưới đây là của đường CŨ:")
+        for board, reason in skips.items():
+            print(f"    {board}: {reason}")
+        print()
     print(f"gói luật quyết được: {dict(packages) or 'khong cai nao'}")
     reasons = Counter()
     for r in results:
@@ -298,6 +365,7 @@ def main(argv: list[str] | None = None) -> int:
                     "leads_found": r.leads_found,
                     "abstain_reasons": dict(r.abstain_reasons),
                     "leads_inside_body": r.leads_inside_body,
+                    "rule_skip": r.rule_skip,
                     "by_package": dict(r.by_package),
                 }
                 for r in results

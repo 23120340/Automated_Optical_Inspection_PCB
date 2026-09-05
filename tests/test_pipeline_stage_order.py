@@ -1,7 +1,7 @@
 """Chốt thứ tự các bước, vì ở đây thứ tự là hợp đồng chứ không phải tuỳ ý.
 
 Hai ràng buộc, cả hai đều phục vụ kế hoạch phân package bằng LUẬT
-(`Docs/ke_hoach/ke_hoach_phan_nhom_package.md` §8.5):
+(`Docs/ke_hoach/ke_hoach_phan_nhom_package.md` §4, §5):
 
 1. **6.1 chạy trước 5.2/5.5.** Luật phân package chia nhỏ gói *bên trong một
    họ* do 6.1 trả về (``capacitor`` -> tròn/vuông, ``ic`` -> chân 2 bên/4 bên/
