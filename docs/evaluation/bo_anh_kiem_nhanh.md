@@ -17,7 +17,7 @@ chính nhãn tay của dự án: ghép nhãn với box detect theo IoU ≥ 0,4, 
 **recall** và **tỉ lệ box thừa**. Sau đó trải **mỗi bo một tile** — một bộ toàn
 tile của cùng một bo thì chạy tốt cũng không nói được gì về bo khác.
 
-| bộ | điều kiện vào bộ | kết quả |
+| bộ | điều kiện vào bộ *(chỉ tính lượt 1)* | kết quả |
 |---|---|---|
 | `quick_check_set` | recall ≥ 95% **và** thừa ≤ 15% | **15 tile / 15 bo**, recall 96–100% |
 | `hard_set` | recall < 85% **hoặc** thừa > 25% | **17 tile / 17 bo**, recall 30–90%, thừa 4–69% |
@@ -27,6 +27,34 @@ tile của cùng một bo thì chạy tốt cũng không nói được gì về 
 
 Số kỳ vọng của từng ảnh nằm trong `manifest.json` và `README.md` của mỗi thư
 mục, nên chạy lại là so được ngay.
+
+## ⚠️ Cả hai bộ chỉ chấm LƯỢT 1, không chấm mối hàn
+
+Sửa 2026-09-07, sau khi người dùng thử `pcb_dslr_011__rec1__1024__768___768` và
+thấy ROI mối hàn sai trong khi tile đó nằm trong `quick_check_set`.
+
+**Đó là thiếu sót của bộ, không phải mâu thuẫn.** Cả hai bộ được chọn bằng
+**recall và box thừa của lượt 1** — tức chỉ đo *tìm thân linh kiện*. Không có
+tiêu chí nào về ROI mối hàn, nên một tile lượt 1 hoàn hảo vẫn có thể có ROI mối
+hàn tệ, và bộ vẫn nhận nó.
+
+Ví dụ chính tile đó:
+
+| | |
+|---|---:|
+| nhãn tay (**thân linh kiện**) | 77 |
+| lượt 1 detect | 78 (recall 100%, thừa 1) |
+| ROI mối hàn suy ra | 204 |
+| lượt 2 detect chân | 175 |
+
+**Vì sao chưa chấm được lượt 2:** dự án **không có nhãn tay cho mối hàn** trên
+bất kỳ tile nào. 9.486 box đã khoanh đều là **thân linh kiện**. Fixture duy nhất
+có pad đếm tay là `tests/data/solder_geometry/board_smd_00001` — **28 pad, một
+board**. Nên mọi nhận xét về lượt 2 hiện nay đều là **nhìn bằng mắt**, kể cả
+nhận xét của tôi.
+
+Muốn chấm được lượt 2 thì phải khoanh tay mối hàn trên vài tile. Đó là việc chưa
+ai làm, và nó chặn mọi câu hỏi dạng *"ROI mối hàn tốt tới đâu"*.
 
 ## Hai bộ trả lời hai câu khác nhau
 
