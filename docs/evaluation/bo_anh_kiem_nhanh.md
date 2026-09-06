@@ -47,11 +47,22 @@ Ví dụ chính tile đó:
 | ROI mối hàn suy ra | 204 |
 | lượt 2 detect chân | 175 |
 
-**Vì sao chưa chấm được lượt 2:** dự án **không có nhãn tay cho mối hàn** trên
-bất kỳ tile nào. 9.486 box đã khoanh đều là **thân linh kiện**. Fixture duy nhất
-có pad đếm tay là `tests/data/solder_geometry/board_smd_00001` — **28 pad, một
-board**. Nên mọi nhận xét về lượt 2 hiện nay đều là **nhìn bằng mắt**, kể cả
-nhận xét của tôi.
+**Vì sao chưa chấm được lượt 2 TRÊN TILE:**
+
+> ⚠️ **Đính chính 2026-09-07.** Bản trước viết *"dự án không có nhãn tay cho mối
+> hàn"*. **Sai.** Dự án có **9.089 box mối hàn đã duyệt** — 4.595 trên
+> `fpic_components` (1.044 crop) và 4.494 trên `winnies_components` (987 crop) —
+> và chính chúng là dữ liệu train của `models/active/lead_detector` (mAP50
+> 0,9912; recall 0,9768 trên 25 cảnh test khoá). Xem
+> `datasets/labelling/*/joint_boxes.reviewed.json`.
+
+Điều đúng, hẹp hơn nhiều: nhãn mối hàn nằm trên **crop từng linh kiện** của hai
+bộ công khai `fpic`/`winnies`, **không** nằm trên tile PCB-DSLR và **không** nằm
+trên bo dự án. Nên chấm được lượt 2 *trong miền của nó*, mà không chấm được trên
+`pcb_dslr_011` hay bo dây chuyền.
+
+Ngoài ra 9.486 box khoanh trên tile đều là **thân linh kiện**, và fixture duy
+nhất có pad đếm tay trên một board thật là `board_smd_00001` — **28 pad**.
 
 Muốn chấm được lượt 2 thì phải khoanh tay mối hàn trên vài tile. Đó là việc chưa
 ai làm, và nó chặn mọi câu hỏi dạng *"ROI mối hàn tốt tới đâu"*.

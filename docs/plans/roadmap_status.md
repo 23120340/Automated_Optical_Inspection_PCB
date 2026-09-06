@@ -14,7 +14,7 @@ Nhưng bốn thứ dưới đây **không phải fine-tune** và cái nào cũng
 
 | | vì sao fine-tune không giải quyết được |
 |---|---|
-| **Không có nhãn mối hàn** | 9.486 box đã khoanh đều là *thân*. Fixture pad đếm tay: **28 pad / 1 board**. Không đo được thì train xong cũng không biết tốt lên hay tệ đi. |
+| **Nhãn mối hàn có, nhưng SAI MIỀN** | Có **9.089 box** đã duyệt trên crop `fpic`/`winnies` — đó là dữ liệu train của `lead_detector`. Nhưng **không có box nào** trên tile PCB-DSLR hay bo dự án, nên không chấm được lượt 2 ở miền đang dùng thật. |
 | **Golden recipe chưa dùng trong luồng chính** | `aoi_pipeline/pipeline.py` **không đọc** recipe; golden chạy qua `app/pipeline_bridge.py` — hai nhánh song song. Mà recipe mới là thứ ra quyết định. |
 | **Lớp lưu trữ chưa ai gọi** | `aoi_pipeline/storage/` dựng xong, có test, nhưng **không nơi nào trong app gọi nó**. |
 | **Luật 5.2 mặc định TẮT** | Chưa có tập nghiệm thu khoá theo bo nên chưa đủ căn cứ bật. |
@@ -32,7 +32,7 @@ luồng, không nối kho lưu trữ.
 | [Golden ghép sơ đồ](ke_hoach_golden_ghep_so_do.md) | hướng đã chốt, phép đo chặn đã chạy, quy trình chụp + script kiểm bộ ảnh | **chờ bo dây chuyền**; chưa chụp, chưa đo |
 | [Kiểm hai mặt PCB](ke_hoach_kiem_hai_mat_pcb.md) | bản ghi mang `board_id`/`side`, `scan_session`, quy tắc "một mặt đạt ≠ cả bo đạt" | **giao diện chưa có** trạng thái "chờ mặt còn lại"; chưa nối recipe theo mặt |
 | [Pre-train 6.1](ke_hoach_pretrain_6_1_classification.md) | model chạy được, có manifest, đã đo lại sau khi đổi detector | chưa đo **độ đúng** thật trên miền dự án (mới đo độ tin) |
-| [Detect mối hàn 2 lượt](ke_hoach_detect_moi_han_2_giai_doan.md) | giai đoạn A + B xong, có model lượt 2 | chưa chấm được vì **không có nhãn mối hàn** |
+| [Detect mối hàn 2 lượt](ke_hoach_detect_moi_han_2_giai_doan.md) | giai đoạn A + B xong; model lượt 2 train trên **9.089 box đã duyệt**, mAP50 0,99 trên test khoá | nhãn chỉ có ở miền `fpic`/`winnies`; **chưa có box nào** trên tile PCB-DSLR hay bo dự án |
 | [Mối hàn ngoài linh kiện](ke_hoach_moi_han_ngoai_linh_kien.md) | đã đo và xác nhận **chưa có gì** | toàn bộ; bước 1 là gán tay một tile để biết lỗ hổng lớn bằng nào |
 
 ## 3. Mới ở trên văn bản, **chưa code dòng nào**
@@ -50,8 +50,10 @@ luồng, không nối kho lưu trữ.
 
 Xếp theo **cái gì mở khoá được nhiều thứ nhất**, không theo cái gì dễ nhất.
 
-1. **Khoanh tay mối hàn trên 2–3 tile.** Rẻ nhất, và nó mở khoá *mọi* câu hỏi về
-   lượt 2 — hiện chưa câu nào trả lời bằng số được.
+1. **Mở rộng nhãn mối hàn sang miền đang dùng thật.** Không phải khoanh lại từ
+   đầu: đã có 9.089 box trên `fpic`/`winnies` và có sẵn app khoanh
+   (`label_boxes.html`). Việc cần là thêm **2–3 tile PCB-DSLR** và **vài tile bo
+   dự án**, để lần đầu tiên chấm được lượt 2 ở đúng miền đang chạy.
 2. **Ảnh bo dự án + fine-tune**, kèm tập giữ riêng không bao giờ train. Sửa được
    32% box pad tròn.
 3. **Golden recipe cho bo dây chuyền** khi bo về. Đây là thứ biến hệ thống từ
