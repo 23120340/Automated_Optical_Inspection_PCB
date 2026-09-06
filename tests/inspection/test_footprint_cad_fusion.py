@@ -79,3 +79,38 @@ def test_hidden_terminal_footprint_suppresses_cad_reanchored_fake_rois() -> None
     assert result.joints == []
     assert detection.metadata["package_profile"]["package_class"] == "ic_khong_chan"
     assert detection.metadata["terminal_geometry_override"] == "hidden_terminals"
+
+
+def test_cad_evidence_clears_the_image_rules_measured_edges() -> None:
+    """CAD tiếp quản thì cạnh chân do LUẬT ẢNH đo được phải bị xoá.
+
+    CAD mang cả hình học lẫn hướng, nên giữ lại cạnh cũ là **trộn hai nguồn**:
+    hình học của CAD ghép với cạnh của luật ảnh. Trong một lượt chạy thì
+    ``derive`` đã xong trước khi CAD ghi, nên chưa lộ ra — nhưng detection bị sửa
+    TẠI CHỖ và ``AOIPipeline.last_package_detections`` giữ chính object đó, nên
+    gọi ``make_solder_crops`` lần nữa trên chúng là dính.
+    """
+
+    import numpy as np
+
+    image = np.zeros((240, 240, 3), dtype=np.uint8)
+    detection = Detection(
+        "resistor", 0.9, BoundingBox(60, 80, 140, 120),
+        detection_id="det_footprint",
+        metadata={
+            "terminal_lead_edges": ["left", "right"],
+            "terminal_lead_edges_space": "image",
+        },
+    )
+    board = BoardCad(components=[CadComponent(
+        designator="U1", x=10.0, y=10.0, rotation=0.0,
+        footprint="SOIC-16", part_class="resistor")])
+    derived = SolderJointCropper(_config().solder).derive(image, [detection])
+    fuse_solder_joints([detection], derived, 240, 240, board=board,
+                       registration=_registration(), config=_config(), image=image)
+
+    assert "terminal_lead_edges" not in detection.metadata, (
+        "cạnh của luật ảnh còn lại sau khi CAD tiếp quản; lần dựng ROI sau sẽ "
+        "ghép hình học CAD với cạnh của luật"
+    )
+    assert "terminal_lead_edges_space" not in detection.metadata

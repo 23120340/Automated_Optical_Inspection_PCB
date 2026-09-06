@@ -174,7 +174,7 @@ def test_leads_on_two_opposite_edges_read_as_a_two_sided_ic() -> None:
 
     > **Sửa 2026-09-05.** Bản trước đặt chân ở ``left``/``right``, tức hai cạnh
     > **ngắn**, và vẫn assert ``ic_hai_ben``. Nó mã hoá đúng ca hỏng ở
-    > ``test_leads_on_the_short_edges_are_not_accepted_as_two_sided`` bên dưới
+    > ``test_leads_on_the_short_edges_are_now_ACCEPTED_and_the_edges_travel`` bên dưới
     > thành hành vi đúng. Cả ba test happy-path của nhánh này đều mắc cùng lỗi,
     > vì chúng viết ra từ cùng một mô hình sai.
     """
@@ -189,23 +189,16 @@ def test_leads_on_two_opposite_edges_read_as_a_two_sided_ic() -> None:
     assert results[0].metadata["lead_edges"] == ["bottom", "top"]
 
 
-def test_leads_on_the_short_edges_are_not_accepted_as_two_sided() -> None:
-    """Ca hỏng im lặng thứ ba, và là ca duy nhất tái hiện được bằng số đo.
+def test_leads_on_the_short_edges_are_now_ACCEPTED_and_the_edges_travel() -> None:
+    """Ca §8.3, sau khi phần (b) xong: nhận, và mang theo cạnh đo được.
 
-    Bước 5.5 **không đọc** ``lead_edges``. Với ``dual_sided`` nó giữ
-    ``lead_top``/``lead_bottom`` trong hệ toạ độ *linh kiện*, mà trục +x của hệ
-    đó chạy dọc cạnh dài — nên ROI luôn rơi vào hai cạnh **dài** của thân.
+    Trước 2026-09-06 ca này bị **bỏ qua** bằng chốt tạm
+    ``require_leads_on_long_axis``, vì 5.5 luôn dựng ROI trên hai cạnh dài nên
+    nhận vào là đặt ROI sang đúng hai cạnh không có chân (4/4 pad -> 0/4).
 
-    Nhận ``ic_hai_ben`` cho một thân có chân ở hai cạnh **ngắn** vì thế đặt cả
-    hai ROI vào đúng hai cạnh không có chân. Đo trên mẫu tổng hợp (thân 100x200,
-    chân ở hai cạnh ngắn): độ phủ pad **4/4 -> 0/4**.
-
-    Nặng hơn: nhận ở đây còn *lấy đi* một cơ chế đang chạy. Đường ``multi_pin``
-    mà thân này lẽ ra lùi về có ``_dominant_edge_pair`` tự dò cặp cạnh mang chân
-    bằng pixel — tức bật luật có thể **tệ hơn** không bật.
-
-    Chốt này là bản vá tạm, không phải lời giải; lời giải là truyền cạnh chân
-    xuống 5.5 (kế hoạch §10.1). Xem §8.3.
+    Nay 5.5 đọc ``lead_edges`` (§10.1) nên chốt tạm đã tắt mặc định. Thứ phải
+    canh không còn là "có bỏ qua không" mà là **cạnh đo được có được ghi ra
+    không** — nếu nó không đi tiếp thì lỗi cũ quay lại y nguyên.
     """
 
     results = _resolve(
@@ -214,14 +207,18 @@ def test_leads_on_the_short_edges_are_not_accepted_as_two_sided() -> None:
         + _edge_leads("right", start=2, body=BODY_LONG),
         {"body1": "ic"},
     )
-    assert results == [], "chân ở hai cạnh ngắn phải bỏ qua, không nhận ic_hai_ben"
+    assert [item.package_class for item in results] == ["ic_hai_ben"]
+    assert results[0].metadata["lead_edges"] == ["left", "right"], (
+        "cạnh ĐO ĐƯỢC phải đi kèm kết quả; thiếu nó thì 5.5 lại phải suy từ "
+        "trục dài và đặt ROI sai cạnh"
+    )
 
 
-def test_the_long_axis_check_can_be_turned_off_deliberately() -> None:
-    """Tắt được — dành cho lúc 5.5 đã biết đọc cạnh thật (§10.1).
+def test_the_long_axis_stopgap_can_be_turned_back_on() -> None:
+    """Chốt tạm §8.3(a) vẫn còn, chỉ là tắt mặc định.
 
-    Có test này để bản vá tạm không hoá thành vĩnh viễn: khi cờ tắt, hành vi
-    quay lại đúng như trước 2026-09-05.
+    Giữ đường bật lại vì nó là lưới an toàn nếu đường truyền cạnh xuống 5.5 bị
+    gỡ: khi đó nhận cặp cạnh ngắn lại làm ROI rơi sang cạnh không có chân.
     """
 
     results = _resolve(
@@ -229,25 +226,7 @@ def test_the_long_axis_check_can_be_turned_off_deliberately() -> None:
         _edge_leads("left", body=BODY_LONG)
         + _edge_leads("right", start=2, body=BODY_LONG),
         {"body1": "ic"},
-        config=PackageRuleConfig(enabled=True, require_leads_on_long_axis=False),
-    )
-    assert [item.package_class for item in results] == ["ic_hai_ben"]
-
-
-def test_a_square_body_with_leads_on_only_two_edges_is_not_guessed_at() -> None:
-    """Đây là ca hỏng im lặng thứ hai của hướng luật.
-
-    Một QFP mới bị nhìn thấy chân ở hai cạnh trông y hệt một SOIC. Nhận
-    ``ic_hai_ben`` thì 5.5 **không dựng dải trên hai cạnh còn lại**, mà hai
-    cạnh đó có chân thật. Đo trên 117 IC gán tay: 64% ``ic_bon_ben`` có aspect
-    dưới 1,3, trong khi chỉ 13% ``ic_hai_ben`` như vậy — nên thân vuông là
-    bằng chứng nghiêng về QFP, không nghiêng về SOIC.
-    """
-
-    results = _resolve(
-        [_body()],  # aspect 1.0
-        _edge_leads("left") + _edge_leads("right", start=2),
-        {"body1": "ic"},
+        config=PackageRuleConfig(enabled=True, require_leads_on_long_axis=True),
     )
     assert results == []
 

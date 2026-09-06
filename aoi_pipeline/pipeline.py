@@ -839,6 +839,20 @@ class AOIPipeline:
                         "model_version": result.model_version,
                     }
                 )
+                # Cạnh chân ĐO ĐƯỢC đi cùng lớp gói, không dừng lại ở đây. Bản
+                # trước chỉ ghi tên lớp, nên 5.5 phải suy cạnh từ trục dài của
+                # thân — và khi hai thứ đó lệch nhau thì ROI rơi vào đúng hai
+                # cạnh không có chân (kế hoạch package §8.3, §10.1).
+                edges = result.metadata.get("lead_edges") if result.metadata else None
+                if isinstance(edges, (list, tuple, set)) and edges:
+                    payload["lead_edges"] = sorted(str(edge) for edge in edges)
+                    # Cạnh vô nghĩa nếu không nói rõ nó thuộc hệ toạ độ nào.
+                    # Bộ luật đọc cạnh từ hộp thẳng trục trên ảnh phân tích, nên
+                    # ở đây là hệ ẢNH. Nguồn khác (CAD) có thể cho cạnh trong hệ
+                    # cục bộ của linh kiện; ghi rõ để 5.5 không đọc nhầm hệ.
+                    payload["lead_edges_space"] = "image"
+                    metadata["terminal_lead_edges"] = payload["lead_edges"]
+                    metadata["terminal_lead_edges_space"] = "image"
                 metadata["package_profile"] = payload
                 metadata["terminal_geometry_override"] = profile.terminal_geometry
             annotated.append(replace(detection, metadata=metadata))

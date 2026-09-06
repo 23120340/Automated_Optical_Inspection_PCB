@@ -1,10 +1,16 @@
 """Dựng một fixture pad đếm tay mới, theo quy ước box MỚI ("chỉ thân").
 
-Vì sao cần: `scripts/evaluate_package_rule_gate.py` chạy được nhưng phát hiện
-nhánh ``ic`` của bộ luật **chưa từng được kiểm** — fixture duy nhất đang có
+Vì sao cần: fixture duy nhất đang có
 (`tests/data/solder_geometry/board_smd_00001`) dùng box của detector 22 lớp cũ,
-vốn khoanh *bao cả chân*. Chân rơi vào TRONG box thân, ``_edge_of`` trả ``None``,
-và luật không bao giờ chạy tới nhánh đó.
+vốn khoanh *bao cả chân*, nên nó không kiểm được quy ước box hiện tại.
+
+> **Sửa 2026-09-06.** Bản trước ghi rằng nhánh ``ic`` chưa từng chạy vì chân rơi
+> vào TRONG box thân và ``_edge_of`` trả ``None``. **Nguyên nhân đó đã sai** —
+> vấn đề không nằm ở quy ước box mà ở chỗ ``_edge_of`` đo bằng *tâm* chân, trong
+> khi bước 2 trả về mối hàn **vắt qua** mép thân. Sau khi nó đổi sang đo *mép
+> ngoài*, số chân rơi vào trong thân trên chính fixture này xuống **0** và nhánh
+> ``ic`` chạy được (kế hoạch package §9.0e). Fixture mới vẫn đáng làm, nhưng để
+> đo **độ phủ pad** trên box quy ước mới, không phải để mở nhánh ``ic``.
 
 Hai bước, chạy cách nhau (ở giữa là bạn ngồi khoanh pad):
 

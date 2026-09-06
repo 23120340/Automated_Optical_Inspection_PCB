@@ -92,17 +92,21 @@ class PackageRuleConfig:
     two_sided_min_aspect: float = 1.3
     #: Chỉ nhận ``ic_hai_ben`` khi cặp cạnh có chân TRÙNG cặp cạnh dài của thân.
     #:
-    #: Bước 5.5 **không đọc** ``lead_edges``: với ``dual_sided`` nó giữ
-    #: ``lead_top``/``lead_bottom`` trong hệ toạ độ *linh kiện*, tức luôn là hai
-    #: cạnh **dài** của thân. Nên nếu luật nhận một con IC có chân trên hai cạnh
-    #: **ngắn**, ROI rơi trọn vào hai cạnh không có chân gì -- đo trên mẫu tổng
-    #: hợp: độ phủ pad 4/4 -> **0/4**.
+    #: Lý do nó từng cần: bước 5.5 **không đọc** ``lead_edges``; với
+    #: ``dual_sided`` nó giữ ``lead_top``/``lead_bottom`` trong hệ toạ độ *linh
+    #: kiện*, tức luôn là hai cạnh **dài** của thân. Nên khi luật nhận một con IC
+    #: có chân trên hai cạnh **ngắn**, ROI rơi trọn vào hai cạnh không có chân --
+    #: đo trên mẫu tổng hợp: độ phủ pad 4/4 -> **0/4**.
     #:
-    #: Đây là chốt tạm, không phải lời giải. Lời giải là truyền cạnh chân xuống
-    #: 5.5 (kế hoạch §10.1); chốt này chỉ biến ROI sai cạnh **im lặng** thành
-    #: một lần bỏ qua, tức lùi về đúng hành vi hôm nay. Tắt nó khi và chỉ khi
-    #: 5.5 đã biết đọc cạnh thật.
-    require_leads_on_long_axis: bool = True
+    #: **Đã tắt mặc định 2026-09-06 vì điều kiện gỡ đã thoả.** Đây luôn là chốt
+    #: tạm: lời giải là truyền cạnh chân xuống 5.5 (§10.1), và chốt này chỉ biến
+    #: ROI sai cạnh *im lặng* thành một lần bỏ qua. Nay 5.5 **đọc được**
+    #: ``lead_edges`` và dựng ROI trên đúng cạnh đo được — mẫu tổng hợp từng cho
+    #: độ phủ pad 4/4 -> 0/4 giờ cho 4/4 -> 4/4.
+    #:
+    #: Bật lại nếu đường truyền cạnh bị gỡ: khi 5.5 không đọc cạnh nữa mà luật
+    #: vẫn nhận cặp cạnh ngắn thì ROI lại rơi sang hai cạnh không có chân.
+    require_leads_on_long_axis: bool = False
     #: Tách tụ TRỤ ĐỨNG khỏi tụ CHIP: hộp gần vuông thì là trụ đứng nhìn từ
     #: trên. Đo trên 169 tụ gán tay (85 trụ / 84 chip, 32 bo, chia hiệu chỉnh
     #: và nghiệm thu **theo bo**, đóng băng ngưỡng trước khi đo):

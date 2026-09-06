@@ -80,6 +80,7 @@ def derive_solder_joints(
     frame: ComponentFrame | None = None,
     geometry: str | None = None,
     axis_known: bool = False,
+    lead_edges: Sequence[str] | None = None,
 ) -> list[SolderJoint]:
     """Return the inspection ROIs for one detection.
 
@@ -91,6 +92,13 @@ def derive_solder_joints(
     ``frame`` and ``geometry`` let a caller that knows better override what the
     box alone can say. CAD fusion uses them to keep this exact ROI geometry
     while anchoring it on a registered placement and a real pad count.
+
+    ``lead_edges`` là cạnh chân **đo được**, trong hệ toạ độ ẢNH (``"left"``,
+    ``"right"``, ``"top"``, ``"bottom"``). Chỉ dùng cho gói hai-cạnh, và chỉ khi
+    chúng quy về đúng một cặp đối; ngoài ra thì bỏ qua. Đây là phần (b) của
+    §8.3: trước đó bước 5.2 đo được cạnh chân rồi **vứt đi**, còn 5.5 thì luôn
+    dựng trên hai cạnh dài của thân — hai thứ đó lệch nhau là ROI rơi vào đúng
+    hai cạnh không có chân.
     """
 
     config = config or SolderJointConfig()
@@ -165,13 +173,25 @@ def derive_solder_joints(
     else:
         rects = _multi_pin_rects(frame, config)
         if geometry in two_sided_geometries:
-            # Local +x is the body long axis, hence top/bottom are the two long
-            # edges.  Package evidence is the structural answer; do not ask
-            # the noisy band-energy heuristic to remove either row again.
-            rects = [
-                rect for rect in rects
-                if rect.position in {"lead_top", "lead_bottom"}
-            ]
+            # Package evidence is the structural answer; do not ask the noisy
+            # band-energy heuristic to remove either row again.
+            #
+            # CẠNH NÀO thì ưu tiên cạnh ĐO ĐƯỢC, không suy từ trục dài. Bước 5.2
+            # đọc được chân nằm ở cạnh nào và ``lead_edges`` mang nó xuống đây
+            # (kế hoạch package §10.1). Trước đó thông tin ấy bị vứt đi và 5.5
+            # luôn giữ hai cạnh dài — nên một IC có chân ở hai cạnh NGẮN bị đặt
+            # ROI sang đúng hai cạnh không có chân, đo được 4/4 pad -> 0/4
+            # (§8.3).
+            chosen = _rects_on_measured_edges(rects, frame, lead_edges)
+            if chosen is None:
+                # Không có cạnh đo được, hoặc chúng không quy về đúng một cặp
+                # đối — lùi về hai cạnh dài như cũ. Local +x chạy dọc trục dài
+                # nên top/bottom chính là hai cạnh dài.
+                chosen = [
+                    rect for rect in rects
+                    if rect.position in {"lead_top", "lead_bottom"}
+                ]
+            rects = chosen
 
     if geometry == "multi_pin" and image is not None:
         # Mọi phép ĐỌC ẢNH chạy trên dải định vị; mọi thứ TRẢ RA dựng từ dải đo.
@@ -597,6 +617,62 @@ def _resolve_two_terminal_rects(
             for rect in _two_terminal_rects(frame, config, along_long_axis=False)
         ),
     ]
+
+
+#: Pháp tuyến hướng RA NGOÀI của từng dải, trong hệ toạ độ linh kiện.
+#: Local +x chạy dọc ``length``; ``lead_top``/``lead_bottom`` vì thế là hai cạnh
+#: **dài**, còn ``lead_left``/``lead_right`` là hai đầu **ngắn**.
+_LOCAL_OUTWARD = {
+    "lead_left": (-1.0, 0.0),
+    "lead_right": (1.0, 0.0),
+    "lead_top": (0.0, -1.0),
+    "lead_bottom": (0.0, 1.0),
+}
+
+
+def _local_position_to_image_edge(position: str, angle: float) -> str | None:
+    """Dải ``position`` quay ra cạnh nào của ẢNH, ở góc xoay ``angle``.
+
+    Xoay pháp tuyến ngoài rồi lấy thành phần trội. Không giả định linh kiện
+    thẳng trục: CAD fusion dựng frame từ toạ độ land đã đăng ký nên ``angle``
+    có thể là góc bất kỳ.
+    """
+
+    outward = _LOCAL_OUTWARD.get(position)
+    if outward is None:
+        return None
+    cos_a, sin_a = math.cos(angle), math.sin(angle)
+    nx = outward[0] * cos_a - outward[1] * sin_a
+    ny = outward[0] * sin_a + outward[1] * cos_a
+    if abs(nx) >= abs(ny):
+        return "left" if nx < 0 else "right"
+    return "top" if ny < 0 else "bottom"
+
+
+def _rects_on_measured_edges(
+    rects: Sequence[_LocalRect],
+    frame: ComponentFrame,
+    lead_edges: Sequence[str] | None,
+) -> list[_LocalRect] | None:
+    """Giữ đúng những dải nằm trên các cạnh ĐO ĐƯỢC, hoặc ``None`` nếu không rõ.
+
+    Trả ``None`` — chứ không đoán — khi cạnh đo được không quy về đúng một cặp
+    đối trong hệ linh kiện. Đoán ở đây là đặt ROI lên cạnh không có chân, tức
+    đúng loại lỗi mà cả §8.3 lẫn §8.2 đang chặn.
+    """
+
+    if not lead_edges:
+        return None
+    wanted = {str(edge).strip().lower() for edge in lead_edges}
+    if wanted not in ({"left", "right"}, {"top", "bottom"}):
+        return None
+    keep = [
+        rect for rect in rects
+        if _local_position_to_image_edge(rect.position, frame.angle) in wanted
+    ]
+    if len(keep) != 2:
+        return None
+    return keep
 
 
 def _pad_only_rects(frame: ComponentFrame, config: SolderJointConfig) -> list[_LocalRect]:
@@ -1518,6 +1594,18 @@ class SolderJointCropper:
                 detection.metadata.get("terminal_geometry_override", "")
                 or package_class
             ).strip()
+            # Cạnh chân đo được ở bước 5.2. Đọc từ chính ``package_profile`` để
+            # nó đi cùng đường với ``package_class`` — hai thứ này phải luôn nói
+            # về cùng một quyết định (§10.1).
+            edges = detection.metadata.get("terminal_lead_edges")
+            space = detection.metadata.get("terminal_lead_edges_space")
+            if edges is None and isinstance(profile, dict):
+                edges = profile.get("lead_edges")
+                space = profile.get("lead_edges_space")
+            # Cạnh không khai hệ toạ độ thì KHÔNG dùng. Đọc nhầm hệ là đặt ROI
+            # lệch 90 độ, tức đúng lỗi mà cả đường này sinh ra để chặn.
+            if space is not None and str(space) != "image":
+                edges = None
             joints.extend(
                 derive_solder_joints(
                     detection,
@@ -1527,6 +1615,7 @@ class SolderJointCropper:
                     bgr,
                     geometry=geometry_override or None,
                     axis_known=bool(detection.metadata.get("package_axis_known", False)),
+                    lead_edges=edges if isinstance(edges, (list, tuple, set)) else None,
                 )
             )
         # Before refining: two ROIs overlapping 97% would otherwise both snap

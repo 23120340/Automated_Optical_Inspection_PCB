@@ -727,7 +727,7 @@ Thân vuông là bằng chứng nghiêng về QFP, không nghiêng về SOIC.
 
 ### 8.3. Cạnh chân đo được KHÔNG đi tới bước dựng ROI — 2026-09-05
 
-**(a) đã cài 2026-09-05; (b) chưa — xem bảng cuối mục.**
+**(a) cài 2026-09-05; (b) cài 2026-09-06 — CẢ HAI đã xong.**
 
 Luật đọc được chân nằm ở cạnh nào và ghi vào
 `metadata["lead_edges"]`. Nhưng `PackageClassification` chỉ mang **tên lớp**;
@@ -762,10 +762,25 @@ ca này, luật **lấy đi** một cơ chế đang hoạt động.
 | | việc | khối lượng | chặn được gì |
 |---|---|---|---|
 | **a** ✅ | `_ic_package` **bỏ qua** khi cặp cạnh phát hiện được không phải cặp trục dài (`require_leads_on_long_axis`) | 3 dòng | biến ROI sai cạnh im lặng thành abstain — lùi về hành vi hôm nay |
-| **b** | truyền `lead_edges` + hướng xuyên suốt xuống 5.5 (§10.1) | vừa | dựng ROI đúng cạnh thật |
+| **b** ✅ | truyền `lead_edges` + hướng xuyên suốt xuống 5.5 (§10.1) | vừa | dựng ROI đúng cạnh thật |
 
 (a) **không thay được** (b) — nó chỉ đóng lỗ hổng, không dùng được thông tin đã
 đo. Nhưng (a) rẻ và an toàn tuyệt đối theo nguyên tắc ở đầu §8, nên làm trước.
+
+> **✅ (b) xong 2026-09-06.** `lead_edges` đi xuyên suốt: bộ luật →
+> `package_profile` → `SolderJointCropper.derive` → `derive_solder_joints`, và
+> nhánh hai-cạnh giữ đúng dải nằm trên **cạnh đo được** thay vì hai cạnh dài.
+>
+> Ánh xạ cục bộ→ảnh tính bằng **pháp tuyến ngoài xoay theo `frame.angle`**, nên
+> nó đúng cả với linh kiện xoay chéo — CAD fusion dựng frame từ toạ độ land đã
+> đăng ký nên góc có thể bất kỳ. Khi cạnh đo được **không** quy về đúng một cặp
+> đối thì trả `None` và lùi về hai cạnh dài — **không đoán**.
+>
+> Chính mẫu từng cho độ phủ pad 4/4 → **0/4** giờ cho 4/4 → **4/4**.
+>
+> ⇒ Chốt tạm (a) `require_leads_on_long_axis` **đã tắt mặc định**, đúng điều
+> kiện gỡ mà mục này đặt ra từ đầu: *"tắt khi và chỉ khi 5.5 đã biết đọc cạnh
+> thật"*. Cờ vẫn còn để bật lại nếu đường truyền cạnh bị gỡ.
 
 > **Điều đáng lo nhất tìm được khi cài (a):** cài xong thì **cả ba test
 > happy-path của nhánh `ic_hai_ben` đều đỏ** — và cả ba đều đặt chân ở hai cạnh
@@ -979,6 +994,49 @@ Ba ca bỏ qua còn lại đều có nội dung: 2 con `ic` chỉ thấy chân �
 > Con số 18 → 0 được chốt bằng test, không chỉ ghi ở đây: nó là ô đã chặn nhánh
 > `ic` suốt, và nếu quay lại thì mọi kết luận về nhánh đó mất hiệu lực.
 
+#### 9.0f. Soát lại — và một con số của tôi phải đính chính (2026-09-06)
+
+Rà lại toàn bộ đường liên quan sau ba thay đổi trong ngày. Ba kết quả:
+
+**1. "ROI chỉ thêm, không bớt" chỉ đúng Ở `derive`, không đúng đầu-cuối.**
+Cổng báo ROI 90 → 92 trên fixture. Chạy thật đầu-cuối trên một tile 204 linh
+kiện, đo ROI **sau fusion**:
+
+| | luật TẮT | luật BẬT |
+|---|---:|---:|
+| ROI sau fusion | 988 | 985 |
+| ROI cũ **không còn** trong tập mới | — | **82** |
+| ROI mới xuất hiện | — | 79 |
+
+Tức bật luật **dịch chỗ 82 ROI**, không phải chỉ thêm. Cổng không thấy vì nó đo
+ở `derive`, trước `fuse_detected_leads`/`fuse_solder_rois`/`deconflict` — **đúng
+điểm phiên song song đã nêu** (§9.0d, chỗ để trống cho họ). Câu "ROI chỉ thêm"
+trong §6.3d và §9.0e phải đọc kèm phạm vi đó.
+
+**2. Nhưng độ phủ mối hàn THẬT không đổi.** Đo trên 2 tile, 601 mối hàn do lead
+detector tìm được, ngưỡng phủ 50%:
+
+| | luật TẮT | luật BẬT |
+|---|---:|---:|
+| mối hàn được phủ | 599 / 601 (99,7%) | **599 / 601 (99,7%)** |
+
+82 ROI dịch chỗ nhưng **không bỏ rơi mối hàn nào** — vì fusion neo ROI lên chân
+đo được. Đây là phép đo đầu-cuối đầu tiên của đường luật trên bo thật, và nó là
+thứ cổng hiện chưa làm được.
+
+**3. Một lỗi ưu tiên tiềm ẩn, đã sửa.** `cad_fusion` thay `package_profile` và
+`terminal_geometry_override` bằng bằng chứng CAD nhưng **không xoá**
+`terminal_lead_edges` mà luật ảnh đã ghi. Trong một lượt chạy thì chưa lộ —
+`derive` xong trước khi CAD ghi — nhưng detection bị sửa **tại chỗ** và
+`last_package_detections` giữ chính object đó, nên gọi `make_solder_crops` lần
+nữa trên chúng sẽ ghép **hình học của CAD với cạnh của luật ảnh**. Đã xoá, có
+test canh (gỡ bản vá ra thì đỏ).
+
+> Kèm theo: docstring của `build_pad_fixture.py` vẫn nói nhánh `ic` bế tắc **vì
+> quy ước box cũ**. Nguyên nhân đó đã được chứng minh là sai (§9.0c/§9.0e) — đã
+> sửa lại. Fixture mới vẫn đáng làm, nhưng để đo **độ phủ pad**, không phải để
+> mở nhánh `ic`.
+
 **Việc thật lộ ra từ đây, thay cho "dựng thêm fixture":**
 
 1. ~~Lead detector / pass 2 trả mối hàn đè lên thân.~~ **✅ ĐÃ GIẢI 2026-09-06 —
@@ -1054,9 +1112,10 @@ Ba ca bỏ qua còn lại đều có nội dung: 2 con `ic` chỉ thấy chân �
 
 ## 10. Kế hoạch tiếp theo — cập nhật review 2026-09-06
 
-Các sửa lỗi ở §9.0b và nguồn `--leads truth` ở §9.0c đã có trong code.
-Việc còn lại là kiểm được tác động trên ROI cuối cùng, làm rõ chất lượng đầu
-vào pass 2 và truyền topology tới nơi sử dụng. **Luật ảnh vẫn mặc định TẮT.**
+Các sửa lỗi ở §9.0b, nguồn `--leads truth` ở §9.0c, luật capacitor ở §6.3d
+và phép đo mép ngoài ở §9.0e đã có trong code. Việc còn lại là kiểm được tác
+động trên ROI cuối cùng, xác minh chất lượng bằng chứng cạnh và truyền
+topology tới nơi sử dụng. **Luật ảnh vẫn mặc định TẮT.**
 
 ### 10.1. Truyền topology có kiểu dữ liệu, giữ hợp đồng đang có
 
@@ -1113,8 +1172,8 @@ Công việc cụ thể:
 4. Với package ẩn chân được xác nhận, báo phần mối hàn là **không kiểm được
    bằng ảnh trên xuống**, không suy thành kết quả mối hàn PASS.
 
-Đây là hướng thiết kế cần triển khai và kiểm thử, chưa phải quyền bật thay
-đổi hình học trong runtime hiện tại.
+Người dùng đã yêu cầu tiếp tục triển khai kế hoạch. Tiến hành phần contract,
+Golden và kiểm thử; giữ luật ảnh mặc định tắt trong khi chưa đạt nghiệm thu.
 
 ### 10.3. Cổng phải đo ROI cuối cùng và mức độ đã kiểm
 
@@ -1154,15 +1213,15 @@ cho topology cần nghiệm thu.
 | bước | sản phẩm cụ thể | nghiệm thu / phụ thuộc |
 |---|---|---|
 | 1 | Bổ sung cổng ROI cuối và trạng thái đủ/chưa đủ bằng chứng (§10.3) | Bắt được mất pad sau fusion/deconflict; không nhầm skip với đã kiểm |
-| 2A | Báo cáo từng IC của pass 2: ảnh overlay, box thân, cửa sổ crop, chân gán và cạnh | Phân biệt sai box, sai tọa độ, false positive/miss, gán nhầm và trùng detection; chưa đổi ngưỡng |
+| 2A | Kiểm chứng từng IC sau phép đo mép ngoài §9.0e: overlay, box thân, crop, chân gán và cạnh | So với chân/cạnh đã duyệt; đếm cạnh tăng không thay cho precision/recall, kiểm thêm gán nhầm và trùng detection |
 | 2B | Contract topology tối thiểu và đường Golden đã duyệt (§10.1–10.2) | Làm song song 2A; test serialization, biến đổi cạnh/hướng và giữ ROI đã duyệt |
 | 3 | Fixture và manifest hiệu chỉnh/nghiệm thu theo **bo vật lý** | Nhiều ảnh/crop của cùng bo không được sang hai tập; nhãn/pad đủ để đo các topology mục tiêu |
-| 4 | Thử phương án pass 2 bằng chế độ chỉ ghi nhận và so baseline | Chỉ chọn đổi `_edge_of`, cửa sổ crop hoặc model sau khi 2A chỉ ra nguyên nhân; bất định thì giữ ROI cũ |
+| 4 | Đo tác động của phép đo mép ngoài và luật capacitor bằng chế độ chỉ ghi nhận, so baseline | Giữ những sửa lỗi đã có; chỉ đổi tiếp thuật toán sau khi 2A/fixture chỉ ra nguyên nhân; bất định thì giữ ROI cũ |
 | 5 | Đóng băng cấu hình; chạy tập khoá trên cả nguồn họ và chân truth/model | Bốn tổ hợp tách lỗi luật/6.1/pass 2; kết quả model/model mới đại diện đường ảnh runtime |
 | 6 | Báo cáo quyết định theo từng topology và đường bằng chứng | Chỉ kết luận trong phạm vi đã đo; chưa đạt hoặc chưa được đo thì tiếp tục TẮT |
 
-Bước 2A phải kiểm **chân duy nhất và chủ sở hữu**, trước khi nới khái niệm
-“nằm ở cạnh”. Code hiện đếm từng detection; hai box trùng cùng một mối hàn
+Bước 2A phải kiểm **chân duy nhất và chủ sở hữu** khi đánh giá bằng chứng
+cạnh sau sửa §9.0e. Code hiện đếm từng detection; hai box trùng cùng một mối hàn
 có thể đủ ngưỡng “hai chân”. `parent_detection_id` do pass 2 ghi lại cũng
 chưa được hàm gán chân sử dụng. Đây là các khả năng đã tái hiện bằng mẫu tổng
 hợp; chưa phải kết luận rằng chúng gây ra lỗi trên fixture hiện có.
@@ -1173,9 +1232,10 @@ hoặc báo review, không tự xóa ROI baseline/Golden. Giữ các chốt khô
 chưa có ánh xạ an toàn giữ fallback hiện tại; chưa cần người dùng chọn thêm
 lớp thứ tám để làm các bước trên.
 
-Nhãn capacitor cần duyệt để hiệu chỉnh riêng luật capacitor; việc đó không
-chặn contract topology, cổng hay đường Golden đã duyệt. Không dùng lại con
-số đo sai phạm vi ở §6.3b để chọn ngưỡng.
+Luật capacitor đã có kết quả khảo sát mới ở §6.3d với 169 nhãn tiền gán.
+Cần duyệt nhãn và kiểm lại trên bo mới trước khi coi đó là bằng chứng nghiệm
+thu độc lập; việc đó không chặn contract topology, cổng hay đường Golden.
+Không dùng lại con số đo sai phạm vi ở §6.3b để chọn ngưỡng.
 
 ---
 
@@ -1189,8 +1249,9 @@ công việc kỹ thuật có thể tiếp tục ngay.
 Những đầu vào còn cần thu thập cho nghiệm thu:
 
 1. **Nhãn đã duyệt.** Bộ 750 nhãn là bản tiền gán, chưa phải ground truth.
-   Ưu tiên các IC và 103 mẫu họ capacitor (82 trụ đứng, 21 chip theo bản tiền
-   gán), các ca chưa chắc và pad của fixture dùng nghiệm thu.
+   Ưu tiên các IC, toàn bộ 169 mẫu họ capacitor của đợt bổ sung §6.3d
+   (85 trụ đứng, 84 chip theo bản tiền gán), các ca chưa chắc và pad của
+   fixture dùng nghiệm thu. Mốc 103 mẫu là thống kê trước đợt bổ sung.
 2. **Bo/ảnh dây chuyền cùng dung sai thực tế.** Cần biết bo vật lý nào, lần
    chụp nào và điều kiện ảnh để chia tập không rò rỉ; tiêu chí coverage và
    phạm vi topology cần nghiệm thu phải chốt trước khi đo tập khoá.

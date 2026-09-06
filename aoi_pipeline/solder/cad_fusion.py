@@ -169,6 +169,13 @@ def fuse_solder_joints(
                 package_profile["terminal_geometry"]
             )
             detection.metadata["package_axis_known"] = True
+            # Cạnh chân do LUẬT ẢNH đo được phải nhường chỗ: CAD mang cả hình
+            # học lẫn hướng, nên giữ lại cạnh cũ là trộn hai nguồn. Trong một
+            # lượt chạy thì ``derive`` đã xong trước đây, nhưng detection bị
+            # sửa TẠI CHỖ và ``last_package_detections`` giữ chính object này —
+            # gọi ``make_solder_crops`` lần nữa trên chúng sẽ dính.
+            detection.metadata.pop("terminal_lead_edges", None)
+            detection.metadata.pop("terminal_lead_edges_space", None)
         own_derived = joints_by_detection.get(detection_id, [])
         offset = _placement_offset(detection, projected[designator])
         shift_mm = float(np.linalg.norm(offset)) / scale

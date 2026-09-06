@@ -163,3 +163,57 @@ def test_an_elongated_capacitor_still_gets_exactly_one_pair() -> None:
     """Chốt mặt còn lại: thân thuôn dài thì trục KHÔNG mơ hồ, đừng sinh thừa."""
 
     assert len(_derive("tru_dung")) == 2
+
+
+def test_measured_lead_edges_beat_the_long_axis_assumption() -> None:
+    """§8.3(b): 5.5 đặt ROI theo cạnh ĐO ĐƯỢC, không theo trục dài của thân.
+
+    Thân 100 rộng x 200 cao nên trục dài DỌC, tức hai cạnh dài là trái/phải.
+    Nhưng chân đo được nằm ở trên/dưới. Bản trước luôn giữ hai cạnh dài, nên ROI
+    rơi trọn vào hai cạnh không có chân — đo được 4/4 pad -> 0/4.
+    """
+
+    body = Detection(
+        "ic", 0.9, BoundingBox(300, 200, 400, 400), detection_id="B0",
+        metadata={
+            "terminal_geometry_override": "dual_sided",
+            "terminal_lead_edges": ["bottom", "top"],
+            "terminal_lead_edges_space": "image",
+        },
+    )
+    config = SolderJointConfig(include_body_view=False, split_pins=False,
+                               refine_to_metal=False, deconflict_neighbours=False)
+    joints = SolderJointCropper(config).derive(
+        np.zeros((600, 800, 3), dtype=np.uint8), [body])
+
+    assert len(joints) == 2
+    # Cạnh trên/dưới của ẢNH: hai ROI phải nằm TRÊN và DƯỚI hộp thân.
+    ys = sorted(j.bbox.center[1] for j in joints)
+    assert ys[0] < 200 and ys[1] > 400, (
+        f"ROI ở y={ys}; phải nằm ngoài dải 200-400 theo trục dọc, tức đúng hai "
+        "cạnh mà chân được đo thấy"
+    )
+
+
+def test_lead_edges_in_an_undeclared_frame_are_ignored() -> None:
+    """Cạnh không khai hệ toạ độ thì bỏ qua, không đoán.
+
+    Đọc nhầm hệ là đặt ROI lệch 90 độ — đúng lỗi mà đường này sinh ra để chặn.
+    """
+
+    body = Detection(
+        "ic", 0.9, BoundingBox(300, 200, 400, 400), detection_id="B0",
+        metadata={
+            "terminal_geometry_override": "dual_sided",
+            "terminal_lead_edges": ["bottom", "top"],
+            "terminal_lead_edges_space": "component",
+        },
+    )
+    config = SolderJointConfig(include_body_view=False, split_pins=False,
+                               refine_to_metal=False, deconflict_neighbours=False)
+    joints = SolderJointCropper(config).derive(
+        np.zeros((600, 800, 3), dtype=np.uint8), [body])
+    ys = sorted(j.bbox.center[1] for j in joints)
+    assert 200 <= ys[0] <= 400 and 200 <= ys[1] <= 400, (
+        "hệ toạ độ lạ thì phải lùi về hai cạnh dài, không dùng cạnh đó"
+    )
