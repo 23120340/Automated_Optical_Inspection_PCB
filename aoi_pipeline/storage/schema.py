@@ -27,7 +27,7 @@ from pathlib import Path
 
 #: Tăng khi thêm migration. ``PRAGMA user_version`` của SQLite giữ số này ngay
 #: trong file, nên không cần bảng riêng và không lệch được khỏi dữ liệu.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _MIGRATION_1 = """
 CREATE TABLE board (
@@ -98,7 +98,38 @@ CREATE INDEX defect_by_inspection ON defect(inspection_id);
 CREATE INDEX defect_by_image ON defect(image_sha256);
 """
 
-MIGRATIONS: tuple[str, ...] = (_MIGRATION_1,)
+_MIGRATION_2 = """
+CREATE TABLE scan_session (
+    session_id   TEXT PRIMARY KEY,
+    board_id     TEXT NOT NULL REFERENCES board(board_id),
+    station      TEXT NOT NULL,
+    operator     TEXT,
+    -- Mặt bắt buộc của phiên này, JSON. Bo một mặt là chuyện có thật nên đây là
+    -- dữ liệu chứ không phải hằng số; nhưng phải KHAI RA, không mặc định ngầm.
+    required_sides TEXT NOT NULL,
+    status       TEXT NOT NULL CHECK (status IN ('open', 'closed', 'cancelled')),
+    opened_at    TEXT NOT NULL,
+    closed_at    TEXT,
+    close_reason TEXT,
+    -- Đóng phiên khi còn thiếu mặt thì PHẢI có lý do. Bỏ dở im lặng là cách
+    -- một tấm bo chưa kiểm đủ đi tiếp mà không ai biết.
+    CHECK (status = 'open' OR closed_at IS NOT NULL)
+);
+
+-- Chỉ MỘT phiên đang mở trên mỗi trạm (§4.3). Chỉ mục một phần: hàng đã đóng
+-- hoặc đã huỷ không chiếm chỗ.
+CREATE UNIQUE INDEX one_open_session_per_station
+    ON scan_session(station) WHERE status = 'open';
+
+ALTER TABLE inspection ADD COLUMN session_id TEXT REFERENCES scan_session(session_id);
+-- Kết quả về SAU khi phiên đã huỷ: vẫn ghi vào ĐÚNG phiên sinh ra nó, đánh dấu
+-- lại, không hồi sinh phiên và không gán sang phiên đang chạy (§4.3).
+ALTER TABLE inspection ADD COLUMN arrived_after_close INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX inspection_by_session ON inspection(session_id);
+"""
+
+MIGRATIONS: tuple[str, ...] = (_MIGRATION_1, _MIGRATION_2)
 
 
 def connect(path: str | Path) -> sqlite3.Connection:

@@ -150,6 +150,7 @@ class InspectionStore:
         board_id: str,
         event_id: str,
         defects: Sequence[DefectRecord] = (),
+        session_id: str | None = None,
     ) -> str:
         """Lưu một lần chạy cùng vị trí lỗi và ảnh lỗi. Trả về ``inspection_id``.
 
@@ -160,6 +161,12 @@ class InspectionStore:
 
         Ảnh được chép vào kho **trước** khi ghi hàng lỗi, và cả hai nằm trong một
         transaction: không bao giờ có hàng lỗi trỏ tới ảnh chưa tồn tại.
+
+        Kết quả về **sau khi phiên đã đóng hoặc huỷ** vẫn được ghi vào đúng phiên
+        sinh ra nó, đánh dấu ``arrived_after_close`` (§4.3). Không hồi sinh phiên
+        và tuyệt đối không gán sang phiên đang chạy — cả hai đều làm tráo danh
+        tính bo. Bản ghi đó dùng để đối soát, không dùng làm căn cứ chuyển công
+        đoạn.
         """
 
         existing = self.connection.execute(
@@ -167,6 +174,21 @@ class InspectionStore:
         ).fetchone()
         if existing is not None:
             return str(existing["inspection_id"])
+
+        late = 0
+        if session_id is not None:
+            row = self.connection.execute(
+                "SELECT status, board_id FROM scan_session WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"không có phiên {session_id}")
+            if str(row["board_id"]) != board_id:
+                raise ValueError(
+                    f"phiên {session_id} thuộc bo {row['board_id']}, không phải "
+                    f"{board_id}; gán chéo là tráo danh tính bo"
+                )
+            late = 0 if row["status"] == "open" else 1
 
         payload = run.to_dict()
         inspection_id = f"INS-{uuid.uuid4().hex[:12]}"
@@ -181,8 +203,8 @@ class InspectionStore:
                     " status, reason, started_at, received_at,"
                     " production_gates_enforced, production_gate_findings,"
                     " recipe_sha256, golden_sha256, runtime_detector_identifier,"
-                    " coordinate_space, run_json)"
-                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " coordinate_space, run_json, session_id, arrived_after_close)"
+                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         inspection_id,
                         board_id,
@@ -202,6 +224,8 @@ class InspectionStore:
                         str(payload.get("runtime_detector_identifier") or ""),
                         str(payload.get("coordinate_space") or ""),
                         json.dumps(payload, ensure_ascii=False),
+                        session_id,
+                        late,
                     ),
                 )
                 for item, sha in zip(defects, stored_images):
@@ -274,6 +298,108 @@ class InspectionStore:
         ).fetchall()
         passed = {str(row["side"]) for row in rows}
         return tuple(side for side in required if side not in passed)
+
+    # ------------------------------------------------------------ phiên kiểm
+
+    def open_session(
+        self,
+        *,
+        board_id: str,
+        station: str,
+        operator: str | None = None,
+        required_sides: Sequence[str] = ("top", "bottom"),
+    ) -> str:
+        """Mở một phiên kiểm cho một tấm bo tại một trạm.
+
+        **Mỗi trạm chỉ một phiên đang mở** (§4.3), ép bằng chỉ mục một phần
+        trong lược đồ chứ không bằng kiểm tra ở tầng ứng dụng — hai tiến trình
+        cùng mở thì tầng ứng dụng thua, cơ sở dữ liệu thì không.
+
+        ``required_sides`` được **ghi vào phiên**, không lấy mặc định lúc đọc:
+        một bo một mặt và một bo hai mặt phải phân biệt được sau nhiều tháng.
+        """
+
+        session_id = f"SES-{uuid.uuid4().hex[:12]}"
+        try:
+            with self.connection:
+                self.connection.execute(
+                    "INSERT INTO scan_session (session_id, board_id, station,"
+                    " operator, required_sides, status, opened_at)"
+                    " VALUES (?, ?, ?, ?, ?, 'open', ?)",
+                    (session_id, board_id, station, operator,
+                     json.dumps(list(required_sides)), utc_now_iso()),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise RuntimeError(
+                f"trạm {station} đang có phiên mở; đóng hoặc huỷ nó trước"
+            ) from exc
+        return session_id
+
+    def session_sides_missing(self, session_id: str) -> tuple[str, ...]:
+        """Mặt bắt buộc của CHÍNH phiên này chưa có lần chạy đạt.
+
+        Khác ``sides_still_missing`` ở chỗ nó hỏi trong phạm vi một phiên và
+        dùng ``required_sides`` đã ghi lúc mở, chứ không lấy mặc định.
+        """
+
+        row = self.connection.execute(
+            "SELECT required_sides FROM scan_session WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"không có phiên {session_id}")
+        required = json.loads(row["required_sides"])
+        rows = self.connection.execute(
+            "SELECT DISTINCT side FROM inspection WHERE session_id = ?"
+            " AND status = 'pass' AND production_gates_enforced = 1"
+            " AND arrived_after_close = 0",
+            (session_id,),
+        ).fetchall()
+        passed = {str(item["side"]) for item in rows}
+        return tuple(side for side in required if side not in passed)
+
+    def close_session(
+        self, session_id: str, *, reason: str | None = None
+    ) -> tuple[str, ...]:
+        """Đóng phiên. Trả về các mặt còn thiếu tại thời điểm đóng.
+
+        Còn thiếu mặt mà không nêu lý do thì **từ chối**: bỏ dở im lặng là cách
+        một tấm bo chưa kiểm đủ đi tiếp mà không ai biết. Nêu lý do thì cho
+        đóng, và lý do được lưu lại.
+        """
+
+        missing = self.session_sides_missing(session_id)
+        if missing and not reason:
+            raise ValueError(
+                f"phiên còn thiếu mặt {', '.join(missing)}; muốn đóng thì phải "
+                "nêu lý do, không bỏ dở im lặng"
+            )
+        with self.connection:
+            self.connection.execute(
+                "UPDATE scan_session SET status = 'closed', closed_at = ?,"
+                " close_reason = ? WHERE session_id = ? AND status = 'open'",
+                (utc_now_iso(), reason, session_id),
+            )
+        return missing
+
+    def cancel_session(self, session_id: str, *, reason: str) -> None:
+        """Huỷ phiên. Lý do là bắt buộc — phiên huỷ không lý do không đối soát được."""
+
+        if not reason:
+            raise ValueError("huỷ phiên phải nêu lý do")
+        with self.connection:
+            self.connection.execute(
+                "UPDATE scan_session SET status = 'cancelled', closed_at = ?,"
+                " close_reason = ? WHERE session_id = ? AND status = 'open'",
+                (utc_now_iso(), reason, session_id),
+            )
+
+    def open_session_at(self, station: str) -> str | None:
+        row = self.connection.execute(
+            "SELECT session_id FROM scan_session WHERE station = ? AND status = 'open'",
+            (station,),
+        ).fetchone()
+        return None if row is None else str(row["session_id"])
 
     # ------------------------------------------------------------- kho ảnh
 

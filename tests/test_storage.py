@@ -198,3 +198,105 @@ def test_foreign_keys_are_actually_enforced(tmp_path: Path) -> None:
                 " VALUES ('X','KHONG-CO','top','E',"
                 "'pass','t','t',1,'a','b','c','d','{}')"
             )
+
+
+# ------------------------------------------- phiên kiểm: giữ danh tính khi lật
+
+def test_a_station_can_only_have_one_open_session(tmp_path: Path) -> None:
+    """§4.3: mỗi trạm một phiên đang mở.
+
+    Ép bằng chỉ mục một phần trong lược đồ, không bằng kiểm tra ở tầng ứng dụng
+    — hai tiến trình cùng mở thì tầng ứng dụng thua, cơ sở dữ liệu thì không.
+    """
+
+    with InspectionStore(tmp_path / "kho") as store:
+        a, b = store.ensure_board(), store.ensure_board()
+        first = store.open_session(board_id=a, station="T1")
+        with pytest.raises(RuntimeError, match="đang có phiên mở"):
+            store.open_session(board_id=b, station="T1")
+        # Trạm khác thì không ảnh hưởng.
+        store.open_session(board_id=b, station="T2")
+        store.cancel_session(first, reason="đổi bo")
+        assert store.open_session(board_id=b, station="T1")
+
+
+def test_closing_a_session_with_a_side_missing_needs_a_reason(tmp_path: Path) -> None:
+    """Bỏ dở IM LẶNG là cách một tấm bo chưa kiểm đủ đi tiếp mà không ai biết."""
+
+    with InspectionStore(tmp_path / "kho") as store:
+        board = store.ensure_board()
+        session = store.open_session(board_id=board, station="T1")
+        store.save_inspection(_run(side="top", status="pass"), board_id=board,
+                              event_id="EV-1", session_id=session)
+
+        assert store.session_sides_missing(session) == ("bottom",)
+        with pytest.raises(ValueError, match="nêu lý do"):
+            store.close_session(session)
+        assert store.close_session(session, reason="bo cong, dừng kiểm") == ("bottom",)
+
+
+def test_a_finished_session_closes_without_a_reason(tmp_path: Path) -> None:
+    with InspectionStore(tmp_path / "kho") as store:
+        board = store.ensure_board()
+        session = store.open_session(board_id=board, station="T1")
+        for index, side in enumerate(("top", "bottom")):
+            store.save_inspection(_run(side=side, status="pass"), board_id=board,
+                                  event_id=f"EV-{index}", session_id=session)
+        assert store.session_sides_missing(session) == ()
+        assert store.close_session(session) == ()
+
+
+def test_a_one_sided_board_is_declared_not_assumed(tmp_path: Path) -> None:
+    """``required_sides`` ghi vào phiên, không lấy mặc định lúc đọc.
+
+    Một bo một mặt và một bo hai mặt phải phân biệt được sau nhiều tháng.
+    """
+
+    with InspectionStore(tmp_path / "kho") as store:
+        board = store.ensure_board()
+        session = store.open_session(board_id=board, station="T1",
+                                     required_sides=("top",))
+        store.save_inspection(_run(side="top", status="pass"), board_id=board,
+                              event_id="EV-1", session_id=session)
+        assert store.session_sides_missing(session) == ()
+
+
+def test_a_result_arriving_after_cancel_is_kept_but_flagged(tmp_path: Path) -> None:
+    """§4.3: ghi vào ĐÚNG phiên sinh ra nó, không hồi sinh, không gán sang phiên khác.
+
+    Ca thật: máy gửi kết quả chậm, người vận hành đã huỷ phiên và bắt đầu bo
+    khác. Vứt kết quả đi là mất dữ liệu; gán sang phiên đang chạy là tráo danh
+    tính bo. Cả hai đều sai, nên phải giữ lại và đánh dấu.
+    """
+
+    with InspectionStore(tmp_path / "kho") as store:
+        board = store.ensure_board()
+        session = store.open_session(board_id=board, station="T1")
+        store.cancel_session(session, reason="người vận hành huỷ")
+
+        late = store.save_inspection(_run(side="top", status="pass"), board_id=board,
+                                     event_id="EV-late", session_id=session)
+        row = store.connection.execute(
+            "SELECT session_id, arrived_after_close FROM inspection"
+            " WHERE inspection_id = ?", (late,)
+        ).fetchone()
+        assert row["session_id"] == session, "phải nằm ở đúng phiên sinh ra nó"
+        assert row["arrived_after_close"] == 1
+
+        # Phiên vẫn huỷ, và kết quả về muộn KHÔNG được tính là đã kiểm mặt đó.
+        status = store.connection.execute(
+            "SELECT status FROM scan_session WHERE session_id = ?", (session,)
+        ).fetchone()["status"]
+        assert status == "cancelled"
+        assert "top" in store.session_sides_missing(session)
+
+
+def test_an_inspection_cannot_be_filed_under_another_boards_session(tmp_path: Path) -> None:
+    """Gán chéo phiên là tráo danh tính bo — phải chặn ngay, không ghi rồi sửa."""
+
+    with InspectionStore(tmp_path / "kho") as store:
+        a, b = store.ensure_board(), store.ensure_board()
+        session = store.open_session(board_id=a, station="T1")
+        with pytest.raises(ValueError, match="tráo danh tính"):
+            store.save_inspection(_run(), board_id=b, event_id="EV-1",
+                                  session_id=session)

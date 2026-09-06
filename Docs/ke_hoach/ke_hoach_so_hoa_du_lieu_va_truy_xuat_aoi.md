@@ -13,8 +13,13 @@
 > không xoá ảnh còn tham chiếu, §4.4 một mặt đạt không làm cả PCB đạt — đều có
 > test riêng. Xem `tests/test_storage.py`.
 >
-> Còn thiếu để hết giai đoạn 2: hàng đợi/retry khi mất mạng, đối soát, và
-> `scan_session` (phiên kiểm bo) — xem [ke_hoach_kiem_hai_mat_pcb.md](ke_hoach_kiem_hai_mat_pcb.md) §3.
+> **Bổ sung 06/09 (migration 2):** `scan_session` — phiên kiểm bo, mỗi trạm một
+> phiên đang mở (§4.3), đóng phiên khi còn thiếu mặt thì phải nêu lý do, và kết
+> quả về muộn ghi vào đúng phiên sinh ra nó kèm `arrived_after_close`.
+>
+> Còn thiếu để hết giai đoạn 2: **hàng đợi/retry khi mất mạng** và **đối soát**.
+> Xem thêm [ke_hoach_kiem_hai_mat_pcb.md](ke_hoach_kiem_hai_mat_pcb.md) §3 cho
+> phần giao diện.
 
 > **Cập nhật 06/09/2026.** Đóng 5 điểm còn hở mà bản rà soát 05/09 nêu: chế độ
 > chạy phải nằm trong bản ghi (§9.3, đã cài ở `golden/inspector.py`), quyết định

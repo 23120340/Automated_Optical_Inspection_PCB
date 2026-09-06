@@ -15,8 +15,8 @@ Ghi 2026-09-06, sau khi xác nhận dây chuyền **kiểm cả hai mặt**.
 | Bản ghi kiểm tra mang theo mặt | ✅ `InspectionRun.board_id`/`side` (06/09) |
 | "Một mặt đạt ≠ cả PCB đạt" | ✅ `missing_required_sides()` và `InspectionStore.sides_still_missing()` |
 | Lưu được nhiều lần kiểm của cùng một bo | ✅ `inspection` khoá theo `board_id` |
-| **Ghép hai lần chụp thành một tấm bo** | ❌ **chưa có gì** |
-| **Giữ danh tính bo qua thao tác lật** | ❌ chưa có |
+| **Ghép hai lần chụp thành một tấm bo** | ✅ `scan_session` (06/09) — xem §3 bước 1 |
+| **Giữ danh tính bo qua thao tác lật** | ⚠️ dữ liệu đã chặn được; **giao diện thì chưa** — §3 bước 2 |
 | **Đối chiếu vị trí giữa hai mặt** | ❌ chưa có, và §4 nói vì sao nó khó hơn vẻ ngoài |
 
 Nói gọn: hệ thống **lưu** đúng hai mặt rồi, nhưng chưa có gì **dẫn** người vận
@@ -42,11 +42,25 @@ phát hiện sau đó**.
 
 | | việc | phụ thuộc |
 |---|---|---|
-| 1 | **Phiên kiểm bo**: một bản ghi `scan_session` giữ `board_id`, danh sách mặt bắt buộc, mặt nào đã xong | lớp lưu trữ (đã có) |
+| 1 | ✅ **Phiên kiểm bo** — `scan_session`, migration 2 (06/09) | lớp lưu trữ |
 | 2 | **Trạng thái "chờ mặt còn lại"** trên giao diện, kèm cảnh báo khi bỏ dở | (1) |
 | 3 | **Recipe theo từng mặt**: chọn đúng recipe `top`/`bottom` theo mặt đang kiểm | đã có `side` trong recipe |
 | 4 | **Quyết định ở mức bo** dùng `sides_still_missing()` thay vì trạng thái của lần chạy cuối | đã có |
 | 5 | Đối chiếu vị trí giữa hai mặt (§4) | chỉ khi thật sự cần |
+
+> **Bước 1 đã xong 06/09.** `InspectionStore.open_session/close_session/`
+> `cancel_session/session_sides_missing`. Bốn ràng buộc được ép ở tầng dữ liệu,
+> không ở tầng ứng dụng:
+>
+> - **mỗi trạm một phiên đang mở** — chỉ mục một phần trong lược đồ, nên hai
+>   tiến trình cùng mở thì cơ sở dữ liệu chặn, không phụ thuộc thứ tự chạy;
+> - **đóng phiên khi còn thiếu mặt thì phải nêu lý do** (HM03);
+> - **`required_sides` ghi vào phiên**, không lấy mặc định lúc đọc — bo một mặt
+>   phải khai ra chứ không suy;
+> - **gán inspection sang phiên của bo khác bị từ chối** — đó là tráo danh tính.
+>
+> Kết quả về sau khi phiên đã đóng/huỷ vẫn được ghi vào **đúng phiên sinh ra
+> nó**, đánh dấu `arrived_after_close`, và **không** tính là đã kiểm mặt đó.
 
 Bước 1–4 là đủ để chạy pilot. Bước 5 là việc riêng, đắt, và **chưa chắc cần**.
 
