@@ -109,6 +109,32 @@ Serial không nhất thiết chứa mã loại mạch. Có thể nhận diện b
 5. Serial lạ chỉ được đăng ký khi có đủ mã hàng/revision và nguồn xác thực. Không suy ra loại mạch chỉ bằng sự giống nhau của ảnh.
 6. Sửa mã đọc nhầm, đổi nhãn hoặc sửa ánh xạ phải ghi người thực hiện, lý do, giá trị trước/sau. Thông tin lịch sử lần kiểm tra giữ nguyên; có sự kiện đính chính khi cần.
 
+### 4.2b. "Serial" thực ra đang hỏi gì
+
+Câu hỏi không phải về định dạng chuỗi, mà là: **lấy gì để phân biệt bo này với
+bo kia?** Không có câu trả lời thì hai lần kiểm tra của hai bo khác nhau có thể
+bị gộp làm một, và lịch sử mất nghĩa.
+
+Bốn khả năng, xếp từ tốt nhất xuống:
+
+| cách | nghĩa là | dùng được khi |
+|---|---|---|
+| **Mã vạch / QR in trên bo** | máy quét đọc ra một chuỗi, mỗi bo một chuỗi | bo có sẵn mã — cần xem một bo thật để biết |
+| **Số in / khắc trên bo** | người đọc bằng mắt rồi gõ vào | có số nhưng không có mã vạch |
+| **Mã dán thêm lúc vào chuyền** | dán nhãn tự sinh trước khi kiểm | bo trắng, không có gì để phân biệt |
+| **Không có gì** | đánh số theo thứ tự chạy trong ngày | tạm được cho pilot, nhưng **không truy ngược được** một bo cụ thể sau này |
+
+**Cần xem một bo thật** để trả lời. Ba câu cụ thể khi có bo trong tay:
+
+1. Trên bo có mã vạch/QR không? Nếu có, nó nằm ở mặt nào?
+2. Nếu không có mã vạch, có số/chữ nào in hoặc khắc trên bo không?
+3. Hai bo cùng loại có phân biệt được với nhau không, hay chúng giống hệt nhau?
+
+Chưa có câu trả lời thì vẫn làm được phần còn lại: bản đầu dùng **ID nội bộ tự
+sinh** cho mỗi lần đưa bo vào kiểm, và thay bằng serial thật sau bằng một sự
+kiện liên kết — §4.4 đã có sẵn cơ chế đó cho board con trong panel. Nhưng phải
+ghi rõ ID nào là tự sinh, để sau này không nhầm nó với serial thật.
+
 ### 4.3. Ghép serial với ảnh và lần chạy
 
 - Khi xác định được PCB, tạo `scan_session_id` gắn với trạm, người vận hành, PCB, mặt, công đoạn và recipe dự kiến.
@@ -422,12 +448,12 @@ Ngưỡng thời gian tra cứu, tải ảnh, độ lớn queue và dung lượn
 
 | Chủ đề | Đề xuất khởi đầu | Thông tin cần xác nhận |
 |---|---|---|
-| Nguồn kiểm tra | Tích hợp pipeline local và upload hiện có | Có máy AOI bên ngoài, API/file hay chỉ app nội bộ? |
-| Serial | Đọc barcode/QR thành chuỗi và tra danh mục | Mẫu serial, phạm vi duy nhất, nguồn ánh xạ và người được đăng ký/sửa |
+| Nguồn kiểm tra | Tích hợp pipeline local và upload hiện có | ✅ **06/09: bên kĩ thuật đang làm phần cứng.** Nguồn là máy của chính dự án, chưa có. ⇒ bản đầu đi qua pipeline local; chừa sẵn khe tích hợp, **không** thiết kế quanh API của một máy chưa tồn tại |
+| Serial | Đọc barcode/QR thành chuỗi và tra danh mục | ⏳ **Đang hỏi lại cho dễ hiểu.** Câu hỏi thực chất: *lấy gì để phân biệt bo này với bo kia?* Xem §4.2b |
 | Recipe | Khóa phiên bản theo mã hàng/revision/mặt | Có xác minh được recipe thực sự chạy ở nguồn không? |
-| PCB/panel | Bản đầu board đơn nếu pilot cho phép | Có panel, tách panel, serial con, TOP/BOTTOM không? |
+| PCB/panel | Bản đầu board đơn nếu pilot cho phép | ✅ **06/09: CÓ hai mặt.** ⇒ TOP/BOTTOM vào contract **ngay từ đầu**, không hoãn sang giai đoạn mở rộng (§4.4). Panel và serial con vẫn chưa rõ |
 | Chất lượng | Giữ riêng kết quả core và quyết định công đoạn | Phép kiểm bắt buộc, xử lý báo giả, xác minh sau sửa, người có quyền |
-| Lưu trữ | DB metadata + kho ảnh do dịch vụ quản lý | Sản lượng, dung lượng ảnh/lần, số người/trạm, thời gian giữ và máy chủ |
+| Lưu trữ | DB metadata + kho ảnh do dịch vụ quản lý | ✅ **06/09: yêu cầu tối thiểu là lưu VỊ TRÍ lỗi kèm ẢNH lỗi.** ⇒ ảnh crop theo lỗi là bắt buộc; ảnh toàn bo giữ hay không còn tuỳ dung lượng. ⏳ Sản lượng, số trạm, thời gian giữ **vẫn chưa có** — chưa chốt được dung lượng và chính sách thu hồi |
 | Gián đoạn | Chỉ tiếp tục khi giữ được danh tính và ghi bền vững | Giới hạn offline, hành vi khi đầy đĩa, khả năng dừng/giữ PCB thực tế |
 | Dữ liệu cũ | Import có gắn nguồn và đánh dấu thông tin thiếu | Có kết quả cũ cần nhập không, có serial/recipe/ảnh đủ để ghép không? |
 

@@ -446,3 +446,78 @@ def test_a_clean_production_run_lists_no_findings(tmp_path: Path) -> None:
     assert run.status != "invalid"
     assert run.production_gates_enforced is True
     assert run.production_gate_findings == ()
+
+
+def _run_stub(*, side: str, status: str, enforced: bool = True):
+    """Một ``InspectionRun`` tối thiểu — chỉ đủ trường để hỏi câu về mặt bo."""
+
+    from aoi_pipeline.golden.inspector import InspectionRun
+    from aoi_pipeline.imaging.alignment import StrictAlignmentResult
+
+    return InspectionRun(
+        status=status,
+        reason="",
+        alignment=StrictAlignmentResult(
+            status="ok", image=None, transform=None, residual_px=None,
+            matched_anchors=0, inliers=0, inlier_ratio=0.0, scale=None,
+            rotation_deg=None, canvas_overlap_ratio=None, valid_mask=None,
+            reason="",
+        ),
+        slots=(), extras=(),
+        recipe_schema_version="x", recipe_sha256="0" * 64, golden_sha256="0" * 64,
+        model_identifiers={}, runtime_detector="stub",
+        runtime_detector_identifier="stub",
+        production_gates_enforced=enforced,
+        board_id="B1", side=side,
+    )
+
+
+# ------------------------------------------------- hai mặt là hai lần kiểm tra
+
+def test_a_run_records_which_board_and_side_it_belongs_to(tmp_path: Path) -> None:
+    """Bản ghi phải tự nói nó thuộc bo nào, mặt nào.
+
+    Recipe đã có ``board_id``/``side``, nhưng kết quả trước đây không mang theo —
+    muốn biết một lần chạy thuộc mặt nào thì phải tra ngược ``recipe_sha256`` về
+    kho recipe. Dây chuyền kiểm **cả hai mặt**, nên câu "PCB này đủ điều kiện
+    chưa" là câu hỏi trên NHIỀU lần chạy; bắt nó phụ thuộc kho recipe là làm nó
+    vỡ ngay khi recipe bị dọn hoặc đổi phiên bản.
+    """
+
+    golden, recipe, candidate = _production_recipe(tmp_path)
+    inspector = AOIInspector(
+        MockComponentDetector(lambda image: [candidate]),
+        runtime_detector_identifier=recipe.model_identifiers["component_detector"],
+    )
+    run = inspector.inspect(golden, recipe, tmp_path)
+
+    assert run.board_id == recipe.board_id
+    assert run.side == recipe.side
+    assert run.to_dict()["side"] == recipe.side
+
+
+def test_one_good_side_does_not_make_the_whole_pcb_eligible() -> None:
+    """§4.4: TOP và BOTTOM là hai lần kiểm tra riêng của cùng một PCB vật lý.
+
+    Danh sách lỗi rỗng ở một mặt không nói gì về mặt kia. Đây là ca "cho lọt",
+    nên nó phải sai về phía an toàn.
+    """
+
+    from aoi_pipeline.golden.inspector import missing_required_sides
+
+    top = _run_stub(side="top", status="pass")
+    assert missing_required_sides([top]) == ("bottom",)
+    assert missing_required_sides([top, _run_stub(side="bottom", status="pass")]) == ()
+    # Bo một mặt là chuyện có thật, nhưng phải khai ra chứ không mặc định.
+    assert missing_required_sides([top], required=("top",)) == ()
+
+
+def test_a_relaxed_or_failed_run_does_not_satisfy_a_side() -> None:
+    """Lần PASS ở chế độ chạy thử không đủ tư cách làm căn cứ (§9.3)."""
+
+    from aoi_pipeline.golden.inspector import missing_required_sides
+
+    relaxed = _run_stub(side="top", status="pass", enforced=False)
+    failed = _run_stub(side="top", status="ng")
+    assert missing_required_sides([relaxed], required=("top",)) == ("top",)
+    assert missing_required_sides([failed], required=("top",)) == ("top",)

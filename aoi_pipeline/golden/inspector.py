@@ -122,6 +122,16 @@ class InspectionRun:
     #: và "lần PASS này CHỈ đạt được nhờ tắt cổng". Không có trường này thì hai
     #: bản ghi đó giống hệt nhau.
     production_gate_findings: tuple[str, ...] = ()
+    #: Bo va MAT mà lần chạy này thuộc về, chép thẳng từ recipe.
+    #:
+    #: Recipe đã có ``board_id``/``side`` và validate ``side in {top, bottom}``,
+    #: nhưng bản ghi kết quả trước đây không mang chúng — muốn biết một lần chạy
+    #: thuộc mặt nào thì phải tra ngược ``recipe_sha256`` về kho recipe. Dây
+    #: chuyền kiểm **cả hai mặt**, nên câu "PCB này đã đủ điều kiện chưa" là câu
+    #: hỏi trên NHIỀU lần chạy; bắt nó phụ thuộc kho recipe là làm nó vỡ ngay khi
+    #: recipe bị dọn hoặc đổi phiên bản.
+    board_id: str = ""
+    side: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -135,6 +145,8 @@ class InspectionRun:
             "model_identifiers": dict(sorted(self.model_identifiers.items())),
             "runtime_detector": self.runtime_detector,
             "runtime_detector_identifier": self.runtime_detector_identifier,
+            "board_id": self.board_id,
+            "side": self.side,
             "production_gates_enforced": self.production_gates_enforced,
             "production_gate_findings": list(self.production_gate_findings),
             "alignment": self.alignment.to_dict(),
@@ -290,6 +302,8 @@ class AOIInspector:
                 runtime_detector_identifier=self.runtime_detector_identifier,
                 production_gates_enforced=enforced,
                 production_gate_findings=findings,
+                board_id=recipe.board_id,
+                side=recipe.side,
             )
 
         try:
@@ -309,6 +323,8 @@ class AOIInspector:
                 runtime_detector_identifier=self.runtime_detector_identifier,
                 production_gates_enforced=enforced,
                 production_gate_findings=findings,
+                board_id=recipe.board_id,
+                side=recipe.side,
             )
         detections = _valid_detections(raw_detections, alignment.image.shape[:2])
         associations, unmatched = _associate_candidates(
@@ -374,6 +390,8 @@ class AOIInspector:
             runtime_detector_identifier=self.runtime_detector_identifier,
             production_gates_enforced=enforced,
             production_gate_findings=findings,
+            board_id=recipe.board_id,
+            side=recipe.side,
         )
 
 
@@ -764,7 +782,36 @@ def _invalid_run(
         runtime_detector_identifier=runtime_detector_identifier,
         production_gates_enforced=production_gates_enforced,
         production_gate_findings=production_gate_findings,
+        board_id=recipe.board_id,
+        side=recipe.side,
     )
+
+
+def missing_required_sides(
+    runs: Sequence[InspectionRun],
+    *,
+    required: Sequence[str] = ("top", "bottom"),
+) -> tuple[str, ...]:
+    """Những mặt bắt buộc chưa có lần chạy ĐẠT — theo thứ tự ``required``.
+
+    Kế hoạch số hoá §4.4: TOP và BOTTOM thuộc cùng một PCB vật lý nhưng có lần
+    kiểm tra và recipe riêng, nên **không được lấy kết quả một mặt thay cho cả
+    PCB**. Danh sách lỗi rỗng ở một mặt không nói gì về mặt kia.
+
+    ``required`` là tham số chứ không phải hằng số giấu trong hàm: bo một mặt,
+    hoặc công đoạn chỉ soi một mặt, là chuyện có thật. Nhưng mặc định là **cả
+    hai**, vì bỏ sót một mặt là cho lọt, còn đòi thừa một mặt chỉ tốn công.
+
+    Chỉ tính lần chạy có cổng production được **thi hành** — một lần PASS ở chế
+    độ chạy thử không đủ tư cách làm căn cứ (§9.3).
+    """
+
+    passed = {
+        run.side
+        for run in runs
+        if run.status == "pass" and run.production_gates_enforced
+    }
+    return tuple(side for side in required if side not in passed)
 
 
 def _status_counts(slots: Sequence[SlotInspectionResult]) -> dict[str, int]:
