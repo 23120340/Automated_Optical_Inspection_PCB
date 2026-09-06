@@ -37,7 +37,7 @@ và gợi ý từ ảnh chạy song song, không chặn thiết kế hợp đồ
 | Chốt cho `ic_khong_chan` và QFP nửa vời | ✅ đã cài; QFP dài vẫn có thể lọt, chưa bảo đảm giữ ROI — §8.1, §8.2 |
 | Cổng đo hình học của đường luật | ✅ dùng chung `SolderJointCropper.derive`; **chưa đo toàn bộ đầu ra 5.5** — §9.0b, §9.0d |
 | Cạnh chân đo được → 5.5 | ⚠️ còn trong metadata dự đoán, nhưng consumer không dùng để dựng ROI — §8.3 |
-| Nhánh `ic` trên fixture hiện có | ⚠️ pad gán tay đưa một IC tới chốt hai cạnh rồi bị từ chối; chưa có quyết định IC được áp dụng — §9.0c |
+| Nhánh `ic` trên fixture hiện có | ⚠️ chân bước 2 giờ **đến được** nhánh này (chân rơi vào trong thân 18 → 0, §9.0e); một IC tới chốt hai cạnh rồi bị §8.2 từ chối, nên **vẫn chưa có quyết định IC nào được áp dụng** — §9.0c, §9.0e |
 | Chia họ `capacitor` (trụ đứng ↔ chip) | ✅ **xong 2026-09-06** — aspect < 1,17, nghiệm thu 90,5% vs baseline 68,2%, §6.3d |
 | Tập kiểm gán tay | ⏳ **750 box, bạn đã duyệt xong; 667/750 có nhãn họ** — §6.7, §6.7b |
 | Ánh xạ họ → gói cho các họ còn lại | ⏳ đang quá rộng — §6.5 |
@@ -928,13 +928,62 @@ Cổng cũng đã tách ba ca "2 cạnh" vốn in ra giống hệt nhau nhưng s
 khác nhau: cạnh **kề** (ngoài taxonomy), cạnh **đối + thân vuông** (§8.2), cạnh
 **đối + lệch trục dài** (§8.3).
 
+#### 9.0e. ĐÃ GIẢI — đo mép ngoài thay vì đo tâm (2026-09-06)
+
+> Đánh số **9.0e** chứ không 9.0d: §9.0d đã được phiên song song tham chiếu tới với nghĩa khác (cổng mới đo nhánh hình học *trước* fusion), nên để trống chỗ đó cho họ.
+
+Thử **cả năm cách** quy một chân về cạnh, trên 3–4 ảnh thật với lead detector
+thật (1.972 chân đã gán về thân):
+
+| cách | chân có cạnh | 2 cạnh đối | 4 cạnh |
+|---|---:|---:|---:|
+| tâm ra ngoài *(bản cũ)* | 683 | 16 | 0 |
+| **mép ngoài ra ngoài** | **1.086** | **22** | **2** |
+| ≥25% diện tích ra ngoài | 966 | 17 | 0 |
+| ≥50% diện tích ra ngoài | 745 | 16 | 0 |
+| cạnh gần nhất, luôn gán | 1.972 | 35 | 6 |
+
+**Cổng không phân biệt được năm cách này** — cả năm đều PASS với 0 mất pad, vì
+fixture chỉ có một bo và quá ít IC có chân. Chọn "cạnh gần nhất" chỉ vì nó phủ
+cao nhất là đúng kiểu đổi hỏng lấy hỏng. Nên đo **thẳng rủi ro** thay vì đoán:
+
+| chân nằm đâu | n | % |
+|---|---:|---:|
+| tâm đã ở ngoài thân | 683 | 34,6% |
+| **tâm trong, mép VẮT QUA mép thân** | **403** | **20,4%** |
+| nằm hẳn trong thân, nông | 663 | 33,6% |
+| nằm hẳn trong thân, **sâu ≥25% nửa bề ngang** | 223 | 11,3% |
+
+Nhóm "vắt qua mép" **đều thò ra ngoài thân thật**, tức đều là ứng viên fillet
+hợp lý — đúng thứ bước 2 sinh ra khi nó cắt cửa sổ *quanh* linh kiện. Còn "cạnh
+gần nhất" nhận thêm 886 chân **nằm hẳn trong** thân, trong đó **223 nằm sâu**:
+không chân thật nào nằm sâu trong lòng thân, nên đó là nguồn **topology giả** —
+mà topology giả thì 5.5 thu ROI về hai cạnh và mất vùng kiểm thật (§8.3).
+
+**✅ Chọn "mép ngoài", đã áp dụng.** Kèm một chốt: hộp chân bao *trọn* thân thì
+thò ra cả bốn phía và `max` chọn bừa, nên đòi thêm tâm chân phải lệch về đúng
+phía cạnh đó.
+
+**Kết quả trên fixture, với lead detector thật:**
+
+| | trước | sau |
+|---|---:|---:|
+| chân rơi vào TRONG thân | **18 / 60** | **0** |
+| luật bỏ qua | 15 / 39 | **3 / 39** |
+| pad baseline mất | 0 | **0** |
+
+Ba ca bỏ qua còn lại đều có nội dung: 2 con `ic` chỉ thấy chân ở **một** cạnh,
+1 con bị **§8.2** chặn (thân gần vuông, nghi QFP nhìn nửa vời). Tức nhánh `ic`
+**đã chạy thật** — lần đầu tiên.
+
+> Con số 18 → 0 được chốt bằng test, không chỉ ghi ở đây: nó là ô đã chặn nhánh
+> `ic` suốt, và nếu quay lại thì mọi kết luận về nhánh đó mất hiệu lực.
+
 **Việc thật lộ ra từ đây, thay cho "dựng thêm fixture":**
 
-1. **Lead detector / pass 2 trả mối hàn đè lên thân.** Đây mới là thứ chặn nhánh
-   `ic` trên dây chuyền, và không có fixture nào sửa được nó. Cần quyết: nới
-   `_edge_of` (ví dụ so theo mép chứ không theo tâm), hay sửa cửa sổ cắt của
-   pass 2, hay chấp nhận rằng đường ảnh không nuôi nổi nhánh `ic` và topology
-   phải đến từ recipe (§10.2).
+1. ~~Lead detector / pass 2 trả mối hàn đè lên thân.~~ **✅ ĐÃ GIẢI 2026-09-06 —
+   §9.0e.** Nới `_edge_of` sang đo **mép ngoài**; chân rơi vào trong thân
+   18 → 0, luật bỏ qua 15 → 3.
 2. **Fixture mới vẫn cần**, nhưng cho việc khác: đo **độ phủ pad** trên hộp thân
    quy ước mới. Không còn là đường để mở nhánh `ic`.
 3. **Giấy phép ảnh fixture.** `datasets/test_images/` bị `.gitignore` chặn và

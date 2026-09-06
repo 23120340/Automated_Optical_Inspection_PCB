@@ -104,23 +104,57 @@ def test_the_gate_says_WHY_it_abstained_not_just_how_many() -> None:
     assert sum(result.abstain_reasons.values()) == result.abstained
 
 
-def test_the_gate_flags_leads_that_land_inside_the_body() -> None:
-    """Chân có tâm trong box thân thì không đóng góp cạnh nào.
+def test_the_gate_flags_leads_that_land_inside_the_body(tmp_path) -> None:
+    """Chân không thò ra cạnh nào thì không đóng góp topology — cổng phải nói ra.
 
-    Cổng phải nói ra chứ không im lặng báo PASS — PASS khi nhánh ``ic`` chưa
-    chạy lần nào thì không có nghĩa là luật đã được kiểm. Cổng KHÔNG kết luận
-    nguyên nhân: có thể do quy ước box cũ, cũng có thể do lượt 2 vốn tìm mối
-    hàn trong một cửa sổ quanh linh kiện.
+    Bản trước assert **trên fixture** rằng phải có chân nằm trong thân, vì lúc
+    đó `_edge_of` đòi *tâm* chân ra ngoài và 18/60 chân của bước 2 rơi vào
+    trong. Sau khi `_edge_of` đổi sang đo **mép ngoài** thì con số đó xuống
+    **0** — vấn đề đã hết, nên assert cũ trở thành sai.
+
+    Nhưng **hợp đồng thì vẫn cần**: cổng phải đếm và nói ra, chứ không im lặng
+    báo PASS khi nhánh ``ic`` không chạy. Nên test dựng thẳng một ca chân nằm
+    trọn trong thân, thay vì trông chờ fixture còn ca đó.
+    """
+
+    import cv2
+    import numpy as np
+
+    rng = np.random.default_rng(3)
+    cv2.imwrite(str(tmp_path / "b.png"),
+                (rng.random((240, 240, 3)) * 60 + 40).astype("uint8"))
+    (tmp_path / "b.json").write_text(json.dumps({
+        "image": "b.png",
+        "detections": [{"label": "ic", "confidence": 0.9,
+                        "box": [60.0, 60.0, 180.0, 180.0]}],
+        # pad nam TRON trong hop than: khong tho ra canh nao
+        "components": {"U1": {"pads": [[100, 100, 140, 140]]}},
+    }), encoding="utf-8")
+
+    result = evaluate_board(tmp_path / "b.json", "truth", None, "truth")
+    assert result.leads_inside_body == 1, (
+        "chân nằm trọn trong thân phải được đếm và báo ra; im lặng ở đây nghĩa "
+        "là PASS không chứng minh được nhánh `ic` đã chạy"
+    )
+
+
+def test_the_shipped_fixture_no_longer_hides_the_ic_branch() -> None:
+    """Số đo đi kèm thay đổi `_edge_of`: 18 chân trong thân -> 0.
+
+    Đây là ô đã chặn nhánh ``ic`` suốt và được ghi hai lần trong kế hoạch. Nếu
+    nó quay lại thì mọi kết luận về nhánh ``ic`` mất hiệu lực, nên chốt bằng
+    test chứ không chỉ ghi vào tài liệu.
     """
 
     result = evaluate_board(
         FIXTURES / "board_smd_00001.json", "truth",
-        Path("models/active/lead_detector/best.onnx"),
+        Path("models/active/lead_detector/best.onnx"), "model",
     )
     if result.leads_found == 0:
         pytest.skip("không có lead detector trong môi trường này")
-    assert result.leads_inside_body > 0, (
-        "fixture này dùng quy ước box cũ nên phải có chân nằm trong thân"
+    assert result.leads_inside_body == 0, (
+        f"{result.leads_inside_body} chân lại rơi vào trong thân; nhánh `ic` "
+        "đang bị đói đầu vào trở lại"
     )
 
 

@@ -132,18 +132,53 @@ class PackageRuleConfig:
 
 
 def _edge_of(lead: Detection, body: Detection) -> str | None:
-    """Cạnh mà một chân nằm ngoài. ``None`` nếu tâm chân nằm trong thân."""
+    """Cạnh mà một chân thò ra. ``None`` khi không quy được về cạnh nào.
 
-    cx, cy = lead.bbox.center
-    box = body.bbox
-    gaps = {
-        "left": box.x1 - cx,
-        "right": cx - box.x2,
-        "top": box.y1 - cy,
-        "bottom": cy - box.y2,
+    Đo bằng **mép ngoài** của chân, không bằng tâm. Lý do đo được: bước 2 cắt
+    một cửa sổ *quanh* linh kiện rồi tìm mối hàn bên trong, nên mối hàn nó trả
+    về thường **vắt qua** mép thân — tâm còn nằm trong hộp trong khi mép đã ra
+    ngoài. Bản trước đòi *tâm* ra ngoài nên bỏ sót đúng nhóm đó, và nhánh ``ic``
+    của luật gần như không bao giờ chạy tới.
+
+    Thử cả năm cách trên 3-4 ảnh thật với lead detector thật (1.972 chân đã gán):
+
+    ==========================================  =========  ==========
+    cách                                        chân có     2 cạnh
+                                                cạnh        đối
+    ==========================================  =========  ==========
+    tâm ra ngoài (bản cũ)                          683          16
+    **mép ngoài ra ngoài (bản này)**             **1.086**    **22**
+    >=25% diện tích ra ngoài                       966          17
+    cạnh gần nhất, luôn gán                      1.972          35
+    ==========================================  =========  ==========
+
+    "Cạnh gần nhất" phủ cao nhất nhưng **bị loại**: nó gán thêm 886 chân nằm
+    **hẳn trong** thân, trong đó **223 nằm sâu hơn 25% nửa bề ngang**. Không chân
+    thật nào nằm sâu trong lòng thân, nên đó là nguồn **topology giả** — mà
+    topology giả thì 5.5 thu ROI về hai cạnh và mất vùng kiểm thật (§8.3).
+
+    Bản này chỉ nhận thêm nhóm **vắt qua mép** (403 chân): tất cả đều thò ra
+    ngoài thân thật, tức đều là ứng viên fillet hợp lý.
+    """
+
+    lead_box, box = lead.bbox, body.bbox
+    protrusion = {
+        "left": box.x1 - lead_box.x1,
+        "right": lead_box.x2 - box.x2,
+        "top": box.y1 - lead_box.y1,
+        "bottom": lead_box.y2 - box.y2,
     }
-    edge, gap = max(gaps.items(), key=lambda item: item[1])
-    return edge if gap > 0 else None
+    edge, gap = max(protrusion.items(), key=lambda item: item[1])
+    if gap <= 0:
+        return None
+
+    # Hộp chân bao TRỌN thân thì thò ra cả bốn phía và ``max`` chọn bừa một
+    # cạnh. Đòi thêm: tâm chân phải lệch về đúng phía cạnh đó so với tâm thân.
+    # Chân thật luôn lệch; hộp bao trọn thì tâm gần trùng tâm thân nên bị loại.
+    cx, cy = lead_box.center
+    bx, by = box.center
+    leans = {"left": bx - cx, "right": cx - bx, "top": by - cy, "bottom": cy - by}
+    return edge if leans[edge] > 0 else None
 
 
 def _long_edge_pair(body: Detection) -> frozenset[str]:
