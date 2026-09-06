@@ -10,3 +10,4 @@
 - [xep_hang_model.md](xep_hang_model.md)
 - [ĐÁNH GIÁ MODEL DETECT SOLDER VÀ TÌM HƯỚNG GIẢI QUYẾT.docx](ĐÁNH GIÁ MODEL DETECT SOLDER VÀ TÌM HƯỚNG GIẢI QUYẾT.docx)
 - [loi_pad_tron_bo_du_an.md](loi_pad_tron_bo_du_an.md) — lượt 1 khoanh pad tròn trên bo dự án: không phải lỗi nhãn, mà là ngoài miền.
+- [bo_anh_kiem_nhanh.md](bo_anh_kiem_nhanh.md) — 15 tile detector đang chạy tốt, chọn bằng số đo; dùng để kiểm hồi quy, không phải bằng chứng dùng được.
