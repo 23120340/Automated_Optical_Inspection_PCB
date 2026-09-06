@@ -1,9 +1,9 @@
 # Phân nhóm package cho linh kiện
 
-Viết lại toàn bộ 2026-09-03 — bản trước là ba lượt sửa chồng lên nhau nên không
-đọc được. **Cập nhật gần nhất 2026-09-05 sau review lượt 3 của Codex**, lượt
-đầu tiên tìm ra lỗi bằng code chạy được chứ không bằng đọc tài liệu: §8.3, §9.0,
-§7.2b, §10.4 là mới hoặc viết lại.
+**Cập nhật 2026-09-06**, tiếp tục lượt đánh giá bị gián đoạn tối 2026-09-05.
+Đối chiếu code tại commit `b9b3b69`, nhánh `sua-cong-package-va-chot-truc-dai`.
+§1 và §10 là trạng thái và lộ trình hiện tại; các phép đo ngày 03–05/09 bên
+dưới được giữ làm bằng chứng khảo sát, không phải kết quả nghiệm thu production.
 
 ---
 
@@ -22,37 +22,42 @@ hay không**, để nó thôi phải đoán bằng pixel.
 
 **Vị trí.** Bước **5.2**, giữa bước 5 (cắt crop) và 5.5.
 
+**Kết luận đánh giá.** Giữ hướng family → topology và không train model
+package. Có thể triển khai từng phần theo §10.4; **chưa đủ bằng chứng để bật
+luật thay đổi ROI production**. Vì dây chuyền đã xác nhận kiểm cố định vài mẫu
+PCB, topology/ROI được duyệt trong Golden là hướng chính; chẩn đoán pass 2
+và gợi ý từ ảnh chạy song song, không chặn thiết kế hợp đồng/recipe.
+
 **Đang ở đâu.**
 
 | | trạng thái |
 |---|---|
 | Thứ tự pipeline (6.1 và lead detector chạy trước 5.2) | ✅ xong, có test canh |
 | Bộ luật cho họ `ic` + 5 họ ánh xạ thẳng | ✅ xong, mặc định TẮT |
-| Chốt an toàn cho `ic_khong_chan` và QFP nửa vời | ✅ xong 2026-09-04 — §8.1, §8.2 |
-| Cổng nghiệm thu cho đường luật | ✅ **đã sửa 2026-09-05** — dùng chung đường runtime, §9.0b |
-| Cạnh chân đo được → 5.5 | ⚠️ **vẫn bị vứt đi**, nhưng đã chặn không cho đặt ROI sai cạnh — §8.3 |
-| Nhánh `ic` của luật | ⚠️ **chạy được với pad đếm tay**, chưa chạy được với chân pass-2 — §9.0c |
+| Chốt cho `ic_khong_chan` và QFP nửa vời | ✅ đã cài; QFP dài vẫn có thể lọt, chưa bảo đảm giữ ROI — §8.1, §8.2 |
+| Cổng đo hình học của đường luật | ✅ dùng chung `SolderJointCropper.derive`; **chưa đo toàn bộ đầu ra 5.5** — §9.0b, §9.0d |
+| Cạnh chân đo được → 5.5 | ⚠️ còn trong metadata dự đoán, nhưng consumer không dùng để dựng ROI — §8.3 |
+| Nhánh `ic` trên fixture hiện có | ⚠️ pad gán tay đưa một IC tới chốt hai cạnh rồi bị từ chối; chưa có quyết định IC được áp dụng — §9.0c |
 | Chia họ `capacitor` (trụ đứng ↔ chip) | ❌ **CHƯA có luật** — phép đo cũ sai phạm vi, §6.3b |
-| Tập kiểm gán tay | ⏳ **750 box đã tiền gán, chờ bạn duyệt** — §6.7 |
+| Tập kiểm gán tay | ⏳ **750 box, bạn đã duyệt xong; 667/750 có nhãn họ** — §6.7, §6.7b |
 | Ánh xạ họ → gói cho các họ còn lại | ⏳ đang quá rộng — §6.5 |
 
-> ⚠️ **Cập nhật 2026-09-05 (review lượt 3).** Hai lỗi code đã được **tái hiện
-> bằng mẫu tổng hợp**, không phải suy đoán: cổng nghiệm thu không nhìn thấy
-> thay đổi hình học do luật gây ra (§9.0), và cạnh chân mà luật đo được không
-> đi tới bước dựng ROI (§8.3).
->
-> **Cả hai đã sửa cùng ngày** (§9.0b, §8.3), và việc sửa cổng làm lộ thêm hai
-> lỗ hổng cùng họ: `--families model` chưa từng chạy được, và "luật không chạy
-> được" in ra giống hệt "luật chạy rồi bỏ qua". Cổng chạy lại cho **0 mất pad ở
-> cả hai chế độ** — nhưng nhánh `ic` **vẫn chưa được kiểm lần nào**, nên luật
-> giữ mặc định **TẮT**. Chi tiết và ba lý do ở §9.0b.
+> **Giới hạn quan trọng:** “0 pad baseline bị mất” mới là kiểm tra hồi quy
+> trên tập đã chạy. Baseline hình học hiện chỉ phủ **19/28 pad**, không chứng
+> minh 28/28 được kiểm. Cổng còn bỏ qua gán họ cho body generic, hợp nhất lead,
+> CAD và xử lý ROI lấn sang linh kiện khác ở cuối 5.5. Vì vậy
+> `--families model --leads model` hiện cũng chưa phải nghiệm thu đầu-cuối.
 
-**Việc kế tiếp cần bạn:** duyệt 750 nhãn tiền gán ở §6.7 — và **ưu tiên 103
-mẫu họ `capacitor`**, vì đó là chỗ phép đo đang mỏng nhất (§6.3b).
+**Việc kế tiếp cần bạn:** còn **83 ô chưa kết luận được họ** (§6.7b). Chúng nằm
+ở vùng không có designator trong tầm nhìn, nên ảnh đã hết thông tin — bỏ qua
+chúng là hợp lý, miễn là ghi kèm **thiên lệch cỡ**: phần bỏ có trung vị cạnh dài
+**17 px** so với **82 px** của phần giữ lại, nên mọi con số 6.1 đo trên phần còn
+lại đều **lạc quan** và phải báo cáo kèm điều kiện đó.
 
-**Việc kế tiếp của tôi:** chờ bạn quyết bước 6 ở §10.4 — pass 2 trả mối hàn
-**đè lên thân**, và đó mới là thứ chặn nhánh `ic` trên dây chuyền. Fixture mới
-không sửa được (§9.0c). Bước 1–3 và 5 đã xong.
+**Việc kỹ thuật kế tiếp:** hoàn thiện cổng đo đầu ra cuối 5.5 và hợp đồng
+topology; kiểm tra overlay/matching từng IC để xác định vì sao pass 2 thiếu
+bằng chứng cạnh. Chưa có căn cứ để chọn nới `_edge_of` hay đổi cửa sổ crop.
+Thứ tự và điều kiện hoàn thành ở §10.4.
 
 
 ---
@@ -111,7 +116,7 @@ Tức 13,5% linh kiện mang 31,2% mối hàn, và với gần như tất cả c
 5    make_crops()          → crop
 6.1  classify_components() → HỌ (capacitor / ic / resistor / ...)
         │
-5.2     ├─ họ = ic         → luật đọc vị trí chân → 2 bên | 4 bên | không chân
+5.2     ├─ họ = ic         → luật đọc vị trí chân → 2 bên | 4 bên | bỏ qua
         ├─ họ = capacitor  → luật phân biệt trụ đứng | chip      (CHƯA CÓ)
         └─ họ khác         → gói mặc định của họ đó
         │
@@ -130,10 +135,13 @@ Biết trước họ là thứ xoá đi mất cân bằng 86:9:5 đó.
 **Vì sao ở 5.2 chứ không sau 6.2.** Đặt sau 6.2 thì nhãn ra đời sau khi mọi ROI
 đã dựng xong — chỉ còn giá trị báo cáo, không cải thiện được gì.
 
+`ic_khong_chan` chỉ nhận từ nguồn có thẩm quyền như footprint/CAD hoặc
+recipe đã duyệt; luật ảnh mặc định không suy lớp này từ sự vắng mặt của lead.
+
 **Điểm nối trong code.** `terminal_geometry()` (`config.py:54`) nhận
 `package: str | None` với thứ tự ưu tiên **footprint → package → họ detector**.
-Nó không quan tâm chuỗi package đến từ model hay từ luật, nên không phải sửa
-kiến trúc, chỉ thay nguồn.
+Đường hiện tại đủ để ánh xạ slug, nhưng chưa truyền cạnh và hệ tọa độ xuống
+consumer 5.5. Việc này cần bổ sung hợp đồng ở §10.1, không chỉ thay nguồn nhãn.
 
 ---
 
@@ -314,9 +322,10 @@ recipe đã duyệt, hoặc lead detection thấy hai pad thật. Không biết 
 | `discrete_semiconductor` → `goi_nho` | **1** | 0 |
 | `led` → `hai_chan` | **0** | 0 |
 
-Chỉ `connector` có đủ mẫu để nói gì đó. `led` **không có lấy một mẫu nào** —
-ánh xạ đó hiện chỉ dựa vào trực giác, đúng loại căn cứ đã tạo ra luật bị gỡ ở
-`73ce2aa`.
+86 mẫu `connector` chỉ ủng hộ việc dùng cùng nhãn, **không chứng minh cùng
+một topology hoặc chính sách ROI**: đây là phép ánh xạ họ sang chính tên họ.
+`led` chưa có mẫu để đánh giá. Chưa ánh xạ nào được miễn nghiệm thu theo pad
+chỉ vì nhãn package khớp.
 
 **Ánh xạ họ đang quá rộng** *(Codex chỉ ra, và nhãn tay xác nhận)*. Không phải
 mọi thành viên của một họ đều cùng một gói:
@@ -377,7 +386,8 @@ miền mới**, không phải bỏ cổng hay train lại 6.1.
 > **không** phải mặc định an toàn miễn phí. Trong 101 box đó, **46 box thật sự
 > là `two_terminal`** — đẩy chúng sang `multi_pin` là dựng dải quanh cả 4 cạnh
 > của linh kiện 2 chân, đúng cái bệnh §3 mô tả. Nó an toàn theo nghĩa *không bỏ
-> sót*, không an toàn theo nghĩa *đặt ROI đúng chỗ*.
+> sót so với một số cách thu hẹp*, không bảo đảm recall tuyệt đối: bảng trên
+> vẫn có 6 ca bỏ ROI. Cần đo pad thực tế, không suy an toàn từ tên fallback.
 
 Chi tiết ở [đánh giá 6.1 §7](../danh_gia/danh_gia_classifier_6_1.md).
 
@@ -421,6 +431,64 @@ Hai phép đo đã rút ra từ đây, cả hai đều lật một khẳng đị
 `ngoai_taxonomy` (19 ca) là relay, module nguồn, pin cúc áo, tản nhiệt, chiết
 áp xoay — **không lớp nào trong bảy lớp tả đúng chúng**. Đây là bằng chứng thật
 cho câu hỏi 2 ở §9.
+
+---
+
+### 6.7b. Một khung cắt không trả lời được cả hai câu — 2026-09-06
+
+Duyệt 750 box xong thì còn **286 ô `XEM_KY`**, và chúng bế tắc vì một lý do
+không ai để ý: **khung cắt bị chỉnh đúng cho câu hỏi *gói*, nên nó sai cho câu
+hỏi *họ*.**
+
+`build_family_package_review_set.py:44` đặt `MIN_PAD_PX = 14`. Với chip 10 px,
+lề 14 px mỗi bên cho crop ~38 px — **đủ thấy pad hai đầu**, và comment trong code
+nói rõ đó là chủ ý: *"pad chính là thứ phân biệt gói"*. Đúng.
+
+Nhưng dấu hiệu mạnh nhất để biết một chip là điện trở hay tụ **không nằm trên
+linh kiện** — nó là **silkscreen designator** (`R902`, `C450`, `FB19`, `L501`)
+in trên mặt bo cạnh linh kiện, cách thân **20–60 px**. Tức nó **luôn** nằm ngoài
+khung chặt.
+
+**Đo được.** Cắt lại 140 ô bế tắc bằng khung rộng (nửa cạnh
+`max(95, 1,5 × cạnh dài)`), từ chính tile gốc:
+
+| | |
+|---|---:|
+| Giải thêm được | **57 / 140 = 41%** |
+| — đọc thẳng designator sát box | 22 |
+| — suy từ cụm (dãy linh kiện giống hệt cạnh IC đệm; cụm designator cùng chữ) | 35 |
+| Cả tập có nhãn họ | 481 → **667 / 750 = 88,9%** |
+
+Cỡ nhỏ nhất đọc được designator là **9 px** (#100, cạnh `R531`/`R540`). Đọc được
+vì **chữ silkscreen to hơn linh kiện** — điều mà mọi phép đo dựa trên "linh kiện
+bao nhiêu pixel" đều bỏ sót.
+
+Vài ca lớn cũng chỉ bối cảnh mới giải được: thanh trắng mỏng #662/#629 hoá ra là
+**thân rơ-le SIEMENS nhìn nghiêng**; khối bạc #604 là **vỏ kim loại cổng PS/2**
+— trước đó tôi đoán nhầm là vỏ chắn.
+
+**✅ Đã sửa và áp dụng 2026-09-06.** Script cắt **hai khung mỗi box**:
+
+| thư mục | lề | trả lời câu |
+|---|---|---|
+| `crops/` | `MIN_PAD_PX = 14`, **không đổi** | **gói** — thấy pad hai đầu |
+| `crops_wide/` | `max(95, 1,5 × cạnh dài)` | **họ** — thấy designator |
+
+Không nâng `PAD_RATIO` để làm việc này: nâng lên thì linh kiện lớn chìm trong
+crop khổng lồ, đúng cái bẫy đã ghi ở `MAX_PAD_PX`.
+
+> **Chứng minh không mất gì, không phải hứa:** dựng lại toàn bộ tập với cùng
+> seed 42 và cùng nguồn (`joint_boxes_cleaned.json`, sha `f4719695…`) rồi so
+> băm: **0/750 crop chặt khác byte, 0/33 tờ lưới chặt khác byte**, và
+> `sample.json` khớp từng trường cũ. Phần thêm vào là thuần cộng thêm.
+
+Trang duyệt được **vá tại chỗ** (không dựng lại, để nhãn đã gán và localStorage
+không suy suyển): bấm vào ảnh đổi khung chặt ↔ rộng, khung rộng viền đỏ.
+
+**Bài học rộng hơn ô này:** khung cắt là một **tham số đo**, và nó phải được
+chọn theo *câu hỏi*, không theo *đối tượng*. Cùng một linh kiện cần hai khung
+khác nhau cho hai câu hỏi khác nhau. Chỗ nào còn cắt crop để hỏi một câu về
+linh kiện thì đáng kiểm lại điều này.
 
 ---
 
@@ -473,18 +541,27 @@ này, rồi §8.2 lại lấy chính tập này để báo "bắt được 64% Q
 > `circularity_threshold` khi đo được — đều là một tham số khớp bằng tay. Ba
 > tham số khớp trên 117 mẫu đủ để khớp nhiễu.
 
-Quy tắc chia, chốt **trước** khi đo lại:
+**Cập nhật 2026-09-06:** 34 bo này đã tham gia khảo sát và chọn ngưỡng.
+Tách lại một phần sau khi đã xem không biến chúng thành tập nghiệm thu chưa
+từng được sử dụng. Có thể chia để kiểm tra nội bộ; nghiệm thu cần bo/nhóm
+thiết kế chưa dùng để ra quyết định, hoặc phải khai rõ mức độ đã tiếp xúc.
+
+Quy tắc chia cho dữ liệu mới, chốt **trước** khi đo:
 
 | | tập | dùng làm gì |
 |---|---|---|
-| **Hiệu chỉnh** | ~24 bo | chọn mọi ngưỡng. Được nhìn thoải mái. |
-| **Nghiệm thu** | ~10 bo, **khoá** | chỉ chạy SAU khi ngưỡng đã đóng băng |
+| **Hiệu chỉnh** | 34 bo khảo sát hiện tại; có thể chia nội bộ | chọn ngưỡng, xây luật và xem lỗi |
+| **Nghiệm thu** | nhóm bo mới, **khoá** | chỉ chạy SAU khi code, cấu hình và ngưỡng đã đóng băng |
 
 - **Chia theo BO, không theo box.** Hai box cùng một bo có cùng ánh sáng, cùng
   độ phóng đại, cùng người gán — chia theo box thì tập nghiệm thu chỉ đo lại
   tập hiệu chỉnh. Dự án đã chia theo bo ở detector và 6.1; giữ nguyên nguyên
   tắc đó.
 - **Cố định danh sách bo nghiệm thu vào file**, không chọn lại mỗi lần đo.
+- Các tile, crop và ảnh chụp lặp của cùng một bo phải ở cùng nhóm. Khi đo
+  khả năng thêm mẫu PCB mới, nhóm theo thiết kế/revision để tránh cùng
+  footprint/layout xuất hiện ở cả hai phía. Với một recipe cố định, đánh giá
+  riêng bằng các lần chụp/bo vật lý chưa dùng lúc enroll.
 - **Ngưỡng đóng băng trước, đo sau.** Đo rồi chỉnh ngưỡng rồi đo lại trên cùng
   tập nghiệm thu thì tập đó thành tập hiệu chỉnh thứ hai.
 
@@ -493,10 +570,14 @@ Và phải đo **hai đường, báo cáo riêng**:
 | đường | nguồn nhãn họ | trả lời câu gì |
 |---|---|---|
 | `--families truth` | nhãn tay của fixture | *luật* đúng bao nhiêu, tách khỏi lỗi 6.1 |
-| `--families model` | 6.1 chạy thật | **đầu-cuối**, tức thứ dây chuyền thật nhận |
+| `--families model` | 6.1 chạy thật | tác động của nguồn họ dự đoán lên quyết định luật |
 
-Cổng đã có sẵn cả hai cờ. Chỉ có con số `model` mới dùng để quyết bật luật —
-`truth` là chẩn đoán, vì luật khoá theo họ nên họ sai là luật sai theo.
+Cổng có sẵn cả hai cờ, kết hợp với `--leads truth|model|none`. Dùng cùng pad
+gán tay làm đầu vào `--leads truth` và mục tiêu đo chỉ là chẩn đoán khi đã
+biết đáp án; không phải phép đánh giá độc lập. Dù cả hai nguồn là `model`,
+script hiện vẫn chỉ đo nhánh hình học trước fusion (§9.0d). Quyết bật luật
+cần cổng cuối pipeline với cả hai nguồn dự đoán thật; mọi chế độ `truth`
+chỉ dùng để định vị lỗi.
 
 ⚠️ **Draft package trên đĩa đang cũ.** `draft_package_boxes.json` mang **3.855**
 box, sinh lúc mới có 16 tile verified; bộ thân hoàn chỉnh là **9.486 box / 95
@@ -673,7 +754,7 @@ duy nhất, không có bản sao nào để lệch.
 > trôi thì nó trôi về phía im lặng báo PASS. Test canh: mẫu tổng hợp ở §8.3
 > phải làm cổng **fail**; cổng nào không fail trên nó là cổng hỏng.
 
-**Hệ quả phải nói thẳng:** con số "0 mất pad, ROI 90 → 90, pad 28 → 28" báo cáo
+**Hệ quả của lỗi cũ (đã sửa ở §9.0b):** con số "0 mất pad, ROI 90 → 90, pad 28 → 28" báo cáo
 ngày 2026-09-05 (§10.3) **không có giá trị**. Nó không chứng minh luật an toàn;
 nó chỉ chứng minh cổng không nhìn.
 
@@ -853,218 +934,157 @@ khác nhau: cạnh **kề** (ngoài taxonomy), cạnh **đối + thân vuông** 
 
 ---
 
-## 10. Ba đề xuất kiến trúc từ review lượt 2
+## 10. Kế hoạch tiếp theo — cập nhật review 2026-09-06
 
-Codex đề xuất ba thay đổi kiến trúc. Dưới đây là bản đã đối chiếu với code thật
-— vì hai trong ba thứ Codex mô tả **đã tồn tại một phần**, và biết phần nào đã
-có thì khối lượng việc khác hẳn.
+Các sửa lỗi ở §9.0b và nguồn `--leads truth` ở §9.0c đã có trong code.
+Việc còn lại là kiểm được tác động trên ROI cuối cùng, làm rõ chất lượng đầu
+vào pass 2 và truyền topology tới nơi sử dụng. **Luật ảnh vẫn mặc định TẮT.**
 
-> **Cập nhật 2026-09-05.** Mục này mở đầu bằng "chúng không phải sửa lỗi mà là
-> đổi thiết kế, nên chưa làm". **Điều đó không còn đúng với §10.1.** Review
-> lượt 3 tái hiện được ca ROI đặt sai cạnh (§8.3), nên §10.1 **đổi từ đề xuất
-> thành việc bắt buộc**. §10.2 và §10.3 giữ nguyên trạng thái.
+### 10.1. Truyền topology có kiểu dữ liệu, giữ hợp đồng đang có
 
-### 10.1. Đổi hợp đồng nội bộ thành `terminal_topology` — **BẮT BUỘC**
+`resolve_packages_by_rule()` hiện trả `PackageClassification`, **không phải
+chuỗi trần**. Kết quả đã có `source`, `decision` và `metadata["lead_edges"]`.
+Thông tin cạnh bị mất khi `AOIPipeline.apply_package_classifications()` dựng
+lại `FootprintProfile` chỉ từ `package_class`; 5.5 sau đó chỉ đọc kiểu hình học.
+Vì vậy, không thay API bằng một phép đổi `str → FootprintProfile`.
 
-> **Vì sao lên bắt buộc (2026-09-05).** Đây không còn là câu chuyện "hợp đồng
-> đẹp hơn". §8.3 chứng minh bằng mẫu chạy được: luật **đã đo** cạnh chân rồi
-> **vứt đi**, và 5.5 dựng lại theo trục dài của thân — 4/4 pad → 0/4. Chừng nào
-> bước 5.2 còn trả về một chuỗi trần thì thông tin đó không có đường nào đi
-> tiếp.
->
-> Trường tối thiểu để đóng §8.3(b): **`lead_edges`** (cạnh nào) và
-> **`orientation`** (hệ toạ độ nào — ảnh hay linh kiện). Đúng hai trường bảng
-> dưới đang đánh ⚠️ và ❌.
+Thêm một payload topology có kiểu dữ liệu, **tùy chọn**, nối qua
+`PackageClassification` → detection/profile → bộ dựng ROI và recipe. Dùng
+lại phần pin count đã có của `FootprintProfile`; xác định rõ các trường:
 
-**Đề xuất.** Thay vì một chuỗi trong bảy slug, bước 5.2 trả về một cấu trúc:
-`lead_edges`, `pin_count`/`range`, `visibility`, `mount_type`, `orientation`,
-`source`, `decision`. Bảy slug cũ giữ làm alias v1.
-
-**Đã có gì.** `aoi_pipeline/placement/footprints.py::FootprintProfile` **đã nói
-gần đúng hợp đồng này** cho nguồn footprint:
-
-| Codex đề xuất | `FootprintProfile` đã có |
+| trường | hợp đồng cần chốt |
 |---|---|
-| `pin_count` / `range` | ✅ `expected_pin_count`, `expected_pin_count_range` — loại trừ nhau |
-| `visibility` | ✅ mã hoá trong `lead_sides = 0` (gói ẩn chân, **không** sinh ROI) |
-| `source` | ✅ `reason` |
-| `decision`/độ tin | ✅ `confidence` — docstring nói rõ đây là độ tin **phân tích tên**, không phải độ tin model |
-| `lead_edges` | ⚠️ mới có `lead_sides` (đếm số cạnh), chưa nói **cạnh nào** |
-| `orientation` | ❌ chưa có |
-| `mount_type` | ❌ chưa có |
+| `lead_edges` | cạnh cụ thể, không chỉ số cạnh; chưa biết phải biểu diễn được |
+| `coordinate_space` | cạnh đang thuộc hệ tọa độ ảnh Golden hay hệ cục bộ linh kiện |
+| `angle_deg` / transform | phép đổi giữa hai hệ; có quy ước dấu và đơn vị rõ ràng |
+| `source` | nguồn bằng chứng và định danh tương ứng: CAD, footprint, Golden đã duyệt, luật ảnh |
+| `decision` | accept/review/unknown; độc lập với xác suất hoặc độ tin phân tích tên |
+| quyền thay đổi ROI | bằng chứng này chỉ được gợi ý, được bổ sung hay được thay tập ROI đã duyệt |
 
-**Nên việc thật không phải "thiết kế hợp đồng mới"** mà là **cho bộ luật nói
-đúng cái hợp đồng mà parser footprint đã nói**. Hiện luật trả một chuỗi trần,
-nên `terminal_geometry()` không phân biệt được "biết chắc 16 chân hai cạnh" với
-"đoán từ ảnh, hai cạnh".
+`reason` là lời giải thích, **không thay cho nguồn**; `confidence` không thay
+cho quyết định duyệt. Không suy hướng của linh kiện từ tên footprint nếu tên
+đó không mang thông tin hướng đặt. Chưa cần thêm `mount_type` nếu không có
+hành vi nào sử dụng nó.
 
-Bảy slug **phải** giữ: §2 ghi rõ chúng là giá trị ổn định, được app gán nhãn,
-manifest model và export runtime cùng ghi ra.
+Bảy slug §2 giữ nguyên làm alias v1. JSON cũ thiếu topology vẫn đọc được;
+round-trip không mất cạnh/hướng/nguồn/quyền. Chỉ bỏ chốt trục dài §8.3 sau
+khi test xuyên suốt chứng minh cạnh đo được đến đúng ROI, kể cả linh kiện
+xoay, chân ở hai cạnh ngắn và dữ liệu cũ không có topology.
 
-**Khối lượng:** vừa. Thêm hai trường vào `FootprintProfile`, cho `package_rules`
-trả `FootprintProfile` thay vì `str`, và cho `terminal_geometry()` nhận nó.
+### 10.2. Chốt topology trong Golden đã duyệt, triển khai song song
 
-### 10.2. Thứ tự nguồn, và chốt topology một lần lúc tạo golden recipe
+Người dùng **đã xác nhận kiểm cố định vài mẫu PCB và có thể thêm mẫu mới**.
+Do đó, xây đường topology đã duyệt cùng với chẩn đoán pass 2; không đợi luật
+ảnh phân được IC hoặc capacitor mới bắt đầu phần Golden.
 
-**Đề xuất.** Thứ tự bằng chứng:
+Khi enroll, lấy CAD/pad hoặc footprint/PnP có hướng làm bằng chứng nếu có;
+người duyệt chốt topology cùng tập ROI cần kiểm. Luật ảnh có thể gợi ý và ghi
+bất đồng. Khi inspection, recipe đã duyệt là cấu hình đang có hiệu lực:
+thiếu chân quan sát được không được tự giảm tập ROI đó. Dữ liệu CAD mới mâu
+thuẫn với recipe phải qua lần sửa/duyệt recipe, không tự thay giữa một lượt
+kiểm. `unknown` giữ baseline và chuyển review theo policy.
 
-```
-IPC/CAD pads → footprint/PnP → golden recipe đã duyệt
-             → bằng chứng lead DƯƠNG → heuristic ảnh → unknown/multi_pin
-```
+Công việc cụ thể:
 
-Và: với dây chuyền kiểm cùng một mẫu PCB, chốt topology + ROI **một lần** lúc
-tạo golden recipe; luật ảnh chỉ *gợi ý* lúc enroll, **không xoá** ROI production.
+1. Bổ sung topology và nguồn duyệt vào contract slot/recipe, giữ tương thích
+   schema cũ; lưu hệ tọa độ và quan hệ với ROI của từng slot.
+2. Nối đường ROI mối hàn với dữ liệu recipe bằng API dùng chung; hiện
+   `AOIPipeline` và Golden inspection chưa chia sẻ contract topology này.
+3. Test load/save và inspection: biến mất bằng chứng ảnh, sai nhãn họ hoặc
+   đổi số chân pass 2 không làm mất ROI đã duyệt; bất đồng được ghi lại.
+4. Với package ẩn chân được xác nhận, báo phần mối hàn là **không kiểm được
+   bằng ảnh trên xuống**, không suy thành kết quả mối hàn PASS.
 
-**Đã có gì.** `aoi_pipeline/golden/recipe.py::SlotRecipe` lưu cho từng slot:
-`expected_angle_deg`, `rotation_period_deg` — **tức hướng**, đúng thứ §6.3c
-đang thiếu cho `tru_dung` — cùng `fixed_roi_xyxy`, `source`, `source_confidence`.
-Nên khái niệm "chốt một lần rồi dùng lại" đã là thiết kế sẵn có.
+Đây là hướng thiết kế cần triển khai và kiểm thử, chưa phải quyền bật thay
+đổi hình học trong runtime hiện tại.
 
-**Còn thiếu gì, và đây là phần đắt:**
+### 10.3. Cổng phải đo ROI cuối cùng và mức độ đã kiểm
 
-1. `SlotRecipe` **không có trường topology nào**. Nó biết ROI ở đâu nhưng không
-   biết ROI đó thuộc gói gì, nên không kiểm chéo được với luật.
-2. `aoi_pipeline/pipeline.py` **không hề đọc recipe** — golden chạy qua
-   `app/pipeline_bridge.py` (frame_id `golden_enrollment`). Đường ROI mối hàn
-   trong `pipeline.py` và đường golden hiện là **hai nhánh song song không nói
-   chuyện với nhau**.
+Lỗi bỏ qua `terminal_geometry_override` đã được sửa bằng cách gọi
+`SolderJointCropper.derive`. Tuy nhiên, đây mới là **bước dựng ROI**: runtime
+còn áp nhãn họ, hợp nhất chân phát hiện/CAD và xử lý ROI chồng lấn. Giữ phép
+đo hiện tại để chẩn đoán riêng bước dựng; thêm phép đo qua đường xử lý chung
+đến **tập ROI cuối cùng**. Không chép lại các bước runtime vào script.
 
-**Đây là điểm mạnh nhất của đề xuất, và cũng là lý do nó đắt.** Nếu dây chuyền
-chỉ kiểm vài mẫu PCB thì chốt topology lúc enroll là đúng: người duyệt một lần,
-sau đó không luật nào phải đoán nữa. Nhưng nó đòi nối hai nhánh đang rời nhau.
+Baseline và nhánh thử dùng cùng ảnh, detections, kết quả 6.1, chân, CAD và
+cấu hình; chỉ thay can thiệp package đang đánh giá. Đặc biệt phải áp nhãn họ
+như runtime trước khi so, kể cả detector chỉ trả nhãn `component`.
 
-**Khối lượng:** lớn. Cần bạn xác nhận **dây chuyền có kiểm cố định vài mẫu PCB
-không** — nếu mỗi lô một mẫu khác thì enroll không trả đủ công.
+Cổng cần xuất được:
 
-### 10.3. Cổng riêng cho đường luật
+- Pad baseline nào bị mất, pad nào mới được phủ, recall tuyệt đối và số/diện
+  tích ROI thừa; gắn pad với linh kiện để ROI của hàng xóm không che lỗi gán.
+- Kết quả theo board, topology và nguồn họ/chân; số trường hợp luật thực sự
+  quyết định, số trường hợp làm thay đổi ROI, lý do review/abstain/skip.
+- Hai kết luận riêng: **không giảm độ phủ trên tập đã đo** và **đủ bằng chứng
+  nghiệm thu hay chưa**. Thiếu nguồn hoặc nhánh cần kiểm chưa chạy phải là
+  `inconclusive` về nghiệm thu; không dùng exit 0 hay `passed: true` đơn lẻ
+  làm quyền bật luật.
+- Manifest tái lập: ảnh/nhãn và split, commit, hash model, cấu hình/ngưỡng,
+  nguồn họ và nguồn chân. Báo cáo 28/28 cũ tại
+  `Docs/bench/package_rule_gate_20260905.json` là bản trước sửa cổng, không
+  dùng làm baseline hiện hành.
 
-**Đề xuất.** Cổng đo theo từng pad/từng linh kiện, số và diện tích ROI thừa,
-tỉ lệ abstain, tách theo từng topology, trên nhiều board. **Mất bất kỳ pad
-baseline nào là fail.**
+**Điều kiện bắt buộc:** không mất bất kỳ pad nào đã được baseline phủ. Điều
+kiện đó chưa đủ: phải có coverage tuyệt đối và mức thực thi nhánh đạt tiêu
+chí đã ghi trước khi mở tập nghiệm thu. Test cổng phải có ca giảm pad thật
+qua đường cuối, ca chạy nhưng abstain, ca thiếu đầu vào và ca không có mẫu
+cho topology cần nghiệm thu.
 
-**Vì sao bắt buộc.** `scripts/evaluate_package_roi_gate.py` nhận **ma trận nhầm
-lẫn của một model** — đường luật không sinh ra thứ đó, nên cổng hiện tại
-**không chạy được cho luật**. Và thước đo duy nhất đang có là **28 pad trên
-MỘT board**, mà board đó lại **ngoài miền** của detector mới (§ báo cáo hai
-lượt J5). Không đủ để tuyên bố bất cứ điều gì bằng 0.
+### 10.4. Thứ tự và sản phẩm bàn giao
 
-Rule of three: quan sát 0 lỗi trên 250 mẫu vẫn để lại cận trên **~1,2%** ở mức
-tin cậy 95%.
+| bước | sản phẩm cụ thể | nghiệm thu / phụ thuộc |
+|---|---|---|
+| 1 | Bổ sung cổng ROI cuối và trạng thái đủ/chưa đủ bằng chứng (§10.3) | Bắt được mất pad sau fusion/deconflict; không nhầm skip với đã kiểm |
+| 2A | Báo cáo từng IC của pass 2: ảnh overlay, box thân, cửa sổ crop, chân gán và cạnh | Phân biệt sai box, sai tọa độ, false positive/miss, gán nhầm và trùng detection; chưa đổi ngưỡng |
+| 2B | Contract topology tối thiểu và đường Golden đã duyệt (§10.1–10.2) | Làm song song 2A; test serialization, biến đổi cạnh/hướng và giữ ROI đã duyệt |
+| 3 | Fixture và manifest hiệu chỉnh/nghiệm thu theo **bo vật lý** | Nhiều ảnh/crop của cùng bo không được sang hai tập; nhãn/pad đủ để đo các topology mục tiêu |
+| 4 | Thử phương án pass 2 bằng chế độ chỉ ghi nhận và so baseline | Chỉ chọn đổi `_edge_of`, cửa sổ crop hoặc model sau khi 2A chỉ ra nguyên nhân; bất định thì giữ ROI cũ |
+| 5 | Đóng băng cấu hình; chạy tập khoá trên cả nguồn họ và chân truth/model | Bốn tổ hợp tách lỗi luật/6.1/pass 2; kết quả model/model mới đại diện đường ảnh runtime |
+| 6 | Báo cáo quyết định theo từng topology và đường bằng chứng | Chỉ kết luận trong phạm vi đã đo; chưa đạt hoặc chưa được đo thì tiếp tục TẮT |
 
-**Khối lượng:** vừa, và **không phụ thuộc hai đề xuất kia** — viết được ngay.
-Đây là thứ nên làm trước, vì không có nó thì mọi thay đổi ở 10.1/10.2 đều không
-chứng minh được là tốt lên.
+Bước 2A phải kiểm **chân duy nhất và chủ sở hữu**, trước khi nới khái niệm
+“nằm ở cạnh”. Code hiện đếm từng detection; hai box trùng cùng một mối hàn
+có thể đủ ngưỡng “hai chân”. `parent_detection_id` do pass 2 ghi lại cũng
+chưa được hàm gán chân sử dụng. Đây là các khả năng đã tái hiện bằng mẫu tổng
+hợp; chưa phải kết luận rằng chúng gây ra lỗi trên fixture hiện có.
 
-> **⚠️ ĐÃ VIẾT 2026-09-05, NHƯNG CỔNG BỊ MÙ — xem §9.0.** Giữ nguyên phần
-> tường thuật bên dưới làm bản ghi, nhưng **mọi con số trong đó phải bỏ đi**:
-> cổng dựng ROI bằng một đường khác đường runtime, nên "ROI 90 → 90, pad
-> 28 → 28, 0 mất pad" chỉ nói rằng cổng không nhìn thấy gì, không nói rằng luật
-> không đổi gì. Hai chỗ mù ở mục 1 và 2 dưới đây vẫn đúng và vẫn phải xử lý;
-> riêng kết luận "luật không đổi gì trên board này" thì **chưa được chứng
-> minh**.
->
-> `scripts/evaluate_package_rule_gate.py`.
-> So ROI **trước và sau** khi bật luật, trên cùng một board. Mất một pad
-> baseline là **fail ngay**, không cân nhắc đánh đổi.
->
-> Chạy lần đầu trên fixture đang có, và nó lập tức phát hiện **hai chỗ mù mà
-> tôi không biết trước**:
->
-> 1. **Nhánh `ic` chưa từng được kiểm.** 60 chân được lead detector tìm ra,
->    nhưng **18 chân có tâm nằm TRONG box thân**, nên `_edge_of` trả `None` và
->    không cạnh nào đủ dải chân. Nguyên nhân: fixture dùng box của **detector
->    22 lớp cũ**, vốn khoanh *bao cả chân*; luật thì đọc chân **ngoài** thân
->    theo quy ước mới. Cổng giờ in cảnh báo này thay vì im lặng báo PASS —
->    **PASS ở đây không có nghĩa là luật đã được kiểm.**
-> 2. **Luật hiện không đổi gì trên board này.** ROI 90 → 90, pad 28 → 28. Vì
->    24 quyết định đều là `hai_chan`, mà `terminal_geometry("resistor")` vốn
->    đã trả `two_terminal` cùng `PadProfile`. Giá trị của luật chỉ hiện ra ở
->    nhánh `ic` và `capacitor` — đúng hai nhánh chưa chạy được.
->
-> Cổng cũng tự khai giới hạn của chính nó: **1 board, 28 pad**, cận trên rule
-> of three là **10,71%**. Nó nói thẳng *"không mất pad nào ở đây KHÔNG chứng
-> minh được luật an toàn"*.
->
-> ⇒ ~~Việc tiếp theo không phải sửa luật, mà là có thêm fixture.~~
-> **Sửa 2026-09-05: việc tiếp theo là sửa CỔNG (§9.0).** Thêm fixture vào một
-> cái cân hỏng thì chỉ có thêm số sai. Thứ tự đúng ở §10.4.
+Khi so phương án, bằng chứng ảnh chưa được nghiệm thu chỉ đề xuất topology
+hoặc báo review, không tự xóa ROI baseline/Golden. Giữ các chốt không suy
+ẩn chân từ sự vắng mặt và không ép IC gần vuông thành hai cạnh. Những họ
+chưa có ánh xạ an toàn giữ fallback hiện tại; chưa cần người dùng chọn thêm
+lớp thứ tám để làm các bước trên.
 
-### 10.4. Thứ tự — cập nhật 2026-09-05 sau review lượt 3
-
-Thứ tự cũ đặt "viết cổng riêng" ở vị trí 1 và coi như xong. Cổng đã viết nhưng
-mù (§9.0), nên bảng dưới thay hẳn bảng cũ. Codex đề xuất thứ tự này và tôi đồng
-ý, chỉ chèn thêm bước 2 vì nó rẻ và độc lập.
-
-| | việc | phụ thuộc | vì sao ở vị trí này |
-|---|---|---|---|
-| 1 | ✅ **sửa cổng dùng chung `SolderJointCropper.derive`** (§9.0b) + 2 test canh | không | mọi số sau đó đều vô nghĩa nếu cân còn hỏng |
-| 2 | ✅ **chốt trục dài trong `_ic_package`** (§8.3a) | không | 3 dòng, đóng lỗ hổng đang mở, an toàn tuyệt đối |
-| 3 | ✅ chạy lại cổng, cả `truth` **và** `model` (§7.2b) | (1),(2) | lần đầu tiên có số thật về luật — §9.0b |
-| 4 | duyệt 103 mẫu họ `capacitor` (§6.3b) | bạn | chạy song song được với 1–3 |
-| 5 | ✅ **`--leads truth`** — nguồn chân thứ hai (§9.0c) | (1) | mở được nhánh `ic` lần đầu; fixture mới KHÔNG mở được |
-| 6 | ⭐ **quyết: pass 2 trả mối hàn đè lên thân thì xử lý sao** (§9.0c) | (5) | đây mới là thứ chặn nhánh `ic` trên dây chuyền |
-| 7 | fixture đúng quy ước box mới, ảnh **MPI CC BY 4.0** + chia hiệu chỉnh/nghiệm thu theo bo (§7.2b) | (1) | để đo ĐỘ PHỦ PAD, không còn để mở nhánh `ic` |
-| 8 | hợp đồng `terminal_topology` (§10.1, §8.3b) | (1),(7) | dùng được cạnh chân đã đo, thay vì chỉ bỏ qua |
-| 9 | nối golden recipe (§10.2) | (8), dây chuyền kiểm cố định — **đã xác nhận** | chốt topology một lần, người duyệt |
-
-**Luật giữ mặc định TẮT suốt 1–9.** Điều kiện bật: vượt cổng ở bước 3 trên tập
-nghiệm thu khoá của bước 5, với ngưỡng đóng băng trước khi đo.
-
-**Điều tôi không đồng ý với Codex:** đề xuất bỏ hẳn `aspect-only 89,6%` cho
-`capacitor`. Con số đó cũng đo sai phạm vi như 97,0% (§6.3b) nên đằng nào cũng
-phải đo lại — chưa có cơ sở để loại bỏ *hay* giữ lại nó.
+Nhãn capacitor cần duyệt để hiệu chỉnh riêng luật capacitor; việc đó không
+chặn contract topology, cổng hay đường Golden đã duyệt. Không dùng lại con
+số đo sai phạm vi ở §6.3b để chọn ngưỡng.
 
 ---
 
-## 11. Câu hỏi cần bạn quyết
+## 11. Đầu vào bên ngoài còn thiếu và quyết định đã có
 
-1. **Duyệt 750 nhãn tiền gán ở §6.7 chứ?** Đây là việc chặn mọi thứ khác: bốn
-   phép đo mới trong tài liệu này đều rút từ chúng, và tôi gán bằng mắt nên
-   chắc chắn có chỗ sai. 133 gói và 386 họ tôi đã đánh **chưa chắc** thay vì
-   đoán bừa — những ô đó cần bạn nhất.
-2. **Bốn họ chưa ánh xạ** (`magnetic`/`protection`/`timing`/`acoustic` và
-   `relay`/`display`/`switch_control`/`battery_power_input`) — thêm lớp thứ 8
-   cho "hộp lớn nhiều chân", hay để chúng lùi về `multi_pin` như hôm nay?
-   Nhãn tay tìm được **19 ca thật** thuộc nhóm này (§6.7), nên câu hỏi không
-   còn là giả định.
-3. **Ánh xạ họ đang quá rộng (§6.5) — sửa ngay hay để sau?** `resistor` còn có
-   mạng điện trở, `led` còn có RGB, `connector` gộp cả khe PCI lẫn jack RCA
-   lẫn FPC mà code dựng một kiểu ROI duy nhất. Sửa đúng cách là thêm điều kiện
-   hình học trong mỗi họ, và mỗi điều kiện phải đo trước khi bật.
-4. **Duyệt sớm 103 mẫu họ `capacitor` được không?** (82 `tru_dung` + 21 chip.)
-   Đây là chỗ mỏng nhất: cả hai phép đo trước đều sai phạm vi, và bản hiệu
-   chuẩn lại chỉ dựa trên **21 mẫu chip**. Có thêm mẫu chip thì càng tốt.
-   Và kể cả khi tách đúng, vẫn còn câu **hướng đặt ROI** ở §6.3c — thân tròn
-   không có trục dài để đặt hai đầu.
-5. **BOM/pick-and-place của bạn có cột `footprint` không?** Câu rẻ nhất trong
-   danh sách: **có** thì làm bộ đọc footprint trước và hạ luật package xuống ưu
-   tiên thấp; **không** thì luật lên đầu.
-6. ~~Dây chuyền có kiểm cố định vài mẫu PCB không?~~ **ĐÃ TRẢ LỜI 2026-09-05:
-   kiểm cố định vài mẫu, và thêm mẫu mới vào được.** ⇒ §10.2 đáng làm.
+**Đã có câu trả lời:** kiểm cố định vài mẫu PCB, cho phép thêm mẫu mới;
+Golden vẫn gắn với ảnh chụp thật và dùng hướng ghép sơ đồ. Không hỏi lại các
+quyết định này. Thứ tự xử lý lỗi, thiết kế payload và chọn phép chẩn đoán là
+công việc kỹ thuật có thể tiếp tục ngay.
 
-   Kèm theo một tiền đề: ảnh Golden hiện chỉ chính diện **một vùng**, các vùng
-   khác bị nhìn nghiêng. Hướng **ghép SƠ ĐỒ** (không ghép ảnh) đã được chọn, và
-   xung đột với ràng buộc "never blends... must remain traceable to a real
-   acquisition" trong `golden/enrollment.py` **đã được giải theo hướng đó** —
-   ảnh Golden vẫn là một file thật. Kế hoạch:
-   [ke_hoach_golden_ghep_so_do.md](ke_hoach_golden_ghep_so_do.md).
-   Phép đo chặn ở §4.2 của kế hoạch đó đã chạy: lệch ≤ 413 µm so với dung sai
-   ROI ≥ 736 µm, nên việc ghép **không còn chặn** §10.2.
-7. ~~Đồng ý thứ tự ở §10.4 chứ?~~ **ĐÃ ĐỒNG Ý 2026-09-05.** *Thứ tự đó đã được
-   thay 2026-09-05 sau review lượt 3* — bắt đầu từ **sửa cổng** (§9.0), không
-   phải từ viết cổng (§10.3). Bảng mới ở §10.4.
-8. **Có xin được file IPC-D-356 từ bên gia công không?** Repo đọc được sẵn, và
-   nó cho *từng pad một* — gần bằng có CAD. Đây cũng là **nguồn duy nhất** cho
-   `ic_khong_chan`, vì §8.1 đã cấm suy lớp đó từ ảnh.
-9. **Lớp 6 (`ic_khong_chan`): chấp nhận kết luận "không kiểm được bằng ảnh 2D
-   trên xuống" chứ?** QFN/BGA mà vẫn phải kiểm là bài toán X-quang.
-10. **Khoá bo nghiệm thu thế nào?** (§7.2b, mới 2026-09-05.) 34 bo trong tập
-    nhãn tay cần chia hiệu chỉnh/nghiệm thu. Đề xuất của tôi: **~10 bo khoá
-    lại**, chọn sao cho phủ đủ `ic` và `capacitor` chứ không ngẫu nhiên — bo
-    toàn điện trở nằm trong tập khoá thì không đo được gì. Danh sách ghi vào
-    file, không chọn lại mỗi lần đo. Bạn có bo nào muốn giữ riêng cho nghiệm
-    thu không, hay để tôi chọn theo phân tầng?
+Những đầu vào còn cần thu thập cho nghiệm thu:
+
+1. **Nhãn đã duyệt.** Bộ 750 nhãn là bản tiền gán, chưa phải ground truth.
+   Ưu tiên các IC và 103 mẫu họ capacitor (82 trụ đứng, 21 chip theo bản tiền
+   gán), các ca chưa chắc và pad của fixture dùng nghiệm thu.
+2. **Bo/ảnh dây chuyền cùng dung sai thực tế.** Cần biết bo vật lý nào, lần
+   chụp nào và điều kiện ảnh để chia tập không rò rỉ; tiêu chí coverage và
+   phạm vi topology cần nghiệm thu phải chốt trước khi đo tập khoá.
+3. **Nguồn thiết kế nếu lấy được:** BOM/PnP có footprint và hướng, hoặc
+   IPC-D-356/CAD pads. Đây là nguồn giúp giảm việc gán tay, không phải điều
+   kiện bắt buộc để làm topology Golden đã duyệt bằng tay.
+4. **Yêu cầu kiểm package ẩn chân trên bo thực.** Nếu cần kiểm mối hàn bị
+   che khuất, phải xác định phương pháp kiểm bổ sung; ảnh trên xuống không
+   cung cấp bằng chứng cho mối hàn đó.
+
+Chưa có các đầu vào nghiệm thu này vẫn tiếp tục được bước 1 và 2; không
+biến danh sách thành một vòng xin xác nhận trước khi làm công việc kỹ thuật.
 
 ---
 

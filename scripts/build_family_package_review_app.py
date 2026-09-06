@@ -53,7 +53,8 @@ TEMPLATE = """<!doctype html>
  .card.xk{border-color:#6b4d1a}
  .card.done{border-color:#2f6b3a}
  .imgwrap{background:#0d0f12;border-radius:6px;height:150px;display:flex;
-          align-items:center;justify-content:center;overflow:hidden}
+          align-items:center;justify-content:center;overflow:hidden;cursor:zoom-in}
+ .imgwrap.wideframe{outline:2px solid #c0504a;cursor:zoom-out}
  .imgwrap img{max-width:100%;max-height:100%;image-rendering:pixelated}
  .meta{font-size:11px;color:#98a0ad;margin:6px 0 3px;display:flex;
        justify-content:space-between;gap:6px}
@@ -125,6 +126,18 @@ function options(list, chosen){
   return list.map(v => `<option${v===chosen?' selected':''}>${v}</option>`).join('');
 }
 
+// Hai khung cho hai câu hỏi khác nhau. Khung chặt được chỉnh để thấy PAD hai
+// đầu, tức trả lời câu GÓI; nhưng silkscreen designator (R902, C450, FB19,
+// L501) nằm cách thân 20-60px nên luôn ngoài khung đó — mà nó mới là thứ trả
+// lời câu HỌ. Đo được: 57/140 ca bế tắc giải được nhờ khung rộng.
+function swapFrame(box){
+  const img = box.querySelector('img');
+  const wide = img.getAttribute('src').indexOf('crops_wide/') >= 0;
+  const id = img.getAttribute('src').slice(-8);
+  img.setAttribute('src', (wide ? 'crops/' : 'crops_wide/') + id);
+  box.classList.toggle('wideframe', !wide);
+}
+
 function render(){
   const only = document.getElementById('only').checked;
   grid.innerHTML = '';
@@ -136,7 +149,7 @@ function render(){
     const card = document.createElement('div');
     card.className = 'card ' + (unsure ? 'xk' : 'done');
     card.innerHTML = `
-      <div class="imgwrap"><img loading="lazy" src="crops/${String(it.id).padStart(4,'0')}.png"></div>
+      <div class="imgwrap" title="bấm để đổi khung CHẶT (thấy pad → gói) ↔ RỘNG (thấy silkscreen R/C/D/L → họ)" onclick="swapFrame(this)"><img loading="lazy" src="crops/${String(it.id).padStart(4,'0')}.png"></div>
       <div class="meta"><span>#${it.id}</span><span>${it.long_side}px · ${it.stratum}</span></div>
       <div class="note">${it.note}</div>
       <label>họ</label>

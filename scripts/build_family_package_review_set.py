@@ -43,6 +43,22 @@ TILES = PROJECT_ROOT / "datasets/test_images/tiles_1024"
 PAD_RATIO = 0.45
 MIN_PAD_PX = 14
 MAX_PAD_PX = 70
+
+#: Khung thứ HAI, rộng hơn nhiều. Lề ở trên được chỉnh để thấy **pad hai đầu**,
+#: và chính vì nó đúng cho câu hỏi *gói* mà nó sai cho câu hỏi *họ*: dấu hiệu
+#: mạnh nhất để biết một chip là điện trở hay tụ là **silkscreen designator**
+#: (``R902``, ``C450``, ``FB19``, ``L501``) in ngay cạnh nó trên bo — mà chữ đó
+#: nằm cách thân 20-60 px, tức LUÔN ngoài khung chặt.
+#:
+#: Đo được: trên 140 box mà khung chặt không kết luận nổi họ, cắt lại bằng khung
+#: rộng giải thêm **57 ca (41%)** — trong đó 22 ca đọc thẳng được designator sát
+#: box, ở cỡ nhỏ nhất là **9 px**. Đọc được vì *chữ silkscreen to hơn linh kiện*.
+#:
+#: Không nâng ``PAD_RATIO`` để làm việc này: nâng lên thì linh kiện lớn chìm
+#: trong crop khổng lồ, đúng cái bẫy ghi ở ``MAX_PAD_PX``. Hai câu hỏi khác nhau
+#: cần hai khung khác nhau, không phải một con số dung hoà.
+WIDE_HALF_MIN_PX = 95
+WIDE_HALF_RATIO = 1.5
 #: Hai chế độ lưới. Box lớn cần ô to mới thấy được chân; box nhỏ thì ô to chỉ
 #: phóng to nhiễu, nên xếp dày hơn để đỡ số tờ phải xem.
 GRID_LARGE, CELL_LARGE = 4, 224
@@ -133,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
         item["id"] = order
 
     (out / "crops").mkdir(parents=True, exist_ok=True)
+    (out / "crops_wide").mkdir(parents=True, exist_ok=True)
     (out / "sheets").mkdir(parents=True, exist_ok=True)
+    (out / "sheets_wide").mkdir(parents=True, exist_ok=True)
 
     cache: dict[str, np.ndarray] = {}
     for item in chosen:
@@ -163,6 +181,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         cv2.imwrite(str(out / "crops" / f"{item['id']:04d}.png"), patch)
         item["crop"] = f"crops/{item['id']:04d}.png"
+
+        # Khung RỘNG: để trả lời câu HỌ, không phải câu gói. Xem WIDE_HALF_*.
+        half = max(WIDE_HALF_MIN_PX, WIDE_HALF_RATIO * item["long_side"])
+        cx, cy = item["x"] + item["w"] / 2, item["y"] + item["h"] / 2
+        wx1, wy1 = int(max(0, cx - half)), int(max(0, cy - half))
+        wx2, wy2 = int(min(width, cx + half)), int(min(height, cy + half))
+        wide = tile[wy1:wy2, wx1:wx2].copy()
+        # Khung ĐỎ chứ không xanh lá như crop chặt: ở khung rộng phần lớn ảnh là
+        # mặt bo màu xanh lá, nét xanh chìm mất. Đổi màu cũng nhắc người duyệt
+        # rằng đang nhìn khung khác.
+        cv2.rectangle(
+            wide,
+            (int(item["x"]) - wx1, int(item["y"]) - wy1),
+            (int(item["x"] + item["w"]) - wx1, int(item["y"] + item["h"]) - wy1),
+            (60, 60, 235), 1,
+        )
+        cv2.imwrite(str(out / "crops_wide" / f"{item['id']:04d}.png"), wide)
+        item["crop_wide"] = f"crops_wide/{item['id']:04d}.png"
 
     # Lưới: xếp theo TẦNG rồi tới cỡ, để mỗi tờ là một loại bài toán.
     ordered = sorted(chosen, key=lambda i: (i["stratum_reason"], -i["long_side"]))
@@ -208,20 +244,61 @@ def main(argv: list[str] | None = None) -> int:
             str(out / "sheets" / f"{sheets:02d}_{block[0]['stratum_reason']}.png"), sheet)
         sheets += 1
 
+    # Tờ lưới cho khung RỘNG. Ô to hơn hẳn và mỗi tờ ít ảnh hơn: thứ phải đọc ở
+    # đây là chữ silkscreen quanh linh kiện, không phải hình dạng linh kiện, nên
+    # xếp dày là hỏng mục đích.
+    WIDE_GRID, WIDE_CELL = 3, 330
+    wide_sheets = 0
+    for begin in range(0, len(ordered), WIDE_GRID * WIDE_GRID):
+        block = ordered[begin:begin + WIDE_GRID * WIDE_GRID]
+        sheet = np.full((WIDE_GRID * (WIDE_CELL + 26), WIDE_GRID * WIDE_CELL, 3),
+                        250, dtype=np.uint8)
+        for position, item in enumerate(block):
+            patch = cv2.imread(str(out / item["crop_wide"]))
+            if patch is None:
+                continue
+            scale = min((WIDE_CELL - 8) / patch.shape[1], (WIDE_CELL - 8) / patch.shape[0])
+            resized = cv2.resize(
+                patch,
+                (max(1, int(patch.shape[1] * scale)), max(1, int(patch.shape[0] * scale))),
+                interpolation=cv2.INTER_NEAREST if scale > 1 else cv2.INTER_AREA,
+            )
+            row, col = divmod(position, WIDE_GRID)
+            oy = row * (WIDE_CELL + 26) + 26
+            ox = col * WIDE_CELL
+            sheet[oy + (WIDE_CELL - resized.shape[0]) // 2:
+                  oy + (WIDE_CELL - resized.shape[0]) // 2 + resized.shape[0],
+                  ox + (WIDE_CELL - resized.shape[1]) // 2:
+                  ox + (WIDE_CELL - resized.shape[1]) // 2 + resized.shape[1]] = resized
+            cv2.putText(sheet, f"#{item['id']}  {item['long_side']:.0f}px",
+                        (ox + 6, oy - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                        (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.imwrite(str(out / "sheets_wide" / f"{wide_sheets:02d}.png"), sheet)
+        wide_sheets += 1
+
     (out / "sample.json").write_text(
         json.dumps({
             "source": str(BOXES.relative_to(PROJECT_ROOT)).replace("\\", "/"),
             "seed": args.seed,
             "pad_ratio": PAD_RATIO,
             "min_pad_px": MIN_PAD_PX,
+            "wide_half_min_px": WIDE_HALF_MIN_PX,
+            "wide_half_ratio": WIDE_HALF_RATIO,
             "note": "Nhãn KHÔNG được điền sẵn bằng 6.1: tập này dùng để đo 6.1.",
+            "note_hai_khung": (
+                "crops/ = khung CHẶT, trả lời câu GÓI (thấy pad hai đầu). "
+                "crops_wide/ = khung RỘNG, trả lời câu HỌ (thấy silkscreen "
+                "designator R/C/D/L cạnh linh kiện). Một con số lề không phục "
+                "vụ được cả hai câu."
+            ),
             "items": chosen,
         }, ensure_ascii=False, indent=1), encoding="utf-8")
 
     counts: dict[str, int] = {}
     for item in chosen:
         counts[item["stratum_reason"]] = counts.get(item["stratum_reason"], 0) + 1
-    print(f"{len(chosen)} box, {len(set(i['board'] for i in chosen))} bo, {sheets} tờ lưới")
+    boards = len({item["board"] for item in chosen})
+    print(f"{len(chosen)} box, {boards} bo, {sheets} tờ chặt + {wide_sheets} tờ rộng")
     for key, value in sorted(counts.items()):
         print(f"    {key:16s} {value}")
     print(f"ghi -> {out}")
