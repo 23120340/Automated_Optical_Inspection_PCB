@@ -300,3 +300,102 @@ def test_an_inspection_cannot_be_filed_under_another_boards_session(tmp_path: Pa
         with pytest.raises(ValueError, match="tráo danh tính"):
             store.save_inspection(_run(), board_id=b, event_id="EV-1",
                                   session_id=session)
+
+
+# ------------------------------- cầu nối: kết quả kiểm tra -> bản ghi lưu trữ
+
+class _Candidate:
+    def __init__(self, bbox): self.bbox_xyxy = bbox
+
+
+class _Slot:
+    def __init__(self, slot_id, status, reason="", candidate=None):
+        self.slot_id, self.status, self.reason = slot_id, status, reason
+        self.candidate = candidate
+
+
+class _RunStub:
+    coordinate_space = "golden"
+
+    def __init__(self, slots): self.slots = slots
+
+
+class _SlotRecipeStub:
+    def __init__(self, slot_id, box):
+        from aoi_pipeline.models import BoundingBox
+        self.slot_id, self.expected_bbox_xyxy = slot_id, BoundingBox(*box)
+
+
+class _RecipeStub:
+    def __init__(self, slots): self.slots = slots
+
+
+def test_a_missing_component_still_gets_a_position_from_the_recipe() -> None:
+    """Lỗi quan trọng nhất lại là lỗi KHÔNG có vị trí trong kết quả chạy.
+
+    ``candidate`` là ``None`` vì không tìm thấy gì, còn ``PositionResult`` chỉ
+    mang *độ lệch* chứ không mang toạ độ tuyệt đối. Vị trí đúng duy nhất cho ca
+    này là **chỗ linh kiện LẼ RA phải nằm**, và chỗ đó chỉ recipe biết.
+
+    Không lấy nó thì kho vẫn có bản ghi, chỉ là mọi lỗi thiếu linh kiện đều không
+    mở được ảnh — hỏng im lặng đúng nghĩa.
+    """
+
+    from aoi_pipeline.storage import defects_from_run
+
+    run = _RunStub([_Slot("slot_0001", "ng", "missing_component")])
+    recipe = _RecipeStub([_SlotRecipeStub("slot_0001", (10, 20, 50, 60))])
+
+    without = defects_from_run(run)[0]
+    assert without.bbox is None, "không có recipe thì thành thật là không biết"
+
+    with_recipe = defects_from_run(run, recipe)[0]
+    assert with_recipe.bbox == (10.0, 20.0, 50.0, 60.0)
+    assert with_recipe.coordinate_space == "golden"
+
+
+def test_a_found_component_uses_where_it_actually_is() -> None:
+    """Tìm thấy ứng viên thì lấy chỗ nó ĐANG nằm, không lấy chỗ nó lẽ ra nằm."""
+
+    from aoi_pipeline.storage import defects_from_run
+
+    run = _RunStub([_Slot("slot_0001", "ng", "lech",
+                          candidate=_Candidate((11.0, 21.0, 51.0, 61.0)))])
+    recipe = _RecipeStub([_SlotRecipeStub("slot_0001", (10, 20, 50, 60))])
+    assert defects_from_run(run, recipe)[0].bbox == (11.0, 21.0, 51.0, 61.0)
+
+
+def test_slots_that_could_not_be_judged_are_kept_not_dropped() -> None:
+    """``review`` và các trạng thái "không đo được" cũng phải vào kho.
+
+    Bỏ chúng đi thì báo cáo "không có lỗi" trở thành lời nói dối: có slot chưa ai
+    kết luận được mà không ai biết.
+    """
+
+    from aoi_pipeline.storage import defects_from_run
+
+    run = _RunStub([
+        _Slot("slot_0001", "pass"),
+        _Slot("slot_0002", "review"),
+        _Slot("slot_0003", "not_measured"),
+    ])
+    kept = {item.slot_id for item in defects_from_run(run)}
+    assert kept == {"slot_0002", "slot_0003"}
+
+
+def test_the_bridge_output_goes_straight_into_the_store(tmp_path: Path) -> None:
+    """Đầu-cuối: kết quả kiểm -> cầu nối -> kho -> đọc lại được vị trí."""
+
+    from aoi_pipeline.storage import defects_from_run
+
+    run = _RunStub([_Slot("slot_0001", "ng", "missing_component")])
+    recipe = _RecipeStub([_SlotRecipeStub("slot_0001", (10, 20, 50, 60))])
+    with InspectionStore(tmp_path / "kho") as store:
+        board = store.ensure_board()
+        inspection = store.save_inspection(
+            _run(), board_id=board, event_id="EV-1",
+            defects=defects_from_run(run, recipe),
+        )
+        defect = store.load_inspection(inspection).defects[0]
+        assert (defect["x1"], defect["y1"]) == (10, 20)
+        assert defect["coordinate_space"] == "golden"

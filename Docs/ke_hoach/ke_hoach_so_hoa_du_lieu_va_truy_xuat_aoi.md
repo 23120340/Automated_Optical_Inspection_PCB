@@ -17,6 +17,17 @@
 > phiên đang mở (§4.3), đóng phiên khi còn thiếu mặt thì phải nêu lý do, và kết
 > quả về muộn ghi vào đúng phiên sinh ra nó kèm `arrived_after_close`.
 >
+> **Bổ sung 06/09 (cầu nối):** `storage/bridge.py` dịch `InspectionRun` sang
+> `DefectRecord`. Nó cần **cả recipe**, và lý do đáng ghi lại: lỗi quan trọng
+> nhất — **thiếu linh kiện** — là lỗi **không có vị trí** trong kết quả chạy
+> (`candidate` là `None`, còn `PositionResult` chỉ mang *độ lệch* chứ không mang
+> toạ độ tuyệt đối). Vị trí đúng duy nhất cho ca đó là *chỗ linh kiện lẽ ra phải
+> nằm*, và chỗ đó chỉ recipe biết. Bỏ qua thì kho vẫn có bản ghi, chỉ là mọi lỗi
+> thiếu linh kiện đều không mở được ảnh.
+>
+> Slot `review` và "không đo được" **cũng vào kho**: bỏ chúng đi thì báo cáo
+> "không có lỗi" thành lời nói dối.
+>
 > Còn thiếu để hết giai đoạn 2: **hàng đợi/retry khi mất mạng** và **đối soát**.
 > Xem thêm [ke_hoach_kiem_hai_mat_pcb.md](ke_hoach_kiem_hai_mat_pcb.md) §3 cho
 > phần giao diện.
