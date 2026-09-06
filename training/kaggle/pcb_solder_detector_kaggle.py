@@ -11,7 +11,7 @@
 # Nguồn: `universe.roboflow.com/pcb-vndkd/solder-dbcbh` v3, **CC BY 4.0**.
 # Đã tải sẵn về `datasets/public/roboflow_solder_leadjoints/`.
 #
-# Khảo sát trước đây (`docs/khao_sat/dataset_lead_detection.md`) kết luận *"không nguồn
+# Khảo sát trước đây (`docs/surveys/dataset_lead_detection.md`) kết luận *"không nguồn
 # công khai nào có đủ cả đúng tỉ lệ lẫn box"*. Bộ này lật kết luận đó. Đo được:
 #
 # | | Bộ này | Board dự án | SolDef_AI |

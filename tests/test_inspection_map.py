@@ -250,7 +250,7 @@ def test_only_the_components_of_that_capture_are_returned() -> None:
 
 
 def test_the_camera_plan_matches_the_hardware_document() -> None:
-    """`Docs/thiet_ke/yeu_cau_phan_cung_camera.md` khuyến nghị cảm biến 20 MP với trường
+    """`docs/design/yeu_cau_phan_cung_camera.md` khuyến nghị cảm biến 20 MP với trường
     nhìn ~137 × 91 mm ở 25 µm/px. Board 200 × 150 mm thì phải chụp nhiều khung
     — đây là lý do module này tồn tại."""
 

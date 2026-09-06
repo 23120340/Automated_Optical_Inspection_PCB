@@ -1,7 +1,7 @@
 """Bước 5.2 bằng LUẬT: chia nhỏ gói *bên trong* một họ do 6.1 trả về.
 
 Không thay classifier 6.1 mà nối sau nó. Lý do đo được, ghi ở
-``Docs/ke_hoach/ke_hoach_phan_nhom_package.md`` §8.1: trên 16.632 box có nhãn
+``docs/plans/ke_hoach_phan_nhom_package.md`` §8.1: trên 16.632 box có nhãn
 footprint thật, chip 2 chân chiếm **86,5%**, nên luật "luôn đoán chip" đã đúng
 86,5% mà không cần nghĩ. Luật ngưỡng tốt nhất trên **tỉ lệ cạnh** chỉ đạt
 **84,5%** -- *tệ hơn* baseline; trên diện tích được 88,7%, tức +2,2 điểm. Luật

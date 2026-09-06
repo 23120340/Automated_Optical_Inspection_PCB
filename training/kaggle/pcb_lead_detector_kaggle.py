@@ -2,7 +2,7 @@
 # # Lượt 2 — detect chân/pad BÊN TRONG crop linh kiện
 #
 # Notebook này train model cho **giai đoạn C** của hướng detect 2 lượt
-# (`Docs/bao_cao/tien_do_detect_2_luot.md`). Đường ống phía app đã sẵn sàng
+# (`docs/reports/tien_do_detect_2_luot.md`). Đường ống phía app đã sẵn sàng
 # (`aoi_pipeline/solder/lead_detection.py`); thứ còn thiếu duy nhất là model này.
 #
 # ## Vì sao cần notebook riêng, không dùng lại detector cũ
@@ -372,7 +372,7 @@ if not records:
 #
 # Con số quyết định notebook này có ý nghĩa hay không. Pad chỉ vài pixel thì
 # không model nào cứu được — đó là giới hạn của khâu chụp ảnh, không phải của
-# thuật toán. Xem `Docs/thiet_ke/yeu_cau_phan_cung_camera.md`.
+# thuật toán. Xem `docs/design/yeu_cau_phan_cung_camera.md`.
 
 # %%
 crop_sides = np.array([[r["patch"].shape[1], r["patch"].shape[0]] for r in records])
@@ -393,7 +393,7 @@ if len(pad_sides):
     if tiny / len(shortest) > 0.5:
         print("\n  CẢNH BÁO: quá nửa số pad dưới 8 px. Ở kích thước đó không còn")
         print("  hình dạng để học. Vấn đề nằm ở độ phân giải khi chụp, không phải")
-        print("  ở model — xem Docs/thiet_ke/yeu_cau_phan_cung_camera.md trước khi train.")
+        print("  ở model — xem docs/design/yeu_cau_phan_cung_camera.md trước khi train.")
 
 print("\nsố pad mỗi crop:", dict(Counter(len(r["boxes"]) for r in records)))
 print("theo lớp:", dict(Counter(CLASS_NAMES[b[0]] for r in records for b in r["boxes"])))
@@ -624,7 +624,7 @@ else:
     print()
     print("1. PAD CÓ ĐỦ TO KHÔNG? Xem lại Cell 5. Dưới 8 px cạnh ngắn thì không")
     print("   còn hình dạng để học — đó là giới hạn khâu chụp ảnh.")
-    print("   Xem Docs/thiet_ke/yeu_cau_phan_cung_camera.md.")
+    print("   Xem docs/design/yeu_cau_phan_cung_camera.md.")
     print("2. NHÃN ĐÃ ĐƯỢC SỬA CHƯA? Nhãn bootstrap chưa sửa dạy model chép lại")
     print("   hình học cũ. Xem lại Cell 8: box có nằm trên kim loại không?")
     print("3. CÓ ĐỦ BOARD KHÁC NHAU CHƯA? Nhiều crop từ ít board không phải là")

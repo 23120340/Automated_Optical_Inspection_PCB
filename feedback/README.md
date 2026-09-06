@@ -5,7 +5,7 @@ app: mở một bước (4 · 6.1 · 6.2), kéo xuống cuối trang, mục **"�
 
 ## Vì sao nó tồn tại
 
-Mọi bảng xếp hạng model trong `Docs/danh_gia/xep_hang_model.md` đến giờ đều đo trên **một
+Mọi bảng xếp hạng model trong `docs/evaluation/xep_hang_model.md` đến giờ đều đo trên **một
 board chuẩn duy nhất**. Người thật sự nhìn thấy model sai ở đâu là người đứng
 máy. Thư mục này là chỗ họ nói ra, và là thứ làm bảng xếp hạng chính xác dần
 thay vì đứng yên.

@@ -48,7 +48,7 @@ def test_no_link_points_at_a_missing_file() -> None:
 
 
 def test_the_repository_root_holds_no_loose_reports() -> None:
-    """Reports belong in ``Docs/``. Three of them had accumulated at the root,
+    """Reports belong in ``docs/``. Three of them had accumulated at the root,
     one of them a stale copy named ``bao_cao_tien_do (1).md`` -- the ``(1)``
     that a browser adds when the same file is downloaded twice."""
 

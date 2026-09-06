@@ -1,6 +1,6 @@
 """Lưu trữ lịch sử kiểm tra: siêu dữ liệu trong SQLite, ảnh trong kho riêng.
 
-Xem ``Docs/ke_hoach/ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md``.
+Xem ``docs/plans/ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md``.
 """
 
 from .bridge import PASSING_SLOT_STATUSES, defects_from_run

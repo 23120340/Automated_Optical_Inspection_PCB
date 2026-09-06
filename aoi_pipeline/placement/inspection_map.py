@@ -3,7 +3,7 @@
 Board thật lớn hơn trường nhìn của camera ở độ phân giải cần cho kiểm tra
 fillet. Đo được: ở 25 µm/px, một cảm biến 20 MP nhìn được ~137 × 91 mm, trong
 khi board 200 × 150 mm — tức phải chụp nhiều khung rồi ghép lại
-(`Docs/thiet_ke/yeu_cau_phan_cung_camera.md`).
+(`docs/design/yeu_cau_phan_cung_camera.md`).
 
 Module này trả lời ba câu, theo thứ tự:
 

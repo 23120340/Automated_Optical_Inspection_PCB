@@ -31,7 +31,7 @@ hình học ROI ở bước 5.5 — nên đây là chỗ đoán sai thì hỏng 
 trong sidebar. Lý do: một nhãn package sai làm 5.5 dựng ROI sai chỗ, mà chuyện
 đó không hiện ra cho tới khi ai đó soi ảnh mối hàn.
 
-Cổng để bật, ghi ở `Docs/ke_hoach/ke_hoach_phan_nhom_package.md` §8:
+Cổng để bật, ghi ở `docs/plans/ke_hoach_phan_nhom_package.md` §8:
 
 1. nhầm `ic` ↔ thụ động phải bằng **0** trên tập kiểm;
 2. bật lên phải **không giảm** độ phủ 28 pad đếm tay ở

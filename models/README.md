@@ -154,7 +154,7 @@ hình thức.
 
 ## Model nào đang tốt nhất?
 
-**`Docs/danh_gia/xep_hang_model.md`** — xếp hạng theo từng bước, kèm dòng "nên bật cái
+**`docs/evaluation/xep_hang_model.md`** — xếp hạng theo từng bước, kèm dòng "nên bật cái
 nào". Mọi số ở đó đo trên board thật, không chỉ đọc manifest.
 
 Tóm tắt của lần đo lại 2026-08-23 (5 ảnh board, một lần chạy duy nhất):

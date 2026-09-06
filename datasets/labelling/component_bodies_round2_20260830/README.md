@@ -117,4 +117,4 @@ không có gì báo lỗi — nên script từ chối chạy tiếp khi hash l�
   một tile được duyệt là packer đủ điều kiện xuất bộ train.
 
 Quy ước khoanh và các lỗi thường gặp: xem
-[Docs/danh_gia/danh_gia_khoanh_box_than_linh_kien.md](../../../Docs/danh_gia/danh_gia_khoanh_box_than_linh_kien.md).
+[docs/evaluation/danh_gia_khoanh_box_than_linh_kien.md](../../../docs/evaluation/danh_gia_khoanh_box_than_linh_kien.md).

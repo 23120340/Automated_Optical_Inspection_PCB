@@ -214,9 +214,9 @@ Raspberry Pi ARM64; YOLO chỉ thuộc bước phát hiện 4, không dùng cho 
 
 Tài liệu đã chuẩn bị cho các bước tiếp theo:
 
-- [Khảo sát dataset linh kiện PCB](Docs/khao_sat/pcb_aoi_component_datasets.md).
-- [Kế hoạch pre-train cho bước 6.1](Docs/ke_hoach/ke_hoach_pretrain_6_1_classification.md).
-- [Kế hoạch phân nhóm package](Docs/ke_hoach/ke_hoach_phan_nhom_package.md) —
+- [Khảo sát dataset linh kiện PCB](docs/surveys/pcb_aoi_component_datasets.md).
+- [Kế hoạch pre-train cho bước 6.1](docs/plans/ke_hoach_pretrain_6_1_classification.md).
+- [Kế hoạch phân nhóm package](docs/plans/ke_hoach_phan_nhom_package.md) —
   **đã triển khai phần code; còn gán nhãn và train thủ công**. Trang làm việc là
   `datasets/labelling/component_bodies_round2_20260830/label_packages.html`;
   `unknown` không phải lớp train và chặn cả duyệt lẫn export.
@@ -224,7 +224,7 @@ Tài liệu đã chuẩn bị cho các bước tiếp theo:
   mấy chân và chân ở cạnh nào thay vì đoán từ pixel. Viết theo giả định **không
   có CAD**: khi đó `pad_count` không được sinh ra ở đâu nữa, và nhãn package là
   nguồn duy nhất còn lại thay thế được.
-- [Kế hoạch kiểm tra lỗi toàn mạch](Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md) —
+- [Kế hoạch kiểm tra lỗi toàn mạch](docs/plans/ke_hoach_pcb_defect_toan_mach.md) —
   **chờ duyệt**. Xước, lem thiếc, vật lạ trên phần mặt board mà Golden Compare
   (theo ô) và 6.2 (theo ROI) không hề nhìn tới.
 
@@ -378,7 +378,7 @@ config.solder_grading.manifest_path = "models/active/solder_classifier/model_man
 Không cần đổi gì khác. Thiếu một trong hai thì bước 6.2 vẫn chạy bằng luật và
 báo rõ. Runtime **từ chối** manifest sai schema thay vì đoán — đoán sai thứ tự
 class là biến mọi lỗi thành "đạt". Schema đầy đủ:
-[docs/thiet_ke/solder_model_manifest_template.json](docs/thiet_ke/solder_model_manifest_template.json).
+[docs/design/solder_model_manifest_template.json](docs/design/solder_model_manifest_template.json).
 
 > **Đã gỡ 2026-08-28 (`1447ed5`).** Trước đây ở đây có một tầng "detector lỗi
 > mối hàn chạy toàn board", đặt tại `models/active/solder/detector/`. Tầng đó
@@ -399,7 +399,7 @@ Sidebar in con số đó ra trước khi bạn bật, vì bảng chọn chỉ hi
 
 Ý tưởng kiểm tra **lỗi trên toàn mặt board** (xước, lem thiếc, vật lạ) chưa mất
 — nó được tách thành một kế hoạch riêng, với ranh giới rõ ràng là *không* đụng
-vào mối hàn: [Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md](Docs/ke_hoach/ke_hoach_pcb_defect_toan_mach.md).
+vào mối hàn: [docs/plans/ke_hoach_pcb_defect_toan_mach.md](docs/plans/ke_hoach_pcb_defect_toan_mach.md).
 
 ### Kết quả xem ở đâu
 
@@ -748,7 +748,7 @@ tests/                  Unit test, gương theo cấu trúc trên
 training/kaggle/        Notebook train: detector (4), package (5.2), classifier
                         (6.1), solder (6.2), lead detector (lượt 2)
 models/                 Model local — chỉ commit .onnx + model_manifest.json
-Docs/                   Tài liệu, gom theo VIỆC — xem Docs/README.md
+docs/                   Tài liệu, gom theo VIỆC — xem docs/README.md
 scripts/                Setup/chạy app, chuẩn bị dữ liệu gán nhãn, kiểm artifact
 ```
 

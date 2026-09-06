@@ -260,7 +260,7 @@ Kiểm 2026-08-25, ba lý do độc lập, mỗi lý do đủ để loại:
 
 `kaggle.com/datasets/aryanstein/...` — đây là detect **linh kiện**, không phải
 mối hàn. Lớp `pads`/`pins` chỉ **186/261 instance trên ~30 ảnh** trong 670 ảnh
-train; recall đo được **0.072**. Chi tiết: `docs/khao_sat/dataset_lead_detection.md`.
+train; recall đo được **0.072**. Chi tiết: `docs/surveys/dataset_lead_detection.md`.
 
 ### SolDef_AI — sai tỉ lệ 20 lần, và đã được dùng tự động rồi
 

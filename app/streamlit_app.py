@@ -3077,7 +3077,7 @@ def _render_inspection_map() -> None:
 
     st.caption(
         "Trường nhìn lấy từ camera của bạn. Khuyến nghị ở "
-        "`Docs/thiet_ke/yeu_cau_phan_cung_camera.md`: cảm biến 20 MP cho ~137 × 91 mm ở "
+        "`docs/design/yeu_cau_phan_cung_camera.md`: cảm biến 20 MP cho ~137 × 91 mm ở "
         "25 µm/px."
     )
     left, right, third = st.columns(3)
