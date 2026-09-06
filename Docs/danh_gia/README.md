@@ -9,3 +9,4 @@
 - [ra_soat_loi_pipeline.md](ra_soat_loi_pipeline.md)
 - [xep_hang_model.md](xep_hang_model.md)
 - [ĐÁNH GIÁ MODEL DETECT SOLDER VÀ TÌM HƯỚNG GIẢI QUYẾT.docx](ĐÁNH GIÁ MODEL DETECT SOLDER VÀ TÌM HƯỚNG GIẢI QUYẾT.docx)
+- [loi_pad_tron_bo_du_an.md](loi_pad_tron_bo_du_an.md) — lượt 1 khoanh pad tròn trên bo dự án: không phải lỗi nhãn, mà là ngoài miền.
