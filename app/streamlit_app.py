@@ -55,6 +55,11 @@ from aoi_pipeline.placement.inspection_map import (  # noqa: E402
 )
 from aoi_pipeline.reporting.exporters import csv_cell as _csv_cell  # noqa: E402
 from aoi_pipeline.models import BoundingBox  # noqa: E402
+from aoi_pipeline.storage import (  # noqa: E402
+    InspectionStore,
+    derived_event_id,
+    record_inspection,
+)
 from aoi_pipeline.modelops.model_feedback import (  # noqa: E402
     ERROR_KINDS,
     FeedbackEntry,
@@ -4767,6 +4772,123 @@ def _render_inspection_result(result: InspectionResult) -> None:
         st.code(result.json_payload, language="json")
 
 
+def _history_store_root() -> Path:
+    """Kho lịch sử nằm dưới ``outputs/`` chứ không nằm trong thư mục tạm.
+
+    Câu hỏi mà kho sinh ra để trả lời — *bo này đã kiểm mặt nào rồi* — chỉ có
+    nghĩa nếu nó **sống qua lần khởi động lại**. Đặt trong tempdir như recipe
+    workspace thì mất sạch sau khi dọn máy, mà mất lịch sử kiểm là mất bằng chứng.
+    """
+
+    return PROJECT_ROOT / "outputs" / "aoi_history"
+
+
+def _render_inspection_history(result: InspectionResult) -> None:
+    """Ghi kết quả vào kho lịch sử, kèm vị trí và ảnh của từng lỗi.
+
+    Lưu là hành động **có chủ ý**, không tự động: workbench này còn dùng để thử
+    nghiệm, và tự động ghi mọi lần bấm Inspect thì lịch sử sản xuất lẫn với ảnh
+    thử — sau đó không tách ra được nữa. Trên dây chuyền thật thì ngược lại, phần
+    gọi ``record_inspection`` chạy tự động và ``event_id`` do dây chuyền cấp.
+    """
+
+    record = st.session_state.inspection_recipe
+    if not isinstance(record, InspectionRecipeRecord):
+        return
+    st.markdown("#### Lịch sử kiểm tra")
+    st.caption(
+        f"Kho: `{_history_store_root()}` · lưu cả PASS/NG/REVIEW/INVALID, "
+        "kèm vị trí và ảnh của từng lỗi."
+    )
+    serial_column, board_column = st.columns(2)
+    serial = serial_column.text_input(
+        "Serial bo (để trống nếu chưa đọc được)",
+        key="history_serial",
+        placeholder="SN-...",
+        help=(
+            "Để trống thì kho sinh mã nội bộ và ghi rõ nguồn định danh là "
+            "'internal'. Không bịa một chuỗi trông giống serial."
+        ),
+    ).strip()
+    existing_board = board_column.text_input(
+        "hoặc gắn vào bo đã lưu (board_id)",
+        key="history_board_id",
+        placeholder="INT-... / S-...",
+        help=(
+            "Dùng khi kiểm mặt thứ hai của một bo CHƯA đọc được serial: không có "
+            "serial thì máy không tự biết hai mặt là cùng một bo, nên người vận "
+            "hành phải chỉ đích danh. Mã không có thật sẽ bị từ chối."
+        ),
+    ).strip()
+    if not st.button("Lưu vào lịch sử kiểm tra", key="history_save"):
+        return
+    # Bấm Lưu hai lần cho cùng một kết quả không được sinh ra hai bo: khi chưa có
+    # serial thì `ensure_board` sinh mã nội bộ MỚI mỗi lần gọi, nên phải nhớ lại
+    # mã đã dùng cho đúng lần chạy này.
+    memo = st.session_state.setdefault("history_board_ids", {})
+    memo_key = (
+        str(result.raw.started_at),
+        str(result.raw.recipe_sha256),
+        str(result.raw.side),
+        serial,
+        existing_board,
+    )
+    try:
+        with InspectionStore(_history_store_root()) as store:
+            if existing_board:
+                if not store.has_board(existing_board):
+                    st.error(
+                        f"Không có bo `{existing_board}` trong kho. Ghi tiếp thì "
+                        "sinh ra một bo ma, không ai tra lại được."
+                    )
+                    return
+                board_id = existing_board
+                if serial:
+                    store.attach_serial(board_id, serial)
+            else:
+                board_id = memo.get(memo_key) or store.ensure_board(
+                    serial=serial or None,
+                    board_type=record.board_id,
+                )
+            inspection_id = record_inspection(
+                store,
+                result.raw,
+                record.raw,
+                board_id=board_id,
+                event_id=derived_event_id(result.raw, board_id=board_id),
+            )
+            stored = store.load_inspection(inspection_id)
+            missing = store.sides_still_missing(board_id)
+    except Exception as exc:  # kho hỏng không được làm sập cả trang kết quả
+        st.error(f"Không lưu được vào lịch sử: {exc}")
+        return
+    memo[memo_key] = board_id
+
+    st.success(f"Đã lưu `{inspection_id}` cho bo `{board_id}`.")
+    st.caption(
+        f"{len(stored.defects)} vị trí lỗi · "
+        f"{sum(1 for item in stored.defects if item['image_sha256'])} có ảnh"
+    )
+    if missing:
+        st.warning(
+            "Bo chưa đủ điều kiện chuyển công đoạn: còn thiếu mặt "
+            + ", ".join(missing)
+            + ". Một mặt đạt không làm cả bo đạt."
+        )
+        # Nói ra giả định, vì với bo MỘT mặt thì câu trên là sai chứ không phải
+        # cảnh báo: `sides_still_missing` đang dùng mặc định top+bottom.
+        st.caption("Đang giả định bo hai mặt (top + bottom).")
+        if stored.status == "pass" and not stored.production_gates_enforced:
+            # Nói thẳng, vì "PASS mà vẫn thiếu mặt" trông như mâu thuẫn.
+            st.caption(
+                "Lần chạy này ĐẠT nhưng **tắt production gate**, nên nó không "
+                "tính là một mặt đã đạt. Bật gate ở trên rồi kiểm lại nếu muốn "
+                "nó được tính."
+            )
+    else:
+        st.info("Cả hai mặt đã có lần chạy ĐẠT ở chế độ production.")
+
+
 def _render_inspect_board_mode() -> None:
     record = st.session_state.inspection_recipe
     st.markdown("#### Recipe source")
@@ -4838,6 +4960,7 @@ def _render_inspect_board_mode() -> None:
     result = st.session_state.inspection_run
     if isinstance(result, InspectionResult):
         _render_inspection_result(result)
+        _render_inspection_history(result)
 
 
 def _render_step_eight() -> None:

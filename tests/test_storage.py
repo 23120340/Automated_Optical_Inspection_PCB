@@ -399,3 +399,17 @@ def test_the_bridge_output_goes_straight_into_the_store(tmp_path: Path) -> None:
         defect = store.load_inspection(inspection).defects[0]
         assert (defect["x1"], defect["y1"]) == (10, 20)
         assert defect["coordinate_space"] == "golden"
+
+
+def test_a_board_id_that_does_not_exist_is_reported_as_missing(tmp_path: Path) -> None:
+    """Ca kiểm mặt thứ hai của bo chưa đọc được serial.
+
+    Không có serial thì máy không tự biết hai mặt là cùng một bo, nên người vận
+    hành phải chỉ đích danh ``board_id``. Nhận bừa một mã gõ nhầm thì sinh ra một
+    bo ma: có inspection trỏ tới, mà không bo nào mang mã đó.
+    """
+
+    with InspectionStore(tmp_path / "kho") as store:
+        board = store.ensure_board()
+        assert store.has_board(board) is True
+        assert store.has_board("INT-khong-co-that") is False

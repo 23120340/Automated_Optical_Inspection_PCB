@@ -32,6 +32,39 @@
 > Xem thêm [ke_hoach_kiem_hai_mat_pcb.md](ke_hoach_kiem_hai_mat_pcb.md) §3 cho
 > phần giao diện.
 
+> **Giai đoạn 3 xong 07/09/2026 — [`storage/capture.py`](../../aoi_pipeline/storage/capture.py)
+> và app bước 8.** Trước đó kho có đủ test nhưng **không nơi nào gọi**, và giữa
+> hai đầu còn thiếu hẳn một mảnh: `defects_from_run` cho *vị trí*,
+> `save_inspection` nhận *vị trí kèm ảnh*, nhưng **chưa ai cắt ảnh** — nên mọi
+> bản ghi đều không có ảnh, đúng thứ yêu cầu tối thiểu của dây chuyền đòi.
+>
+> Chỗ dễ hỏng im lặng nhất, đã chốt: toạ độ trong kết quả kiểm nằm trong hệ
+> `golden_board_pixels` — hệ của ảnh **đã nắn**, vì detector chạy trên
+> `alignment.image`. Cắt từ ảnh test **gốc** bằng đúng những toạ độ ấy vẫn ra
+> một tấm ảnh hợp lệ, chỉ là ảnh của chỗ khác, và không gì báo lỗi. Nên chỉ cắt
+> khi hệ quy chiếu của lần chạy đúng là hệ của ảnh đã nắn; hệ lạ thì **bỏ ảnh
+> chứ không cắt bừa** (mất ảnh còn sửa được, ảnh sai chỗ thì không). Vị trí lấy
+> nguyên từ `defects_from_run`, không tính lại — hai chỗ cùng tính một hộp là hai
+> chỗ sẽ lệch, và khi lệch thì bảng chỉ một nơi còn ảnh chụp một nơi khác.
+>
+> Trong app, lưu là hành động **có chủ ý** chứ không tự động: workbench còn dùng
+> để thử nghiệm, tự động ghi mọi lần bấm Inspect thì lịch sử sản xuất lẫn với ảnh
+> thử và sau đó không tách ra được. Trên dây chuyền thì ngược lại — phần gọi
+> `record_inspection` chạy tự động và `event_id` **do dây chuyền cấp**;
+> `derived_event_id` chỉ là đường lùi khi chưa có nguồn đó, và nó không thay
+> được mã thật (hai trạm cùng kiểm một bo vẫn ra hai mã).
+>
+> Kho của app đặt ở `outputs/aoi_history`: trong dự án nên sống qua khởi động
+> lại, và bị `.gitignore` chặn nên ảnh bo thật không lên repo — có test hỏi thẳng
+> `git check-ignore` chứ không tin vào trí nhớ.
+>
+> Sau khi lưu, app nói luôn bo **còn thiếu mặt nào** (§4.4). Một lần chạy ĐẠT
+> nhưng tắt production gate thì **không** tính là một mặt đã đạt, và giao diện
+> nói rõ điều đó vì "PASS mà vẫn thiếu mặt" trông như mâu thuẫn.
+>
+> Còn thiếu: **giai đoạn 4 — màn hình tra cứu** (§10.1). Ghi được và đọc lại
+> được bằng code, nhưng chưa có chỗ tra theo serial, xem timeline, mở ảnh lỗi.
+
 > **Cập nhật 06/09/2026.** Đóng 5 điểm còn hở mà bản rà soát 05/09 nêu: chế độ
 > chạy phải nằm trong bản ghi (§9.3, đã cài ở `golden/inspector.py`), quyết định
 > đạt hết hiệu lực sau sửa chữa (§9.3), tách "gửi bù" khỏi "sửa payload" (§8.2),

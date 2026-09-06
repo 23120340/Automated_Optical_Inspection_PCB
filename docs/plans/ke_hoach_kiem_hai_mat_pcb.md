@@ -43,9 +43,9 @@ phát hiện sau đó**.
 | | việc | phụ thuộc |
 |---|---|---|
 | 1 | ✅ **Phiên kiểm bo** — `scan_session`, migration 2 (06/09) | lớp lưu trữ |
-| 2 | **Trạng thái "chờ mặt còn lại"** trên giao diện, kèm cảnh báo khi bỏ dở | (1) |
+| 2 | 🟡 **Trạng thái "chờ mặt còn lại"** trên giao diện, kèm cảnh báo khi bỏ dở | (1) |
 | 3 | **Recipe theo từng mặt**: chọn đúng recipe `top`/`bottom` theo mặt đang kiểm | đã có `side` trong recipe |
-| 4 | **Quyết định ở mức bo** dùng `sides_still_missing()` thay vì trạng thái của lần chạy cuối | đã có |
+| 4 | ✅ **Quyết định ở mức bo** dùng `sides_still_missing()` thay vì trạng thái của lần chạy cuối (07/09) | đã có |
 | 5 | Đối chiếu vị trí giữa hai mặt (§4) | chỉ khi thật sự cần |
 
 > **Bước 1 đã xong 06/09.** `InspectionStore.open_session/close_session/`
@@ -61,6 +61,17 @@ phát hiện sau đó**.
 >
 > Kết quả về sau khi phiên đã đóng/huỷ vẫn được ghi vào **đúng phiên sinh ra
 > nó**, đánh dấu `arrived_after_close`, và **không** tính là đã kiểm mặt đó.
+
+> **Bước 4 xong, bước 2 mới được một nửa — 07/09.** Sau khi lưu một lần kiểm,
+> app hỏi `sides_still_missing()` và nói bo còn thiếu mặt nào, thay vì đọc trạng
+> thái của lần chạy cuối. Kèm theo đó: một lần chạy ĐẠT nhưng **tắt production
+> gate** không tính là một mặt đã đạt, và giao diện nói thẳng lý do — "PASS mà
+> vẫn thiếu mặt" trông như mâu thuẫn nếu không giải thích.
+>
+> Nửa **chưa có** của bước 2: không có màn hình liệt kê các bo đang chờ mặt còn
+> lại, và không có cảnh báo khi người vận hành bỏ dở một bo. Hiện chỉ biết được
+> tình trạng của **đúng bo vừa lưu**, tức phải nhớ mới hỏi. Đó là việc của giai
+> đoạn 4 trong [kế hoạch database](ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md).
 
 Bước 1–4 là đủ để chạy pilot. Bước 5 là việc riêng, đắt, và **chưa chắc cần**.
 

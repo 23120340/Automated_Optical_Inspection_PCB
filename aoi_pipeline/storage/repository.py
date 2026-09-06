@@ -118,6 +118,20 @@ class InspectionStore:
         self.connection.commit()
         return board_id
 
+    def has_board(self, board_id: str) -> bool:
+        """Bo này đã có trong kho chưa.
+
+        Cần cho ca gắn mặt thứ hai vào một bo **chưa đọc được serial**: người
+        vận hành phải chỉ đích danh ``board_id`` đã lưu, và trước khi tin thì
+        phải kiểm là nó có thật. Gõ nhầm một mã không tồn tại mà vẫn ghi thì sinh
+        ra một bo ma, không ai tra lại được.
+        """
+
+        row = self.connection.execute(
+            "SELECT 1 FROM board WHERE board_id = ?", (board_id,)
+        ).fetchone()
+        return row is not None
+
     def attach_serial(self, board_id: str, serial: str) -> None:
         """Gắn serial thật cho một bo trước đó chỉ có ID nội bộ.
 
