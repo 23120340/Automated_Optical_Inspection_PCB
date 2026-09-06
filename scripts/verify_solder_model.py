@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"REJECTED: {exc}", file=sys.stderr)
         print(
             "\nThe app would refuse this pair for the same reason. Fix the manifest "
-            "or re-export; see docs/thiet_ke/solder_model_manifest_template.json.",
+            "or re-export; see docs/design/solder_model_manifest_template.json.",
             file=sys.stderr,
         )
         return 1

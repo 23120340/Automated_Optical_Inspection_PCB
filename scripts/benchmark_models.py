@@ -5,12 +5,12 @@ chạy khác nhau (thời gian detector lấy cả "1.79 s" của hôm trước 
 của hôm sau). Thời gian đo trên máy có tải khác nhau thì không so được, và một
 bảng trộn như thế mời người đọc so nhầm.
 
-Mọi con số trong `Docs/danh_gia/xep_hang_model.md` phải truy được về file JSON mà script
+Mọi con số trong `docs/evaluation/xep_hang_model.md` phải truy được về file JSON mà script
 này sinh ra, và chỉ về nó.
 
     python scripts/benchmark_models.py <thu-muc-ket-qua> <anh1> <anh2> ...
 
-Bảng trong `Docs/danh_gia/xep_hang_model.md` dựng từ đầu ra của script này. Muốn kiểm
+Bảng trong `docs/evaluation/xep_hang_model.md` dựng từ đầu ra của script này. Muốn kiểm
 lại thì chạy nó trên board của bạn — mọi con số ở đó phải khớp, hoặc bảng sai.
 
 Ghi JSON sau mỗi phần, nên nếu máy hết bộ nhớ giữa chừng thì phần đã đo vẫn còn.

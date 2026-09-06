@@ -58,7 +58,7 @@ def test_ui_rejects_family_manifest_in_the_package_slot() -> None:
         ui._validate_package_manifest(family)
 
     package = json.loads(
-        (ROOT / "docs" / "thiet_ke" / "package_model_manifest_template.json").read_text(
+        (ROOT / "docs" / "design" / "package_model_manifest_template.json").read_text(
             encoding="utf-8"
         )
     )

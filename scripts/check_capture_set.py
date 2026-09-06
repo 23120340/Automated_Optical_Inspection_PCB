@@ -4,7 +4,7 @@ Phát hiện bộ ảnh hỏng lúc còn đứng cạnh bo thì chụp lại đ�
 Về tới nhà mới biết thì mất cả buổi đi lại — đó là lý do script này tồn tại
 thay vì một mục hướng dẫn trong tài liệu.
 
-Kiểm sáu điều kiện ở ``Docs/ke_hoach/ke_hoach_golden_ghep_so_do.md`` §8.4, trừ
+Kiểm sáu điều kiện ở ``docs/plans/ke_hoach_golden_ghep_so_do.md`` §8.4, trừ
 điều 6 (vật chuẩn dài) vì máy không tự nhận ra cái thước trong ảnh.
 
 **Mọi phép so sáng/màu/nét đều chạy trên VÙNG CHỒNG, không trên cả khung.**

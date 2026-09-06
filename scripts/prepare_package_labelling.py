@@ -188,7 +188,7 @@ def _geometry_prelabel(
     Đã kiểm bằng ảnh trên cả 8 box mà luật bắn trúng (tỉ lệ 4,7 · 17,9 · 3,3 ·
     8,3 · 9,6 · 3,4 · 4,5 · 3,5): ít nhất ba cái là **connector / hàng chân /
     mép IC**, không phải linh kiện hai chân. Xem
-    ``Docs/danh_gia/danh_gia_khoanh_box_than_linh_kien.md``.
+    ``docs/evaluation/danh_gia_khoanh_box_than_linh_kien.md``.
 
     Luật chỉ bắn 8/3855 box (0,2%) nên không tiết kiệm được công đáng kể, trong
     khi mỗi lần bắn sai lại tạo ra một box *trông như đã xong* — thứ người duyệt

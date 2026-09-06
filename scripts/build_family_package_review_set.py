@@ -1,7 +1,7 @@
 """Dựng tập kiểm phân tầng để gán nhãn HỌ + PACKAGE bằng mắt.
 
 Tập này phục vụ hai phép đo cùng lúc (xem
-``Docs/danh_gia/danh_gia_classifier_6_1.md`` §6):
+``docs/evaluation/danh_gia_classifier_6_1.md`` §6):
 
 * tỉ lệ trúng của bộ luật package;
 * **độ chính xác thật của 6.1 trên miền ảnh dự án** — hiện chưa ai biết, vì

@@ -1,0 +1,33 @@
+{
+  "families_mode": "model",
+  "boards": [
+    {
+      "board": "board_smd_00001",
+      "pads_total": 28,
+      "covered_before": 19,
+      "covered_after": 19,
+      "lost": [],
+      "gained": [],
+      "roi_before": 90,
+      "roi_after": 90,
+      "roi_area_before": 77097.3,
+      "roi_area_after": 77097.3,
+      "decided": 23,
+      "abstained": 16,
+      "leads_found": 28,
+      "abstain_reasons": {
+        "ic - 6.1 tra ve 'unknown', luat khong duoc phep chay": 1,
+        "capacitor - 0 canh co dai chan": 12,
+        "ic - 1 canh co dai chan": 1,
+        "ic - 2 canh doi nhung than gan vuong (aspect 1.13 < 1.3), §8.2": 1,
+        "resistor - 6.1 tra ve 'unknown', luat khong duoc phep chay": 1
+      },
+      "leads_inside_body": 4,
+      "rule_skip": null,
+      "by_package": {
+        "hai_chan": 23
+      }
+    }
+  ],
+  "passed": true
+}
