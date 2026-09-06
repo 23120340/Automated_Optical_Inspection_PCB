@@ -6,7 +6,9 @@
 - [ke_hoach_pcb_defect_toan_mach.md](ke_hoach_pcb_defect_toan_mach.md)
 - [ke_hoach_phan_nhom_package.md](ke_hoach_phan_nhom_package.md)
 - [ke_hoach_pretrain_6_1_classification.md](ke_hoach_pretrain_6_1_classification.md)
-- [ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md](ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md) — serial, ảnh/tọa độ lỗi, database, lịch sử kiểm tra và sửa chữa.
+- [ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md](ke_hoach_so_hoa_du_lieu_va_truy_xuat_aoi.md) — serial, ảnh/tọa độ lỗi, database, lịch sử kiểm tra và sửa chữa. **Lớp lưu trữ đã dựng:** `aoi_pipeline/storage/`.
+- [ke_hoach_kiem_hai_mat_pcb.md](ke_hoach_kiem_hai_mat_pcb.md) — hai mặt là hai lần kiểm của cùng một bo; chỗ dễ mất danh tính là lúc lật.
+- [ke_hoach_moi_han_ngoai_linh_kien.md](ke_hoach_moi_han_ngoai_linh_kien.md) — test point, thermal pad, lỗ xuyên: hiện KHÔNG ai kiểm và không ai báo.
 - [ke_hoach_golden_ghep_so_do.md](ke_hoach_golden_ghep_so_do.md)
 - [ghi_chu_golden_ghep_nhieu_anh.md](ghi_chu_golden_ghep_nhieu_anh.md)
 - [ke_hoach_so_hoa_mach_pcb_aoi.md](ke_hoach_so_hoa_mach_pcb_aoi.md)

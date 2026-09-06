@@ -4,6 +4,18 @@
 > Phiên bản: 1.0 — đã rà soát luồng nghiệp vụ và đối chiếu các điểm tích hợp trong repository.  
 > Trạng thái: Kế hoạch triển khai; các bảng, dịch vụ và giao diện mới dưới đây là đề xuất, chưa phải tính năng đã hoàn thành.
 
+> **Đã dựng 06/09/2026 — [`aoi_pipeline/storage/`](../../aoi_pipeline/storage/).**
+> Lát cắt dọc đầu tiên của giai đoạn 2: schema có phiên bản + migration
+> (`schema.py`), repository ghi/đọc một lần kiểm tra kèm vị trí lỗi và ảnh lỗi
+> (`repository.py`). SQLite của thư viện chuẩn, SQL thuần, ảnh nằm ngoài CSDL
+> trong kho địa chỉ-theo-nội dung. Bốn ràng buộc nghiệp vụ của tài liệu này —
+> §8.2 chống trùng theo `event_id`, §6.2 toạ độ luôn kèm hệ quy chiếu, §8.2
+> không xoá ảnh còn tham chiếu, §4.4 một mặt đạt không làm cả PCB đạt — đều có
+> test riêng. Xem `tests/test_storage.py`.
+>
+> Còn thiếu để hết giai đoạn 2: hàng đợi/retry khi mất mạng, đối soát, và
+> `scan_session` (phiên kiểm bo) — xem [ke_hoach_kiem_hai_mat_pcb.md](ke_hoach_kiem_hai_mat_pcb.md) §3.
+
 > **Cập nhật 06/09/2026.** Đóng 5 điểm còn hở mà bản rà soát 05/09 nêu: chế độ
 > chạy phải nằm trong bản ghi (§9.3, đã cài ở `golden/inspector.py`), quyết định
 > đạt hết hiệu lực sau sửa chữa (§9.3), tách "gửi bù" khỏi "sửa payload" (§8.2),
