@@ -4,6 +4,12 @@
 > Phiên bản: 1.0 — đã rà soát luồng nghiệp vụ và đối chiếu các điểm tích hợp trong repository.  
 > Trạng thái: Kế hoạch triển khai; các bảng, dịch vụ và giao diện mới dưới đây là đề xuất, chưa phải tính năng đã hoàn thành.
 
+> **Cập nhật 06/09/2026.** Đóng 5 điểm còn hở mà bản rà soát 05/09 nêu: chế độ
+> chạy phải nằm trong bản ghi (§9.3, đã cài ở `golden/inspector.py`), quyết định
+> đạt hết hiệu lực sau sửa chữa (§9.3), tách "gửi bù" khỏi "sửa payload" (§8.2),
+> kết quả đến sau khi phiên đã hủy (§4.3), và không xóa ảnh còn được tham chiếu
+> (§8.2).
+
 ## 1. Mục tiêu và kết quả rà soát
 
 Xây dựng hồ sơ điện tử cho từng PCB, bắt đầu từ quét serial để xác định loại mạch, tiếp tục qua kiểm tra AOI, lưu ảnh và tọa độ, xác nhận lỗi, sửa chữa và quét lại. Người dùng nhập một serial phải xem được toàn bộ lịch sử cùng bằng chứng của từng lần kiểm tra.
@@ -111,6 +117,10 @@ Serial không nhất thiết chứa mã loại mạch. Có thể nhận diện b
 - Với thiết bị có tích hợp, đối chiếu mã chu kỳ/phiên mà máy xác nhận và recipe máy thực sự chạy. Không ghép theo thời điểm gần nhất hoặc serial vừa quét gần nhất.
 - Nếu nguồn không hỗ trợ truyền mã phiên, cần quy trình ghép thay thế được kiểm chứng, ví dụ chỉ một board đang hoạt động tại trạm và manifest hoàn tất chứa danh tính. Ghi rõ mức xác thực; chưa đủ bằng chứng thì giữ chờ đối soát.
 - Bản đầu chỉ cho một phiên đang chạy trên mỗi trạm. Cần quy tắc timeout, hủy phiên và phục hồi phiên sau khởi động lại.
+- **Kết quả đến sau khi phiên đã hủy** thì vẫn ghi vào **đúng phiên đã sinh ra
+  nó**, kèm cờ `arrived_after_cancel`. Không hồi sinh phiên đã hủy, và tuyệt đối
+  không gán sang phiên đang chạy — hai việc đó đều làm tráo danh tính PCB. Bản
+  ghi đó dùng để đối soát, không dùng để ra quyết định công đoạn.
 
 ### 4.4. Panel và hai mặt
 
@@ -265,13 +275,20 @@ Database và kho tệp không mặc định có cùng một transaction. Vì v�
 |---|---|
 | Mất mạng giữa lúc gửi | Hàng đợi và ảnh còn nguyên sau restart; tiếp tục gửi phần chưa xác nhận |
 | Gửi lại cùng event, cùng nội dung | Trả kết quả tiếp nhận cũ, không thêm inspection/lỗi mới |
-| Cùng event nhưng nội dung khác | Ghi xung đột và giữ chờ; không ghi đè âm thầm |
+| Cùng event, **bổ sung phần còn thiếu** (ví dụ ảnh chưa gửi kịp) | Nhận thêm, giữ nguyên phần đã nhận; đây **không** phải xung đột |
+| Cùng event, **sửa phần đã nhận** | Ghi xung đột và giữ chờ; không ghi đè âm thầm |
 | Ảnh còn ghi dở/thiếu/hỏng | Chưa `complete`; retry hoặc đưa vào danh sách cần xử lý |
 | Sai serial/recipe | Giữ chờ đối soát, không tự sửa danh mục để hợp thức hóa |
 | Lỗi ứng dụng, máy dừng, hủy giữa chừng | Giữ bản ghi lần chạy và nguyên nhân; phiên mới có ID mới |
 | Đầy ổ đĩa/hàng đợi | Cảnh báo trước ngưỡng; không thông báo lưu thành công khi chưa ghi bền vững |
 | Kết quả đến sai thứ tự | Sắp theo liên kết phiên/lần chạy và thời gian nguồn; không lấy thứ tự nhận làm thứ tự sản xuất |
 | Sai giờ máy | Giữ thời gian nguồn, múi giờ và thời gian nhận UTC để đối soát |
+| Xóa/hết hạn ảnh còn được tham chiếu | Không xóa khi còn lần phân tích khác trỏ tới (ảnh gốc dùng chung, ảnh Golden); đếm tham chiếu trước khi thu hồi |
+
+Hai dòng đầu bảng trên **phải tách bạch trong code**, không gộp thành một
+phép so sánh payload: "gửi thiếu rồi gửi bù" là luồng bình thường, còn "gửi rồi
+sửa" là xung đột. Gộp lại thì hoặc chặn oan dữ liệu bổ sung hợp lệ, hoặc cho ghi
+đè âm thầm — cả hai đều hỏng.
 
 Chính sách offline phải được chốt trước pilot: chỉ tiếp tục nhận PCB khi xác minh được danh tính/recipe và còn khả năng ghi bền vững cục bộ; nếu không thì giữ chờ. Với máy độc lập, việc dừng máy tự động phụ thuộc giao diện tích hợp thực tế; không tuyên bố có interlock nếu chưa triển khai và kiểm chứng.
 
@@ -304,10 +321,21 @@ Mỗi lần kiểm tra tạo ID lỗi mới. Muốn đối chiếu lỗi còn/h�
 Quyết định được thực hiện bởi dịch vụ nghiệp vụ theo quy tắc có phiên bản, với tối thiểu:
 
 - Danh tính PCB và recipe đúng, kết quả thuộc chế độ được phép dùng cho sản xuất.
+  **Chế độ chạy phải nằm ngay trong bản ghi**, không suy từ cấu hình lúc đọc:
+  `production_gates_enforced` và `production_gate_findings` (những cổng lẽ ra đã
+  chặn, đánh giá bất kể cờ). Thiếu hai trường này thì một lần chạy thử và một lần
+  chạy thật trông giống hệt nhau. *(Đã cài ở `golden/inspector.py`, 06/09.)*
 - Dữ liệu/bằng chứng bắt buộc đầy đủ; tất cả mặt và phép kiểm bắt buộc có kết quả hợp lệ.
 - Không còn lỗi thật chưa xử lý hoặc yêu cầu review chưa giải quyết.
 - Sau sửa đã có bằng chứng xác minh phù hợp với quy trình.
 - Người/dịch vụ ra quyết định có quyền và ghi rõ các inspection làm căn cứ.
+
+**Một quyết định đạt HẾT HIỆU LỰC khi PCB bị can thiệp vật lý.** Cụ thể: sau
+mỗi lần sửa chữa hoặc thao tác làm đổi trạng thái bo, quyết định đạt trước đó
+không còn dùng để chuyển công đoạn được nữa — phải có lần kiểm tra hợp lệ mới.
+Bản ghi cũ **vẫn giữ nguyên** trong lịch sử (nó là bằng chứng của thời điểm đó),
+chỉ mất quyền làm căn cứ. Hai chuyện này khác nhau và không được cài lẫn: xóa
+lịch sử là mất dấu vết, còn giữ hiệu lực là cho qua một bo đã bị đụng vào.
 
 Không dùng quy tắc đơn giản “lần đến sau cùng là PASS thì PCB đạt”. Các lần quét không hợp lệ, phân tích lại ảnh hoặc kết quả chỉ của một mặt không thay thế quyết định hợp lệ trước đó; kết quả bất lợi mới phải kích hoạt giữ chờ/đánh giá lại theo quy trình.
 

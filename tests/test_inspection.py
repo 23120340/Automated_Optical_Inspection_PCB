@@ -380,3 +380,69 @@ def test_from_pipeline_reuses_pipeline_detector_and_detection_facade(tmp_path: P
     assert inspector.detector is pipeline.detector
     assert pipeline.calls == 1
     assert run.status == "pass"
+
+
+# ---------------------------------------------------- chế độ chạy phải LƯU LẠI
+
+def test_a_relaxed_run_records_that_the_gates_were_off(tmp_path: Path) -> None:
+    """Bản ghi phải nói lần chạy này ở chế độ nào, và cổng nào lẽ ra đã chặn.
+
+    ``require_production_eligible`` tắt được để chạy thử, nhưng trước đây kết quả
+    **không ghi lại điều đó** — một JSON ``status`` không cho biết nó là lần chạy
+    thử hay lần chạy thật. Với một kho lịch sử kiểm tra thì đó là lỗ hổng ở ngay
+    nguồn, vì hai loại bản ghi trông giống hệt nhau.
+
+    Ghi thêm ``production_gate_findings`` để tách tiếp hai chuyện rất khác nhau:
+    "chạy thử nhưng mọi thứ vẫn đạt chuẩn" và "lần này CHỈ qua được nhờ tắt
+    cổng".
+    """
+
+    golden, recipe, candidate = _production_recipe(tmp_path)
+    inspector = AOIInspector(
+        MockComponentDetector(lambda image: [candidate]),
+        config=InspectionConfig(require_production_eligible=False),
+        runtime_detector_identifier="other.onnx:other-sha",
+    )
+    run = inspector.inspect(golden, recipe, tmp_path)
+
+    assert run.status != "invalid", "tắt cổng thì lần chạy phải đi tiếp"
+    assert run.production_gates_enforced is False
+    assert "runtime_detector_mismatch" in run.production_gate_findings, (
+        "lần chạy này chỉ qua được vì cổng bị tắt — bản ghi phải nói ra"
+    )
+    assert run.to_dict()["production_gates_enforced"] is False
+    assert "runtime_detector_mismatch" in run.to_dict()["production_gate_findings"]
+
+
+def test_an_enforced_run_records_the_gate_it_was_stopped_by(tmp_path: Path) -> None:
+    golden, recipe, candidate = _production_recipe(tmp_path)
+    inspector = AOIInspector(
+        MockComponentDetector(lambda image: [candidate]),
+        config=InspectionConfig(require_production_eligible=True),
+        runtime_detector_identifier="other.onnx:other-sha",
+    )
+    run = inspector.inspect(golden, recipe, tmp_path)
+
+    assert run.status == "invalid"
+    assert run.reason == "runtime_detector_mismatch"
+    assert run.production_gates_enforced is True
+    assert run.production_gate_findings == ("runtime_detector_mismatch",)
+
+
+def test_a_clean_production_run_lists_no_findings(tmp_path: Path) -> None:
+    """Mặt còn lại: chạy đúng chuẩn thì danh sách phải RỖNG.
+
+    Không có nửa này thì một trường luôn báo "có vấn đề" cũng làm test trên xanh.
+    """
+
+    golden, recipe, candidate = _production_recipe(tmp_path)
+    inspector = AOIInspector(
+        MockComponentDetector(lambda image: [candidate]),
+        config=InspectionConfig(require_production_eligible=True),
+        runtime_detector_identifier=recipe.model_identifiers["component_detector"],
+    )
+    run = inspector.inspect(golden, recipe, tmp_path)
+
+    assert run.status != "invalid"
+    assert run.production_gates_enforced is True
+    assert run.production_gate_findings == ()

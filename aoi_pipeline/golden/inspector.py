@@ -108,6 +108,20 @@ class InspectionRun:
     runtime_detector_identifier: str
     started_at: str = field(default_factory=utc_now_iso)
     coordinate_space: str = GOLDEN_COORDINATE_SPACE
+    #: Ba cổng an toàn production có được thi hành trong lần chạy này không.
+    #: ``InspectionConfig.require_production_eligible`` tắt được để chạy thử,
+    #: nhưng trước đây bản ghi kết quả **không nói ra điều đó** — một JSON
+    #: ``status: pass`` không cho biết nó chạy ở chế độ nào. Với một kho lịch sử
+    #: kiểm tra thì đó là lỗ hổng ở ngay nguồn: không phân biệt được lần chạy
+    #: thử với lần chạy thật.
+    production_gates_enforced: bool = True
+    #: Những cổng LẼ RA đã chặn lần chạy này, đánh giá **bất kể** cờ trên.
+    #:
+    #: Rỗng khi cổng bật (vì đã chặn thật rồi). Khi cổng tắt, nó phân biệt hai
+    #: chuyện rất khác nhau: "chạy thử nhưng mọi thứ vẫn đạt chuẩn production"
+    #: và "lần PASS này CHỈ đạt được nhờ tắt cổng". Không có trường này thì hai
+    #: bản ghi đó giống hệt nhau.
+    production_gate_findings: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -121,6 +135,8 @@ class InspectionRun:
             "model_identifiers": dict(sorted(self.model_identifiers.items())),
             "runtime_detector": self.runtime_detector,
             "runtime_detector_identifier": self.runtime_detector_identifier,
+            "production_gates_enforced": self.production_gates_enforced,
+            "production_gate_findings": list(self.production_gate_findings),
             "alignment": self.alignment.to_dict(),
             "slots": [slot.to_dict() for slot in self.slots],
             "extras": [detection.to_dict() for detection in self.extras],
@@ -191,6 +207,31 @@ class AOIInspector:
             **kwargs,
         )
 
+    def _production_gate_findings(
+        self, recipe: InspectionRecipe
+    ) -> tuple[str, ...]:
+        """Ba cổng an toàn production nào KHÔNG đạt, đánh giá bất kể cờ bật/tắt.
+
+        Tách ra khỏi chỗ quyết định vì hai câu khác nhau: *"có chặn không"* phụ
+        thuộc ``require_production_eligible``, còn *"lẽ ra có bị chặn không"* thì
+        không. Câu thứ hai mới là thứ một kho lịch sử kiểm tra cần lưu — thiếu
+        nó thì một lần PASS chạy thử và một lần PASS thật trông giống hệt nhau.
+
+        Thứ tự giữ nguyên như bản trước, vì lần chạy bị chặn lấy cổng ĐẦU TIÊN
+        hỏng làm ``reason``.
+        """
+
+        findings: list[str] = []
+        if not recipe.production_eligible:
+            findings.append("recipe_not_production_eligible")
+        if isinstance(self.detector, CVComponentDetector):
+            findings.append("runtime_detector_not_production_capable")
+        if recipe.model_identifiers.get("component_detector") != (
+            self.runtime_detector_identifier
+        ):
+            findings.append("runtime_detector_mismatch")
+        return tuple(findings)
+
     def inspect(
         self,
         test_image: np.ndarray,
@@ -202,32 +243,19 @@ class AOIInspector:
         """Inspect one measurement image and aggregate independent decisions."""
 
         runtime_detector = type(self.detector).__name__
-        if self.config.require_production_eligible and not recipe.production_eligible:
+        # Đánh giá cả ba cổng BẤT KỂ cờ, để bản ghi nói được lần chạy này lẽ ra
+        # có bị chặn hay không. Thứ tự giữ nguyên như cũ vì ``reason`` của lần
+        # chạy bị chặn là cổng ĐẦU TIÊN hỏng.
+        findings = self._production_gate_findings(recipe)
+        enforced = self.config.require_production_eligible
+        if enforced and findings:
             return _invalid_run(
                 recipe,
                 runtime_detector,
                 self.runtime_detector_identifier,
-                "recipe_not_production_eligible",
-            )
-        if self.config.require_production_eligible and isinstance(
-            self.detector, CVComponentDetector
-        ):
-            return _invalid_run(
-                recipe,
-                runtime_detector,
-                self.runtime_detector_identifier,
-                "runtime_detector_not_production_capable",
-            )
-        expected_detector = recipe.model_identifiers.get("component_detector")
-        if (
-            self.config.require_production_eligible
-            and expected_detector != self.runtime_detector_identifier
-        ):
-            return _invalid_run(
-                recipe,
-                runtime_detector,
-                self.runtime_detector_identifier,
-                "runtime_detector_mismatch",
+                findings[0],
+                production_gates_enforced=True,
+                production_gate_findings=findings,
             )
 
         try:
@@ -238,6 +266,8 @@ class AOIInspector:
                 runtime_detector,
                 self.runtime_detector_identifier,
                 "invalid_measurement_image",
+                production_gates_enforced=enforced,
+                production_gate_findings=findings,
             )
         alignment = self.aligner.align_to_recipe(
             image,
@@ -258,6 +288,8 @@ class AOIInspector:
                 model_identifiers=recipe.model_identifiers,
                 runtime_detector=runtime_detector,
                 runtime_detector_identifier=self.runtime_detector_identifier,
+                production_gates_enforced=enforced,
+                production_gate_findings=findings,
             )
 
         try:
@@ -275,6 +307,8 @@ class AOIInspector:
                 model_identifiers=recipe.model_identifiers,
                 runtime_detector=runtime_detector,
                 runtime_detector_identifier=self.runtime_detector_identifier,
+                production_gates_enforced=enforced,
+                production_gate_findings=findings,
             )
         detections = _valid_detections(raw_detections, alignment.image.shape[:2])
         associations, unmatched = _associate_candidates(
@@ -338,6 +372,8 @@ class AOIInspector:
             model_identifiers=recipe.model_identifiers,
             runtime_detector=runtime_detector,
             runtime_detector_identifier=self.runtime_detector_identifier,
+            production_gates_enforced=enforced,
+            production_gate_findings=findings,
         )
 
 
@@ -696,6 +732,9 @@ def _invalid_run(
     runtime_detector: str,
     runtime_detector_identifier: str,
     reason: str,
+    *,
+    production_gates_enforced: bool = True,
+    production_gate_findings: tuple[str, ...] = (),
 ) -> InspectionRun:
     alignment = StrictAlignmentResult(
         status="invalid",
@@ -723,6 +762,8 @@ def _invalid_run(
         model_identifiers=recipe.model_identifiers,
         runtime_detector=runtime_detector,
         runtime_detector_identifier=runtime_detector_identifier,
+        production_gates_enforced=production_gates_enforced,
+        production_gate_findings=production_gate_findings,
     )
 
 
