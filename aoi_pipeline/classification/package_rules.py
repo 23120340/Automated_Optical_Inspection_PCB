@@ -103,10 +103,31 @@ class PackageRuleConfig:
     #: một lần bỏ qua, tức lùi về đúng hành vi hôm nay. Tắt nó khi và chỉ khi
     #: 5.5 đã biết đọc cạnh thật.
     require_leads_on_long_axis: bool = True
-    #: Chưa đo được, nên chưa bật. Bộ dữ liệu công khai có **0** tụ hoá trụ
-    #: đứng (§8.8), nên ngưỡng độ tròn ``4piA/P^2`` không có gì để hiệu chuẩn.
-    #: Đoán một con số ở đây là lặp lại đúng lỗi ``73ce2aa``. Khi có tập kiểm
-    #: gán tay ở §7, đo rồi mới điền.
+    #: Tách tụ TRỤ ĐỨNG khỏi tụ CHIP: hộp gần vuông thì là trụ đứng nhìn từ
+    #: trên. Đo trên 169 tụ gán tay (85 trụ / 84 chip, 32 bo, chia hiệu chỉnh
+    #: và nghiệm thu **theo bo**, đóng băng ngưỡng trước khi đo):
+    #:
+    #:   ============================  =========  ===============
+    #:   luật                          ngưỡng     nghiệm thu
+    #:   ============================  =========  ===============
+    #:   **aspect**                    **1,17**   **90,5%**
+    #:   kích thước                    36 px      88,6%
+    #:   độ tròn 4piA/P^2              0,88       68,2%
+    #:   baseline "luôn đoán chip"      --        68,2%
+    #:   ============================  =========  ===============
+    #:
+    #: Số đo theo **tần suất thật**, cân lại theo tỉ lệ lấy mẫu của từng tầng --
+    #: tập 750 lấy phân tầng nên nó over-sample linh kiện to. Wilson 95% trên 42
+    #: mẫu nghiệm thu: **75,0%--94,8%**; khoảng còn rộng, cần thêm bo.
+    #:
+    #: Chọn aspect chứ không chọn kích thước dù hai con số sát nhau: ngưỡng kích
+    #: thước không chuyển được giữa các độ phóng đại (§6.3), aspect thì có.
+    capacitor_round_max_aspect: float = 1.17
+    #: ``4piA/P^2`` -- ý tưởng ở §8.8, **đã đo và loại**. Nó không chỉ chưa hiệu
+    #: chuẩn được mà còn **chỉ ngược**: tụ trụ có độ tròn trung vị 0,343 còn tụ
+    #: chip 0,635, vì rãnh chữ thập trên nắp nhôm và phản quang làm vỡ contour,
+    #: trong khi thân chip cho một hình chữ nhật sạch. Ngưỡng tốt nhất tìm được
+    #: đạt 68,2% trên tập nghiệm thu -- đúng bằng baseline, tức không thêm gì.
     circularity_threshold: float | None = None
 
 
@@ -229,11 +250,25 @@ def resolve_packages_by_rule(
                 _long_edge_pair(body), config,
             )
         elif family == "capacitor":
-            # Cần độ tròn contour để tách tụ trụ đứng khỏi tụ chip, mà ngưỡng
-            # chưa đo được (§8.8: 0 ví dụ công khai). Không sinh kết quả =>
-            # ``terminal_geometry("capacitor")`` giữ nguyên ``two_terminal``,
-            # đúng cho tuyệt đại đa số tụ chip.
-            decided = None
+            # Tụ trụ đứng nhìn từ trên là một hình TRÒN, nên hộp của nó gần
+            # vuông; tụ chip thì thuôn dài. Ngưỡng 1,17 đo trên 169 tụ gán tay,
+            # chia hiệu chỉnh/nghiệm thu theo bo -- xem ``capacitor_round_max_aspect``.
+            #
+            # An toàn được là nhờ một sửa đi kèm ở ``solder/geometry.py``: trước
+            # đó ``tru_dung`` luôn phát đúng MỘT cặp ROI, nên trên thân gần
+            # vuông nó cho 2 ROI trong khi ``two_terminal`` cho 4 -- gán đúng
+            # lớp lại xoá mất hai ROI thật. Giờ hai đường cho ROI y hệt nhau khi
+            # trục chưa quyết được, nên bật luật này chỉ có thể THÊM chứ không
+            # bớt vùng kiểm.
+            side_long = max(body.bbox.width, body.bbox.height)
+            side_short = max(1.0, min(body.bbox.width, body.bbox.height))
+            aspect = side_long / side_short
+            decided = (
+                ("tru_dung", f"thân gần vuông (aspect {aspect:.2f} < "
+                             f"{config.capacitor_round_max_aspect}) = trụ đứng nhìn từ trên")
+                if aspect < config.capacitor_round_max_aspect
+                else ("hai_chan", f"thân thuôn dài (aspect {aspect:.2f}) = tụ chip")
+            )
         elif family in FAMILY_PACKAGE:
             decided = (
                 FAMILY_PACKAGE[family],

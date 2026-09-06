@@ -129,13 +129,38 @@ def test_a_family_the_plan_never_pinned_down_produces_nothing() -> None:
         assert _resolve([_body(family, "x")], [], {"x": family}) == [], family
 
 
-def test_capacitor_is_deliberately_not_split_yet() -> None:
-    """Tách tụ trụ đứng khỏi tụ chip cần ngưỡng độ tròn, mà bộ công khai có 0
-    ví dụ tụ hoá trụ đứng nên chưa hiệu chuẩn được. Đoán một con số là lặp lại
-    lỗi cũ; im lặng giữ nguyên ``two_terminal``, đúng cho tuyệt đại đa số."""
+def test_a_round_capacitor_body_reads_as_a_vertical_can() -> None:
+    """Tụ trụ đứng nhìn từ trên là hình TRÒN, nên hộp của nó gần vuông.
+
+    Ngưỡng 1,17 đo trên 169 tụ gán tay (85 trụ / 84 chip, 32 bo), chia hiệu
+    chỉnh và nghiệm thu **theo bo**, đóng băng trước khi đo. Nghiệm thu **90,5%**
+    theo tần suất thật, so với baseline "luôn đoán chip" **68,2%**.
+    """
+
+    results = _resolve([_body("capacitor", "c1", bbox=BODY)],  # aspect 1,00
+                       [], {"c1": "capacitor"})
+    assert [item.package_class for item in results] == ["tru_dung"]
+
+
+def test_an_elongated_capacitor_body_reads_as_a_chip() -> None:
+    results = _resolve([_body("capacitor", "c1", bbox=BODY_LONG)],  # aspect 2,00
+                       [], {"c1": "capacitor"})
+    assert [item.package_class for item in results] == ["hai_chan"]
+
+
+def test_circularity_was_measured_and_REJECTED_not_merely_unmeasured() -> None:
+    """``4piA/P^2`` (§8.8) không chỉ chưa hiệu chuẩn được — nó **chỉ ngược**.
+
+    Đo trên chính 169 tụ đó: tụ **trụ** có độ tròn trung vị **0,343**, tụ
+    **chip** **0,635**. Ngược trực giác, và có lý do: rãnh chữ thập trên nắp
+    nhôm cộng phản quang làm vỡ contour của cái lon, trong khi thân chip cho
+    một hình chữ nhật sạch. Ngưỡng tốt nhất tìm được đạt **68,2%** trên tập
+    nghiệm thu — đúng bằng baseline, tức không thêm được gì.
+
+    Giữ ô này ``None`` là một **kết luận đã đo**, không phải một việc còn nợ.
+    """
 
     assert PackageRuleConfig().circularity_threshold is None
-    assert _resolve([_body("capacitor", "c1")], [], {"c1": "capacitor"}) == []
 
 
 # ------------------------------------------------------------ họ ``ic``

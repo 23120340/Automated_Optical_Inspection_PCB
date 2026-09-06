@@ -105,3 +105,61 @@ def test_exact_footprint_pin_count_mismatch_requires_review() -> None:
     assert check.status == "review"
     assert check.expected_pin_min == check.expected_pin_max == 4
 
+
+
+def _square_detection(package_class: str) -> Detection:
+    """Thân GẦN VUÔNG: 100x94, aspect 1,06 — dưới ``terminal_axis_min_aspect``."""
+
+    return Detection(
+        label="capacitor",
+        confidence=0.9,
+        bbox=BoundingBox(40, 40, 140, 134),
+        detection_id=f"sq_{package_class}",
+        metadata={"terminal_geometry_override": package_class},
+    )
+
+
+def _derive_square(package_class: str):
+    config = SolderJointConfig(
+        include_body_view=False, split_pins=False,
+        refine_to_metal=False, deconflict_neighbours=False,
+    )
+    return SolderJointCropper(config).derive(
+        np.zeros((200, 220, 3), dtype=np.uint8), [_square_detection(package_class)]
+    )
+
+
+def test_a_round_capacitor_does_not_lose_two_rois_to_a_coin_flip() -> None:
+    """``tru_dung`` trên thân gần vuông phải giữ CẢ HAI trục.
+
+    Đo trên 85 tụ trụ gán tay (kế hoạch §6.3c): **55% có hai cạnh lệch dưới
+    10%**, nên "cạnh nào dài hơn" do vài pixel của hộp quyết định — nhiễu, không
+    phải tín hiệu.
+
+    Bản trước luôn phát đúng một cặp, nên trên chính nhóm đó nó cho 2 ROI trong
+    khi ``two_terminal`` cho 4: **gán ĐÚNG ``tru_dung`` lại xoá mất hai ROI
+    thật.** Đó là lý do đo được để chưa bật luật tách tụ, chứ không phải vì
+    chưa đo được ngưỡng.
+
+    Nguyên tắc §8: luật ảnh được THÊM hoặc GIỮ ROI, chỉ được XOÁ khi có bằng
+    chứng dương — mà ở đây bằng chứng là một chênh lệch 6%.
+    """
+
+    vertical = _derive_square("tru_dung")
+    chip = _derive_square("hai_chan")
+    assert len(vertical) == len(chip) == 4, (
+        f"gần vuông: tru_dung {len(vertical)} ROI, hai_chan {len(chip)} ROI. "
+        "Lệch nhau nghĩa là chọn đúng lớp lại mất ROI"
+    )
+    assert (sorted(tuple(j.bbox.as_xyxy()) for j in vertical)
+            == sorted(tuple(j.bbox.as_xyxy()) for j in chip))
+    assert any("_cross" in j.position for j in vertical), (
+        "cặp trục thứ hai phải được đặt tên _cross để người duyệt biết đó là "
+        "giả thuyết thay thế, không phải bốn chân riêng"
+    )
+
+
+def test_an_elongated_capacitor_still_gets_exactly_one_pair() -> None:
+    """Chốt mặt còn lại: thân thuôn dài thì trục KHÔNG mơ hồ, đừng sinh thừa."""
+
+    assert len(_derive("tru_dung")) == 2

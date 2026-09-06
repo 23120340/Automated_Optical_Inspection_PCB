@@ -127,8 +127,33 @@ def derive_solder_joints(
     elif geometry in vertical_geometries:
         # A top-view electrolytic can is itself a large metal object, so the
         # pixel probe used for an ambiguous chip axis answers the wrong
-        # question.  Keep the caller/PnP frame and emit exactly one pair.
-        rects = _two_terminal_rects(frame, config, along_long_axis=True)
+        # question.  That is a reason to skip the PROBE -- not a reason to
+        # guess the axis and drop the other pair.
+        #
+        # Đo trên 85 tụ trụ gán tay (kế hoạch package §6.3c): **55% có hai cạnh
+        # lệch nhau dưới 10%**, tức "cạnh nào dài hơn" do vài pixel của hộp
+        # quyết định — là nhiễu, không phải tín hiệu. Bản trước luôn phát đúng
+        # một cặp, nên trên chính nhóm đó nó cho 2 ROI trong khi
+        # ``two_terminal`` cho 4: gán đúng ``tru_dung`` lại **xoá mất hai ROI
+        # thật**, ngược hẳn nguyên tắc §8 (luật ảnh được thêm hoặc giữ ROI, chỉ
+        # được xoá khi có bằng chứng dương).
+        #
+        # Trục đến từ nguồn ngoài ảnh (``axis_known``, tức góc xoay trong file
+        # pick-and-place) thì vẫn tin — đó mới là bằng chứng dương.
+        if axis_known or frame.length / max(frame.span, 1e-6) >= (
+            config.terminal_axis_min_aspect
+        ):
+            rects = _two_terminal_rects(frame, config, along_long_axis=True)
+        else:
+            rects = [
+                *_two_terminal_rects(frame, config, along_long_axis=True),
+                *(
+                    replace(rect, position=f"{rect.position}_cross")
+                    for rect in _two_terminal_rects(
+                        frame, config, along_long_axis=False
+                    )
+                ),
+            ]
     elif geometry == "pad_only":
         rects = _pad_only_rects(frame, config)
     elif geometry in hidden_geometries:

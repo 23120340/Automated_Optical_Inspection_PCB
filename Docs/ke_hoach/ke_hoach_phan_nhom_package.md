@@ -38,7 +38,7 @@ và gợi ý từ ảnh chạy song song, không chặn thiết kế hợp đồ
 | Cổng đo hình học của đường luật | ✅ dùng chung `SolderJointCropper.derive`; **chưa đo toàn bộ đầu ra 5.5** — §9.0b, §9.0d |
 | Cạnh chân đo được → 5.5 | ⚠️ còn trong metadata dự đoán, nhưng consumer không dùng để dựng ROI — §8.3 |
 | Nhánh `ic` trên fixture hiện có | ⚠️ pad gán tay đưa một IC tới chốt hai cạnh rồi bị từ chối; chưa có quyết định IC được áp dụng — §9.0c |
-| Chia họ `capacitor` (trụ đứng ↔ chip) | ❌ **CHƯA có luật** — phép đo cũ sai phạm vi, §6.3b |
+| Chia họ `capacitor` (trụ đứng ↔ chip) | ✅ **xong 2026-09-06** — aspect < 1,17, nghiệm thu 90,5% vs baseline 68,2%, §6.3d |
 | Tập kiểm gán tay | ⏳ **750 box, bạn đã duyệt xong; 667/750 có nhãn họ** — §6.7, §6.7b |
 | Ánh xạ họ → gói cho các họ còn lại | ⏳ đang quá rộng — §6.5 |
 
@@ -282,6 +282,75 @@ cho trường hợp gói thẳng đứng + thân gọn + chưa biết trục.
 Nên `tru_dung` chỉ nên phát ra khi **biết được hướng**: footprint/PnP, golden
 recipe đã duyệt, hoặc lead detection thấy hai pad thật. Không biết hướng thì
 đừng dựng hai ROI theo một trục đoán — giữ đường bảo toàn recall hiện tại.
+
+### 6.3d. ĐÃ TÁCH ĐƯỢC họ `capacitor` — 2026-09-06
+
+Mục này bế tắc từ đầu vì chỉ có **21 mẫu chip**. Sau khi gán xong 286 ảnh còn
+lại (§6.7b), họ `capacitor` có **85 `tru_dung` / 84 `hai_chan`** trên 32 bo —
+gần như cân bằng, tức lần đầu tiên đo được tử tế.
+
+**Cách đo.** Chia hiệu chỉnh/nghiệm thu **theo bo** (§7.2b), đóng băng ngưỡng
+trước khi chạm tập nghiệm thu. Điểm số theo **tần suất thật**, cân lại theo tỉ
+lệ lấy mẫu của từng tầng — tập 750 lấy phân tầng nên nó over-sample linh kiện
+to; không cân lại thì mọi con số đều sai lệch có hệ thống.
+
+| luật | ngưỡng | nghiệm thu (tần suất thật) |
+|---|---|---:|
+| **aspect** | **< 1,17** | **90,5%** |
+| kích thước | > 36 px | 88,6% |
+| độ tròn `4πA/P²` | > 0,88 | 68,2% |
+| độ sáng | < 0,60 | 54,9% |
+| *baseline "luôn đoán chip"* | — | *68,2%* |
+
+Chọn **aspect**, không chọn kích thước dù hai số sát nhau: ngưỡng kích thước
+không chuyển được giữa các độ phóng đại (§6.3), aspect thì có.
+
+> Wilson 95% trên 42 mẫu nghiệm thu: **75,0%–94,8%**. Con số 90% là thật nhưng
+> khoảng còn rộng — cần thêm bo trước khi coi là chốt.
+
+**Độ tròn không phải "chưa đo được" mà là ĐÃ ĐO VÀ LOẠI.** §8.8 đề xuất
+`4πA/P²`; đo ra nó **chỉ ngược**: tụ **trụ** có độ tròn trung vị **0,343**, tụ
+**chip** **0,635**. Lý do: rãnh chữ thập trên nắp nhôm cộng phản quang làm vỡ
+contour của cái lon, còn thân chip cho một hình chữ nhật sạch. Ngưỡng tốt nhất
+đạt đúng bằng baseline, tức không thêm được gì.
+
+### 6.3c-bis. Trục của thân tròn — và một lỗi mất ROI lộ ra từ đó
+
+§6.3c hỏi: thân tròn thì đặt hai ROI theo trục nào? Giờ có số:
+**47/85 = 55% tụ trụ có hai cạnh lệch nhau dưới 10%.** Ở mức đó, "cạnh nào dài
+hơn" do vài pixel của hộp quyết định — **trục là nhiễu, không phải tín hiệu**.
+
+Và đo tiếp thì lộ ra một lỗi đang nằm sẵn trong `solder/geometry.py`:
+
+| hộp | `two_terminal` | `tru_dung` (trước khi sửa) |
+|---|---:|---:|
+| gần vuông (aspect 1,07) | **4 ROI** | **2 ROI** |
+| thuôn dài (aspect 2,0) | 2 ROI | 2 ROI |
+
+Tức **gán ĐÚNG `tru_dung` cho một tụ trụ lại xoá mất hai ROI thật** — ngược hẳn
+nguyên tắc ở đầu §8. `_resolve_two_terminal_rects` vốn đã xử lý đúng ca này
+(*"khi phép đo không dứt khoát thì phát cả hai trục"*), chỉ nhánh `tru_dung` là
+bỏ qua cơ chế đó và luôn phát một cặp.
+
+**✅ Đã sửa.** `tru_dung` giờ chỉ chốt một trục khi trục đến từ **bằng chứng
+dương** (`axis_known`, tức góc xoay trong pick-and-place) hoặc khi thân đủ thuôn
+dài; còn lại phát cả hai trục, đặt tên `_cross` để người duyệt biết đó là giả
+thuyết thay thế. Vẫn **không** dùng phép dò kim loại — nó trả lời sai câu hỏi
+trên một cái lon kim loại.
+
+> Test cũ chỉ phủ hộp 100×40 (aspect 2,5), tức **chỉ ca thuôn dài** — nên lỗi
+> này im lặng suốt. Đã thêm test cho ca gần vuông; gỡ bản vá ra thì test đỏ.
+
+**Kết quả trên cổng, cả bốn tổ hợp `--families` × `--leads`:**
+
+| | trước | sau |
+|---|---:|---:|
+| luật bỏ qua | 15–16 / 39 | **3–4 / 39** |
+| ROI | 90 | **92** (chỉ thêm) |
+| pad baseline mất | 0 | **0** |
+
+Bật được nhánh `capacitor` là **nhờ** sửa hình học đi trước: nếu không, phân
+loại càng đúng thì càng mất ROI.
 
 ### 6.4. Ba điều đáng ngờ trong dữ liệu công khai
 
