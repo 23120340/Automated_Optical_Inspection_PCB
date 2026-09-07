@@ -12,7 +12,7 @@ lượt 2**:
 |---|---|---|---|---|
 | 1 | **Lượt 1 khoanh nhầm pad tròn** → ROI mối hàn suy ra từ box rác | 20/62 box sai trên bo dự án; **59/220 = 27% ROI** sinh ra từ chúng | thêm ảnh bo dự án vào tập train | **bạn** (ảnh + khoanh) |
 | 2 | **Model mối hàn chưa từng được đo ở miền đang chạy** | 9.089 box nhãn đều nằm trên crop `fpic`/`winnies`; **0 box** trên tile PCB-DSLR hay bo dự án | khoanh mối hàn trên crop của bo thật | **bạn** (khoanh) |
-| 3 | **Hình học ROI đang chạy chế độ chung** vì luật package 5.2 tắt | 0/120 tile đã gán package, 3.855 box còn `unknown` | gán package rồi mới bật luật | **bạn** (gán) |
+| 3 | **Hình học ROI đang chạy chế độ chung** vì luật package 5.2 tắt | tập nghiệm thu 750 box đã gán 92%, còn **121 ô khó** | duyệt nốt 121 ô rồi mới bật luật | **bạn** (duyệt) |
 
 Cả ba đều nghẽn ở **dữ liệu**, không nghẽn ở code. Train lại model mối hàn mà
 không có mục 1 thì ROI rác vẫn còn nguyên; không có mục 2 thì train xong cũng
@@ -70,36 +70,70 @@ suy đoán chung: chip hai chân và tụ hoá đứng nhận cách rải ROI g�
 Luật đã đo được 90,5% trên tách họ tụ, nhưng tập nghiệm thu **chưa khoá theo
 bo**, nên chưa đủ căn cứ bật.
 
-Chặn ở đúng một chỗ: **0/120 tile đã gán package**, 3.855 box còn `unknown`.
+Chặn ở đúng một chỗ: tập nghiệm thu 750 box còn **121 ô `XEM_KY`** — xem việc 5.
 
 ---
 
 # Việc của bạn
 
-Xếp theo thứ tự phụ thuộc. Việc 1 chặn việc 2 và 3; việc 4 và 5 làm song song
-được ngay hôm nay.
+Xếp theo thứ tự phụ thuộc. Việc 1 chặn việc 2 và 3. Việc 4 **đã xong**; việc 5
+làm được ngay hôm nay, không phải chờ gì.
 
-## Việc 1 — Chụp lại bo dự án ở độ phân giải đủ lớn ⛔ đang chặn mọi thứ
+## 🟡 Việc 1 — Ảnh bo dự án — **đã chụp, mặt sau cần chụp lại**
 
-Hiện có đúng 3 ảnh, và không đủ:
+**Cập nhật 07/09: bạn đã chụp 31 ảnh, cả hai mặt.** Đủ để bắt đầu, nhưng hai mặt
+không cùng chất lượng:
 
-| file | kích thước | dùng được không |
-|---|---|---|
-| `real_pcb/phone/whole_pcb.jpg` | 1920×2560 (4,9 MP) | cắt được ~4 tile 1024 không chồng lấn |
-| `real_pcb/phone/test1.jpg` | 846×1117 | quá nhỏ |
-| `real_pcb/phone/test2.jpg` | 877×973 | quá nhỏ |
-| `real_pcb/digital_camera/` | **trống** | — |
+| | số ảnh | kích thước | tile 1024 cắt được |
+|---|---:|---|---|
+| `real_pcb/phone/front_side/` | 16 | 1920×2560 (4,9 MP) | **104 tile**, trung vị 13 linh kiện |
+| `real_pcb/phone/back_side/` | 15 | **960×1280 (1,2 MP)** | ~1 tile mỗi ảnh, và **không đủ 1024 px chiều ngang** |
 
-**Cần:** ảnh bo dự án khoảng **12–16 MP trở lên** (để cắt đủ 10–20 tile 1024 px),
-chụp vuông góc, đủ sáng, nét tới từng chân linh kiện.
+**Mặt trước dùng được ngay.** Mặt sau thì không: 960 px chiều ngang **nhỏ hơn
+chính khung tile 1024**, nên mỗi ảnh chỉ ra được một mảnh 960×1024 chứ không phải
+tile vuông. Chi tiết trên mỗi linh kiện cũng chỉ bằng khoảng một nửa mặt trước.
 
-**Bắt buộc phải có tile chứa pad xuyên lỗ** — đó đúng là lớp đang hỏng. Tile
-toàn linh kiện dán không dạy được gì mới.
+**Việc còn lại:** chụp lại **mặt sau** ở cùng độ phân giải mặt trước (1920×2560
+trở lên). Cùng máy, cùng cách chụp — chỉ là lần chụp mặt sau bị để ở chế độ ảnh
+nhỏ.
 
-Chụp cả **hai mặt** nếu bo hai mặt. Bỏ ảnh vào `real_pcb/digital_camera/`.
+**Bắt buộc có ảnh chứa pad xuyên lỗ** — đó đúng là lớp đang hỏng. Ảnh toàn linh
+kiện dán không dạy được gì mới.
 
-*Nghiệm thu:* cắt ra được ≥ 10 tile 1024 px, mỗi tile có ≥ 5 linh kiện đọc được,
-và ≥ 3 tile có pad xuyên lỗ.
+*Nghiệm thu:* mặt sau ra được ≥ 10 tile 1024 px vuông, mỗi tile ≥ 5 linh kiện.
+
+### Đã cắt xong mặt trước, và **không có vùng cháy nào đáng cắt bỏ**
+
+104 tile 1024 px từ 16 ảnh mặt trước → `datasets/test_images/project_board_tiles/`,
+trung vị 13 linh kiện mỗi tile. Sẵn sàng cho việc 2.
+
+Bạn nhờ cắt bỏ các vùng cháy sáng. Đã đo từng tile, và câu trả lời là **gần như
+không có gì để cắt**:
+
+| | |
+|---|---:|
+| tile cháy nhiều nhất | **4,53%** |
+| trung vị | 0,03% |
+| tile vượt 5% | **0** |
+| ảnh cháy nhiều nhất trong 31 ảnh | 2,16% |
+
+Xem tận mắt bằng ảnh chồng mặt nạ: chỗ bị chấm là **connector nhựa kem, vỏ kim
+loại cổng USB, vòng pad mạ vàng và dải mạ ở mép bo** — toàn thứ vốn sáng, và
+**không có vệt loá nào nằm trên thân linh kiện**. Đốm lớn nhất trong cả bộ
+(58.840 px, ảnh `front_side/9`) là **nhãn giấy trắng dán trên bo**, không phải
+loá.
+
+Nên cắt bỏ theo tile là sai công cụ ở đây: tile "cháy" nhất chỉ cháy ở dải mạ mép
+bo, nửa còn lại vẫn đầy linh kiện dùng được. Ném nó đi thì mất nhiều hơn được.
+
+Phép đo vẫn được giữ lại và ghi vào manifest từng tile
+(`blown_fraction`), kèm cổng loại `--max-blown-fraction` cho lần chụp nào tệ hơn.
+
+> **Một lần đo hụt, ghi lại để khỏi lặp.** Bản đầu của phép đo chấm một tile là
+> "cháy 16%" — hoá ra vùng đó là **tản nhiệt nhôm anod xanh**: kênh lam chạm trần
+> trên mặt phẳng lì. Mặt màu bão hoà không phải mặt cháy. Đã thêm điều kiện độ
+> sáng tổng; sau khi sửa, tile đó không còn nằm trong nhóm cháy nhất, và nửa dưới
+> của nó — có BGA và pad xuyên lỗ mạ vàng — được giữ lại.
 
 ## Việc 2 — Khoanh **thân linh kiện** trên tile bo dự án
 
@@ -133,24 +167,64 @@ Một lớp duy nhất: `solder_joint`, cho **mọi** mối hàn kể cả mối
 
 *Nghiệm thu:* ≥ 200 box mối hàn trên crop của bo dự án, ở trạng thái `verified`.
 
-## Việc 4 — Khoanh nốt 104 tile PCB-DSLR còn lại (làm song song được)
+## ✅ Việc 4 — Khoanh thân trên tile PCB-DSLR — **ĐÃ XONG**
 
-`datasets/labelling/component_bodies_round2_20260830/label_boxes.html`
+> **Đính chính 2026-09-07.** Bản đầu của tài liệu này ghi "16/120 tile, còn 104
+> tile". **Sai.** Tôi đọc `draft_boxes.json` — đó là file *seed* mà app được dựng
+> từ đó, không phải tiến độ. File tiến độ thật là `joint_boxes_cleaned.json`,
+> cùng `dataset_id` `65af1c1a6b21e37d`, cùng 120 crop:
+>
+> | | tile | box | trạng thái |
+> |---|---:|---:|---|
+> | `draft_boxes.json` *(seed)* | 120 | 3.855 | 16 verified, 104 trống |
+> | `joint_boxes_cleaned.json` *(thật)* | 120 | **9.486** | **95 verified + 25 unusable** |
+>
+> 120/120 tile đã xử lý hết. **Không còn việc gì ở mục này.**
 
-Hiện: **16/120 tile** đã duyệt, 3.855 box. Còn **104 tile**.
+## 🟡 Việc 5 — Gán package — **ĐÃ LÀM 92%, còn 121 ô khó**
 
-Việc này cải thiện lượt 1 trên miền PCB-DSLR (khác với việc 2 — miền bo dự án).
-Cùng quy ước: chỉ thân linh kiện.
+> **Đính chính 2026-09-07.** Bản đầu ghi "0/120 tile, 3.855 box còn `unknown`",
+> và ngụ ý chưa ai làm gì. **Sai ở cả hai vế.**
 
-## Việc 5 — Gán package cho 3.855 box (làm song song được)
+**Nhầm thứ nhất — nhầm sản phẩm.** `label_packages.html` /
+`draft_package_boxes.json` (3.855 box `unknown`) được dựng từ **seed 16-verified**,
+tức trên hình học đã cũ. Nó **đã bị thay thế** bởi cách làm phân tầng, và
+**không nên gán tay 3.855 box đó** — công bỏ ra không đổi lấy được gì.
 
-`datasets/labelling/component_bodies_round2_20260830/label_packages.html`
+**Nhầm thứ hai — việc đã làm rồi.** Bộ thật là `datasets/survey/family_package_review_20260904`:
+**750 box** rút phân tầng từ chính 9.486 box của việc 4, gán nhãn **HỌ + GÓI**.
 
-Hiện: **0/120 tile** duyệt, **3.855/3.855 box còn `unknown`**. Toạ độ box đã có
-sẵn từ việc khoanh thân, bạn chỉ chọn 1 trong 7 nhóm package cho từng box.
-`unknown` chặn cả `Enter` lẫn xuất file.
+| lượt | family còn `XEM_KY` | package còn `XEM_KY` |
+|---|---:|---:|
+| bạn duyệt (04–05/09) | 269 | 107 |
+| tôi gán lượt 1 (06/09) | 140 | 59 |
+| tôi gán lượt 2, cắt cửa sổ rộng hơn để thấy silkscreen | **83** | **59** |
 
-Đây là thứ mở khoá mục 3 ở trên — có tập này mới dựng được nghiệm thu khoá theo
+464 ô do bạn gán, 286 ô do tôi. Kết quả **nằm ở `Downloads`, chưa vào repo** —
+đúng như bạn nhớ là thất lạc. Đã cứu về:
+`datasets/survey/family_package_review_20260904/labels/family_package_01_claude_v2.json`
+(và bản bạn duyệt gốc là `family_package_00_ban_duyet.json`).
+
+> `.gitignore` đang chặn nhầm: `datasets/survey/` loại cả thư mục, mà git
+> **không cho include lại file nằm trong thư mục đã loại** — nên ba dòng `!` bên
+> dưới im lặng vô tác dụng. Đã sửa; file nhãn mới thêm giờ mới thực sự vào repo.
+
+### Còn lại của bạn: 121 ô
+
+```
+datasets/survey/family_package_review_20260904/review_con_lai_kho.html
+```
+
+Trang này **chỉ chứa 121 ô còn `XEM_KY`** (83 ở HỌ, 59 ở GÓI, 21 ô dính cả hai),
+không phải cả 750. Mỗi ô mang sẵn nhãn đã gán, độ tin, và **lý do vì sao khó**,
+nên bạn không phải đoán lại từ đầu. Mỗi ô có hai ảnh — bấm để đổi giữa bản cắt
+sát và bản cắt rộng thấy silkscreen designator.
+
+**Đừng điền bừa cho hết `XEM_KY`.** Tập này dùng để **đo** classifier 6.1; điền
+nhãn đoán vào là làm hỏng chính phép đo. Ô nào thật sự không đọc được thì **để
+nguyên `XEM_KY`** — đó là câu trả lời đúng, không phải việc còn dang dở.
+
+Đây là thứ mở khoá mục 3 ở trên: có tập này mới dựng được nghiệm thu khoá theo
 bo, có nghiệm thu mới đủ căn cứ bật luật 5.2.
 
 ---
@@ -199,5 +273,6 @@ hay box rộng trùm land tốt hơn cho 6.2", vì cần nhãn **lỗi** mà bo 
 # Tóm tắt một dòng
 
 Việc 1 (chụp ảnh) chặn tất cả. Làm được việc 1 → tôi cắt tile → bạn làm việc 2 →
-tôi cắt crop → bạn làm việc 3 → tôi train và đo. Việc 4 và 5 làm được ngay hôm
-nay, không phải chờ gì.
+tôi cắt crop → bạn làm việc 3 → tôi train và đo.
+
+Việc 4 **đã xong**. Việc 5 còn **121 ô**, làm được ngay hôm nay.

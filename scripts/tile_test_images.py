@@ -68,11 +68,13 @@ def tile_one(
     dry_run: bool,
     max_dark: float = 1.0,
     dark_level: int = 40,
+    max_blown: float = 1.0,
 ) -> list[dict[str, object]]:
     import cv2
     import numpy as np
 
     from aoi_pipeline.config import PreprocessConfig
+    from aoi_pipeline.imaging.exposure import blown_fraction
     from aoi_pipeline.imaging.preprocessing import ImagePreprocessor
 
     original = cv2.imread(str(path))
@@ -118,6 +120,12 @@ def tile_one(
             )
             if dark > max_dark:
                 continue
+            # Tỉ lệ pixel CHÁY: vùng vừa chạm trần vừa mất chi tiết cục bộ. Sáng
+            # thôi thì không tính -- connector nhựa kem và pad mạ vàng vẫn còn
+            # chi tiết, mà pad mạ vàng lộ thiên đúng là lớp cần dạy cho model.
+            blown = blown_fraction(patch)
+            if blown > max_blown:
+                continue
             name = NAME.format(stem=path.stem, tile=tile, x=left, y=top)
             if not dry_run:
                 cv2.imwrite(str(output / name), patch)
@@ -132,6 +140,7 @@ def tile_one(
                 "tile": tile,
                 "components": len(inside),
                 "dark_fraction": round(dark, 3),
+                "blown_fraction": round(blown, 4),
                 "labels": dict(sorted(labels.items(), key=lambda kv: -kv[1])),
             })
     return rows
@@ -156,6 +165,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="bỏ tile có tỉ lệ pixel tối vượt ngưỡng (1.0 = giữ hết). "
                              "Đo trên bộ hiện tại: trung vị 30%%, 28%% số tile trên "
                              "50%%, 8%% trên 70%%")
+    parser.add_argument("--max-blown-fraction", type=float, default=1.0,
+                        help="bỏ tile có tỉ lệ pixel CHÁY SÁNG vượt ngưỡng "
+                             "(1.0 = giữ hết). Cháy = vừa chạm trần vừa mất chi "
+                             "tiết cục bộ; sáng mà còn vân thì không tính")
     parser.add_argument("--limit", type=int, default=0,
                         help="chỉ xử lý ngần này ảnh nguồn (0 = tất cả)")
     parser.add_argument("--pattern", default="*__rec1.jpg",
@@ -199,6 +212,7 @@ def main(argv: list[str] | None = None) -> int:
             path, detector, tile=args.tile, stride=args.stride,
             min_components=args.min_components, output=output, dry_run=args.dry_run,
             max_dark=args.max_dark_fraction,
+            max_blown=args.max_blown_fraction,
         )
         rows.extend(produced)
         print(f"  [{index}/{len(sources)}] {path.name}: {len(produced)} tile")

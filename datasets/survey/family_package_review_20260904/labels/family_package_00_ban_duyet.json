@@ -1,0 +1,7506 @@
+{
+ "schema": "aoi-family-package-review/1.0",
+ "reviewed_at": "2026-09-06T03:38:54.022Z",
+ "items": [
+  {
+   "id": 0,
+   "tile": "pcb_dslr_028__rec1__1024__1536___1536.png",
+   "box_index": 5,
+   "long_side": 264,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối đen in 71313711 2003, không thấy chân"
+  },
+  {
+   "id": 1,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 38,
+   "long_side": 455,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng"
+  },
+  {
+   "id": 2,
+   "tile": "pcb_dslr_003__rec1__1024__1536___0.png",
+   "box_index": 0,
+   "long_side": 74,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 3,
+   "tile": "pcb_dslr_013__rec1__1024__3072___1536.png",
+   "box_index": 37,
+   "long_side": 95,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối đen dài, chưa rõ"
+  },
+  {
+   "id": 4,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 51,
+   "long_side": 141,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film hộp cam đứng, hai chân"
+  },
+  {
+   "id": 5,
+   "tile": "pcb_dslr_012__rec1__1024__1536___1536.png",
+   "box_index": 128,
+   "long_side": 22,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 6,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 8,
+   "long_side": 132,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh nhìn từ trên"
+  },
+  {
+   "id": 7,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 44,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 8,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 101,
+   "long_side": 16,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 9,
+   "tile": "pcb_dslr_003__rec1__1024__3072___768.png",
+   "box_index": 37,
+   "long_side": 98,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC vàng"
+  },
+  {
+   "id": 10,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 35,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 11,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 74,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 12,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 29,
+   "long_side": 54,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 13,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 11,
+   "long_side": 125,
+   "stratum": "lon_vuong",
+   "family": "switch_control",
+   "package": "ic_hai_ben",
+   "note": "công tắc DIP đánh số 1-8, hai hàng chân như vỏ DIP"
+  },
+  {
+   "id": 14,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 17,
+   "long_side": 110,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 15,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 31,
+   "long_side": 102,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film in .047M250V"
+  },
+  {
+   "id": 16,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 5,
+   "long_side": 93,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ sẫm nhìn từ trên"
+  },
+  {
+   "id": 17,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 29,
+   "long_side": 206,
+   "stratum": "lon_vuong",
+   "family": "switch_control",
+   "package": "ngoai_taxonomy",
+   "note": "núm xoay/chiết áp tròn có vạch OFF-ON"
+  },
+  {
+   "id": 18,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 3,
+   "long_side": 97,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 19,
+   "tile": "pcb33__rec1__1024__1536___768.png",
+   "box_index": 19,
+   "long_side": 98,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 20,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 19,
+   "long_side": 39,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 21,
+   "tile": "pcb_dslr_030__rec1__1024__2304___1536.png",
+   "box_index": 67,
+   "long_side": 402,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector nguồn nhiều chân"
+  },
+  {
+   "id": 22,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 159,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 23,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 25,
+   "long_side": 31,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 24,
+   "tile": "pcb_dslr_028__rec1__1024__3072___1536.png",
+   "box_index": 146,
+   "long_side": 118,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen"
+  },
+  {
+   "id": 25,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 1,
+   "long_side": 62,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá in 100 nhìn từ trên"
+  },
+  {
+   "id": 26,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 38,
+   "long_side": 115,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "dải trắng dọc mép bo"
+  },
+  {
+   "id": 27,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 54,
+   "long_side": 269,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "dải xám dọc, chưa rõ"
+  },
+  {
+   "id": 28,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 21,
+   "long_side": 106,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "thân đen có hoa văn zigzag — cầu chì hay điện trở dây quấn?"
+  },
+  {
+   "id": 29,
+   "tile": "pcb33__rec1__1024__1536___768.png",
+   "box_index": 12,
+   "long_side": 78,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "opto PC911 SHARP"
+  },
+  {
+   "id": 30,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 103,
+   "long_side": 96,
+   "stratum": "dai_nhieu_chan",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh vỏ kim loại bầu dục"
+  },
+  {
+   "id": 31,
+   "tile": "pcb_dslr_007__rec1__1024__3072___0.png",
+   "box_index": 2,
+   "long_side": 44,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 32,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 85,
+   "long_side": 6,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 33,
+   "tile": "pcb_dslr_008__rec1__1024__3072___1536.png",
+   "box_index": 8,
+   "long_side": 76,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 34,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 100,
+   "long_side": 10,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 35,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 161,
+   "long_side": 28,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán màu nâu đỏ, hai đầu"
+  },
+  {
+   "id": 36,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 53,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 37,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 87,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 38,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 1,
+   "long_side": 61,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 39,
+   "tile": "pcb_dslr_017__rec1__1024__2304___1536.png",
+   "box_index": 81,
+   "long_side": 6,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chỉ 6-9px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 40,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 56,
+   "long_side": 109,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật kim loại tròn, chỉ thấy một phần"
+  },
+  {
+   "id": 41,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 19,
+   "long_side": 222,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chữ TMS, chân hai cạnh"
+  },
+  {
+   "id": 42,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 45,
+   "long_side": 300,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen hai hàng"
+  },
+  {
+   "id": 43,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 40,
+   "long_side": 92,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh ngọc nhìn từ trên"
+  },
+  {
+   "id": 44,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 28,
+   "long_side": 13,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 45,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 137,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ giọt màu cam"
+  },
+  {
+   "id": 46,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 15,
+   "long_side": 117,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ gốm đĩa xanh in 101, hai chân cắm"
+  },
+  {
+   "id": 47,
+   "tile": "pcb32__rec1__1024__1536___1536.png",
+   "box_index": 34,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 48,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 12,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ sẫm nhìn từ trên"
+  },
+  {
+   "id": 49,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 51,
+   "long_side": 15,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 50,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 49,
+   "long_side": 147,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 3065 SLICOFI, chân bốn cạnh"
+  },
+  {
+   "id": 51,
+   "tile": "pcb32__rec1__1024__2304___1536.png",
+   "box_index": 22,
+   "long_side": 126,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "ô trắng trơn viền đen — cửa sổ hiển thị hay pad trống?"
+  },
+  {
+   "id": 52,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 59,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 53,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 74,
+   "long_side": 66,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ tantalum dán in 10V, có vạch cực"
+  },
+  {
+   "id": 54,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 53,
+   "long_side": 18,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 55,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 77,
+   "long_side": 621,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 56,
+   "tile": "pcb_dslr_003__rec1__1024__3072___0.png",
+   "box_index": 1,
+   "long_side": 193,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC chân hai cạnh"
+  },
+  {
+   "id": 57,
+   "tile": "pcb_dslr_028__rec1__1024__3072___1536.png",
+   "box_index": 133,
+   "long_side": 624,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 58,
+   "tile": "pcb33__rec1__1024__1536___768.png",
+   "box_index": 2,
+   "long_side": 75,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "opto PC911 SHARP"
+  },
+  {
+   "id": 59,
+   "tile": "pcb_dslr_012__rec1__1024__1536___768.png",
+   "box_index": 29,
+   "long_side": 85,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối trắng in mã, chưa rõ chân"
+  },
+  {
+   "id": 60,
+   "tile": "pcb_dslr_028__rec1__1024__3072___1536.png",
+   "box_index": 129,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 61,
+   "tile": "pcb32__rec1__1024__1536___1536.png",
+   "box_index": 1,
+   "long_side": 79,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "opto PC911 SHARP"
+  },
+  {
+   "id": 62,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 89,
+   "long_side": 44,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân trụ có vạch màu — điện trở hay diode thuỷ tinh?"
+  },
+  {
+   "id": 63,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 27,
+   "long_side": 95,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối vàng dọc, có thể tụ film"
+  },
+  {
+   "id": 64,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 110,
+   "long_side": 80,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "linh kiện đen nhỏ, chưa rõ"
+  },
+  {
+   "id": 65,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 37,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 66,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 1,
+   "long_side": 65,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối đen NTP-100u, cuộn cảm hay IC?"
+  },
+  {
+   "id": 67,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 170,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 68,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 217,
+   "long_side": 61,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán thân đen cạnh nhãn C107"
+  },
+  {
+   "id": 69,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 34,
+   "long_side": 50,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu in 1F45"
+  },
+  {
+   "id": 70,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 148,
+   "long_side": 26,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu"
+  },
+  {
+   "id": 71,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 76,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 72,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 86,
+   "long_side": 122,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối trắng/vàng dài, chưa rõ"
+  },
+  {
+   "id": 73,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 26,
+   "long_side": 66,
+   "stratum": "lon_vuong",
+   "family": "magnetic",
+   "package": "XEM_KY",
+   "note": "EPCOS B82790 — cuộn chặn chế độ chung"
+  },
+  {
+   "id": 74,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 132,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 75,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 0,
+   "long_side": 61,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "IC vuông, thấy vân chân ở nhiều cạnh"
+  },
+  {
+   "id": 76,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 73,
+   "long_side": 41,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, không đọc được loại"
+  },
+  {
+   "id": 77,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 212,
+   "long_side": 35,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu trong khung lụa"
+  },
+  {
+   "id": 78,
+   "tile": "pcb_dslr_008__rec1__1024__2304___1536.png",
+   "box_index": 28,
+   "long_side": 165,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC cam"
+  },
+  {
+   "id": 79,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 24,
+   "long_side": 70,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ 47uF 10V hộp vàng"
+  },
+  {
+   "id": 80,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 50,
+   "long_side": 119,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "ô tối nhỏ, chưa rõ"
+  },
+  {
+   "id": 81,
+   "tile": "pcb33__rec1__1024__1536___768.png",
+   "box_index": 36,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 82,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 67,
+   "long_side": 17,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 83,
+   "tile": "pcb_dslr_017__rec1__1024__2304___0.png",
+   "box_index": 116,
+   "long_side": 6,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 84,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 5,
+   "long_side": 56,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 85,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 70,
+   "long_side": 176,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector đen chân mảnh"
+  },
+  {
+   "id": 86,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 26,
+   "long_side": 135,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối sẫm trên nền trắng"
+  },
+  {
+   "id": 87,
+   "tile": "pcb_dslr_012__rec1__1024__1536___1536.png",
+   "box_index": 11,
+   "long_side": 36,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 88,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 9,
+   "long_side": 68,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 89,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 63,
+   "long_side": 104,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ 10uF/16V thân dẹt nằm, hai đầu"
+  },
+  {
+   "id": 90,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 73,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 91,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 24,
+   "long_side": 39,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 92,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 150,
+   "long_side": 44,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "thân trụ có vạch màu — điện trở hay diode thuỷ tinh?"
+  },
+  {
+   "id": 93,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 108,
+   "long_side": 88,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá đen nhìn từ trên"
+  },
+  {
+   "id": 94,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 123,
+   "long_side": 95,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 95,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 42,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "thân có vạch ngang đều — điện trở, diode hay mạng nhiều phần tử?"
+  },
+  {
+   "id": 96,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 57,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 97,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 0,
+   "long_side": 205,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "IC vuông trong đế cắm PLCC"
+  },
+  {
+   "id": 98,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 41,
+   "long_side": 83,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "KA3403A, chân hai cạnh"
+  },
+  {
+   "id": 99,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 12,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 100,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 48,
+   "long_side": 9,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 101,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 119,
+   "long_side": 389,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector nguồn nhiều chân"
+  },
+  {
+   "id": 102,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 88,
+   "long_side": 24,
+   "stratum": "nho",
+   "family": "false_crop_background",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 103,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 103,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 104,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 126,
+   "long_side": 182,
+   "stratum": "lon_vuong",
+   "family": "magnetic",
+   "package": "ngoai_taxonomy",
+   "note": "biến áp/cuộn cảm hình xuyến quấn dây"
+  },
+  {
+   "id": 105,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 41,
+   "long_side": 121,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "TI TSB43AB22A, chân bốn cạnh"
+  },
+  {
+   "id": 106,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 72,
+   "long_side": 28,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 107,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 57,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 108,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 0,
+   "long_side": 712,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng có hàng chân"
+  },
+  {
+   "id": 109,
+   "tile": "pcb_dslr_007__rec1__1024__3072___0.png",
+   "box_index": 0,
+   "long_side": 73,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC2xx, chân hai cạnh"
+  },
+  {
+   "id": 110,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 134,
+   "long_side": 70,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "ô trắng trơn"
+  },
+  {
+   "id": 111,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 103,
+   "long_side": 144,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "ST L3030-C9, thân vuông chân bốn cạnh"
+  },
+  {
+   "id": 112,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 82,
+   "long_side": 61,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "APW3055L, chân hai cạnh"
+  },
+  {
+   "id": 113,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 31,
+   "long_side": 244,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen dài, chân hai cạnh dài"
+  },
+  {
+   "id": 114,
+   "tile": "pcb11__rec1__1024__1536___0.png",
+   "box_index": 7,
+   "long_side": 191,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối trắng ALCATEL C3802 — module lai?"
+  },
+  {
+   "id": 115,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 3,
+   "long_side": 79,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 116,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 16,
+   "long_side": 30,
+   "stratum": "nho",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "thấy một hàng chân — nghi IC nhỏ nhiều chân"
+  },
+  {
+   "id": 117,
+   "tile": "pcb_dslr_017__rec1__1024__1536___768.png",
+   "box_index": 49,
+   "long_side": 421,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng"
+  },
+  {
+   "id": 118,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 22,
+   "long_side": 91,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC vàng"
+  },
+  {
+   "id": 119,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 41,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 120,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 6,
+   "long_side": 60,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá in 100 nhìn từ trên"
+  },
+  {
+   "id": 121,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 2,
+   "long_side": 194,
+   "stratum": "dai_nhieu_chan",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042, mặt in ký hiệu cuộn+tiếp điểm"
+  },
+  {
+   "id": 122,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 43,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 123,
+   "tile": "pcb32__rec1__1024__3072___768.png",
+   "box_index": 24,
+   "long_side": 39,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 124,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 37,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 125,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 176,
+   "long_side": 28,
+   "stratum": "ngau_nhien",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "khối dán nhiều pad"
+  },
+  {
+   "id": 126,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 109,
+   "long_side": 27,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán sáng màu, hai đầu"
+  },
+  {
+   "id": 127,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 0,
+   "long_side": 82,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá đen, rãnh chữ thập"
+  },
+  {
+   "id": 128,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 59,
+   "long_side": 76,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "IC đen trên bo vàng, chưa rõ chân"
+  },
+  {
+   "id": 129,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 119,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 130,
+   "tile": "pcb_dslr_029__rec1__1024__1536___1536.png",
+   "box_index": 78,
+   "long_side": 10,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "XEM_KY",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 131,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 115,
+   "long_side": 97,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải trắng dọc"
+  },
+  {
+   "id": 132,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 21,
+   "long_side": 169,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "cụm tụ hoá xanh nhìn từ trên"
+  },
+  {
+   "id": 133,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 71,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 134,
+   "tile": "pcb_dslr_028__rec1__1024__3072___1536.png",
+   "box_index": 49,
+   "long_side": 174,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Winbond, thân vuông, chân mảnh ra cả bốn cạnh"
+  },
+  {
+   "id": 135,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 74,
+   "long_side": 113,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 136,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 160,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 137,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 36,
+   "long_side": 11,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 138,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 48,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 139,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 90,
+   "long_side": 178,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh ngọc cạnh cổng COM1/USB"
+  },
+  {
+   "id": 140,
+   "tile": "pcb_dslr_015__rec1__1024__3072___768.png",
+   "box_index": 11,
+   "long_side": 201,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector ZIF/FPC đen"
+  },
+  {
+   "id": 141,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 69,
+   "long_side": 144,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "HM514400CS0, chân hai cạnh dài"
+  },
+  {
+   "id": 142,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 24,
+   "long_side": 98,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ sẫm màu"
+  },
+  {
+   "id": 143,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 123,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 144,
+   "tile": "pcb_dslr_008__rec1__1024__3072___1536.png",
+   "box_index": 57,
+   "long_side": 14,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 145,
+   "tile": "pcb_dslr_015__rec1__1024__1536___768.png",
+   "box_index": 18,
+   "long_side": 129,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC trắng"
+  },
+  {
+   "id": 146,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 3,
+   "long_side": 101,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "thân trụ trắng đứng — điện trở hay cầu chì?"
+  },
+  {
+   "id": 147,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 55,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 148,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 65,
+   "long_side": 16,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 149,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 8,
+   "long_side": 119,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 2060 SICOFI"
+  },
+  {
+   "id": 150,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 73,
+   "long_side": 91,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá đen nhìn từ trên"
+  },
+  {
+   "id": 151,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 36,
+   "long_side": 137,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân tối"
+  },
+  {
+   "id": 152,
+   "tile": "pcb_dslr_003__rec1__1024__1536___0.png",
+   "box_index": 13,
+   "long_side": 207,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "ZiLOG thân vuông"
+  },
+  {
+   "id": 153,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 3,
+   "long_side": 126,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen 8A7657F, chân hai cạnh dài"
+  },
+  {
+   "id": 154,
+   "tile": "pcb_dslr_017__rec1__1024__1536___768.png",
+   "box_index": 3,
+   "long_side": 59,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá 4.7uF 16V nhìn từ trên"
+  },
+  {
+   "id": 155,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 184,
+   "long_side": 177,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh ngọc cạnh vùng cổng"
+  },
+  {
+   "id": 156,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 24,
+   "long_side": 47,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 157,
+   "tile": "pcb_dslr_009__rec1__1024__1536___1536.png",
+   "box_index": 21,
+   "long_side": 91,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải connector tối"
+  },
+  {
+   "id": 158,
+   "tile": "pcb_dslr_012__rec1__1024__1536___1536.png",
+   "box_index": 93,
+   "long_side": 140,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film hộp cam"
+  },
+  {
+   "id": 159,
+   "tile": "pcb_dslr_015__rec1__1024__1536___768.png",
+   "box_index": 29,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 160,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 135,
+   "long_side": 83,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối cam chữ nhật, chưa rõ tụ hay connector"
+  },
+  {
+   "id": 161,
+   "tile": "pcb_dslr_003__rec1__1024__1536___0.png",
+   "box_index": 104,
+   "long_side": 819,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "socket có lẫy giữ kim loại"
+  },
+  {
+   "id": 162,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 118,
+   "long_side": 163,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối trắng chữ SGS trên bo vàng"
+  },
+  {
+   "id": 163,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 14,
+   "long_side": 75,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "SP4340 SD74ALS, chân hai cạnh"
+  },
+  {
+   "id": 164,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 84,
+   "long_side": 15,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 165,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 2,
+   "long_side": 97,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải xanh/vàng, chưa rõ"
+  },
+  {
+   "id": 166,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 25,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 167,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 43,
+   "long_side": 30,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 168,
+   "tile": "pcb_dslr_015__rec1__1024__1536___768.png",
+   "box_index": 2,
+   "long_side": 60,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 169,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 4,
+   "long_side": 69,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "IC đen cạnh nhãn AGP card, chưa rõ chân"
+  },
+  {
+   "id": 170,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 193,
+   "long_side": 263,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vùng in trắng, chưa rõ vật thể"
+  },
+  {
+   "id": 171,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 39,
+   "long_side": 131,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân tối"
+  },
+  {
+   "id": 172,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 63,
+   "long_side": 104,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá lớn nhìn từ trên, rãnh chữ Y"
+  },
+  {
+   "id": 173,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 180,
+   "long_side": 85,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá vàng in 10.1"
+  },
+  {
+   "id": 174,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 47,
+   "long_side": 67,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 175,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 3,
+   "long_side": 143,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 3065, chân bốn cạnh"
+  },
+  {
+   "id": 176,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 44,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 177,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 75,
+   "long_side": 13,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 178,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 76,
+   "long_side": 411,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm đen nhiều chân"
+  },
+  {
+   "id": 179,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 74,
+   "long_side": 195,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen hai hàng"
+  },
+  {
+   "id": 180,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 16,
+   "long_side": 172,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Winbond, chân bốn cạnh"
+  },
+  {
+   "id": 181,
+   "tile": "pcb_dslr_015__rec1__1024__3072___768.png",
+   "box_index": 10,
+   "long_side": 161,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC sáng màu, chân hai cạnh dài"
+  },
+  {
+   "id": 182,
+   "tile": "pcb32__rec1__1024__2304___1536.png",
+   "box_index": 17,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 183,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 37,
+   "long_side": 76,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 184,
+   "tile": "pcb_dslr_015__rec1__1024__1536___768.png",
+   "box_index": 19,
+   "long_side": 164,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC trắng"
+  },
+  {
+   "id": 185,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 59,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 186,
+   "tile": "pcb_dslr_013__rec1__1024__1536___768.png",
+   "box_index": 50,
+   "long_side": 61,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "dải xám dọc chữ 2C"
+  },
+  {
+   "id": 187,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 52,
+   "long_side": 181,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector đỏ nhiều chân"
+  },
+  {
+   "id": 188,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 3,
+   "long_side": 94,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 189,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 4,
+   "long_side": 214,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "IC vỏ gốm mạ vàng, chưa thấy rõ chân ở cạnh nào"
+  },
+  {
+   "id": 190,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 1,
+   "long_side": 84,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 191,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 139,
+   "long_side": 17,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 192,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 78,
+   "long_side": 97,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vùng cạnh chữ VFN -180V"
+  },
+  {
+   "id": 193,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 8,
+   "long_side": 118,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, nắp có rãnh chữ thập"
+  },
+  {
+   "id": 194,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 220,
+   "long_side": 98,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải connector đen"
+  },
+  {
+   "id": 195,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 42,
+   "long_side": 67,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh nhạt trơn"
+  },
+  {
+   "id": 196,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 10,
+   "long_side": 24,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 197,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 38,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 198,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 35,
+   "long_side": 68,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh nhạt trơn, chưa rõ"
+  },
+  {
+   "id": 199,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 63,
+   "long_side": 37,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán nhiều pad, có thể 3 chân"
+  },
+  {
+   "id": 200,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 1,
+   "long_side": 87,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "IC đen thân vuông trên bo vàng"
+  },
+  {
+   "id": 201,
+   "tile": "pcb33__rec1__1024__2304___1536.png",
+   "box_index": 87,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 202,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 89,
+   "long_side": 26,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán màu vàng nâu, hai đầu"
+  },
+  {
+   "id": 203,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 183,
+   "long_side": 18,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 204,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 22,
+   "long_side": 21,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 205,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 12,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 206,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 18,
+   "long_side": 46,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá 47uF 16V nhìn từ trên"
+  },
+  {
+   "id": 207,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 185,
+   "long_side": 14,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip hai đầu, lụa ghi R300x"
+  },
+  {
+   "id": 208,
+   "tile": "pcb_dslr_029__rec1__1024__2304___1536.png",
+   "box_index": 156,
+   "long_side": 29,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 209,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 8,
+   "long_side": 42,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 210,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 13,
+   "long_side": 182,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân đen"
+  },
+  {
+   "id": 211,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 43,
+   "long_side": 83,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh đậm"
+  },
+  {
+   "id": 212,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 7,
+   "long_side": 606,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 213,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 5,
+   "long_side": 55,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 214,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 32,
+   "long_side": 90,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 215,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 35,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 216,
+   "tile": "pcb_dslr_012__rec1__1024__2304___768.png",
+   "box_index": 41,
+   "long_side": 89,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 217,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 9,
+   "long_side": 48,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "khối dán nhỏ nhiều pad"
+  },
+  {
+   "id": 218,
+   "tile": "pcb_dslr_012__rec1__1024__3072___768.png",
+   "box_index": 59,
+   "long_side": 31,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "khối chữ nhật trắng kem, chưa rõ"
+  },
+  {
+   "id": 219,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 43,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 220,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 47,
+   "long_side": 76,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "linh kiện sẫm nhỏ cạnh nhãn C107"
+  },
+  {
+   "id": 221,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 39,
+   "long_side": 86,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá đen nhìn từ trên"
+  },
+  {
+   "id": 222,
+   "tile": "pcb_dslr_008__rec1__1024__2304___1536.png",
+   "box_index": 54,
+   "long_side": 270,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC màu cam"
+  },
+  {
+   "id": 223,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 0,
+   "long_side": 83,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "ô trắng trơn, chưa rõ vật thể"
+  },
+  {
+   "id": 224,
+   "tile": "pcb_dslr_015__rec1__1024__3072___768.png",
+   "box_index": 9,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán sáng in 182"
+  },
+  {
+   "id": 225,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 3,
+   "long_side": 75,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 226,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 162,
+   "long_side": 8,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 227,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 92,
+   "long_side": 73,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chữ KS1"
+  },
+  {
+   "id": 228,
+   "tile": "pcb_dslr_003__rec1__1024__3072___0.png",
+   "box_index": 58,
+   "long_side": 263,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "dải hẹp dọc cạnh tụ hoá xanh"
+  },
+  {
+   "id": 229,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 59,
+   "long_side": 72,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 230,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 30,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 231,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 88,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 232,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 30,
+   "long_side": 160,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối trắng chữ GARMIN MAIN, chưa rõ chân"
+  },
+  {
+   "id": 233,
+   "tile": "pcb_dslr_030__rec1__1024__2304___1536.png",
+   "box_index": 73,
+   "long_side": 12,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 234,
+   "tile": "pcb_dslr_008__rec1__1024__3072___0.png",
+   "box_index": 37,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 235,
+   "tile": "pcb_dslr_017__rec1__1024__2304___0.png",
+   "box_index": 82,
+   "long_side": 6,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chỉ 6-9px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 236,
+   "tile": "pcb_dslr_007__rec1__1024__3840___1536.png",
+   "box_index": 0,
+   "long_side": 103,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC244, chân hai cạnh"
+  },
+  {
+   "id": 237,
+   "tile": "pcb_dslr_017__rec1__1024__2304___1536.png",
+   "box_index": 22,
+   "long_side": 25,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán có vẻ nhiều chân"
+  },
+  {
+   "id": 238,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 99,
+   "long_side": 35,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 239,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 3,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 240,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 82,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 241,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 120,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 242,
+   "tile": "pcb33__rec1__1024__3072___1536.png",
+   "box_index": 62,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 243,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 8,
+   "long_side": 121,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Analog Devices AD7498, thấy rõ chân bốn cạnh"
+  },
+  {
+   "id": 244,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 16,
+   "long_side": 112,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở thân trắng cạnh nhóm vạch màu"
+  },
+  {
+   "id": 245,
+   "tile": "pcb32__rec1__1024__3072___768.png",
+   "box_index": 2,
+   "long_side": 104,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm vạch màu kinh điển"
+  },
+  {
+   "id": 246,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 184,
+   "long_side": 15,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 247,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 22,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 248,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 30,
+   "long_side": 106,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film in .047M250V, hộp dẹt hai chân"
+  },
+  {
+   "id": 249,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 16,
+   "long_side": 128,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá đen nhìn từ trên, in 2.6"
+  },
+  {
+   "id": 250,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 69,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 251,
+   "tile": "pcb_dslr_015__rec1__1024__3072___768.png",
+   "box_index": 13,
+   "long_side": 61,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 252,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 2,
+   "long_side": 97,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "IC đen SN2307 thân vuông, chưa thấy rõ chân"
+  },
+  {
+   "id": 253,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 46,
+   "long_side": 87,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "dải vàng/tối"
+  },
+  {
+   "id": 254,
+   "tile": "pcb_dslr_003__rec1__1024__3072___768.png",
+   "box_index": 59,
+   "long_side": 22,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán có vạch dọc — nghi nhiều chân"
+  },
+  {
+   "id": 255,
+   "tile": "pcb_dslr_003__rec1__1024__3072___768.png",
+   "box_index": 26,
+   "long_side": 104,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film hộp vàng"
+  },
+  {
+   "id": 256,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 134,
+   "long_side": 137,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu"
+  },
+  {
+   "id": 257,
+   "tile": "pcb32__rec1__1024__2304___768.png",
+   "box_index": 10,
+   "long_side": 165,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC trắng"
+  },
+  {
+   "id": 258,
+   "tile": "pcb_dslr_030__rec1__1024__2304___1536.png",
+   "box_index": 83,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 259,
+   "tile": "pcb_dslr_008__rec1__1024__2304___0.png",
+   "box_index": 45,
+   "long_side": 17,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 260,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 9,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 261,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 26,
+   "long_side": 31,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 262,
+   "tile": "pcb_dslr_009__rec1__1024__2304___768.png",
+   "box_index": 64,
+   "long_side": 340,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khối connector trắng nhiều chân"
+  },
+  {
+   "id": 263,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 26,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "khối sáng in mã"
+  },
+  {
+   "id": 264,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 41,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 265,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 45,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 266,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 28,
+   "long_side": 598,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "cổng SCART"
+  },
+  {
+   "id": 267,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 4,
+   "long_side": 249,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "cụm cổng sau LAN/USB"
+  },
+  {
+   "id": 268,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 17,
+   "long_side": 58,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 269,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 34,
+   "long_side": 28,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu"
+  },
+  {
+   "id": 270,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 66,
+   "long_side": 147,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "HM514400CS0, chân hai cạnh dài"
+  },
+  {
+   "id": 271,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 41,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 272,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 39,
+   "long_side": 29,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân có vạch ngang — điện trở hay diode?"
+  },
+  {
+   "id": 273,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 3,
+   "long_side": 298,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "hình chữ nhật đen phẳng, chưa rõ IC hay vỏ chắn"
+  },
+  {
+   "id": 274,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 1,
+   "long_side": 184,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, nắp có rãnh chữ thập"
+  },
+  {
+   "id": 275,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 102,
+   "long_side": 19,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 276,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 6,
+   "long_side": 400,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật tròn lớn có nhãn, có thể quạt"
+  },
+  {
+   "id": 277,
+   "tile": "pcb_dslr_007__rec1__1024__3072___0.png",
+   "box_index": 11,
+   "long_side": 207,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải dọc cạnh chữ PQ40"
+  },
+  {
+   "id": 278,
+   "tile": "pcb33__rec1__1024__2304___1536.png",
+   "box_index": 67,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 279,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 4,
+   "long_side": 95,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "IC đen SN2307 thân vuông"
+  },
+  {
+   "id": 280,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 51,
+   "long_side": 28,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 281,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 2,
+   "long_side": 76,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá 220uF 16V nhìn từ trên"
+  },
+  {
+   "id": 282,
+   "tile": "pcb11__rec1__1024__2304___1536.png",
+   "box_index": 41,
+   "long_side": 86,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 283,
+   "tile": "pcb_dslr_013__rec1__1024__1536___768.png",
+   "box_index": 2,
+   "long_side": 144,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 3065 SLICOFI, chân bốn cạnh"
+  },
+  {
+   "id": 284,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 33,
+   "long_side": 148,
+   "stratum": "lon_vuong",
+   "family": "battery_power_input",
+   "package": "ngoai_taxonomy",
+   "note": "pin cúc áo tròn"
+  },
+  {
+   "id": 285,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 57,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 286,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 48,
+   "long_side": 147,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 3065 SLICOFI, chân bốn cạnh"
+  },
+  {
+   "id": 287,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 0,
+   "long_side": 113,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, rãnh chữ thập"
+  },
+  {
+   "id": 288,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 67,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 289,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 0,
+   "long_side": 75,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối IC sáng màu, chưa rõ chân"
+  },
+  {
+   "id": 290,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 29,
+   "long_side": 901,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "card edge, hai hàng chân"
+  },
+  {
+   "id": 291,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 109,
+   "long_side": 12,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 292,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 2,
+   "long_side": 321,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector cáp dẹt FPC"
+  },
+  {
+   "id": 293,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 33,
+   "long_side": 192,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân dọc"
+  },
+  {
+   "id": 294,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 37,
+   "long_side": 245,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen trên bo vàng"
+  },
+  {
+   "id": 295,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 68,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 296,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 25,
+   "long_side": 179,
+   "stratum": "lon_vuong",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042"
+  },
+  {
+   "id": 297,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 215,
+   "long_side": 594,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "cổng SCART"
+  },
+  {
+   "id": 298,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 24,
+   "long_side": 38,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 299,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 5,
+   "long_side": 270,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "khối kim loại bạc — vỏ chắn"
+  },
+  {
+   "id": 300,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 5,
+   "long_side": 116,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "UT6112D vỏ PLCC vuông, chân bốn cạnh"
+  },
+  {
+   "id": 301,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 0,
+   "long_side": 161,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen dọc, chân hai cạnh"
+  },
+  {
+   "id": 302,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 15,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân có vạch ngang đều — điện trở, diode hay mạng nhiều phần tử?"
+  },
+  {
+   "id": 303,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 180,
+   "long_side": 338,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "khối kim loại nhám — tản nhiệt hoặc vỏ chắn"
+  },
+  {
+   "id": 304,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 25,
+   "long_side": 53,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 305,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 34,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 306,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 57,
+   "long_side": 283,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC màu cam"
+  },
+  {
+   "id": 307,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 1,
+   "long_side": 118,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "IC vuông trong khung đế, chân bốn cạnh"
+  },
+  {
+   "id": 308,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 213,
+   "long_side": 631,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "cụm jack RCA tròn"
+  },
+  {
+   "id": 309,
+   "tile": "pcb_dslr_015__rec1__1024__1536___768.png",
+   "box_index": 25,
+   "long_side": 24,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 310,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 132,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 311,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 58,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 312,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 25,
+   "long_side": 81,
+   "stratum": "lon_vuong",
+   "family": "switch_control",
+   "package": "ngoai_taxonomy",
+   "note": "chiết áp tinh chỉnh, có rãnh vặn"
+  },
+  {
+   "id": 313,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 151,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 314,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 14,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 315,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 37,
+   "long_side": 62,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật sẫm có phần kim loại"
+  },
+  {
+   "id": 316,
+   "tile": "pcb32__rec1__1024__3072___768.png",
+   "box_index": 31,
+   "long_side": 166,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC trắng"
+  },
+  {
+   "id": 317,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 191,
+   "long_side": 577,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng"
+  },
+  {
+   "id": 318,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 39,
+   "long_side": 86,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải tối cạnh chữ PASS"
+  },
+  {
+   "id": 319,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 20,
+   "long_side": 31,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 320,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 55,
+   "long_side": 131,
+   "stratum": "lon_vuong",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen nhiều chân"
+  },
+  {
+   "id": 321,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 8,
+   "long_side": 201,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "SDRAM W9812G6JH-25 vỏ TSOP"
+  },
+  {
+   "id": 322,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 113,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 323,
+   "tile": "pcb_dslr_003__rec1__1024__1536___0.png",
+   "box_index": 99,
+   "long_side": 29,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 324,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 94,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 325,
+   "tile": "pcb32__rec1__1024__1536___1536.png",
+   "box_index": 67,
+   "long_side": 234,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, nắp có rãnh chữ thập"
+  },
+  {
+   "id": 326,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 0,
+   "long_side": 68,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh nhìn từ trên"
+  },
+  {
+   "id": 327,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 141,
+   "long_side": 27,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu trên bo vàng"
+  },
+  {
+   "id": 328,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 27,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 329,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 47,
+   "long_side": 24,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân có vạch ngang đều — điện trở, diode hay mạng nhiều phần tử?"
+  },
+  {
+   "id": 330,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 94,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 331,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 10,
+   "long_side": 613,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 332,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 40,
+   "long_side": 64,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối cam/vàng nhỏ"
+  },
+  {
+   "id": 333,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 14,
+   "long_side": 111,
+   "stratum": "lon_vuong",
+   "family": "connector",
+   "package": "connector",
+   "note": "header USB xanh"
+  },
+  {
+   "id": 334,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 219,
+   "long_side": 11,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 335,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 37,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 336,
+   "tile": "pcb_dslr_012__rec1__1024__3072___768.png",
+   "box_index": 8,
+   "long_side": 119,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 2060 SICOFI"
+  },
+  {
+   "id": 337,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 55,
+   "long_side": 107,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở trụ trắng in 18K J"
+  },
+  {
+   "id": 338,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 57,
+   "long_side": 47,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân trụ có vạch màu — điện trở hay diode thuỷ tinh?"
+  },
+  {
+   "id": 339,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 39,
+   "long_side": 213,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "dải hẹp dọc"
+  },
+  {
+   "id": 340,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 20,
+   "long_side": 211,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "khối kim loại bạc — vỏ chắn"
+  },
+  {
+   "id": 341,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 41,
+   "long_side": 92,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh dài"
+  },
+  {
+   "id": 342,
+   "tile": "pcb32__rec1__1024__1536___1536.png",
+   "box_index": 2,
+   "long_side": 113,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74HC541A, chân hai cạnh"
+  },
+  {
+   "id": 343,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 122,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 344,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 24,
+   "long_side": 68,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải xanh/vàng dọc"
+  },
+  {
+   "id": 345,
+   "tile": "pcb_dslr_012__rec1__1024__3072___1536.png",
+   "box_index": 36,
+   "long_side": 29,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán sáng màu, hai đầu"
+  },
+  {
+   "id": 346,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 62,
+   "long_side": 40,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 347,
+   "tile": "pcb_dslr_017__rec1__1024__2304___0.png",
+   "box_index": 56,
+   "long_side": 6,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-9px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 348,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 28,
+   "long_side": 140,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC sáng màu MX, chân hai cạnh"
+  },
+  {
+   "id": 349,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 69,
+   "long_side": 33,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 350,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 29,
+   "long_side": 108,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC APW0055L, chân hai cạnh"
+  },
+  {
+   "id": 351,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 26,
+   "long_side": 84,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh ngọc nhìn từ trên"
+  },
+  {
+   "id": 352,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 25,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 353,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 34,
+   "long_side": 156,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC trắng"
+  },
+  {
+   "id": 354,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 109,
+   "long_side": 15,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 355,
+   "tile": "pcb32__rec1__1024__1536___1536.png",
+   "box_index": 6,
+   "long_side": 80,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "opto PC911 SHARP"
+  },
+  {
+   "id": 356,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 181,
+   "long_side": 237,
+   "stratum": "lon_vuong",
+   "family": "battery_power_input",
+   "package": "ngoai_taxonomy",
+   "note": "đế pin cúc áo tròn có kẹp"
+  },
+  {
+   "id": 357,
+   "tile": "pcb_dslr_003__rec1__1024__1536___1536.png",
+   "box_index": 38,
+   "long_side": 894,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "cụm cổng sau + giá kim loại"
+  },
+  {
+   "id": 358,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 36,
+   "long_side": 60,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "khối đen vuông trên bo vàng"
+  },
+  {
+   "id": 359,
+   "tile": "pcb32__rec1__1024__2304___768.png",
+   "box_index": 15,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 360,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 21,
+   "long_side": 61,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm vạch màu"
+  },
+  {
+   "id": 361,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 10,
+   "long_side": 98,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC vàng"
+  },
+  {
+   "id": 362,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 13,
+   "long_side": 184,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối trắng dài trên nền tối"
+  },
+  {
+   "id": 363,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 27,
+   "long_side": 591,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "cổng SCART"
+  },
+  {
+   "id": 364,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 30,
+   "long_side": 153,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "IC vuông SA50E0 REV A, chân bốn cạnh"
+  },
+  {
+   "id": 365,
+   "tile": "pcb11__rec1__1024__1536___0.png",
+   "box_index": 6,
+   "long_side": 239,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải trắng hẹp dọc"
+  },
+  {
+   "id": 366,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 24,
+   "long_side": 83,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 367,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 0,
+   "long_side": 89,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC họ 74FCT, chân hai cạnh"
+  },
+  {
+   "id": 368,
+   "tile": "pcb33__rec1__1024__2304___1536.png",
+   "box_index": 41,
+   "long_side": 81,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "opto PC911 SHARP, vỏ 4 chân hai cạnh"
+  },
+  {
+   "id": 369,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 32,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 370,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 31,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 371,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 82,
+   "long_side": 113,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở trụ đứng in 18K J"
+  },
+  {
+   "id": 372,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 79,
+   "long_side": 614,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 373,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 19,
+   "long_side": 59,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 374,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 141,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 375,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 184,
+   "long_side": 67,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải trắng/hồng dọc"
+  },
+  {
+   "id": 376,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 140,
+   "long_side": 144,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải connector đen"
+  },
+  {
+   "id": 377,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 64,
+   "long_side": 90,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC ULN2003A, chân hai cạnh"
+  },
+  {
+   "id": 378,
+   "tile": "pcb_dslr_012__rec1__1024__1536___1536.png",
+   "box_index": 1,
+   "long_side": 188,
+   "stratum": "dai_nhieu_chan",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042"
+  },
+  {
+   "id": 379,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 20,
+   "long_side": 574,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng"
+  },
+  {
+   "id": 380,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 154,
+   "long_side": 95,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 381,
+   "tile": "pcb_dslr_012__rec1__1024__2304___768.png",
+   "box_index": 29,
+   "long_side": 121,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 2060 SICOFI, chân bốn cạnh"
+  },
+  {
+   "id": 382,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 91,
+   "long_side": 18,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 383,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 129,
+   "long_side": 107,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh nhìn từ trên"
+  },
+  {
+   "id": 384,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 6,
+   "long_side": 90,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá in 220"
+  },
+  {
+   "id": 385,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 24,
+   "long_side": 188,
+   "stratum": "lon_vuong",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042"
+  },
+  {
+   "id": 386,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 84,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 387,
+   "tile": "pcb_dslr_017__rec1__1024__2304___0.png",
+   "box_index": 41,
+   "long_side": 405,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm sáng màu"
+  },
+  {
+   "id": 388,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 48,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 389,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 6,
+   "long_side": 157,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh"
+  },
+  {
+   "id": 390,
+   "tile": "pcb_dslr_017__rec1__1024__2304___1536.png",
+   "box_index": 16,
+   "long_side": 140,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC đen"
+  },
+  {
+   "id": 391,
+   "tile": "pcb_dslr_003__rec1__1024__3072___768.png",
+   "box_index": 63,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 392,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 124,
+   "long_side": 92,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá vàng nhìn từ trên"
+  },
+  {
+   "id": 393,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 40,
+   "long_side": 42,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 394,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 130,
+   "long_side": 23,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 395,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 121,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 396,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 51,
+   "long_side": 66,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán in 22 20V"
+  },
+  {
+   "id": 397,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 5,
+   "long_side": 190,
+   "stratum": "dai_nhieu_chan",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042"
+  },
+  {
+   "id": 398,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 97,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 399,
+   "tile": "pcb_dslr_008__rec1__1024__3072___1536.png",
+   "box_index": 67,
+   "long_side": 16,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 400,
+   "tile": "pcb_dslr_017__rec1__1024__2304___1536.png",
+   "box_index": 66,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 401,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 121,
+   "long_side": 415,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng"
+  },
+  {
+   "id": 402,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 46,
+   "long_side": 29,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu"
+  },
+  {
+   "id": 403,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 4,
+   "long_side": 103,
+   "stratum": "dai_nhieu_chan",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film hộp vàng, hai chân"
+  },
+  {
+   "id": 404,
+   "tile": "pcb_dslr_030__rec1__1024__2304___1536.png",
+   "box_index": 25,
+   "long_side": 86,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 405,
+   "tile": "pcb_dslr_015__rec1__1024__1536___768.png",
+   "box_index": 39,
+   "long_side": 11,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 406,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 0,
+   "long_side": 105,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC244, chân hai cạnh"
+  },
+  {
+   "id": 407,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 45,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 408,
+   "tile": "pcb_dslr_009__rec1__1024__2304___768.png",
+   "box_index": 30,
+   "long_side": 16,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 409,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 111,
+   "long_side": 241,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối vuông đen có hoa văn tròn"
+  },
+  {
+   "id": 410,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 2,
+   "long_side": 88,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh, thấy rõ hai hàng chân"
+  },
+  {
+   "id": 411,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 151,
+   "long_side": 144,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải trắng dọc cạnh U28"
+  },
+  {
+   "id": 412,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 30,
+   "long_side": 16,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 413,
+   "tile": "pcb_dslr_008__rec1__1024__3072___0.png",
+   "box_index": 2,
+   "long_side": 91,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 414,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 77,
+   "long_side": 251,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "vỏ connector trắng dài"
+  },
+  {
+   "id": 415,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 76,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 416,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 3,
+   "long_side": 154,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối trắng in 228/200-CA, tụ film hay IC?"
+  },
+  {
+   "id": 417,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 3,
+   "long_side": 85,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC 74HC123"
+  },
+  {
+   "id": 418,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 206,
+   "long_side": 298,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm đen"
+  },
+  {
+   "id": 419,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 71,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 420,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 38,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 421,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 60,
+   "long_side": 66,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh nhạt trơn"
+  },
+  {
+   "id": 422,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 102,
+   "long_side": 12,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 423,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 61,
+   "long_side": 100,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "ngoai_taxonomy",
+   "note": "box chạm mép crop, không thấy đủ vật thể"
+  },
+  {
+   "id": 424,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 75,
+   "long_side": 30,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 425,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 18,
+   "long_side": 59,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 426,
+   "tile": "pcb_dslr_029__rec1__1024__1536___1536.png",
+   "box_index": 52,
+   "long_side": 9,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-9px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 427,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 73,
+   "long_side": 24,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 428,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 106,
+   "long_side": 28,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu"
+  },
+  {
+   "id": 429,
+   "tile": "pcb_dslr_030__rec1__1024__2304___1536.png",
+   "box_index": 0,
+   "long_side": 190,
+   "stratum": "lon_vuong",
+   "family": "connector",
+   "package": "connector",
+   "note": "jack RJ45/USB mặt sau"
+  },
+  {
+   "id": 430,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 43,
+   "long_side": 81,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "linh kiện dán đen dưới tụ"
+  },
+  {
+   "id": 431,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 65,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 432,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 29,
+   "long_side": 75,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen dọc, chân hai cạnh"
+  },
+  {
+   "id": 433,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 104,
+   "long_side": 396,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen dài"
+  },
+  {
+   "id": 434,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 144,
+   "long_side": 87,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán đen dài, chưa rõ"
+  },
+  {
+   "id": 435,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 20,
+   "long_side": 60,
+   "stratum": "lon_vuong",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm vạch màu"
+  },
+  {
+   "id": 436,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 50,
+   "long_side": 150,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "HM514400CS0, chân hai cạnh dài"
+  },
+  {
+   "id": 437,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 43,
+   "long_side": 201,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector đen chân mảnh"
+  },
+  {
+   "id": 438,
+   "tile": "pcb_dslr_029__rec1__1024__1536___1536.png",
+   "box_index": 86,
+   "long_side": 135,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ màu xanh ngọc"
+  },
+  {
+   "id": 439,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 14,
+   "long_side": 58,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 440,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 176,
+   "long_side": 32,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối vuông vàng, chưa rõ"
+  },
+  {
+   "id": 441,
+   "tile": "pcb_dslr_009__rec1__1024__1536___1536.png",
+   "box_index": 9,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 442,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 95,
+   "long_side": 19,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 443,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 32,
+   "long_side": 72,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh lá nhìn từ trên"
+  },
+  {
+   "id": 444,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 60,
+   "long_side": 64,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán in 22"
+  },
+  {
+   "id": 445,
+   "tile": "pcb_dslr_029__rec1__1024__2304___1536.png",
+   "box_index": 83,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 446,
+   "tile": "pcb_dslr_008__rec1__1024__3072___1536.png",
+   "box_index": 22,
+   "long_side": 72,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán thân đen, hai đầu"
+  },
+  {
+   "id": 447,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 30,
+   "long_side": 41,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 448,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 88,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 449,
+   "tile": "pcb_dslr_003__rec1__1024__1536___1536.png",
+   "box_index": 39,
+   "long_side": 29,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán sáng màu, hai đầu"
+  },
+  {
+   "id": 450,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 8,
+   "long_side": 96,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film in .047M250V"
+  },
+  {
+   "id": 451,
+   "tile": "pcb_dslr_030__rec1__1024__2304___1536.png",
+   "box_index": 13,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 452,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 8,
+   "long_side": 614,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 453,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 17,
+   "long_side": 203,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "SDRAM W9812G6JH-25 vỏ TSOP, chân hai cạnh dài"
+  },
+  {
+   "id": 454,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 5,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 455,
+   "tile": "pcb33__rec1__1024__2304___768.png",
+   "box_index": 28,
+   "long_side": 167,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC trắng"
+  },
+  {
+   "id": 456,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 0,
+   "long_side": 77,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen nhỏ chân hai cạnh"
+  },
+  {
+   "id": 457,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 91,
+   "long_side": 236,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân dọc trên bo vàng"
+  },
+  {
+   "id": 458,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 10,
+   "long_side": 22,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 459,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 100,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 460,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 5,
+   "long_side": 57,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán sẫm cạnh nhãn U126"
+  },
+  {
+   "id": 461,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 34,
+   "long_side": 57,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 462,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 70,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 463,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 4,
+   "long_side": 42,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 464,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 90,
+   "long_side": 16,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 465,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 188,
+   "long_side": 112,
+   "stratum": "lon_vuong",
+   "family": "connector",
+   "package": "connector",
+   "note": "đế cắm IC rỗng, hai hàng tiếp điểm"
+  },
+  {
+   "id": 466,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 49,
+   "long_side": 178,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "hoa văn vàng cạnh chữ GAME"
+  },
+  {
+   "id": 467,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 65,
+   "long_side": 100,
+   "stratum": "lon_vuong",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh 12.000 MHz vỏ kim loại bầu dục"
+  },
+  {
+   "id": 468,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 61,
+   "long_side": 122,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "NSP-6241B, thân vuông chân bốn cạnh"
+  },
+  {
+   "id": 469,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 168,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 470,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 148,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 471,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 77,
+   "long_side": 112,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân tối"
+  },
+  {
+   "id": 472,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 92,
+   "long_side": 180,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen trên bo vàng"
+  },
+  {
+   "id": 473,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 12,
+   "long_side": 209,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chữ TMS3, chân hai cạnh"
+  },
+  {
+   "id": 474,
+   "tile": "pcb11__rec1__1024__1536___0.png",
+   "box_index": 1,
+   "long_side": 245,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "vỏ trắng dài"
+  },
+  {
+   "id": 475,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 81,
+   "long_side": 125,
+   "stratum": "lon_vuong",
+   "family": "connector",
+   "package": "connector",
+   "note": "vỏ connector trắng 3 chân"
+  },
+  {
+   "id": 476,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 49,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 477,
+   "tile": "pcb_dslr_009__rec1__1024__3072___768.png",
+   "box_index": 3,
+   "long_side": 172,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "MoSys MCACHE MC801 vỏ PLCC vuông"
+  },
+  {
+   "id": 478,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 18,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 479,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 38,
+   "long_side": 47,
+   "stratum": "ngau_nhien",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip hai đầu, lụa ghi R63"
+  },
+  {
+   "id": 480,
+   "tile": "pcb_dslr_007__rec1__1024__3840___1536.png",
+   "box_index": 4,
+   "long_side": 214,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "TI TMS320LC31PQ40"
+  },
+  {
+   "id": 481,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 6,
+   "long_side": 481,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "module nguồn DC-DC Ericsson PKD4131 — không thuộc 16 họ"
+  },
+  {
+   "id": 482,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 32,
+   "long_side": 16,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 483,
+   "tile": "pcb_dslr_007__rec1__1024__3072___0.png",
+   "box_index": 1,
+   "long_side": 40,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 484,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 17,
+   "long_side": 114,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC244, chân hai cạnh"
+  },
+  {
+   "id": 485,
+   "tile": "pcb_dslr_029__rec1__1024__2304___1536.png",
+   "box_index": 67,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 486,
+   "tile": "pcb_dslr_008__rec1__1024__2304___0.png",
+   "box_index": 2,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 487,
+   "tile": "pcb_dslr_029__rec1__1024__2304___1536.png",
+   "box_index": 88,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 488,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 60,
+   "long_side": 156,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen dài giữa hai tụ hoá"
+  },
+  {
+   "id": 489,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 3,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 490,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 15,
+   "long_side": 40,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, không đọc được loại"
+  },
+  {
+   "id": 491,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 27,
+   "long_side": 15,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 492,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 25,
+   "long_side": 18,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 493,
+   "tile": "pcb_dslr_008__rec1__1024__3072___1536.png",
+   "box_index": 12,
+   "long_side": 59,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán thân đen in C476"
+  },
+  {
+   "id": 494,
+   "tile": "pcb_dslr_015__rec1__1024__3072___768.png",
+   "box_index": 21,
+   "long_side": 80,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "ô trắng trơn cạnh nhãn P3"
+  },
+  {
+   "id": 495,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 32,
+   "long_side": 98,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC244, chân hai cạnh"
+  },
+  {
+   "id": 496,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 59,
+   "long_side": 270,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải xám dọc, chưa rõ"
+  },
+  {
+   "id": 497,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 85,
+   "long_side": 116,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải vàng/tối dọc"
+  },
+  {
+   "id": 498,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 141,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 499,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 47,
+   "long_side": 201,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải mảnh ở mép relay V23042"
+  },
+  {
+   "id": 500,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 154,
+   "long_side": 410,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khối connector đen"
+  },
+  {
+   "id": 501,
+   "tile": "pcb_dslr_017__rec1__1024__2304___0.png",
+   "box_index": 6,
+   "long_side": 121,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Analog Devices AD7498"
+  },
+  {
+   "id": 502,
+   "tile": "pcb32__rec1__1024__2304___1536.png",
+   "box_index": 21,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "linh kiện dán xanh có ký hiệu N — diode hay cuộn cảm?"
+  },
+  {
+   "id": 503,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 9,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 504,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 26,
+   "long_side": 39,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 505,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 3,
+   "long_side": 104,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 506,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 118,
+   "long_side": 31,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu"
+  },
+  {
+   "id": 507,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 3,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 508,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 4,
+   "long_side": 273,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "khối bạc bo góc — vỏ chắn/module"
+  },
+  {
+   "id": 509,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 19,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 510,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 58,
+   "long_side": 57,
+   "stratum": "nho",
+   "family": "magnetic",
+   "package": "XEM_KY",
+   "note": "EPCOS B82790 C474 — cuộn chặn chế độ chung"
+  },
+  {
+   "id": 511,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 195,
+   "long_side": 65,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "mảng pad vàng cạnh nhãn J4"
+  },
+  {
+   "id": 512,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 1,
+   "long_side": 45,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "LM358A, chân hai cạnh"
+  },
+  {
+   "id": 513,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 193,
+   "long_side": 106,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá trụ đứng Panasonic"
+  },
+  {
+   "id": 514,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 25,
+   "long_side": 214,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "TI TMS320LC31PQ40"
+  },
+  {
+   "id": 515,
+   "tile": "pcb33__rec1__1024__2304___768.png",
+   "box_index": 12,
+   "long_side": 117,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ gốm đĩa xanh in 101"
+  },
+  {
+   "id": 516,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 138,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 517,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 195,
+   "long_side": 35,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật đen có vạch trắng, chưa rõ"
+  },
+  {
+   "id": 518,
+   "tile": "pcb_dslr_015__rec1__1024__2304___768.png",
+   "box_index": 14,
+   "long_side": 58,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 519,
+   "tile": "pcb_dslr_017__rec1__1024__2304___0.png",
+   "box_index": 42,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối trắng, chưa rõ"
+  },
+  {
+   "id": 520,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 188,
+   "long_side": 23,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 521,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 133,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 522,
+   "tile": "pcb_dslr_003__rec1__1024__2304___1536.png",
+   "box_index": 166,
+   "long_side": 28,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 523,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 67,
+   "long_side": 13,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 524,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 67,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 525,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 0,
+   "long_side": 244,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC MICRONAS SDA6001, chân hai cạnh"
+  },
+  {
+   "id": 526,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 13,
+   "long_side": 101,
+   "stratum": "lon_vuong",
+   "family": "discrete_semiconductor",
+   "package": "goi_nho",
+   "note": "vỏ TO-220 nằm, vài chân to bản"
+  },
+  {
+   "id": 527,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 38,
+   "long_side": 57,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 528,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 28,
+   "long_side": 85,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 529,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 44,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân có vạch ngang đều — điện trở, diode hay mạng nhiều phần tử?"
+  },
+  {
+   "id": 530,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 118,
+   "long_side": 14,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 531,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 2,
+   "long_side": 247,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "QFP: thân vuông, thấy chân mảnh ra cả bốn cạnh"
+  },
+  {
+   "id": 532,
+   "tile": "pcb_dslr_012__rec1__1024__3072___768.png",
+   "box_index": 0,
+   "long_side": 87,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh nhạt bo tròn có chân — cuộn cảm?"
+  },
+  {
+   "id": 533,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 31,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 534,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 35,
+   "long_side": 58,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán sẫm cạnh nhãn U126"
+  },
+  {
+   "id": 535,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 16,
+   "long_side": 39,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 536,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 24,
+   "long_side": 12,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 537,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 74,
+   "long_side": 123,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải connector tối"
+  },
+  {
+   "id": 538,
+   "tile": "pcb_dslr_015__rec1__1024__3072___768.png",
+   "box_index": 8,
+   "long_side": 122,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC chân hai cạnh"
+  },
+  {
+   "id": 539,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 109,
+   "long_side": 477,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "module có nhãn mã vạch, chưa rõ loại"
+  },
+  {
+   "id": 540,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 28,
+   "long_side": 12,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 541,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 93,
+   "long_side": 18,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 542,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 21,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 543,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 114,
+   "long_side": 625,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khối nhựa đen nhiều chân"
+  },
+  {
+   "id": 544,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 31,
+   "long_side": 134,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ film hộp cam"
+  },
+  {
+   "id": 545,
+   "tile": "pcb_dslr_009__rec1__1024__3072___768.png",
+   "box_index": 19,
+   "long_side": 31,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 546,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 8,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 547,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 45,
+   "long_side": 81,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "DP4340, chân hai cạnh"
+  },
+  {
+   "id": 548,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 39,
+   "long_side": 71,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật đen cạnh chữ Y2 BC32"
+  },
+  {
+   "id": 549,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 42,
+   "long_side": 39,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 550,
+   "tile": "pcb_dslr_013__rec1__1024__1536___768.png",
+   "box_index": 35,
+   "long_side": 180,
+   "stratum": "lon_vuong",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042"
+  },
+  {
+   "id": 551,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 36,
+   "long_side": 59,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật sẫm cạnh dây xanh, chưa rõ"
+  },
+  {
+   "id": 552,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 7,
+   "long_side": 183,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối trắng dài trên nền xanh"
+  },
+  {
+   "id": 553,
+   "tile": "pcb32__rec1__1024__3072___768.png",
+   "box_index": 8,
+   "long_side": 44,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 554,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 24,
+   "long_side": 56,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 555,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 64,
+   "long_side": 14,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-14px nên không đọc được loại"
+  },
+  {
+   "id": 556,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 7,
+   "long_side": 77,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 557,
+   "tile": "pcb_dslr_008__rec1__1024__2304___0.png",
+   "box_index": 0,
+   "long_side": 130,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "MB27C512 EPROM, chân hai cạnh"
+  },
+  {
+   "id": 558,
+   "tile": "pcb_dslr_003__rec1__1024__1536___0.png",
+   "box_index": 109,
+   "long_side": 24,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 559,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 4,
+   "long_side": 93,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "LT1108CS8, chân hai cạnh"
+  },
+  {
+   "id": 560,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 1,
+   "long_side": 73,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vùng vàng/tối, chưa rõ"
+  },
+  {
+   "id": 561,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 42,
+   "long_side": 18,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 562,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 200,
+   "long_side": 99,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối vàng/xanh dẹt, chưa rõ"
+  },
+  {
+   "id": 563,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 14,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 564,
+   "tile": "pcb_dslr_003__rec1__1024__3072___0.png",
+   "box_index": 54,
+   "long_side": 67,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vùng cạnh chữ L3"
+  },
+  {
+   "id": 565,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 144,
+   "long_side": 139,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ đứng màu xanh đen"
+  },
+  {
+   "id": 566,
+   "tile": "pcb_dslr_014__rec1__1024__1536___768.png",
+   "box_index": 5,
+   "long_side": 62,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 567,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 51,
+   "long_side": 295,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "header đen hai hàng"
+  },
+  {
+   "id": 568,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 16,
+   "long_side": 60,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 569,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 25,
+   "long_side": 205,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải tiếp điểm mạ vàng"
+  },
+  {
+   "id": 570,
+   "tile": "pcb_dslr_007__rec1__1024__3840___768.png",
+   "box_index": 4,
+   "long_side": 233,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "TI TMS320LC31PQ40 — PQ = plastic quad flat pack"
+  },
+  {
+   "id": 571,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 103,
+   "long_side": 570,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "hàng chân dọc mép bo"
+  },
+  {
+   "id": 572,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 27,
+   "long_side": 137,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khung ôm vùng CHỮ IN lụa 'ASUS AS01B' — nghi box sai"
+  },
+  {
+   "id": 573,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 115,
+   "long_side": 91,
+   "stratum": "dai_nhieu_chan",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh vỏ kim loại bầu dục"
+  },
+  {
+   "id": 574,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 55,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 575,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 31,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 576,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 5,
+   "long_side": 168,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Winbond W3369HF, chân bốn cạnh"
+  },
+  {
+   "id": 577,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 196,
+   "long_side": 92,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ sẫm nhìn từ trên"
+  },
+  {
+   "id": 578,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 18,
+   "long_side": 131,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ màu kem"
+  },
+  {
+   "id": 579,
+   "tile": "pcb_dslr_003__rec1__1024__3072___768.png",
+   "box_index": 17,
+   "long_side": 143,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC họ 74HCT, chân hai cạnh"
+  },
+  {
+   "id": 580,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 7,
+   "long_side": 42,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, thân tròn"
+  },
+  {
+   "id": 581,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 6,
+   "long_side": 88,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC vàng"
+  },
+  {
+   "id": 582,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 109,
+   "long_side": 100,
+   "stratum": "dai_nhieu_chan",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh vỏ kim loại bầu dục HC-49"
+  },
+  {
+   "id": 583,
+   "tile": "pcb33__rec1__1024__2304___1536.png",
+   "box_index": 36,
+   "long_side": 81,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "opto PC911 SHARP"
+  },
+  {
+   "id": 584,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 98,
+   "long_side": 61,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "tụ dán in 22"
+  },
+  {
+   "id": 585,
+   "tile": "pcb_dslr_011__rec1__1024__768___768.png",
+   "box_index": 65,
+   "long_side": 272,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật thể trụ kim loại bạc — tụ hoá nằm hay thạch anh?"
+  },
+  {
+   "id": 586,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 160,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 587,
+   "tile": "pcb_dslr_003__rec1__1024__3072___768.png",
+   "box_index": 25,
+   "long_side": 212,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Intel KU82596SX28"
+  },
+  {
+   "id": 588,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 52,
+   "long_side": 36,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải xanh dọc trong khung tối"
+  },
+  {
+   "id": 589,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 119,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 590,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 36,
+   "long_side": 68,
+   "stratum": "lon_vuong",
+   "family": "magnetic",
+   "package": "XEM_KY",
+   "note": "EPCOS B82790 — cuộn chặn chế độ chung, gói chưa chắc"
+  },
+  {
+   "id": 591,
+   "tile": "pcb11__rec1__1024__1536___1536.png",
+   "box_index": 68,
+   "long_side": 24,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 592,
+   "tile": "pcb_dslr_008__rec1__1024__2304___1536.png",
+   "box_index": 16,
+   "long_side": 81,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 593,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 100,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 594,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 37,
+   "long_side": 23,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 595,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 105,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 596,
+   "tile": "pcb_dslr_029__rec1__1024__2304___1536.png",
+   "box_index": 147,
+   "long_side": 175,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối xanh ngọc cạnh vùng cổng"
+  },
+  {
+   "id": 597,
+   "tile": "pcb32__rec1__1024__2304___1536.png",
+   "box_index": 59,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 598,
+   "tile": "pcb_dslr_012__rec1__1024__3072___1536.png",
+   "box_index": 5,
+   "long_side": 147,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "ST L3030-C9, thân vuông chân bốn cạnh"
+  },
+  {
+   "id": 599,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 99,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 600,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 15,
+   "long_side": 247,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC chân hai cạnh dài"
+  },
+  {
+   "id": 601,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 11,
+   "long_side": 49,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối dán nhiều pad, có thể nhiều hơn 2 chân"
+  },
+  {
+   "id": 602,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 215,
+   "long_side": 41,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, không đọc được loại"
+  },
+  {
+   "id": 603,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 2,
+   "long_side": 60,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá xanh in AS 100 16V"
+  },
+  {
+   "id": 604,
+   "tile": "pcb_dslr_029__rec1__1024__1536___1536.png",
+   "box_index": 92,
+   "long_side": 237,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "khối bạc — vỏ chắn"
+  },
+  {
+   "id": 605,
+   "tile": "pcb11__rec1__1024__2304___1536.png",
+   "box_index": 19,
+   "long_side": 21,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 606,
+   "tile": "pcb_dslr_028__rec1__1024__1536___1536.png",
+   "box_index": 86,
+   "long_side": 383,
+   "stratum": "lon_vuong",
+   "family": "connector",
+   "package": "connector",
+   "note": "đế cắm CPU dạng PGA, mảng lỗ chân"
+  },
+  {
+   "id": 607,
+   "tile": "pcb_dslr_012__rec1__1024__3072___768.png",
+   "box_index": 28,
+   "long_side": 33,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 608,
+   "tile": "pcb_dslr_017__rec1__1024__3072___768.png",
+   "box_index": 1,
+   "long_side": 173,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Silicon Image SI9910CU, chân bốn cạnh"
+  },
+  {
+   "id": 609,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 25,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 610,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 91,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 611,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 27,
+   "long_side": 135,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "thân trụ trắng in F-001 — điện trở hay cầu chì?"
+  },
+  {
+   "id": 612,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 44,
+   "long_side": 232,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC cam"
+  },
+  {
+   "id": 613,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 13,
+   "long_side": 142,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "N80C32 ©1988 — thân gần vuông, chưa chắc PLCC hay DIP"
+  },
+  {
+   "id": 614,
+   "tile": "pcb_dslr_002__rec1__1024__2304___0.png",
+   "box_index": 52,
+   "long_side": 25,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 615,
+   "tile": "pcb_dslr_029__rec1__1024__1536___1536.png",
+   "box_index": 91,
+   "long_side": 177,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khối đen in CONTek — biến áp/module?"
+  },
+  {
+   "id": 616,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 40,
+   "long_side": 119,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "XEM_KY",
+   "note": "dải trắng dọc mép bo"
+  },
+  {
+   "id": 617,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 44,
+   "long_side": 72,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải trắng/xám dọc"
+  },
+  {
+   "id": 618,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 122,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 619,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 4,
+   "long_side": 98,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 620,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 61,
+   "long_side": 77,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "XEM_KY",
+   "note": "dải nhạt ngang"
+  },
+  {
+   "id": 621,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 1,
+   "long_side": 116,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 622,
+   "tile": "pcb_dslr_025__rec1__1024__2304___1536.png",
+   "box_index": 3,
+   "long_side": 98,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, rãnh chữ Y"
+  },
+  {
+   "id": 623,
+   "tile": "pcb_dslr_012__rec1__1024__3072___1536.png",
+   "box_index": 93,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 624,
+   "tile": "pcb37__rec1__1024__2304___1536.png",
+   "box_index": 1,
+   "long_side": 86,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen họ 74HC"
+  },
+  {
+   "id": 625,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 52,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 626,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 7,
+   "long_side": 75,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá 470uF 16V nhìn từ trên"
+  },
+  {
+   "id": 627,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 123,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 628,
+   "tile": "pcb32__rec1__1024__3072___768.png",
+   "box_index": 3,
+   "long_side": 90,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nắp đỏ sẫm nhìn từ trên"
+  },
+  {
+   "id": 629,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 45,
+   "long_side": 233,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải trắng hẹp dọc"
+  },
+  {
+   "id": 630,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 11,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen chân hai cạnh"
+  },
+  {
+   "id": 631,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 183,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 632,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 8,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 633,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 50,
+   "long_side": 29,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "nhiều vạch dọc — nghi mạng điện trở hoặc IC nhỏ"
+  },
+  {
+   "id": 634,
+   "tile": "pcb_dslr_028__rec1__1024__2304___1536.png",
+   "box_index": 39,
+   "long_side": 26,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu"
+  },
+  {
+   "id": 635,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 129,
+   "long_side": 65,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "khối sáng in N.39J63"
+  },
+  {
+   "id": 636,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 36,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 637,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 41,
+   "long_side": 81,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "nhóm thân trắng dọc"
+  },
+  {
+   "id": 638,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 38,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 639,
+   "tile": "pcb_dslr_001__rec1__1024__1536___768.png",
+   "box_index": 93,
+   "long_side": 625,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe PCI"
+  },
+  {
+   "id": 640,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 165,
+   "long_side": 172,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải cam dọc giữa các khối vàng"
+  },
+  {
+   "id": 641,
+   "tile": "pcb_dslr_003__rec1__1024__1536___1536.png",
+   "box_index": 4,
+   "long_side": 74,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "ACT32, chân hai cạnh"
+  },
+  {
+   "id": 642,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 43,
+   "long_side": 272,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "vỏ connector đỏ"
+  },
+  {
+   "id": 643,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 104,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 644,
+   "tile": "pcb_dslr_029__rec1__1024__1536___1536.png",
+   "box_index": 87,
+   "long_side": 176,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "XEM_KY",
+   "note": "khối đen GTS FC-515LS, chưa thấy rõ chân"
+  },
+  {
+   "id": 645,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 18,
+   "long_side": 40,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 646,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 35,
+   "long_side": 17,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 647,
+   "tile": "pcb15__rec1__1024__2304___1536.png",
+   "box_index": 19,
+   "long_side": 56,
+   "stratum": "nho",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen, chân hai cạnh dài"
+  },
+  {
+   "id": 648,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 53,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 649,
+   "tile": "pcb_dslr_013__rec1__1024__3072___1536.png",
+   "box_index": 25,
+   "long_side": 24,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 650,
+   "tile": "pcb_dslr_030__rec1__1024__3072___1536.png",
+   "box_index": 9,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 651,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 98,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 652,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 93,
+   "long_side": 31,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 653,
+   "tile": "pcb_dslr_029__rec1__1024__2304___1536.png",
+   "box_index": 87,
+   "long_side": 346,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải chân dọc"
+  },
+  {
+   "id": 654,
+   "tile": "pcb_dslr_008__rec1__1024__3072___0.png",
+   "box_index": 4,
+   "long_side": 70,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 655,
+   "tile": "pcb_dslr_026__rec1__1024__2304___768.png",
+   "box_index": 117,
+   "long_side": 357,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "hai khe cắm vàng"
+  },
+  {
+   "id": 656,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 10,
+   "long_side": 460,
+   "stratum": "dai_nhieu_chan",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC vỏ DIP, hai hàng chân hai cạnh dài"
+  },
+  {
+   "id": 657,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 153,
+   "long_side": 24,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 658,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 99,
+   "long_side": 174,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải connector tối"
+  },
+  {
+   "id": 659,
+   "tile": "pcb33__rec1__1024__1536___1536.png",
+   "box_index": 91,
+   "long_side": 15,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 660,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 31,
+   "long_side": 106,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC 7201 LA50SO, chân hai cạnh"
+  },
+  {
+   "id": 661,
+   "tile": "pcb_dslr_002__rec1__1024__2304___768.png",
+   "box_index": 33,
+   "long_side": 45,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật tròn màu kem, chưa rõ"
+  },
+  {
+   "id": 662,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 23,
+   "long_side": 244,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải trắng hẹp giữa hai khối SIEMENS"
+  },
+  {
+   "id": 663,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 164,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 664,
+   "tile": "pcb_dslr_014__rec1__1024__1536___1536.png",
+   "box_index": 6,
+   "long_side": 153,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "cụm tụ hoá xanh nhìn từ trên"
+  },
+  {
+   "id": 665,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 10,
+   "long_side": 16,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 666,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 78,
+   "long_side": 766,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "khung ôm dải dọc mép, không rõ vật thể"
+  },
+  {
+   "id": 667,
+   "tile": "pcb13__rec1__1024__2304___1536.png",
+   "box_index": 40,
+   "long_side": 187,
+   "stratum": "lon_vuong",
+   "family": "relay",
+   "package": "ngoai_taxonomy",
+   "note": "relay Siemens V23042"
+  },
+  {
+   "id": 668,
+   "tile": "pcb_dslr_020__rec1__1024__1536___768.png",
+   "box_index": 3,
+   "long_side": 112,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, rãnh chữ thập"
+  },
+  {
+   "id": 669,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 13,
+   "long_side": 90,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá in 220"
+  },
+  {
+   "id": 670,
+   "tile": "pcb_dslr_007__rec1__1024__3840___768.png",
+   "box_index": 5,
+   "long_side": 224,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "TMS320LC31PQ40"
+  },
+  {
+   "id": 671,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 13,
+   "long_side": 111,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "ELPIDA D1232AA vỏ TSOP"
+  },
+  {
+   "id": 672,
+   "tile": "pcb_dslr_013__rec1__1024__3072___768.png",
+   "box_index": 44,
+   "long_side": 844,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm trắng"
+  },
+  {
+   "id": 673,
+   "tile": "pcb_dslr_028__rec1__1024__3072___1536.png",
+   "box_index": 28,
+   "long_side": 77,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá, rãnh chữ thập"
+  },
+  {
+   "id": 674,
+   "tile": "pcb_dslr_008__rec1__1024__2304___1536.png",
+   "box_index": 8,
+   "long_side": 77,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá 16V nhìn từ trên"
+  },
+  {
+   "id": 675,
+   "tile": "pcb_dslr_017__rec1__1024__2304___768.png",
+   "box_index": 28,
+   "long_side": 69,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải vàng dọc"
+  },
+  {
+   "id": 676,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 1,
+   "long_side": 142,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen trên bo vàng, chân hai cạnh"
+  },
+  {
+   "id": 677,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 54,
+   "long_side": 105,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 678,
+   "tile": "pcb_dslr_003__rec1__1024__3072___0.png",
+   "box_index": 27,
+   "long_side": 98,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối vàng chữ nhật, chưa rõ"
+  },
+  {
+   "id": 679,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 157,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 680,
+   "tile": "pcb_dslr_009__rec1__1024__1536___1536.png",
+   "box_index": 6,
+   "long_side": 74,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 681,
+   "tile": "pcb_dslr_028__rec1__1024__3072___768.png",
+   "box_index": 87,
+   "long_side": 111,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "mảng pad vàng cạnh chữ USB"
+  },
+  {
+   "id": 682,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 34,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 683,
+   "tile": "pcb_dslr_010__rec1__1024__2304___768.png",
+   "box_index": 13,
+   "long_side": 123,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ trụ đứng màu đen"
+  },
+  {
+   "id": 684,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 105,
+   "long_side": 143,
+   "stratum": "dai_nhieu_chan",
+   "family": "false_crop_background",
+   "package": "XEM_KY",
+   "note": "dải xanh có lỗ"
+  },
+  {
+   "id": 685,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 5,
+   "long_side": 276,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên: thân tròn, nắp có rãnh chữ thập"
+  },
+  {
+   "id": 686,
+   "tile": "pcb_dslr_007__rec1__1024__3840___768.png",
+   "box_index": 1,
+   "long_side": 101,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC244, chân hai cạnh dài"
+  },
+  {
+   "id": 687,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 70,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 688,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 116,
+   "long_side": 93,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 689,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 15,
+   "long_side": 55,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm, thân trụ có vạch màu rõ"
+  },
+  {
+   "id": 690,
+   "tile": "pcb11__rec1__1024__2304___1536.png",
+   "box_index": 65,
+   "long_side": 120,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Siemens PEB 2060 SICOFI, chân bốn cạnh"
+  },
+  {
+   "id": 691,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 5,
+   "long_side": 176,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "IC đen NEC, chưa thấy rõ chân ở cạnh nào"
+  },
+  {
+   "id": 692,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 32,
+   "long_side": 71,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật sẫm có vít/kẹp kim loại"
+  },
+  {
+   "id": 693,
+   "tile": "pcb_dslr_027__rec1__1024__1536___1536.png",
+   "box_index": 11,
+   "long_side": 28,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 694,
+   "tile": "pcb_dslr_007__rec1__1024__2304___1536.png",
+   "box_index": 16,
+   "long_side": 73,
+   "stratum": "ngau_nhien",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC đen dọc, chân hai cạnh"
+  },
+  {
+   "id": 695,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 130,
+   "long_side": 17,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 696,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 26,
+   "long_side": 85,
+   "stratum": "lon_vuong",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh vỏ kim loại bầu dục"
+  },
+  {
+   "id": 697,
+   "tile": "pcb38__rec1__1024__2304___1536.png",
+   "box_index": 17,
+   "long_side": 60,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên"
+  },
+  {
+   "id": 698,
+   "tile": "pcb_dslr_009__rec1__1024__3072___1536.png",
+   "box_index": 72,
+   "long_side": 38,
+   "stratum": "nho",
+   "family": "diode",
+   "package": "hai_chan",
+   "note": "chip hai đầu, lụa ghi D6"
+  },
+  {
+   "id": 699,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 14,
+   "long_side": 124,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector trắng nhiều chân"
+  },
+  {
+   "id": 700,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 50,
+   "long_side": 34,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 701,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 74,
+   "long_side": 67,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá, rãnh chữ thập"
+  },
+  {
+   "id": 702,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 176,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 703,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 10,
+   "long_side": 64,
+   "stratum": "ngau_nhien",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh E40.000 MHz, lụa ghi XTAL1"
+  },
+  {
+   "id": 704,
+   "tile": "pcb_dslr_030__rec1__1024__1536___1536.png",
+   "box_index": 48,
+   "long_side": 24,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 705,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 48,
+   "long_side": 21,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 706,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 27,
+   "long_side": 27,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 707,
+   "tile": "pcb_dslr_017__rec1__1024__1536___768.png",
+   "box_index": 50,
+   "long_side": 247,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải hẹp cạnh jack RJ45"
+  },
+  {
+   "id": 708,
+   "tile": "pcb_dslr_019__rec1__1024__1536___768.png",
+   "box_index": 75,
+   "long_side": 270,
+   "stratum": "dai_nhieu_chan",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "vật đen bo tròn, chưa rõ"
+  },
+  {
+   "id": 709,
+   "tile": "pcb_dslr_012__rec1__1024__3072___768.png",
+   "box_index": 62,
+   "long_side": 63,
+   "stratum": "lon_vuong",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "dải cam dọc"
+  },
+  {
+   "id": 710,
+   "tile": "pcb_dslr_029__rec1__1024__3072___768.png",
+   "box_index": 109,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 711,
+   "tile": "pcb32__rec1__1024__3072___1536.png",
+   "box_index": 21,
+   "long_side": 139,
+   "stratum": "dai_nhieu_chan",
+   "family": "capacitor",
+   "package": "XEM_KY",
+   "note": "khối trắng in '4.700 J' — tụ film, gói chưa chắc"
+  },
+  {
+   "id": 712,
+   "tile": "pcb11__rec1__1024__1536___0.png",
+   "box_index": 47,
+   "long_side": 25,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 713,
+   "tile": "pcb13__rec1__1024__1536___1536.png",
+   "box_index": 56,
+   "long_side": 164,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "KM6225BLG-10, chân hai cạnh dài"
+  },
+  {
+   "id": 714,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 153,
+   "long_side": 26,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 715,
+   "tile": "pcb33__rec1__1024__2304___768.png",
+   "box_index": 22,
+   "long_side": 18,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 716,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 25,
+   "long_side": 38,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; không đọc được là điện trở hay tụ"
+  },
+  {
+   "id": 717,
+   "tile": "pcb7__rec1__1024__1536___768.png",
+   "box_index": 1,
+   "long_side": 1018,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "khe cắm dài, hàng chân đều"
+  },
+  {
+   "id": 718,
+   "tile": "pcb3__rec1__1024__2304___768.png",
+   "box_index": 68,
+   "long_side": 223,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "Intel KU82596SX28, thân vuông chân bốn cạnh"
+  },
+  {
+   "id": 719,
+   "tile": "pcb_dslr_011__rec1__1024__768___1536.png",
+   "box_index": 46,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "thân có vạch ngang đều — điện trở, diode hay mạng nhiều phần tử?"
+  },
+  {
+   "id": 720,
+   "tile": "pcb33__rec1__1024__3072___768.png",
+   "box_index": 50,
+   "long_side": 228,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá nhìn từ trên, nắp đỏ sẫm, in 250V"
+  },
+  {
+   "id": 721,
+   "tile": "pcb_dslr_027__rec1__1024__1536___768.png",
+   "box_index": 71,
+   "long_side": 14,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 722,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 88,
+   "long_side": 106,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "khối trắng trên nền xanh, chưa rõ"
+  },
+  {
+   "id": 723,
+   "tile": "pcb_dslr_013__rec1__1024__2304___768.png",
+   "box_index": 45,
+   "long_side": 28,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 26-31px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 724,
+   "tile": "pcb_dslr_001__rec1__1024__3072___0.png",
+   "box_index": 13,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 725,
+   "tile": "pcb_dslr_007__rec1__1024__3072___0.png",
+   "box_index": 3,
+   "long_side": 78,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC24x, chân hai cạnh"
+  },
+  {
+   "id": 726,
+   "tile": "pcb_dslr_026__rec1__1024__3072___1536.png",
+   "box_index": 105,
+   "long_side": 13,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 727,
+   "tile": "pcb_dslr_009__rec1__1024__2304___768.png",
+   "box_index": 46,
+   "long_side": 92,
+   "stratum": "lon_vuong",
+   "family": "timing",
+   "package": "hai_chan",
+   "note": "thạch anh vỏ kim loại bầu dục, nhãn Y1"
+  },
+  {
+   "id": 728,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 132,
+   "long_side": 10,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "XEM_KY",
+   "note": "chỉ 6-10px, không khẳng định được cả hình dạng"
+  },
+  {
+   "id": 729,
+   "tile": "pcb11__rec1__1024__2304___768.png",
+   "box_index": 27,
+   "long_side": 135,
+   "stratum": "ngau_nhien",
+   "family": "connector",
+   "package": "connector",
+   "note": "dải connector tối"
+  },
+  {
+   "id": 730,
+   "tile": "pcb_dslr_003__rec1__1024__3072___0.png",
+   "box_index": 50,
+   "long_side": 124,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá trụ đứng"
+  },
+  {
+   "id": 731,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 22,
+   "long_side": 220,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_bon_ben",
+   "note": "TI TMS320LC31PQ40"
+  },
+  {
+   "id": 732,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 16,
+   "long_side": 19,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 733,
+   "tile": "pcb_dslr_028__rec1__1024__1536___1536.png",
+   "box_index": 87,
+   "long_side": 157,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "IC 151 6556GB, chân hai cạnh"
+  },
+  {
+   "id": 734,
+   "tile": "pcb38__rec1__1024__3072___1536.png",
+   "box_index": 60,
+   "long_side": 20,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 17-21px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 735,
+   "tile": "pcb_dslr_009__rec1__1024__2304___1536.png",
+   "box_index": 12,
+   "long_side": 16,
+   "stratum": "nho",
+   "family": "XEM_KY",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 736,
+   "tile": "pcb_dslr_006__rec1__1024__3072___768.png",
+   "box_index": 25,
+   "long_side": 60,
+   "stratum": "dai_nhieu_chan",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "điện trở cắm vạch màu"
+  },
+  {
+   "id": 737,
+   "tile": "pcb38__rec1__1024__1536___1536.png",
+   "box_index": 29,
+   "long_side": 12,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 11-13px, chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 738,
+   "tile": "pcb_dslr_008__rec1__1024__3072___1536.png",
+   "box_index": 21,
+   "long_side": 74,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "vùng cạnh nhãn C476, chưa rõ"
+  },
+  {
+   "id": 739,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 122,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 740,
+   "tile": "pcb_dslr_008__rec1__1024__2304___0.png",
+   "box_index": 65,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 741,
+   "tile": "pcb_dslr_008__rec1__1024__1536___768.png",
+   "box_index": 50,
+   "long_side": 306,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector dài"
+  },
+  {
+   "id": 742,
+   "tile": "pcb7__rec1__1024__2304___768.png",
+   "box_index": 1,
+   "long_side": 117,
+   "stratum": "lon_vuong",
+   "family": "ic",
+   "package": "ic_hai_ben",
+   "note": "74VHC244, chân hai cạnh dài"
+  },
+  {
+   "id": 743,
+   "tile": "pcb14__rec1__1024__2304___1536.png",
+   "box_index": 133,
+   "long_side": 128,
+   "stratum": "lon_vuong",
+   "family": "capacitor",
+   "package": "tru_dung",
+   "note": "tụ hoá đen nhìn từ trên, in 220"
+  },
+  {
+   "id": 744,
+   "tile": "pcb14__rec1__1024__2304___768.png",
+   "box_index": 70,
+   "long_side": 17,
+   "stratum": "ngau_nhien",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; cỡ <27px nên không đọc được loại linh kiện"
+  },
+  {
+   "id": 745,
+   "tile": "pcb_dslr_008__rec1__1024__2304___0.png",
+   "box_index": 95,
+   "long_side": 17,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 13-17px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 746,
+   "tile": "pcb_dslr_022__rec1__1024__2304___768.png",
+   "box_index": 172,
+   "long_side": 11,
+   "stratum": "nho",
+   "family": "resistor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu, 11px — chỉ khẳng định được hình dạng"
+  },
+  {
+   "id": 747,
+   "tile": "pcb38__rec1__1024__2304___768.png",
+   "box_index": 30,
+   "long_side": 26,
+   "stratum": "nho",
+   "family": "capacitor",
+   "package": "hai_chan",
+   "note": "chip dán hai đầu; 21-26px, không đọc được loại linh kiện"
+  },
+  {
+   "id": 748,
+   "tile": "pcb_dslr_012__rec1__1024__2304___1536.png",
+   "box_index": 20,
+   "long_side": 271,
+   "stratum": "ngau_nhien",
+   "family": "XEM_KY",
+   "package": "ngoai_taxonomy",
+   "note": "khối kim loại bạc — vỏ chắn hoặc tản nhiệt"
+  },
+  {
+   "id": 749,
+   "tile": "pcb31__rec1__1024__1536___1536.png",
+   "box_index": 2,
+   "long_side": 99,
+   "stratum": "dai_nhieu_chan",
+   "family": "connector",
+   "package": "connector",
+   "note": "connector FPC vàng"
+  }
+ ]
+}

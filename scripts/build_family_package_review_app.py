@@ -15,7 +15,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
+
+# Trợ giúp và thông báo của script này bằng tiếng Việt; console Windows mặc định
+# cp1252 sẽ vỡ ngay ở dòng in đầu tiên nếu không đặt lại.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -208,6 +215,16 @@ if (restored) {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--set", dest="folder", type=Path, required=True)
+    parser.add_argument("--seed", type=Path,
+                        help="bản đã gán (labels/*.json) dùng làm nhãn khởi "
+                             "điểm thay cho prelabels.json; giữ nguyên công đã "
+                             "duyệt thay vì bắt duyệt lại từ đầu")
+    parser.add_argument("--only-unsure", action="store_true",
+                        help="chỉ giữ ô còn XEM_KY ở HỌ hoặc GÓI. Dựng trang "
+                             "cho phần khó còn lại, để không phải lướt lại cả bộ")
+    parser.add_argument("--out-name", default="review_family_package.html",
+                        help="tên file trang; đặt tên khác khi dựng trang lọc "
+                             "để không đè lên trang của cả bộ")
     args = parser.parse_args(argv)
 
     root = (PROJECT_ROOT / args.folder).resolve()
@@ -225,6 +242,35 @@ def main(argv: list[str] | None = None) -> int:
         }
         for item in sorted(payload["items"], key=lambda i: i["id"])
     ]
+
+    if args.seed is not None:
+        seeded = json.loads(
+            (PROJECT_ROOT / args.seed).read_text(encoding="utf-8")
+        )["items"]
+        by_id = {row["id"]: row for row in seeded}
+        missing = [row["id"] for row in items if row["id"] not in by_id]
+        if missing:
+            raise SystemExit(
+                f"{len(missing)} box trong tập không có trong --seed "
+                f"(ví dụ {missing[0]}); hai bộ không cùng nguồn"
+            )
+        for row in items:
+            source = by_id[row["id"]]
+            row["family"] = source.get("family", row["family"])
+            row["package"] = source.get("package", row["package"])
+            # Mang theo lý do máy tự nhận là không đọc được, để người duyệt biết
+            # ô này khó ở chỗ nào thay vì phải tự đoán lại từ đầu.
+            for key in ("nguon_nhan", "do_tin", "bang_chung"):
+                if source.get(key):
+                    row[key] = source[key]
+
+    if args.only_unsure:
+        items = [
+            row for row in items
+            if row["family"] == "XEM_KY" or row["package"] == "XEM_KY"
+        ]
+        if not items:
+            raise SystemExit("không còn ô XEM_KY nào — không có gì để duyệt")
     # Danh tính bộ ảnh: số mục + id đầu + id cuối. Dựng lại cùng một bộ thì ra
     # cùng khoá, nên tiến độ duyệt sống sót qua một lần dựng lại.
     dataset_id = hashlib.sha256(
@@ -241,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
         # khác mà dùng chung khoá thì tiến độ của bộ này đè lên bộ kia.
         .replace("__DATASET_ID__", json.dumps(dataset_id))
     )
-    target = root / "review_family_package.html"
+    target = root / args.out_name
     target.write_text(html, encoding="utf-8")
     unsure = sum(
         1 for i in items if i["family"] == "XEM_KY" or i["package"] == "XEM_KY"

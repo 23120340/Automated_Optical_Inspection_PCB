@@ -107,10 +107,14 @@ datasets/test_images/*.json
 
 # Khảo sát taxonomy package: 336 MB ảnh crop, contact sheet và một CSV 26 MB
 # dòng-một-box. scripts/survey_package_taxonomy.py dựng lại được toàn bộ từ hai
-# zip công khai, và bảng tổng đã rút gọn nằm ở Docs/khao_sat/.
-datasets/survey/
+# zip công khai, và bảng tổng đã rút gọn nằm ở docs/surveys/.
+datasets/survey/**
 # ...trừ nhãn và bảng tổng: đó là công gán tay, nhẹ, và là thứ duy nhất không
 # dựng lại được bằng script.
+# Phải bỏ loại CẢ THƯ MỤC trước, vì git không cho include lại một file nằm
+# trong thư mục đã bị loại — negation ở dưới im lặng vô tác dụng nếu thiếu dòng
+# này, và file nhãn mới thêm sẽ bị bỏ qua mà không báo gì.
+!datasets/survey/*/
 !datasets/survey/*/prelabels.json
 !datasets/survey/*/labels/
 !datasets/survey/*/labels/*.json
