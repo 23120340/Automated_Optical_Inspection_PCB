@@ -209,20 +209,124 @@ tức trên hình học đã cũ. Nó **đã bị thay thế** bởi cách làm 
 > **không cho include lại file nằm trong thư mục đã loại** — nên ba dòng `!` bên
 > dưới im lặng vô tác dụng. Đã sửa; file nhãn mới thêm giờ mới thực sự vào repo.
 
-### Còn lại của bạn: 121 ô
+### Lượt 3 (07/09) — thêm nhãn xuyên lỗ, và bỏ những ô không đọc được
+
+Bạn đặt quy tắc: **không chắc là linh kiện gì → bỏ ảnh; biết là gì mà hệ thống
+thiếu nhãn → thêm nhãn.** Đã làm đúng thế.
+
+**Thêm 2 gói.** Bảy gói cũ **đều là linh kiện dán**, mà bo dự án là bo lai — phần
+xuyên lỗ trước nay không có chỗ nào để gán. Tiêu chí của §2 là *"lớp đó làm 5.5
+hành xử khác đi"*, và cả hai đều thoả:
+
+| gói mới | nhìn thế nào | 5.5 phải làm khác |
+|---|---|---|
+| `xuyen_lo_hai_dau` | thân trụ nằm, mỗi đầu một dây cắm xuống lỗ | mối hàn ở **hai lỗ**, cách nhau theo footprint chứ không theo thân — rải 2 ROI ở hai đầu thân là đặt ROI lên chính thân |
+| `xuyen_lo_chan_duoi` | hộp / đĩa / relay, chân ra dưới đáy | nhìn từ trên **không thấy mối hàn nào** — chúng ở mặt kia của bo. Không sinh ROI, và đánh dấu "chỉ kiểm được từ mặt bên kia" |
+
+**Sửa một lỗi:** bảng chọn HỌ thiếu `ngoai_taxonomy` trong khi dữ liệu đã có 4 ô
+mang nhãn đó — mở app ra không chọn lại được, im lặng.
+
+**Thêm `BO_QUA`,** khác `XEM_KY`: `XEM_KY` = chưa ai kết luận; `BO_QUA` = đã xem
+và **chủ động loại khỏi phép đo**. Phân biệt được thì mẫu số của phép đo 6.1 mới
+trung thực — bỏ lặng thì số liệu đẹp lên một cách giả tạo.
+
+Kết quả — **đọc kỹ cột đầu**:
+
+| | đã gán nhãn | BO_QUA | XEM_KY |
+|---|---:|---:|---:|
+| **HỌ** | 667/750 | 83 | 0 |
+| **GÓI** | 718/750 | 32 | 0 |
+
+> ⚠️ **"Đã gán" không phải "đã đúng".** Con số trên đếm ô *có nhãn*, và **không
+> có gì trong dữ liệu chứng minh nhãn đó đúng**: mỗi ô chỉ được gán **một lần**
+> — 464 ô bởi bạn, 286 bởi tôi — nên **không tính được độ đồng thuận**, và độ
+> chính xác của chính bộ nhãn hiện là **chưa biết**.
+>
+> Điều này quan trọng hơn nó có vẻ: tập này dùng để **đo** 6.1 và luật gói. Nhãn
+> sai bao nhiêu thì phép đo lệch bấy nhiêu, và lệch một cách im lặng.
+>
+> Đã thử một phép kiểm không phụ thuộc người gán — HỌ và GÓI có mâu thuẫn nhau
+> không — và nó **gần như không cắn**: 11/656 ô (1,7%), trong đó 9 chỉ là quy ước
+> `false_crop_background` + `ngoai_taxonomy`. Kết quả sạch ấy **không chứng minh
+> được gì**: hai nhãn do cùng một người nhìn cùng một ảnh gán thì vẫn khớp nhau
+> kể cả khi cả hai cùng sai. Nó chỉ loại được mâu thuẫn thô.
+>
+> Thứ duy nhất trả lời được câu "nhãn có đúng không" là **gán đôi**: một mẫu được
+> hai người gán **độc lập**, rồi đo tỉ lệ lệch. Xem mục dưới.
+
+### Đã gán đôi thử 20 ô — và nó tìm ra một lỗi hệ thống
+
+Tôi gán **mù** 20 ô rút ngẫu nhiên trong 464 ô **bạn** đã gán (ghi phán đoán của
+mình trước, rồi mới mở nhãn của bạn ra so):
+
+| | đồng ý | lệch | tôi không kết luận | KTC 95% |
+|---|---:|---:|---:|---|
+| **HỌ** | 16/16 | 0 | 4 | [81%, 100%] |
+| **GÓI** | 15/17 | 2 | 3 nhãn mới, không so được | **[66%, 97%]** |
+
+Đọc đúng con số này: đồng thuận **cao**, nhưng mẫu **nhỏ**, nên khoảng tin cậy
+của GÓI rộng tới mức **chưa loại trừ được tỉ lệ sai 1/3**. Và ở 2 ô lệch (149,
+208) tôi **không dám nói bên nào đúng** — cần người thứ ba phân xử.
+
+**Nhưng thứ đáng giá nhất lại không nằm ở tỉ lệ đồng thuận.** Trong 10 ô mà bạn
+gán `hai_chan` ở mẫu này, **3 ô thật ra là linh kiện xuyên lỗ** (46 tụ đĩa chân
+cắm, 84 và 245 điện trở trụ hai đầu dây). Không phải bạn gán ẩu — lúc đó **bảng
+chọn không có nhãn nào khác** để chọn.
+
+| | |
+|---|---|
+| tỉ lệ trong mẫu | 3/10 = 30% *(KTC 95% [11%, 60%])* |
+| cả bộ có | **332 ô `hai_chan`** |
+| ước lượng số ô đang sai nhãn | **35–200** |
+
+Đây là lỗi **có hậu quả**, không phải lỗi hình thức: `hai_chan` bảo 5.5 rải 2 ROI
+ở **hai đầu thân**, còn linh kiện xuyên lỗ có mối hàn ở **hai lỗ** cách nhau theo
+footprint. Gán nhầm là đặt ROI lên chính thân linh kiện, trượt khỏi thiếc — đúng
+kiểu hỏng im lặng.
+
+⇒ **Ưu tiên đảo lại.** Trước khi duyệt 94 ô khó, nên rà lại **332 ô `hai_chan`**
+để tách phần xuyên lỗ ra. Ô khó chỉ có 94 và đã biết là khó; còn 332 ô kia đang
+**trông như đã xong** mà có thể sai tới 200 ô.
+
+Một ô bị bỏ ở HỌ **vẫn giữ nhãn GÓI** nếu đọc được — một câu không trả lời được
+thì không làm mất câu kia. 58 ô "chip 2 chân, không đọc được mã" vì thế vẫn đóng
+góp cho phép đo luật gói.
+
+### Việc của bạn — 2 trang, làm trang đầu trước
+
+**1. Rà lại 332 ô `hai_chan` ⚠️ ưu tiên cao hơn**
+
+```
+datasets/survey/family_package_review_20260904/review_ra_lai_hai_chan.html
+```
+
+Ước lượng 35–200 ô trong đây thật ra là **xuyên lỗ**, và giờ đã có nhãn để chọn:
+`xuyen_lo_hai_dau` (thân trụ nằm, hai đầu dây cắm xuống lỗ) và
+`xuyen_lo_chan_duoi` (hộp/đĩa/relay, chân ra dưới đáy). Dấu hiệu nhanh: **thấy
+lỗ mạ dưới hai đầu** → xuyên lỗ; **thấy thiếc bám thẳng lên mặt bo, không có
+lỗ** → dán, giữ `hai_chan`.
+
+**2. Duyệt 94 ô khó**
 
 ```
 datasets/survey/family_package_review_20260904/review_con_lai_kho.html
 ```
 
-Trang này **chỉ chứa 121 ô còn `XEM_KY`** (83 ở HỌ, 59 ở GÓI, 21 ô dính cả hai),
-không phải cả 750. Mỗi ô mang sẵn nhãn đã gán, độ tin, và **lý do vì sao khó**,
-nên bạn không phải đoán lại từ đầu. Mỗi ô có hai ảnh — bấm để đổi giữa bản cắt
-sát và bản cắt rộng thấy silkscreen designator.
+94 ô tôi **đề xuất bỏ**. Trang này cho bạn thấy đúng cái sắp mất chứ không bắt
+nghe kể lại — ô nào bạn nhận ra thì gán nhãn, ô nào không thì để `BO_QUA`.
 
-**Đừng điền bừa cho hết `XEM_KY`.** Tập này dùng để **đo** classifier 6.1; điền
-nhãn đoán vào là làm hỏng chính phép đo. Ô nào thật sự không đọc được thì **để
-nguyên `XEM_KY`** — đó là câu trả lời đúng, không phải việc còn dang dở.
+Muốn kiểm cả 27 ô tôi vừa gán bằng nhãn xuyên lỗ mới thì mở trang đầy đủ
+`review_family_package.html` (đã nạp sẵn kết quả lượt 3) và tìm các ô:
+`28, 63, 146, 502, 611, 637` (trụ nằm) và
+`73, 110, 165, 195, 198, 421, 510, 532, 590, 629, 662, 711` (chân dưới đáy).
+
+**Vẫn đừng điền bừa.** Tập này dùng để **đo** 6.1; `BO_QUA` là một câu trả lời
+đúng, không phải việc bỏ dở.
+
+> Hai gói mới hiện **mới chỉ là nhãn**. `package_rules.py` và `terminal_geometry`
+> chưa biết đến chúng, nên 5.5 chưa hành xử khác. Nối vào là việc riêng, và chỉ
+> nên làm sau khi bạn duyệt xong — số ô thật của hai lớp này quyết định có đáng
+> cài luật hay không.
 
 Đây là thứ mở khoá mục 3 ở trên: có tập này mới dựng được nghiệm thu khoá theo
 bo, có nghiệm thu mới đủ căn cứ bật luật 5.2.

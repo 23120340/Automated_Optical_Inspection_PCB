@@ -30,11 +30,27 @@ FAMILIES = [
     "resistor", "capacitor", "ic", "connector", "diode", "led",
     "discrete_semiconductor", "magnetic", "timing", "protection", "relay",
     "switch_control", "display", "acoustic", "battery_power_input",
-    "false_crop_background", "XEM_KY",
+    # Có trong dữ liệu từ đầu mà bảng chọn lại thiếu, nên 4 ô mang nhãn này mở
+    # app ra không chọn lại được — sửa lỗi, không phải mở rộng taxonomy.
+    "false_crop_background", "ngoai_taxonomy", "BO_QUA", "XEM_KY",
 ]
 PACKAGES = [
     "hai_chan", "tru_dung", "goi_nho", "ic_hai_ben", "ic_bon_ben",
-    "ic_khong_chan", "connector", "ngoai_taxonomy", "XEM_KY",
+    "ic_khong_chan", "connector",
+    # Hai lớp linh kiện XUYÊN LỖ, thêm 2026-09-07. Tiêu chí của §2 là "lớp đó
+    # làm 5.5 hành xử khác đi", và cả hai đều thoả:
+    #
+    #   xuyen_lo_hai_dau  — thân trụ nằm, mỗi đầu một dây cắm xuống lỗ. Mối hàn
+    #       nằm ở HAI LỖ, cách nhau theo footprint chứ không theo thân; rải 2
+    #       ROI ở hai đầu thân (kiểu hai_chan) là đặt ROI lên chính thân.
+    #   xuyen_lo_chan_duoi — hộp/đĩa/relay, chân ra dưới đáy. Nhìn từ trên
+    #       KHÔNG thấy mối hàn nào: chúng nằm ở mặt kia của bo. 5.5 phải không
+    #       sinh ROI, và phải đánh dấu "chỉ kiểm được từ mặt bên kia".
+    #
+    # Bảy lớp cũ đều là linh kiện DÁN. Bo dự án là bo lai, phần xuyên lỗ trước
+    # nay không có chỗ nào để gán.
+    "xuyen_lo_hai_dau", "xuyen_lo_chan_duoi",
+    "ngoai_taxonomy", "BO_QUA", "XEM_KY",
 ]
 
 TEMPLATE = """<!doctype html>
@@ -220,8 +236,16 @@ def main(argv: list[str] | None = None) -> int:
                              "điểm thay cho prelabels.json; giữ nguyên công đã "
                              "duyệt thay vì bắt duyệt lại từ đầu")
     parser.add_argument("--only-unsure", action="store_true",
-                        help="chỉ giữ ô còn XEM_KY ở HỌ hoặc GÓI. Dựng trang "
-                             "cho phần khó còn lại, để không phải lướt lại cả bộ")
+                        help="chỉ giữ ô còn XEM_KY hoặc BO_QUA ở HỌ hoặc GÓI. "
+                             "Dựng trang cho phần khó còn lại, để không phải "
+                             "lướt lại cả bộ. BO_QUA cũng vào đây vì nó là một "
+                             "ĐỀ XUẤT loại bỏ, và người duyệt phải được thấy "
+                             "cái mình sắp mất chứ không phải nghe kể lại")
+    parser.add_argument("--only-package", metavar="TEN",
+                        help="chỉ giữ ô đang mang gói này. Dùng để rà lại một "
+                             "lớp đã gán xong: gán đôi thử cho thấy ~30% ô "
+                             "'hai_chan' thật ra là linh kiện xuyên lỗ, và một "
+                             "lớp TRÔNG NHƯ đã xong thì không ai đi kiểm lại")
     parser.add_argument("--out-name", default="review_family_package.html",
                         help="tên file trang; đặt tên khác khi dựng trang lọc "
                              "để không đè lên trang của cả bộ")
@@ -264,13 +288,19 @@ def main(argv: list[str] | None = None) -> int:
                 if source.get(key):
                     row[key] = source[key]
 
+    if args.only_package:
+        items = [row for row in items if row["package"] == args.only_package]
+        if not items:
+            raise SystemExit(f"không ô nào mang gói {args.only_package!r}")
+
     if args.only_unsure:
+        NEEDS_HUMAN = {"XEM_KY", "BO_QUA"}
         items = [
             row for row in items
-            if row["family"] == "XEM_KY" or row["package"] == "XEM_KY"
+            if row["family"] in NEEDS_HUMAN or row["package"] in NEEDS_HUMAN
         ]
         if not items:
-            raise SystemExit("không còn ô XEM_KY nào — không có gì để duyệt")
+            raise SystemExit("không còn ô nào chờ người duyệt")
     # Danh tính bộ ảnh: số mục + id đầu + id cuối. Dựng lại cùng một bộ thì ra
     # cùng khoá, nên tiến độ duyệt sống sót qua một lần dựng lại.
     dataset_id = hashlib.sha256(
