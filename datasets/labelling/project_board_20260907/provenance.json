@@ -1,0 +1,18 @@
+{
+  "schema": "aoi-component-labelling-preparation/2.0",
+  "source": "datasets/test_images/tiles_1024",
+  "tiles_available": 191,
+  "unique_pixel_groups_available": 191,
+  "exact_duplicate_rows_available": 0,
+  "tiles_prepared": 40,
+  "unique_pixel_groups_prepared": 40,
+  "physical_boards_prepared": 29,
+  "max_dark_fraction": 0.6,
+  "max_tiles_per_physical_board": 2,
+  "selection_policy": "verified checkpoint records first; reject skipped/unusable pixel groups; one decoded-pixel representative; cover physical boards; then component count descending under the per-board cap",
+  "checkpoint": null,
+  "retained_unreviewed_from_previous_set": 0,
+  "new_tiles_from_source_pool": 40,
+  "purpose": "gán nhãn THÂN linh kiện để train lại detector lượt 1",
+  "box_convention": "Khoanh THÂN (gói đen / thân gốm / vỏ can), KHÔNG bao chân. Bước 5.5 đặt dải chân vắt qua mép hộp (lead_inner_ratio 0.14 vào trong, lead_outer_ratio 0.26 ra ngoài). Đo trên 10 linh kiện kiểm tay: pad nằm 42% trong hộp, 58% ngoài."
+}

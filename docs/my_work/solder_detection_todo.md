@@ -79,84 +79,65 @@ Chặn ở đúng một chỗ: tập nghiệm thu 750 box còn **121 ô `XEM_KY`
 Xếp theo thứ tự phụ thuộc. Việc 1 chặn việc 2 và 3. Việc 4 **đã xong**; việc 5
 làm được ngay hôm nay, không phải chờ gì.
 
-## 🟡 Việc 1 — Ảnh bo dự án — **đã chụp, mặt sau cần chụp lại**
+## ✅ Việc 1 — Ảnh bo dự án — **XONG 07/09**
 
-**Cập nhật 07/09: bạn đã chụp 31 ảnh, cả hai mặt.** Đủ để bắt đầu, nhưng hai mặt
-không cùng chất lượng:
+Mặt sau đã chụp lại. Hai mặt giờ cùng chất lượng:
 
-| | số ảnh | kích thước | tile 1024 cắt được |
-|---|---:|---|---|
-| `real_pcb/phone/front_side/` | 16 | 1920×2560 (4,9 MP) | **104 tile**, trung vị 13 linh kiện |
-| `real_pcb/phone/back_side/` | 15 | **960×1280 (1,2 MP)** | ~1 tile mỗi ảnh, và **không đủ 1024 px chiều ngang** |
+| | số ảnh | kích thước | cháy sáng cao nhất |
+|---|---:|---|---:|
+| `front_side/` | 16 | 1920×2560 (4,9 MP) | 2,13% |
+| `back_side/` | 13 | **1920×2560 (4,9 MP)** | 3,11% |
 
-**Mặt trước dùng được ngay.** Mặt sau thì không: 960 px chiều ngang **nhỏ hơn
-chính khung tile 1024**, nên mỗi ảnh chỉ ra được một mảnh 960×1024 chứ không phải
-tile vuông. Chi tiết trên mỗi linh kiện cũng chỉ bằng khoảng một nửa mặt trước.
+Đã xem ảnh cháy nhất của mặt sau bằng mặt nạ chồng: vùng bị chấm là connector
+kem, vòng pad mạ vàng, dải mạ mép bo và một vệt loá trên đường mạch — **không có
+thân linh kiện nào bị xoá**. Đạt.
 
-**Việc còn lại:** chụp lại **mặt sau** ở cùng độ phân giải mặt trước (1920×2560
-trở lên). Cùng máy, cùng cách chụp — chỉ là lần chụp mặt sau bị để ở chế độ ảnh
-nhỏ.
+**Đã cắt 191 tile** 1024 px (104 mặt trước + 87 mặt sau) →
+`datasets/test_images/project_board_tiles/`. Trung vị 13 linh kiện/tile, 170/191
+tile có ≥ 5 linh kiện.
 
-**Bắt buộc có ảnh chứa pad xuyên lỗ** — đó đúng là lớp đang hỏng. Ảnh toàn linh
-kiện dán không dạy được gì mới.
+> **Một bẫy đã chặn được.** `front_side/1.jpg` và `back_side/1.jpg` cùng cho tên
+> tile `1__1024__…` và **ghi đè nhau lặng lẽ** — manifest vẫn đủ dòng, chỉ khi
+> khoanh nhãn mới phát hiện ảnh không khớp. `tile_test_images.py` nay tự phát
+> hiện trùng và đổi sang tên có kèm thư mục (`front_side__1__1024__…`) cho **mọi**
+> ảnh, không riêng ảnh bị trùng. Đã kiểm: 191 tile, 191 tên duy nhất, 191 file.
 
-*Nghiệm thu:* mặt sau ra được ≥ 10 tile 1024 px vuông, mỗi tile ≥ 5 linh kiện.
+## 🟢 Việc 2 — Khoanh **thân linh kiện** — **SẴN SÀNG, chờ bạn**
 
-### Đã cắt xong mặt trước, và **không có vùng cháy nào đáng cắt bỏ**
+```
+datasets/labelling/project_board_20260907/label_boxes.html
+```
 
-104 tile 1024 px từ 16 ảnh mặt trước → `datasets/test_images/project_board_tiles/`,
-trung vị 13 linh kiện mỗi tile. Sẵn sàng cho việc 2.
+**40 tile** (21 mặt trước, 19 mặt sau), trải trên 29 ảnh nguồn, tối đa 2 tile mỗi
+ảnh. Đã có sẵn **2.373 box nháp** do detector vẽ (trung vị 36 box/tile) — việc
+của bạn là **sửa bản nháp**, không phải vẽ từ đầu.
 
-Bạn nhờ cắt bỏ các vùng cháy sáng. Đã đo từng tile, và câu trả lời là **gần như
-không có gì để cắt**:
+Mở file bằng trình duyệt, **KHÔNG bấm "Nạp file"** — app đã seed sẵn.
 
-| | |
-|---|---:|
-| tile cháy nhiều nhất | **4,53%** |
-| trung vị | 0,03% |
-| tile vượt 5% | **0** |
-| ảnh cháy nhiều nhất trong 31 ảnh | 2,16% |
+**Quy ước (giống hệt vòng trước, đừng đổi):** khoanh sát **THÂN / gói / vỏ**.
+**Không** bao chân, **không** bao pad, **không** bao thiếc.
 
-Xem tận mắt bằng ảnh chồng mặt nạ: chỗ bị chấm là **connector nhựa kem, vỏ kim
-loại cổng USB, vòng pad mạ vàng và dải mạ ở mép bo** — toàn thứ vốn sáng, và
-**không có vệt loá nào nằm trên thân linh kiện**. Đốm lớn nhất trong cả bộ
-(58.840 px, ảnh `front_side/9`) là **nhãn giấy trắng dán trên bo**, không phải
-loá.
-
-Nên cắt bỏ theo tile là sai công cụ ở đây: tile "cháy" nhất chỉ cháy ở dải mạ mép
-bo, nửa còn lại vẫn đầy linh kiện dùng được. Ném nó đi thì mất nhiều hơn được.
-
-Phép đo vẫn được giữ lại và ghi vào manifest từng tile
-(`blown_fraction`), kèm cổng loại `--max-blown-fraction` cho lần chụp nào tệ hơn.
-
-> **Một lần đo hụt, ghi lại để khỏi lặp.** Bản đầu của phép đo chấm một tile là
-> "cháy 16%" — hoá ra vùng đó là **tản nhiệt nhôm anod xanh**: kênh lam chạm trần
-> trên mặt phẳng lì. Mặt màu bão hoà không phải mặt cháy. Đã thêm điều kiện độ
-> sáng tổng; sau khi sửa, tile đó không còn nằm trong nhóm cháy nhất, và nửa dưới
-> của nó — có BGA và pad xuyên lỗ mạ vàng — được giữ lại.
-
-## Việc 2 — Khoanh **thân linh kiện** trên tile bo dự án
-
-Sau khi tôi cắt tile và dựng app khoanh, bạn mở `label_boxes.html` trong trình
-duyệt.
-
-**Quy ước (giống hệt vòng trước, đừng đổi):** khoanh sát **THÂN / gói / vỏ** linh
-kiện. **Không** bao chân, **không** bao pad, **không** bao thiếc.
-
-- `Enter` = duyệt tile sau khi đã sửa đủ mọi box
+- xoá box sai, **thêm gói lớn** mà model không thấy
+- `Enter` = duyệt tile sau khi đã sửa đủ
 - `C` = tile thật sự không có linh kiện nào
-- Xong thì bấm **Xuất JSON**, giữ file làm checkpoint
+- xong thì bấm **Xuất JSON** và **để file vào thư mục dự án**, đừng để ở Downloads
 
-**Điểm quan trọng nhất của việc này:** pad tròn xuất hiện trong ảnh mà **không có
-nhãn** → nó thành **ví dụ âm**. Đó là thứ duy nhất dạy được model "vòng đồng tròn
-≠ linh kiện". Nên **đừng** khoanh pad lại "cho đủ".
+**Điểm quan trọng nhất:** pad tròn xuất hiện trong ảnh mà **không có nhãn** → nó
+thành **ví dụ âm**, và đó là thứ duy nhất dạy được model "vòng đồng tròn ≠ linh
+kiện". Nên **đừng** khoanh pad lại "cho đủ".
 
-*Nghiệm thu:* 10–20 tile ở trạng thái `verified`.
+> Bản nháp trên mặt sau tốt hơn dự đoán: box bám đúng chip 0402/0603, SOT, thạch
+> anh, cuộn cảm, và **không** khoanh nhầm các pad mạ vàng. Con số "32% pad tròn"
+> đo trên một vùng bo khác nhiều lỗ hở hơn, nên đừng ngạc nhiên nếu tile này dễ
+> hơn tile kia.
 
-## Việc 3 — Khoanh **mối hàn** trên crop cắt từ bo dự án
+*Nghiệm thu:* 40/40 tile ở trạng thái `verified` hoặc `unusable`.
 
-Việc này **phải chờ việc 2**: crop từng linh kiện được cắt ra từ chính box thân
-bạn vừa khoanh.
+## ⏸ Việc 3 — Khoanh **mối hàn** trên crop — **chờ việc 2**
+
+Không phải chờ tôi: crop từng linh kiện được cắt ra từ **chính box thân bạn vừa
+duyệt**, nên chưa có box thì chưa có crop. Xong việc 2 thì tôi chạy hai lệnh và
+bạn có app ngay.
 
 **Quy ước:** box phải trùm **pad + fillet (chân thiếc loe ra)**, không chỉ khoanh
 phần kim loại sáng. Lần khoanh đầu tiên của dự án chỉ khoanh phần kim loại, và

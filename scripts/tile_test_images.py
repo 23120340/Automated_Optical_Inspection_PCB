@@ -57,10 +57,29 @@ for _stream in (sys.stdout, sys.stderr):
 NAME = "{stem}__{tile}__{x}___{y}.png"
 
 
+def source_stems(sources: list[Path], root: Path) -> dict[Path, str]:
+    """Tên gốc cho mỗi ảnh nguồn, **đảm bảo không trùng**.
+
+    ``front_side/1.jpg`` và ``back_side/1.jpg`` cùng cho stem ``1``, nên tile của
+    mặt này ghi đè tile của mặt kia — mất ảnh mà không có lỗi nào. Khi phát hiện
+    trùng thì dùng cả đường dẫn tương đối cho **mọi** ảnh, chứ không riêng ảnh bị
+    trùng: đặt tên nửa kiểu này nửa kiểu kia thì sau không ai đoán được tên file.
+    """
+
+    plain = {path: path.stem for path in sources}
+    if len(set(plain.values())) == len(sources):
+        return plain
+    return {
+        path: "__".join(path.relative_to(root).with_suffix("").parts)
+        for path in sources
+    }
+
+
 def tile_one(
     path: Path,
     detector,
     *,
+    stem: str | None = None,
     tile: int,
     stride: int,
     min_components: int,
@@ -126,7 +145,7 @@ def tile_one(
             blown = blown_fraction(patch)
             if blown > max_blown:
                 continue
-            name = NAME.format(stem=path.stem, tile=tile, x=left, y=top)
+            name = NAME.format(stem=stem or path.stem, tile=tile, x=left, y=top)
             if not dry_run:
                 cv2.imwrite(str(output / name), patch)
             labels: dict[str, int] = {}
@@ -134,7 +153,7 @@ def tile_one(
                 labels[b[4]] = labels.get(b[4], 0) + 1
             rows.append({
                 "file": name,
-                "source": path.name,
+                "source": stem or path.stem,
                 "x": left,
                 "y": top,
                 "tile": tile,
@@ -196,12 +215,15 @@ def main(argv: list[str] | None = None) -> int:
 
     detector = create_detector(str(args.model),
                                model_config=ModelDetectorConfig(confidence=0.25))
+    stems = source_stems(sources, args.source)
     rows: list[dict[str, object]] = []
     for index, path in enumerate(sources, start=1):
         # Nối tiếp được, nhưng CHỈ khi manifest cũ còn số đo của ảnh đó. Bỏ qua
         # một ảnh mà không mang theo số linh kiện mỗi tile thì manifest mới sẽ
         # thiếu đúng thứ nó sinh ra để ghi lại, và không ai biết là thiếu.
-        done = previous.get(path.name)
+        done = previous.get(stems[path]) or (
+            previous.get(path.name) if stems[path] == path.stem else None
+        )
         if done and not args.dry_run and all(
             (output / str(r["file"])).exists() for r in done
         ):
@@ -209,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
             rows.extend(done)
             continue
         produced = tile_one(
-            path, detector, tile=args.tile, stride=args.stride,
+            path, detector, stem=stems[path], tile=args.tile, stride=args.stride,
             min_components=args.min_components, output=output, dry_run=args.dry_run,
             max_dark=args.max_dark_fraction,
             max_blown=args.max_blown_fraction,
